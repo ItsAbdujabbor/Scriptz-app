@@ -1,0 +1,34 @@
+/* Pro page — full-screen pricing, same layout as Dashboard/Optimize */
+
+.pro-page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem 2rem;
+  background: #0a0a0d;
+}
+
+.pro-page .pri-section {
+  padding: 2rem 0 3rem;
+  background: #0a0a0d;
+}
+
+.pro-page .pri-inner {
+  padding: 0;
+}
+
+/* Remove fades/gradients from background */
+.pro-page .pri-section::before {
+  display: none;
+}
+
+.pro-page .pri-card-glow {
+  display: none;
+}
+
+.pro-page .pri-card::before {
+  display: none;
+}
+
+.pro-page .pri-card--pop::before {
+  display: none;
+}

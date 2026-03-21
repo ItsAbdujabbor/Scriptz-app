@@ -1,0 +1,138 @@
+/* Thumbnail Generator — same coach/script layout, thumbnail-specific blocks */
+
+.thumb-gen-content {
+  margin-top: 0.5rem;
+}
+
+.script-gen-block--thumb .script-gen-block-body {
+  padding: 0.75rem 0.8rem;
+}
+
+.thumb-concept-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.thumb-concept-grid:has(.thumb-concept-card:only-child) {
+  grid-template-columns: 1fr;
+}
+
+.thumb-concept-card {
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.thumb-thumbnail-img-wrap {
+  margin-bottom: 0.6rem;
+  border-radius: 8px;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.thumb-thumbnail-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.thumb-concept-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: rgba(167, 139, 250, 0.95);
+  margin: 0 0 0.4rem;
+}
+
+.thumb-concept-emotion {
+  font-size: 0.75rem;
+  color: rgba(167, 139, 250, 0.8);
+  margin: 0 0 0.35rem;
+}
+
+.thumb-concept-psychology,
+.thumb-concept-layout,
+.thumb-concept-text {
+  font-size: 0.78rem;
+  color: #dce2eb;
+  margin: 0 0 0.3rem;
+  line-height: 1.4;
+}
+
+.thumb-concept-generate-btn {
+  margin-top: 0.6rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  background: rgba(167, 139, 250, 0.15);
+  color: rgba(167, 139, 250, 0.95);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.thumb-concept-generate-btn:hover:not(:disabled) {
+  background: rgba(167, 139, 250, 0.25);
+  border-color: rgba(167, 139, 250, 0.6);
+}
+
+.thumb-concept-generate-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.script-gen-block--thumb-img .script-gen-block-body {
+  padding: 0.5rem;
+}
+
+.thumb-generated-img {
+  max-width: 100%;
+  width: 100%;
+  border-radius: 8px;
+  display: block;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Quick action variants for thumbnail empty state */
+.coach-empty-action--productivity .coach-empty-action-icon-wrap {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.coach-empty-action--vlog .coach-empty-action-icon-wrap {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.coach-empty-action--tutorial .coach-empty-action-icon-wrap {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+/* Thumbnail preview inside input (when YouTube URL pasted) */
+.thumb-input-preview {
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.thumb-input-status {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.thumb-input-preview-img {
+  max-width: 120px;
+  border-radius: 6px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
