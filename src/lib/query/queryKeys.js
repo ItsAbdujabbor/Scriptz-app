@@ -57,6 +57,21 @@ export const queryKeys = {
     list: () => ['personas', 'list'],
     detail: (id) => ['personas', 'detail', id ?? ''],
   },
+  styles: {
+    list: () => ['styles', 'list'],
+    detail: (id) => ['styles', 'detail', id ?? ''],
+  },
+  thumbnails: {
+    list: (params = {}) => ['thumbnails', 'list', params.limit ?? 20, params.offset ?? 0],
+    conversations: (params = {}) => [
+      'thumbnails',
+      'conversations',
+      params.limit ?? 50,
+      params.offset ?? 0,
+      params.channelId ?? '',
+    ],
+    conversation: (conversationId) => ['thumbnails', 'conversation', conversationId ?? 'new'],
+  },
   scripts: {
     conversations: (params = {}) => [
       'scripts',

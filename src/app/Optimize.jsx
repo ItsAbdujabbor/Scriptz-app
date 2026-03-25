@@ -12,6 +12,7 @@ import { useUserProfileQuery } from '../queries/user/profileQueries'
 import { queryKeys } from '../lib/query/queryKeys'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { queryFreshness } from '../lib/query/queryConfig'
+import { stripPrefillFromHash } from '../lib/dashboardActionPayload'
 import './Sidebar.css'
 import './SettingsModal.css'
 import './Dashboard.css'
@@ -101,6 +102,7 @@ export function Optimize({ onLogout }) {
   const [sort, setSort] = useState('published_at')
   const [page, setPage] = useState(1)
   const [selectedVideo, setSelectedVideo] = useState(null)
+  const [dashPrefillBanner, setDashPrefillBanner] = useState(null)
 
   const userPreferencesQuery = useUserPreferencesQuery()
   const userProfileQuery = useUserProfileQuery()
@@ -183,6 +185,33 @@ export function Optimize({ onLogout }) {
   useEffect(() => {
     clearError?.()
   }, [clearError])
+
+  useEffect(() => {
+    const parseDashPrefill = () => {
+      const hash = typeof window !== 'undefined' ? window.location.hash || '' : ''
+      const normalized = hash.replace(/^#/, '')
+      const [path, qs = ''] = normalized.split('?')
+      if (path !== 'optimize') {
+        setDashPrefillBanner(null)
+        return
+      }
+      const params = new URLSearchParams(qs)
+      const raw = params.get('prefill')
+      if (!raw) {
+        setDashPrefillBanner(null)
+        return
+      }
+      try {
+        setDashPrefillBanner(decodeURIComponent(raw))
+      } catch {
+        setDashPrefillBanner(raw)
+      }
+      stripPrefillFromHash()
+    }
+    parseDashPrefill()
+    window.addEventListener('hashchange', parseDashPrefill)
+    return () => window.removeEventListener('hashchange', parseDashPrefill)
+  }, [])
 
   useEffect(() => {
     getValidAccessToken().then(async (token) => {
@@ -304,6 +333,20 @@ export function Optimize({ onLogout }) {
                 </button>
               </div>
             </div>
+
+            {dashPrefillBanner && (
+              <div className="optimize-dash-prefill" role="status">
+                <p className="optimize-dash-prefill-text">{dashPrefillBanner}</p>
+                <button
+                  type="button"
+                  className="optimize-dash-prefill-dismiss"
+                  onClick={() => setDashPrefillBanner(null)}
+                  aria-label="Dismiss"
+                >
+                  ×
+                </button>
+              </div>
+            )}
 
             <div className="optimize-divider" aria-hidden />
 
@@ -550,6 +593,7 @@ export function Optimize({ onLogout }) {
               video={selectedVideo}
               getValidAccessToken={getValidAccessToken}
               channelId={channelId}
+              channelTitle={youtube?.channel_title}
             />
           )}
         </main>

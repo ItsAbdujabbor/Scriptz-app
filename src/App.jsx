@@ -29,6 +29,7 @@ import { Dashboard } from './app/Dashboard'
 import { CoachChat } from './app/CoachChat'
 import { Optimize } from './app/Optimize'
 import { Pro } from './app/Pro'
+import { Library } from './app/Library'
 import { PostSignupSplash } from './app/PostSignupSplash'
 
 function getView() {
@@ -46,6 +47,7 @@ function getView() {
   if (h === 'coach' || h.startsWith('coach/')) return 'coach'
   if (h === 'optimize') return 'optimize'
   if (h === 'pro') return 'pro'
+  if (h === 'library') return 'library'
   if (h === 'app-youtube') return 'dashboard'
   return 'landing'
 }
@@ -114,14 +116,14 @@ function App() {
 
   useEffect(() => {
     if (!sessionChecked) return
-    const appViews = ['onboarding', 'optimizing', 'dashboard', 'coach', 'optimize', 'pro']
+    const appViews = ['onboarding', 'optimizing', 'dashboard', 'coach', 'optimize', 'pro', 'library']
     if (appViews.includes(view) && !accessToken) {
       window.location.hash = 'login'
       setView('login')
     }
   }, [view, accessToken, sessionChecked])
 
-  const appViews = ['onboarding', 'optimizing', 'dashboard', 'coach', 'optimize', 'pro']
+  const appViews = ['onboarding', 'optimizing', 'dashboard', 'coach', 'optimize', 'pro', 'library']
   if (!sessionChecked) {
     return (
       <div style={{
@@ -224,6 +226,9 @@ function App() {
   }
   if (view === 'pro') {
     return <Pro onLogout={onLogout} />
+  }
+  if (view === 'library') {
+    return <Library onLogout={onLogout} />
   }
   return <LandingPage />
 }

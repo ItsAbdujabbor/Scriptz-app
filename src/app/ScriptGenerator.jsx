@@ -4,6 +4,7 @@ import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { scriptsApi } from '../api/scripts'
 import { useScriptConversationQuery } from '../queries/scripts/scriptQueries'
 import { queryKeys } from '../lib/query/queryKeys'
+import { stripHashQueryParams } from '../lib/dashboardActionPayload'
 import './ScriptGenerator.css'
 
 function IconCopy() {
@@ -278,6 +279,47 @@ export function ScriptGenerator({ channelId, youtube, conversationId: conversati
 
   useEffect(() => {
     if (conversationIdProp != null) setLocalMessages([])
+  }, [conversationIdProp])
+
+  const appliedDashKeyRef = useRef('')
+
+  useEffect(() => {
+    if (conversationIdProp != null) return
+    const hash = (typeof window !== 'undefined' && window.location.hash) || ''
+    const normalized = hash.replace(/^#/, '').replace(/^\/+/, '')
+    const [routePart, search = ''] = normalized.split('?')
+    if (routePart !== 'coach/scripts') return
+    const params = new URLSearchParams(search)
+    const rawPre = params.get('prefill')
+    const concept = params.get('concept')
+    const key = `${rawPre || ''}|${concept || ''}`
+    if (!rawPre && !concept) return
+    if (appliedDashKeyRef.current === key) return
+    let line = ''
+    if (rawPre) {
+      try {
+        line = decodeURIComponent(rawPre)
+      } catch {
+        line = rawPre
+      }
+    }
+    if (concept) {
+      try {
+        const c = decodeURIComponent(concept.replace(/\+/g, ' '))
+        line = line ? `${line}\n\nConcept: ${c}` : `Concept: ${c}`
+      } catch {
+        /* ignore */
+      }
+    }
+    if (!line) return
+    appliedDashKeyRef.current = key
+    setDraft((d) => (d.trim() ? d : line))
+    stripHashQueryParams(['prefill', 'concept'])
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus()
+      const len = textareaRef.current?.value?.length || 0
+      textareaRef.current?.setSelectionRange?.(len, len)
+    })
   }, [conversationIdProp])
 
   useEffect(() => {

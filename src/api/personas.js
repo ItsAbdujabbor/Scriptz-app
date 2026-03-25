@@ -44,6 +44,8 @@ export const personasApi = {
     const url = getBaseUrl() + '/api/personas/generate-from-images'
     const headers = {}
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`
+    // FormData must include 'name' as required by API (no Content-Type - fetch sets multipart boundary)
+    if (!formData.get('name')) formData.append('name', 'My Persona')
 
     return fetch(url, {
       method: 'POST',

@@ -34,7 +34,7 @@
     /* ── 3. Issue status cycle (click to advance status) ── */
     var cycle   = ['todo', 'prog', 'done'];
     var dotCls  = { todo: 'lin-dot-todo', prog: 'lin-dot-prog', done: 'lin-dot-done', back: 'lin-dot-back' };
-    var stLabel = { todo: 'Todo', prog: 'In Progress', done: 'Done', back: 'Backlog' };
+    var stLabel = { todo: 'Idea', prog: 'In Progress', done: 'Done', back: 'Backlog' };
 
     document.querySelectorAll('.lin-iss').forEach(function (iss) {
       iss.addEventListener('click', function (e) {

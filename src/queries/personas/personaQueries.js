@@ -51,14 +51,14 @@ export function useCreatePersonaFromImagesMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ frontImage, leftImage, rightImage, optionalText }) => {
+    mutationFn: async ({ frontImage, leftImage, rightImage, name }) => {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Not authenticated')
       const formData = new FormData()
       formData.append('front_image', frontImage)
       formData.append('left_image', leftImage)
       formData.append('right_image', rightImage)
-      if (optionalText?.trim()) formData.append('optional_text', optionalText.trim())
+      formData.append('name', (name || 'My Persona').trim().slice(0, 120))
       return personasApi.createFromImages(token, formData)
     },
     onSuccess: () => {

@@ -190,7 +190,7 @@
   cursor: pointer;
 }
 
-.personas-optional-text {
+.personas-name-input {
   display: block;
   width: 100%;
   margin-bottom: 12px;
@@ -200,6 +200,110 @@
   background: rgba(0, 0, 0, 0.3);
   color: #fff;
   font-size: 14px;
+}
+
+.personas-modal .tabbar {
+  margin-bottom: 20px;
+}
+
+.personas-card-view-trigger {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.personas-view-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 20px;
+}
+
+.personas-view-detail {
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #151517;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+}
+
+.personas-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.personas-view-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.personas-view-close {
+  padding: 6px;
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.personas-view-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.personas-view-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+.personas-view-img-wrap {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.personas-view-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.personas-view-desc {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.5;
+}
+
+.personas-view-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.personas-view-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .personas-form h3 {

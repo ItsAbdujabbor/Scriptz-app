@@ -4,6 +4,7 @@
   margin-top: 0.5rem;
 }
 
+
 .script-gen-block--thumb .script-gen-block-body {
   padding: 0.75rem 0.8rem;
 }
@@ -26,11 +27,68 @@
 }
 
 .thumb-thumbnail-img-wrap {
+  position: relative;
   margin-bottom: 0.6rem;
   border-radius: 8px;
   overflow: hidden;
   aspect-ratio: 16 / 9;
   background: rgba(0, 0, 0, 0.3);
+}
+
+.thumb-thumbnail-img-wrap:hover .thumb-concept-actions {
+  opacity: 1;
+}
+
+.thumb-concept-actions {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.thumb-concept-action {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.thumb-concept-action:hover {
+  background: rgba(139, 92, 246, 0.4);
+  border-color: rgba(139, 92, 246, 0.6);
+}
+
+.thumb-concept-action--save {
+  background: rgba(139, 92, 246, 0.3);
+  border-color: rgba(139, 92, 246, 0.5);
+  color: #c4b5fd;
+}
+
+.thumb-concept-action--save:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.5);
+}
+
+.thumb-concept-action--download svg {
+  width: 16px;
+  height: 16px;
+}
+
+.thumb-concept-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .thumb-thumbnail-img {
@@ -135,4 +193,418 @@
   aspect-ratio: 16 / 9;
   object-fit: cover;
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Batch-style thumbnail grid — clean, no borders */
+.script-gen-block--thumb-batch {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.script-gen-block--thumb-batch .script-gen-block-head {
+  display: none;
+}
+
+.script-gen-block--thumb-batch .script-gen-block-body {
+  padding: 0.25rem 0;
+  border: none !important;
+  background: transparent !important;
+}
+
+.thumb-batch-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.thumb-batch-grid:has(.thumb-batch-card:only-child) {
+  grid-template-columns: 1fr;
+}
+
+.thumb-batch-card {
+  position: relative;
+  border-radius: 20px;
+  overflow: visible;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.thumb-batch-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.thumb-batch-card-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.thumb-batch-img-wrap {
+  position: relative;
+  border-radius: 20px;
+  overflow: visible;
+  aspect-ratio: 16 / 9;
+  background: rgba(0, 0, 0, 0.2);
+  border: 5px solid rgba(255, 255, 255, 0.1);
+  box-sizing: border-box;
+  padding-bottom: 36px;
+}
+
+.thumb-batch-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border: none;
+  border-radius: 14px;
+}
+
+.thumb-batch-score {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.thumb-batch-score-value {
+  line-height: 1;
+}
+
+.thumb-batch-score-loading {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+/* Green: high scores (85-100) */
+.thumb-batch-score--high {
+  background: rgba(16, 185, 129, 0.9);
+  color: #fff;
+}
+
+/* Yellow: medium scores (60-84) */
+.thumb-batch-score--medium {
+  background: rgba(234, 179, 8, 0.9);
+  color: #1a1a1a;
+}
+
+/* Red: low scores (0-59) */
+.thumb-batch-score--low {
+  background: rgba(239, 68, 68, 0.9);
+  color: #fff;
+}
+
+/* Loading state */
+.thumb-batch-score--loading {
+  background: rgba(0, 0, 0, 0.7);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Error state - click to retry */
+.thumb-batch-score--error {
+  background: rgba(239, 68, 68, 0.9);
+  color: #fff;
+  cursor: pointer;
+}
+.thumb-batch-score-retry {
+  font-size: 14px;
+  opacity: 0.95;
+}
+
+.thumb-batch-actions-card {
+  position: absolute;
+  left: 50%;
+  bottom: -18px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 9999px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  box-sizing: border-box;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55);
+  z-index: 2;
+}
+
+.thumb-batch-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.thumb-batch-btn {
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  transition: background 0.15s, color 0.15s, transform 0.12s ease;
+}
+.thumb-batch-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.thumb-batch-btn:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.5);
+  color: #e9d5ff;
+}
+
+.thumb-batch-actions-card .thumb-batch-btn {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.thumb-batch-actions-card .thumb-batch-btn:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.55);
+}
+
+.thumb-batch-btn--highlight {
+  background: rgba(139, 92, 246, 0.45);
+  color: #e9d5ff;
+}
+
+.thumb-batch-btn--highlight:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.65);
+}
+
+.thumb-batch-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.thumb-batch-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.thumb-batch-btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: thumb-batch-spin 0.6s linear infinite;
+}
+@keyframes thumb-batch-spin {
+  to { transform: rotate(360deg); }
+}
+
+.thumb-batch-edit-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  border-radius: 12px;
+}
+
+.thumb-batch-edit-form {
+  width: 90%;
+  max-width: 360px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.thumb-batch-edit-input {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.thumb-batch-edit-input:focus {
+  outline: none;
+  border-color: rgba(139, 92, 246, 0.6);
+}
+
+.thumb-batch-edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.thumb-batch-edit-cancel {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+
+.thumb-batch-edit-cancel:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.thumb-batch-edit-submit {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid rgba(139, 92, 246, 0.5);
+  background: rgba(139, 92, 246, 0.3);
+  color: #e9d5ff;
+  cursor: pointer;
+}
+
+.thumb-batch-edit-submit:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.5);
+}
+
+.thumb-batch-edit-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Sub-tool tab bar (Prompt / Recreate / Analyze / Edit) above composer */
+/* Parent .coach-composer-wrap uses pointer-events:none so only .coach-composer is clickable;
+   the tab bar sits outside .coach-composer — re-enable hits on the tab strip. */
+.coach-composer-wrap--thumb-tools {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.thumb-gen-subtabbar-wrap {
+  width: 100%;
+  padding: 0 0.5rem 0.5rem;
+  flex-shrink: 0;
+  pointer-events: auto;
+  position: relative;
+  z-index: 2;
+}
+
+@media (min-width: 720px) {
+  .thumb-gen-subtabbar-wrap {
+    padding: 0 0.75rem 0.65rem;
+  }
+}
+
+.thumb-gen-subtabbar.tabbar {
+  width: 100%;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 2px 4px 0;
+}
+
+.thumb-gen-subtabbar .tabbar-tab {
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: center;
+}
+
+.coach-thread--thumb-analyze {
+  padding: 0.5rem 0.75rem 1rem;
+  overflow-y: auto;
+}
+
+@media (min-width: 720px) {
+  .coach-thread--thumb-analyze {
+    padding: 0.75rem 1rem 1.25rem;
+  }
+}
+
+.coach-thread--thumb-edit {
+  padding: 1rem 1rem 1.25rem;
+  overflow-y: auto;
+}
+
+.thumb-mode-edit-thread {
+  max-width: 32rem;
+  margin: 0 auto;
+}
+
+.thumb-edit-intro-kicker {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(167, 139, 250, 0.9);
+  margin-bottom: 0.35rem;
+}
+
+.thumb-edit-intro-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #e5e5e7;
+  letter-spacing: -0.02em;
+}
+
+.thumb-edit-intro-copy {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: rgba(229, 229, 231, 0.55);
+}
+
+.thumb-edit-last {
+  margin-top: 1.25rem;
+  padding: 0.85rem;
+  border-radius: 14px;
+  background: rgba(167, 139, 250, 0.08);
+  border: 1px solid rgba(167, 139, 250, 0.2);
+}
+
+.thumb-edit-last-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(229, 229, 231, 0.5);
+  margin-bottom: 0.45rem;
+}
+
+.thumb-edit-last-img {
+  width: 100%;
+  max-width: 360px;
+  border-radius: 10px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.thumb-recreate-empty h1 {
+  font-size: 1.35rem;
+}
+
+/* Ensure hidden file input matches coach chat (CoachChat.css) */
+#coach-panel-thumbnails .coach-file-input {
+  display: none;
 }

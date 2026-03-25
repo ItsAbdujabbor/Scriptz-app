@@ -8,6 +8,7 @@ import {
   useRemovePersonaFavoriteMutation,
 } from '../queries/personas/personaQueries'
 import { usePersonaStore } from '../stores/personaStore'
+import { TabBar } from '../components/TabBar'
 import './PersonasModal.css'
 
 const IMAGE_SLOTS = [
@@ -52,8 +53,10 @@ export function PersonasModal({ onClose }) {
 
   const [showCreate, setShowCreate] = useState(false)
   const [createImages, setCreateImages] = useState({ front: null, left: null, right: null })
-  const [createOptionalText, setCreateOptionalText] = useState('')
+  const [createName, setCreateName] = useState('')
   const [createError, setCreateError] = useState('')
+  const [personaTab, setPersonaTab] = useState('personal')
+  const [viewingPersona, setViewingPersona] = useState(null)
   const fileInputRefs = useRef({ front: null, left: null, right: null })
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
@@ -61,6 +64,9 @@ export function PersonasModal({ onClose }) {
 
   const items = data?.items ?? []
   const pinnedIds = new Set(data?.pinned_ids ?? [])
+  const filteredItems = personaTab === 'personal'
+    ? items.filter((p) => p.visibility === 'personal')
+    : items.filter((p) => p.visibility === 'stock' || p.visibility === 'admin')
 
   const handleImageSelect = (slot, file) => {
     if (!file?.type?.startsWith('image/')) return
@@ -76,15 +82,20 @@ export function PersonasModal({ onClose }) {
       return
     }
     setCreateError('')
+    const name = createName.trim() || 'My Persona'
+    if (!name) {
+      setCreateError('Please enter a name for your persona.')
+      return
+    }
     try {
       await createFromImagesMutation.mutateAsync({
         frontImage: front,
         leftImage: left,
         rightImage: right,
-        optionalText: createOptionalText.trim() || undefined,
+        name,
       })
       setCreateImages({ front: null, left: null, right: null })
-      setCreateOptionalText('')
+      setCreateName('')
       setShowCreate(false)
     } catch (err) {
       setCreateError(err?.message || 'Could not create persona. Please try different images.')
@@ -93,7 +104,7 @@ export function PersonasModal({ onClose }) {
 
   const clearCreateForm = () => {
     setCreateImages({ front: null, left: null, right: null })
-    setCreateOptionalText('')
+    setCreateName('')
     setCreateError('')
     setShowCreate(false)
   }
@@ -156,6 +167,17 @@ export function PersonasModal({ onClose }) {
           Personas are your face for thumbnails. Upload 3 face photos to create one persona image. When selected, that image is used in thumbnail generation.
         </p>
 
+        <TabBar
+          tabs={[
+            { id: 'personal', label: 'Personal' },
+            { id: 'stock', label: 'Stock' },
+          ]}
+          value={personaTab}
+          onChange={setPersonaTab}
+          ariaLabel="Persona sections"
+          variant="modal"
+        />
+
         <div className="personas-modal-actions">
           <button
             type="button"
@@ -213,11 +235,12 @@ export function PersonasModal({ onClose }) {
             </div>
             <input
               type="text"
-              placeholder="Optional: extra context (e.g. niche, audience)"
-              value={createOptionalText}
-              onChange={(e) => setCreateOptionalText(e.target.value)}
-              maxLength={300}
-              className="personas-optional-text"
+              placeholder="Name"
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value)}
+              maxLength={120}
+              className="personas-name-input"
+              required
             />
             {createError && <p className="personas-form-error">{createError}</p>}
             <div className="personas-form-btns">
@@ -236,13 +259,13 @@ export function PersonasModal({ onClose }) {
 
         <div className="personas-list">
           {isPending && <div className="personas-list-loading">Loading…</div>}
-          {!isPending && items.length === 0 && !showCreate && (
+          {!isPending && filteredItems.length === 0 && !showCreate && (
             <div className="personas-list-empty">
-              No personas yet. Create one to customize AI output.
+              {personaTab === 'personal' ? 'No personal personas yet. Create one to customize AI output.' : 'No stock personas available.'}
             </div>
           )}
           {!isPending &&
-            items.map((p) => (
+            filteredItems.map((p) => (
               <div
                 key={p.id}
                 className={`personas-card ${p.id === selectedPersonaId ? 'is-selected' : ''}`}
@@ -273,24 +296,31 @@ export function PersonasModal({ onClose }) {
                   </form>
                 ) : (
                   <>
-                    {p.image_url && (
-                      <div className="personas-card-img">
-                        <img src={p.image_url} alt={p.name} />
-                      </div>
-                    )}
-                    <div className="personas-card-main">
-                      <h4 className="personas-card-name">{p.name}</h4>
-                      {p.description && <p className="personas-card-desc">{p.description}</p>}
-                      {p.tags?.length > 0 && (
-                        <div className="personas-card-tags">
-                          {p.tags.map((t) => (
-                            <span key={t} className="personas-tag">
-                              {t}
-                            </span>
-                          ))}
+                    <button
+                      type="button"
+                      className="personas-card-view-trigger"
+                      onClick={() => setViewingPersona(p)}
+                      aria-label={`View ${p.name}`}
+                    >
+                      {p.image_url && (
+                        <div className="personas-card-img">
+                          <img src={p.image_url} alt={p.name} />
                         </div>
                       )}
-                    </div>
+                      <div className="personas-card-main">
+                        <h4 className="personas-card-name">{p.name}</h4>
+                        {p.description && <p className="personas-card-desc">{p.description}</p>}
+                        {p.tags?.length > 0 && (
+                          <div className="personas-card-tags">
+                            {p.tags.map((t) => (
+                              <span key={t} className="personas-tag">
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </button>
                     <div className="personas-card-actions">
                       <button
                         type="button"
@@ -326,6 +356,52 @@ export function PersonasModal({ onClose }) {
               </div>
             ))}
         </div>
+
+        {viewingPersona && (
+          <div className="personas-view-overlay" onClick={() => setViewingPersona(null)}>
+            <div className="personas-view-detail" onClick={(e) => e.stopPropagation()}>
+              <div className="personas-view-header">
+                <h3>{viewingPersona.name}</h3>
+                <button
+                  type="button"
+                  className="personas-view-close"
+                  onClick={() => setViewingPersona(null)}
+                  aria-label="Close"
+                >
+                  <IconX />
+                </button>
+              </div>
+              {viewingPersona.image_url && (
+                <div className="personas-view-img-wrap">
+                  <img src={viewingPersona.image_url} alt={viewingPersona.name} />
+                </div>
+              )}
+              {viewingPersona.description && (
+                <p className="personas-view-desc">{viewingPersona.description}</p>
+              )}
+              {viewingPersona.tags?.length > 0 && (
+                <div className="personas-view-tags">
+                  {viewingPersona.tags.map((t) => (
+                    <span key={t} className="personas-tag">{t}</span>
+                  ))}
+                </div>
+              )}
+              <div className="personas-view-actions">
+                <button
+                  type="button"
+                  className="personas-select"
+                  onClick={() => {
+                    setSelectedPersona(viewingPersona)
+                    setViewingPersona(null)
+                    onClose()
+                  }}
+                >
+                  {viewingPersona.id === selectedPersonaId ? 'Selected' : 'Use this persona'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

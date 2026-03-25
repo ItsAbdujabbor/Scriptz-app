@@ -37,9 +37,10 @@ function request(method, path, accessToken, body = null, headers = {}, channelId
  * @param {string|null} channelId - Required for channel insights; omit for onboarding insights
  */
 export const dashboardApi = {
-  /** GET /api/dashboard/insights — Script suggestions (channel required) */
-  getInsights(accessToken, channelId) {
-    return request('GET', '/api/dashboard/insights', accessToken, null, {}, channelId)
+  /** GET /api/dashboard/insights — Script suggestions (channel required). regenerate=true bypasses cache. */
+  getInsights(accessToken, channelId, regenerate = false) {
+    const qs = regenerate ? '?regenerate=true' : ''
+    return request('GET', '/api/dashboard/insights' + qs, accessToken, null, {}, channelId)
   },
 
   /** GET /api/dashboard/insights/onboarding — Script suggestions without channel */

@@ -385,6 +385,56 @@
   box-shadow: 0 0 0 1px rgba(129,140,248,.5), 0 6px 26px rgba(99,102,241,.38);
 }
 
+/* Coming soon — non-interactive plan buttons */
+.pri-btn.landing-soon-pill {
+  cursor: default;
+  pointer-events: none;
+}
+.pri-btn.landing-soon-pill:hover {
+  transform: none;
+  background: inherit;
+}
+.pri-btn--pop.landing-soon-pill {
+  background: linear-gradient(145deg, rgba(99, 102, 241, 0.55) 0%, rgba(76, 29, 149, 0.75) 55%, rgba(49, 46, 129, 0.9) 100%);
+  border: 1px solid rgba(196, 181, 253, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 4px 20px rgba(99, 102, 241, 0.35),
+    0 0 40px rgba(124, 58, 237, 0.15);
+  color: #f5f3ff !important;
+}
+.pri-btn--pop.landing-soon-pill:hover {
+  transform: none;
+  filter: none;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 4px 20px rgba(99, 102, 241, 0.35),
+    0 0 40px rgba(124, 58, 237, 0.15);
+  background: linear-gradient(145deg, rgba(99, 102, 241, 0.55) 0%, rgba(76, 29, 149, 0.75) 55%, rgba(49, 46, 129, 0.9) 100%);
+}
+
+.pri-trial--soon {
+  display: block;
+  text-align: center;
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--pri-t3);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding-top: .25rem;
+  margin-top: auto;
+  cursor: default;
+  user-select: none;
+}
+.pri-card--pop .pri-trial--soon {
+  color: rgba(99, 102, 241, 0.55);
+}
+
+.pri-btn.landing-soon-pill .landing-soon-pill-inner {
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+}
+
 /* ─── Separator ─── */
 .pri-sep {
   height: 1px;

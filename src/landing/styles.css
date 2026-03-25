@@ -84,6 +84,67 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   background: #0b0b0c;
 }
 
+/* Sections kept in markup but hidden (unverified testimonials / metrics) */
+#main-content #another-10,
+#main-content #results,
+#main-content #social-proof {
+  display: none !important;
+}
+
+/* Nav links to hidden sections — keep anchors in DOM for future use */
+.landing-nav-hidden {
+  display: none !important;
+}
+
+/* Coming soon — non-interactive CTAs (landing teaser) */
+.landing-soon-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+  padding: 0.48rem 1.25rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #f5f3ff !important;
+  background: linear-gradient(145deg, rgba(99, 102, 241, 0.55) 0%, rgba(76, 29, 149, 0.75) 55%, rgba(49, 46, 129, 0.9) 100%);
+  border: 1px solid rgba(196, 181, 253, 0.45);
+  border-radius: 9999px;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 4px 20px rgba(99, 102, 241, 0.35),
+    0 0 40px rgba(124, 58, 237, 0.15);
+  cursor: default;
+  user-select: none;
+  pointer-events: none;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.landing-soon-pill-inner {
+  position: relative;
+  z-index: 1;
+}
+.landing-soon-pill::after {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  background: conic-gradient(from 180deg at 50% 50%, transparent 0deg, rgba(255, 255, 255, 0.07) 120deg, transparent 240deg);
+  animation: landing-soon-orbit 10s linear infinite;
+  z-index: 0;
+  opacity: 0.85;
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-soon-pill::after {
+    animation: none;
+    opacity: 0.25;
+  }
+}
+@keyframes landing-soon-orbit {
+  to { transform: rotate(360deg); }
+}
+
 /* ===== Screens — one visible at a time ===== */
 .screen {
   display: none;

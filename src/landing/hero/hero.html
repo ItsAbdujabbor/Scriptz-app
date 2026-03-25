@@ -5,16 +5,43 @@
   <div class="lin-copy">
     <span class="lin-eyebrow">
       <span class="lin-eyebrow-line"></span>
-      Scriptz AI 1.0 — data-backed YouTube growth
+      YouTube growth — scripts, thumbnails &amp; AI Coach
     </span>
     <h1 class="lin-h1">
       Make Your Videos<br>
       <span class="lin-h1-accent">Impossible to Ignore.</span>
     </h1>
     <p class="lin-sub">
-      From ignored to viral with data-backed video strategy.<br>
-      Scripts, thumbnails, and insights — all powered by AI.
+      One workspace for your channel: Dashboard, AI Coach, script &amp; thumbnail tools,<br>
+      Optimize, and Library — with YouTube connected when you sign in.
     </p>
+  </div>
+
+  <!-- ── WAITLIST ── -->
+  <div class="lin-waitlist" id="landing-waitlist">
+    <form id="landing-waitlist-form" class="lin-waitlist-form" novalidate>
+      <p class="lin-waitlist-kicker">Join the waitlist</p>
+      <p class="lin-waitlist-deck">Be first to know when Scriptz AI opens — no spam.</p>
+      <div class="lin-waitlist-row">
+        <label class="visually-hidden" for="landing-waitlist-email">Email address</label>
+        <input
+          type="email"
+          id="landing-waitlist-email"
+          name="email"
+          class="lin-waitlist-input"
+          placeholder="you@example.com"
+          required
+          autocomplete="email"
+          inputmode="email"
+          maxlength="254"
+        />
+        <input type="text" name="honeypot" class="lin-waitlist-honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
+        <button type="submit" class="lin-waitlist-btn" id="landing-waitlist-submit">
+          <span class="lin-waitlist-btn-label">Notify me</span>
+        </button>
+      </div>
+      <p class="lin-waitlist-msg" id="landing-waitlist-msg" role="status" aria-live="polite"></p>
+    </form>
   </div>
 
   <!-- ── DASHBOARD ── -->
@@ -31,7 +58,7 @@
           <span class="lin-tl lin-tl-y"></span>
           <span class="lin-tl lin-tl-g"></span>
           <div class="lin-urlbar">
-            <span class="lin-urlpill">app.scriptz.io / channel / scripts</span>
+            <span class="lin-urlpill">scriptz.app · #dashboard</span>
           </div>
         </div>
 
@@ -49,42 +76,26 @@
             </div>
             <div class="lin-sb-body">
 
-              <div class="lin-sb-lbl">Creator Hub</div>
-              <div class="lin-ni" data-lin-view="issues">
-                <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4z"/></svg>
-                My Scripts <span class="lin-ni-cnt">6</span>
+              <div class="lin-sb-lbl">Main</div>
+              <div class="lin-ni active" data-lin-view="issues">
+                <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                Dashboard
               </div>
               <div class="lin-ni" data-lin-view="drafts">
-                <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M8 8h5M8 16h3"/></svg>
-                Drafts <span class="lin-ni-cnt">3</span>
-              </div>
-
-              <div class="lin-sb-lbl" style="margin-top:6px">YouTube Channel</div>
-              <div class="lin-ni active" data-lin-view="issues">
-                <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>
-                Scripts
+                <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                New Chat
               </div>
               <div class="lin-ni" data-lin-view="cycles">
                 <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-                Thumbnails
-              </div>
-              <div class="lin-ni" data-lin-view="projects">
-                <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                Campaigns
+                Thumbnail Generator
               </div>
               <div class="lin-ni" data-lin-view="views">
-                <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg>
-                Analytics
-              </div>
-
-              <div class="lin-sb-lbl" style="margin-top:6px">AI Agents</div>
-              <div class="lin-ni" data-lin-view="issues">
-                <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-                Script Writer <span class="lin-ni-cnt">2</span>
+                <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                Optimize
               </div>
               <div class="lin-ni" data-lin-view="projects">
-                <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
-                Thumbnail Gen
+                <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                Library
               </div>
 
             </div>
@@ -100,8 +111,8 @@
             <!-- SCRIPTS VIEW (default active) -->
             <div class="lin-view active" id="lin-view-issues">
               <div class="lin-main-hdr">
-                <span class="lin-main-ttl">Scripts</span>
-                <span class="lin-main-ctx">· YouTube Channel</span>
+                <span class="lin-main-ttl">Dashboard</span>
+                <span class="lin-main-ctx">· Your channel</span>
                 <div class="lin-toolbar">
                   <button class="lin-tbtn">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><line x1="14" y1="2" x2="14" y2="6"/><line x1="8" y1="10" x2="8" y2="14"/></svg>
@@ -117,7 +128,7 @@
                 <div class="lin-grp" id="lin-grp-prog">
                   <div class="lin-grp-hdr" data-lin-toggle="lin-grp-prog">
                     <span class="lin-grp-dot" style="background:#e8a03a;box-shadow:0 0 6px rgba(232,160,58,0.5)"></span>
-                    <span class="lin-grp-name">Writing</span>
+                    <span class="lin-grp-name">Scripts in progress</span>
                     <span class="lin-grp-cnt">3</span>
                     <svg class="lin-grp-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                   </div>
@@ -150,7 +161,7 @@
                 <div class="lin-grp" id="lin-grp-todo">
                   <div class="lin-grp-hdr" data-lin-toggle="lin-grp-todo">
                     <span class="lin-grp-dot" style="border:1.5px solid rgba(255,255,255,0.28);display:inline-block;width:8px;height:8px;border-radius:50%"></span>
-                    <span class="lin-grp-name">To Script</span>
+                    <span class="lin-grp-name">Video ideas</span>
                     <span class="lin-grp-cnt">4</span>
                     <svg class="lin-grp-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                   </div>
@@ -159,28 +170,28 @@
                       <span class="lin-pri lin-pri-hi"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="7" width="3" height="8" rx="1"/><rect x="6" y="4" width="3" height="11" rx="1"/><rect x="11" y="1" width="3" height="14" rx="1"/></svg></span>
                       <span class="lin-iss-id">SCR-045</span>
                       <span class="lin-iss-ttl">How to grow from 0 to 10k subscribers</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-todo"></span>To Script</div>
+                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-todo"></span>Idea</div>
                       <div class="lin-iss-av" style="background:linear-gradient(135deg,#8b5cf6,#ec4899)">MT</div>
                     </div>
                     <div class="lin-iss" data-lin-status="todo">
                       <span class="lin-pri lin-pri-med"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="7" width="3" height="8" rx="1"/><rect x="6" y="4" width="3" height="11" rx="1"/><rect x="11" y="4" width="3" height="11" rx="1"/></svg></span>
                       <span class="lin-iss-id">SCR-044</span>
                       <span class="lin-iss-ttl">Best thumbnail strategies for 2026</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-todo"></span>To Script</div>
+                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-todo"></span>Idea</div>
                       <div class="lin-iss-av" style="background:linear-gradient(135deg,#5e6ad2,#a78bfa)">AL</div>
                     </div>
                     <div class="lin-iss" data-lin-status="todo">
                       <span class="lin-pri lin-pri-lo"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="11" width="3" height="4" rx="1" opacity="0.4"/><rect x="6" y="7" width="3" height="8" rx="1" opacity="0.6"/><rect x="11" y="4" width="3" height="11" rx="1"/></svg></span>
                       <span class="lin-iss-id">SCR-043</span>
                       <span class="lin-iss-ttl">Behind the scenes — channel rebrand video</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-todo"></span>To Script</div>
+                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-todo"></span>Idea</div>
                       <div class="lin-iss-av" style="background:linear-gradient(135deg,#f59e0b,#10b981)">KT</div>
                     </div>
                     <div class="lin-iss" data-lin-status="todo">
                       <span class="lin-pri lin-pri-no"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/></svg></span>
                       <span class="lin-iss-id">SCR-042</span>
                       <span class="lin-iss-ttl">Reaction video — biggest YouTube fails</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-todo"></span>To Script</div>
+                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-todo"></span>Idea</div>
                       <div class="lin-iss-av" style="background:linear-gradient(135deg,#10b981,#3b82f6)">RK</div>
                     </div>
                   </div>
@@ -236,47 +247,47 @@
 
             <!-- THUMBNAILS VIEW -->
             <div class="lin-view" id="lin-view-cycles">
-              <div class="lin-main-hdr"><span class="lin-main-ttl">Thumbnails</span><span class="lin-main-ctx">· YouTube Channel</span></div>
-              <div class="lin-view-empty">Generate AI thumbnails or upload your own. Connect a script to auto-generate thumbnail concepts.</div>
+              <div class="lin-main-hdr"><span class="lin-main-ttl">Thumbnail Generator</span><span class="lin-main-ctx">· Your channel</span></div>
+              <div class="lin-view-empty">Generate thumbnails from prompts, reference images, or styles — edit regions and iterate with chat.</div>
             </div>
 
-            <!-- CAMPAIGNS VIEW -->
+            <!-- LIBRARY VIEW -->
             <div class="lin-view" id="lin-view-projects">
-              <div class="lin-main-hdr"><span class="lin-main-ttl">Campaigns</span><span class="lin-main-ctx">· YouTube Channel</span></div>
+              <div class="lin-main-hdr"><span class="lin-main-ttl">Library</span><span class="lin-main-ctx">· Saved work</span></div>
               <div class="lin-proj-list">
                 <div class="lin-proj-row">
                   <span class="lin-proj-dot" style="background:#5e6ad2;box-shadow:0 0 6px rgba(94,106,210,0.55)"></span>
-                  <span class="lin-proj-name">Q4 Growth Sprint</span>
-                  <span class="lin-proj-meta">8 scripts · 62% done</span>
+                  <span class="lin-proj-name">Script projects</span>
+                  <span class="lin-proj-meta">Drafts &amp; exports</span>
                 </div>
                 <div class="lin-proj-row">
                   <span class="lin-proj-dot" style="background:#26c281;box-shadow:0 0 5px rgba(38,194,129,0.5)"></span>
-                  <span class="lin-proj-name">AI Tools Series</span>
-                  <span class="lin-proj-meta">12 scripts · 83% done</span>
+                  <span class="lin-proj-name">Thumbnail sets</span>
+                  <span class="lin-proj-meta">Variants &amp; styles</span>
                 </div>
                 <div class="lin-proj-row">
                   <span class="lin-proj-dot" style="background:#e8a03a;box-shadow:0 0 5px rgba(232,160,58,0.4)"></span>
-                  <span class="lin-proj-name">Creator Masterclass</span>
-                  <span class="lin-proj-meta">6 scripts · 33% done</span>
+                  <span class="lin-proj-name">Personas &amp; looks</span>
+                  <span class="lin-proj-meta">For consistent packaging</span>
                 </div>
                 <div class="lin-proj-row">
                   <span class="lin-proj-dot" style="background:rgba(255,255,255,0.18)"></span>
-                  <span class="lin-proj-name">Shorts Batch — Jan 2026</span>
-                  <span class="lin-proj-meta">20 scripts · 15% done</span>
+                  <span class="lin-proj-name">Style presets</span>
+                  <span class="lin-proj-meta">Reusable thumbnail styles</span>
                 </div>
               </div>
             </div>
 
-            <!-- ANALYTICS VIEW -->
+            <!-- OPTIMIZE VIEW -->
             <div class="lin-view" id="lin-view-views">
-              <div class="lin-main-hdr"><span class="lin-main-ttl">Analytics</span></div>
-              <div class="lin-view-empty">Track hook rate, CTR, and watch time across all your scripts and published videos.</div>
+              <div class="lin-main-hdr"><span class="lin-main-ttl">Optimize</span><span class="lin-main-ctx">· Video packaging</span></div>
+              <div class="lin-view-empty">Paste a YouTube video to get title, thumbnail, and retention-oriented suggestions for that upload.</div>
             </div>
 
-            <!-- DRAFTS VIEW -->
+            <!-- NEW CHAT / AI COACH -->
             <div class="lin-view" id="lin-view-drafts">
-              <div class="lin-main-hdr"><span class="lin-main-ttl">Drafts</span></div>
-              <div class="lin-view-empty">Scripts you're still refining before sending to review or publishing.</div>
+              <div class="lin-main-hdr"><span class="lin-main-ttl">AI Coach</span><span class="lin-main-ctx">· New chat</span></div>
+              <div class="lin-view-empty">Ask about your channel, scripts, or thumbnails. Script &amp; thumbnail chats live here too — pick a tab after you open the app.</div>
             </div>
 
           </main>
@@ -285,11 +296,11 @@
           <aside class="lin-right">
             <div class="lin-right-hdr">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-              Activity &amp; AI
+              AI Coach
             </div>
             <div class="lin-rtabs">
               <button class="lin-rtab active" data-lin-rtab="act">Activity</button>
-              <button class="lin-rtab" data-lin-rtab="ai">Ask AI</button>
+              <button class="lin-rtab" data-lin-rtab="ai">Chat</button>
             </div>
 
             <!-- Activity feed -->
@@ -316,7 +327,7 @@
               </div>
               <div class="lin-act-row">
                 <div class="lin-act-av" style="background:linear-gradient(135deg,#8b5cf6,#ec4899)">MT</div>
-                <div class="lin-act-body"><div class="lin-act-txt"><strong>Maya T.</strong> published <span class="lin-act-ref">SCR-033</span> — 240k views so far</div><div class="lin-act-ts">3 hr ago</div></div>
+                <div class="lin-act-body"><div class="lin-act-txt"><strong>Maya T.</strong> published <span class="lin-act-ref">SCR-033</span> from the script workspace</div><div class="lin-act-ts">3 hr ago</div></div>
               </div>
               <div class="lin-act-row">
                 <div class="lin-act-av" style="background:linear-gradient(135deg,#f59e0b,#10b981)">KT</div>
@@ -341,7 +352,7 @@
             </div>
 
             <div class="lin-ai-inp-row">
-              <input class="lin-ai-inp" id="lin-ai-input" type="text" placeholder="Ask AI to write, improve, or analyse…" />
+              <input class="lin-ai-inp" id="lin-ai-input" type="text" placeholder="Ask the coach about your channel or a video…" />
               <button class="lin-ai-send" id="lin-ai-send">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </button>
@@ -349,6 +360,15 @@
           </aside>
 
         </div><!-- /lin-db-body -->
+
+        <div class="lin-db-soon" role="region" aria-labelledby="lin-db-soon-heading">
+          <div class="lin-db-soon-glass" aria-hidden="true"></div>
+          <div class="lin-db-soon-inner">
+            <span class="lin-db-soon-pill">Preview</span>
+            <h2 class="lin-db-soon-title" id="lin-db-soon-heading">Coming soon</h2>
+            <p class="lin-db-soon-sub">Create an account to use Dashboard, AI Coach, Script &amp; Thumbnail tools, Optimize, Library, and your saved chat history.</p>
+          </div>
+        </div>
       </div><!-- /lin-db-frame -->
     </div><!-- /lin-db-stage -->
   </div><!-- /lin-db-section -->

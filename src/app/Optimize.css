@@ -16,6 +16,44 @@
   margin-bottom: 1rem;
 }
 
+.optimize-dash-prefill {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 12px;
+  background: rgba(129, 140, 248, 0.12);
+  border: 1px solid rgba(129, 140, 248, 0.28);
+}
+
+.optimize-dash-prefill-text {
+  margin: 0;
+  flex: 1;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #e5e7eb;
+}
+
+.optimize-dash-prefill-dismiss {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: #9ca3af;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.optimize-dash-prefill-dismiss:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .optimize-heading {
   font-size: 1.5rem;
   font-weight: 700;

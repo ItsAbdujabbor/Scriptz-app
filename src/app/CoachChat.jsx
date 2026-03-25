@@ -10,12 +10,15 @@ import { youtubeApi } from '../api/youtube'
 import { Sidebar } from './Sidebar'
 import { SettingsModal } from './SettingsModal'
 import { PersonasModal } from './PersonasModal'
+import { StylesModal } from './StylesModal'
 import { useCoachConversationQuery } from '../queries/coach/coachQueries'
 import { useUserPreferencesQuery } from '../queries/user/preferencesQueries'
 import { useUserProfileQuery } from '../queries/user/profileQueries'
 import './Sidebar.css'
 import './SettingsModal.css'
 import './CoachChat.css'
+import { TabBar } from '../components/TabBar'
+import { stripPrefillFromHash } from '../lib/dashboardActionPayload'
 import { ScriptGenerator } from './ScriptGenerator'
 import { ThumbnailGenerator } from './ThumbnailGenerator'
 
@@ -32,6 +35,15 @@ function getCoachHashState() {
   const params = new URLSearchParams(search)
   const rawId = params.get('id')
   const conversationId = rawId && /^\d+$/.test(rawId) ? Number(rawId) : null
+  const prefillRaw = params.get('prefill')
+  let dashboardPrefill = null
+  if (prefillRaw) {
+    try {
+      dashboardPrefill = decodeURIComponent(prefillRaw)
+    } catch {
+      dashboardPrefill = null
+    }
+  }
 
   let activeTab = 'coach'
   if (routePart === 'coach/scripts') activeTab = 'scripts'
@@ -39,8 +51,17 @@ function getCoachHashState() {
 
   const coachConversationId = activeTab === 'coach' && routePart === 'coach' ? conversationId : null
   const scriptConversationId = activeTab === 'scripts' && routePart === 'coach/scripts' ? conversationId : null
+  const thumbnailConversationId = activeTab === 'thumbnails' && routePart === 'coach/thumbnails' ? conversationId : null
 
-  return { route: routePart, conversationId, activeTab, coachConversationId, scriptConversationId }
+  return {
+    route: routePart,
+    conversationId,
+    activeTab,
+    coachConversationId,
+    scriptConversationId,
+    thumbnailConversationId,
+    dashboardPrefill,
+  }
 }
 
 function setCoachTabHash(tabId, conversationId = null) {
@@ -57,6 +78,10 @@ function setCoachHash(conversationId = null) {
 
 function setScriptConversationHash(conversationId = null) {
   window.location.hash = conversationId ? `#coach/scripts?id=${conversationId}` : '#coach/scripts'
+}
+
+function setThumbnailConversationHash(conversationId = null) {
+  window.location.hash = conversationId ? `#coach/thumbnails?id=${conversationId}` : '#coach/thumbnails'
 }
 
 function normalizeMessageText(text) {
@@ -616,6 +641,7 @@ export function CoachChat({ onLogout }) {
   const [userActionDialog, setUserActionDialog] = useState(null)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
   const [showPersonasModal, setShowPersonasModal] = useState(false)
+  const [showStylesModal, setShowStylesModal] = useState(false)
   const threadRef = useRef(null)
   const messagesEndRef = useRef(null)
   const pendingUserRef = useRef(null)
@@ -867,6 +893,25 @@ export function CoachChat({ onLogout }) {
   const activeTab = hashState.activeTab || 'coach'
   const selectedConversationId = hashState.coachConversationId ?? null
   const selectedScriptConversationId = hashState.scriptConversationId ?? null
+  const selectedThumbnailConversationId = hashState.thumbnailConversationId ?? null
+  const dashboardRoutePrefill = hashState.dashboardPrefill ?? null
+
+  const coachPrefillKeyRef = useRef('')
+
+  useEffect(() => {
+    if (activeTab !== 'coach') return
+    const p = dashboardRoutePrefill
+    if (!p || selectedConversationId) return
+    const key = p.slice(0, 160)
+    if (coachPrefillKeyRef.current === key) return
+    coachPrefillKeyRef.current = key
+    setDraft((d) => (d.trim() ? d : p))
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus()
+    })
+    stripPrefillFromHash()
+    setHashState(getCoachHashState())
+  }, [activeTab, dashboardRoutePrefill, selectedConversationId])
 
   const handleTabClick = (tabId) => {
     setHashState((prev) => ({ ...prev, activeTab: tabId }))
@@ -1721,28 +1766,20 @@ export function CoachChat({ onLogout }) {
           activeTab={activeTab}
           activeConversationId={selectedConversationId}
           activeScriptConversationId={selectedScriptConversationId}
+          activeThumbnailConversationId={selectedThumbnailConversationId}
           onNewChat={handleNewChat}
         />
 
         <main className="coach-main-wrap">
           <header className="coach-header">
-            <nav className="coach-tabbar" role="tablist" aria-label="Tool switcher">
-              {COACH_TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === tab.id}
-                  aria-controls={`coach-panel-${tab.id}`}
-                  id={`coach-tab-${tab.id}`}
-                  className={`coach-tabbar-tab ${activeTab === tab.id ? 'is-active' : ''}`}
-                  onClick={() => handleTabClick(tab.id)}
-                >
-                  <span className="coach-tabbar-tab-text">{tab.label}</span>
-                  <span className="coach-tabbar-tab-line" aria-hidden />
-                </button>
-              ))}
-            </nav>
+            <TabBar
+              tabs={COACH_TABS.map((t) => ({ id: t.id, label: t.label }))}
+              value={activeTab}
+              onChange={handleTabClick}
+              ariaLabel="Tool switcher"
+              variant="minimal"
+              className="coach-tabbar"
+            />
           </header>
           {activeTab === 'scripts' ? (
             <ScriptGenerator
@@ -1752,7 +1789,13 @@ export function CoachChat({ onLogout }) {
               onNavigateToConversation={setScriptConversationHash}
             />
           ) : activeTab === 'thumbnails' ? (
-            <ThumbnailGenerator channelId={channelId} onOpenPersonas={() => setShowPersonasModal(true)} />
+            <ThumbnailGenerator
+              channelId={channelId}
+              onOpenPersonas={() => setShowPersonasModal(true)}
+              onOpenStyles={() => setShowStylesModal(true)}
+              conversationId={selectedThumbnailConversationId}
+              onConversationCreated={setThumbnailConversationHash}
+            />
           ) : (
           <div id="coach-panel-coach" className={`coach-main ${isEmptyScreen ? 'coach-main--empty' : ''}`} role="tabpanel" aria-labelledby="coach-tab-coach">
             <section className={`coach-chat-shell ${isEmptyScreen ? 'coach-chat-shell--empty' : ''}`}>
@@ -2091,6 +2134,9 @@ export function CoachChat({ onLogout }) {
 
       {showPersonasModal && (
         <PersonasModal onClose={() => setShowPersonasModal(false)} />
+      )}
+      {showStylesModal && (
+        <StylesModal onClose={() => setShowStylesModal(false)} />
       )}
 
       {userActionDialog ? (

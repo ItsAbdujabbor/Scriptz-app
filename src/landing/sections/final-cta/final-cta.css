@@ -159,6 +159,31 @@
 
 .fcta-btn:hover svg { transform: translateX(3px); }
 
+/* Coming soon (final CTA uses span instead of link) */
+.fcta-btn.landing-soon-pill {
+  cursor: default;
+  pointer-events: none;
+  padding: 0.95rem 2.5rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #f5f3ff !important;
+  background: linear-gradient(145deg, rgba(99, 102, 241, 0.55) 0%, rgba(76, 29, 149, 0.75) 55%, rgba(49, 46, 129, 0.9) 100%);
+  border: 1px solid rgba(196, 181, 253, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 4px 24px rgba(99, 102, 241, 0.4),
+    0 0 48px rgba(124, 58, 237, 0.2);
+}
+.fcta-btn.landing-soon-pill:hover {
+  transform: none;
+  background: linear-gradient(145deg, rgba(99, 102, 241, 0.55) 0%, rgba(76, 29, 149, 0.75) 55%, rgba(49, 46, 129, 0.9) 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 4px 24px rgba(99, 102, 241, 0.4),
+    0 0 48px rgba(124, 58, 237, 0.2);
+}
+
 .fcta-note {
   font-size: .75rem;
   color: rgba(99,102,241,.4);
@@ -185,4 +210,5 @@
   .fcta-card { padding: 3.5rem 1.75rem 3rem; border-radius: 24px; }
   .fcta-h2 { font-size: 2.4rem; }
   .fcta-btn { padding: .8rem 1.8rem; font-size: .9rem; }
+  .fcta-btn.landing-soon-pill { padding: 0.85rem 1.9rem; font-size: 0.75rem; }
 }

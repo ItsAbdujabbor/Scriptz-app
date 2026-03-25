@@ -62,4 +62,55 @@ export const thumbnailsApi = {
   generateSync(accessToken, payload) {
     return request('POST', '/api/thumbnails/generate-sync', accessToken, payload)
   },
+  list(accessToken, params = {}) {
+    const search = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => {
+      if (v != null && v !== '') search.set(k, String(v))
+    })
+    const qs = search.toString()
+    return request('GET', qs ? `/api/thumbnails?${qs}` : '/api/thumbnails', accessToken)
+  },
+  saveVariant(accessToken, payload) {
+    return request('POST', '/api/thumbnails/save-variant', accessToken, payload)
+  },
+  delete(accessToken, thumbnailId) {
+    return request('DELETE', `/api/thumbnails/${thumbnailId}`, accessToken)
+  },
+  listConversations(accessToken, params = {}) {
+    const search = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => {
+      if (v != null && v !== '') search.set(k, String(v))
+    })
+    const qs = search.toString()
+    return request('GET', qs ? `/api/thumbnails/conversations?${qs}` : '/api/thumbnails/conversations', accessToken)
+  },
+  getConversation(accessToken, conversationId, params = {}) {
+    const search = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => {
+      if (v != null && v !== '') search.set(k, String(v))
+    })
+    const qs = search.toString()
+    return request('GET', qs ? `/api/thumbnails/conversations/${conversationId}?${qs}` : `/api/thumbnails/conversations/${conversationId}`, accessToken)
+  },
+  chat(accessToken, payload) {
+    return request('POST', '/api/thumbnails/chat', accessToken, payload)
+  },
+  updateConversation(accessToken, conversationId, payload) {
+    return request('PATCH', `/api/thumbnails/conversations/${conversationId}`, accessToken, payload)
+  },
+  deleteConversation(accessToken, conversationId) {
+    return request('DELETE', `/api/thumbnails/conversations/${conversationId}`, accessToken)
+  },
+  rate(accessToken, payload) {
+    return request('POST', '/api/thumbnails/rate', accessToken, payload)
+  },
+  improve(accessToken, payload) {
+    return request('POST', '/api/thumbnails/improve', accessToken, payload)
+  },
+  getJob(accessToken, jobId) {
+    return request('GET', `/api/jobs/${jobId}`, accessToken)
+  },
+  editRegion(accessToken, payload) {
+    return request('POST', '/api/thumbnails/edit-region', accessToken, payload)
+  },
 }

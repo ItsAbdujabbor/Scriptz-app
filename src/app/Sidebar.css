@@ -1133,6 +1133,18 @@
   color: rgba(96, 165, 250, 0.9);
 }
 
+.sidebar-history-item-icon.icon-thumbnail {
+  color: rgba(34, 197, 94, 0.9);
+}
+
+.sidebar-history-item--tool .sidebar-history-item-main {
+  padding-right: 8px;
+}
+
+.sidebar-history-item--tool .sidebar-history-item-menu {
+  display: none;
+}
+
 .sidebar-history-item-icon.pin {
   color: var(--accent);
 }

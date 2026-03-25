@@ -53,55 +53,9 @@
   );
 }
 
-/* Tab bar — minimal underline style, no containers or borders */
-.coach-tabbar {
-  display: flex;
+/* TabBar (via TabBar.css) — .coach-tabbar used as className on TabBar for layout */
+.coach-header .tabbar {
   align-items: flex-end;
-  gap: 0;
-}
-
-.coach-tabbar-tab {
-  position: relative;
-  padding: 0.5rem 1rem 0.75rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: rgba(229, 229, 231, 0.55);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: color 0.2s ease;
-  white-space: nowrap;
-}
-
-.coach-tabbar-tab:hover {
-  color: rgba(229, 229, 231, 0.85);
-}
-
-.coach-tabbar-tab.is-active {
-  color: #e5e5e7;
-}
-
-.coach-tabbar-tab-line {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: 0;
-  height: 2px;
-  background: linear-gradient(90deg, #a78bfa, #818cf8);
-  border-radius: 2px 2px 0 0;
-  transform: translateX(-50%);
-  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.coach-tabbar-tab.is-active .coach-tabbar-tab-line {
-  width: 100%;
-}
-
-@media (max-width: 680px) {
-  .coach-tabbar-tab {
-    padding: 0.4rem 0.65rem 0.6rem;
-    font-size: 0.8125rem;
-  }
 }
 
 /* Coming Soon placeholder screens */

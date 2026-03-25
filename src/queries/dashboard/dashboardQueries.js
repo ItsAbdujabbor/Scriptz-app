@@ -10,10 +10,10 @@ export function useDashboardInsights(channelId) {
     queryFn: async () => {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Not authenticated')
-      if (channelId) return dashboardApi.getInsights(token, channelId)
+      if (channelId) return dashboardApi.getInsights(token, channelId, true)
       return dashboardApi.getOnboardingInsights(token)
     },
-    staleTime: queryFreshness.weekly,
+    staleTime: 0,
   })
 }
 

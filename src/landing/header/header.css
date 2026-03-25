@@ -96,6 +96,19 @@
   flex-shrink: 0;
 }
 
+/* Coming soon pill (replaces Log in / trial) */
+.header .landing-soon-pill--header {
+  padding: 0.46rem 1.2rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.11em;
+}
+.header .landing-soon-pill--mobile {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  font-size: 0.78rem;
+  border-radius: 12px;
+}
+
 /* Log In — ghost pill */
 .header .header-login {
   display: inline-flex;

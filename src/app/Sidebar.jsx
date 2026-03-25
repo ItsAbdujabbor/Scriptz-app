@@ -11,6 +11,11 @@ import {
   useDeleteScriptConversationMutation,
   useUpdateScriptConversationMutation,
 } from '../queries/scripts/scriptQueries'
+import {
+  useThumbnailConversationsQuery,
+  useDeleteThumbnailConversationMutation,
+  useUpdateThumbnailConversationMutation,
+} from '../queries/thumbnails/thumbnailQueries'
 
 const IconDashboard = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -198,6 +203,10 @@ function goToScriptConversation(conversationId = null) {
   window.location.hash = conversationId ? `#coach/scripts?id=${conversationId}` : '#coach/scripts'
 }
 
+function goToThumbnailConversation(conversationId = null) {
+  window.location.hash = conversationId ? `#coach/thumbnails?id=${conversationId}` : '#coach/thumbnails'
+}
+
 const IconScript = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -205,6 +214,14 @@ const IconScript = () => (
     <path d="M16 13H8" />
     <path d="M16 17H8" />
     <path d="M10 9H8" />
+  </svg>
+)
+
+const IconThumbnail = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <circle cx="9" cy="9" r="2" />
+    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
   </svg>
 )
 
@@ -217,6 +234,7 @@ export function Sidebar({
   activeTab = 'coach',
   activeConversationId = null,
   activeScriptConversationId = null,
+  activeThumbnailConversationId = null,
   onNewChat,
 }) {
   const collapsed = useSidebarStore((state) => state.collapsed)
@@ -243,19 +261,25 @@ export function Sidebar({
 
   const coachConversationsQuery = useCoachConversationsQuery({ limit: 50, isActive: true })
   const scriptConversationsQuery = useScriptConversationsQuery({ limit: 50 })
+  const thumbnailConversationsQuery = useThumbnailConversationsQuery({ limit: 50 })
   const updateCoachMutation = useUpdateCoachConversationMutation()
   const deleteCoachMutation = useDeleteCoachConversationMutation()
   const updateScriptMutation = useUpdateScriptConversationMutation()
   const deleteScriptMutation = useDeleteScriptConversationMutation()
+  const updateThumbnailMutation = useUpdateThumbnailConversationMutation()
+  const deleteThumbnailMutation = useDeleteThumbnailConversationMutation()
 
   const isScriptsTab = currentScreen === 'coach' && activeTab === 'scripts'
+  const isThumbnailsTab = currentScreen === 'coach' && activeTab === 'thumbnails'
   const coachItems = useMemo(() => coachConversationsQuery.data?.items || [], [coachConversationsQuery.data])
   const scriptItems = useMemo(() => scriptConversationsQuery.data?.items || [], [scriptConversationsQuery.data])
+  const thumbnailItems = useMemo(() => thumbnailConversationsQuery.data?.items || [], [thumbnailConversationsQuery.data])
 
   const mergedHistoryItems = useMemo(() => {
     const withType = [
       ...coachItems.map((c) => ({ ...c, _type: 'coach', _sortAt: c.last_message_at || c.created_at })),
       ...scriptItems.map((c) => ({ ...c, _type: 'script', _sortAt: c.last_message_at || c.created_at })),
+      ...thumbnailItems.map((c) => ({ ...c, _type: 'thumbnail', _sortAt: c.last_message_at || c.created_at })),
     ]
     withType.sort((a, b) => {
       const aVal = a._sortAt ? new Date(a._sortAt).getTime() : 0
@@ -263,13 +287,15 @@ export function Sidebar({
       return bVal - aVal
     })
     return withType
-  }, [coachItems, scriptItems])
+  }, [coachItems, scriptItems, thumbnailItems])
 
-  const selectedConversationId = isScriptsTab
+  const selectedConversationId = isThumbnailsTab
+    ? (activeThumbnailConversationId ?? null)
+    : isScriptsTab
     ? (activeScriptConversationId ?? null)
     : (activeConversationId ?? getCoachConversationIdFromHash())
 
-  const isHistoryLoading = coachConversationsQuery.isPending || scriptConversationsQuery.isPending
+  const isHistoryLoading = coachConversationsQuery.isPending || scriptConversationsQuery.isPending || thumbnailConversationsQuery.isPending
 
   useEffect(() => {
     if (!accountDialogOpen) return
@@ -317,7 +343,8 @@ export function Sidebar({
     setEditingConversationType(null)
     setEditingTitle('')
     onNewChat?.()
-    if (isScriptsTab) goToScriptConversation(null)
+    if (isThumbnailsTab) goToThumbnailConversation(null)
+    else if (isScriptsTab) goToScriptConversation(null)
     else goToCoachConversation(null)
   }
 
@@ -352,7 +379,7 @@ export function Sidebar({
     const nextTitle = editingTitle.trim()
     if (!nextTitle) return
     const type = editingConversationType
-    const mutation = type === 'script' ? updateScriptMutation : updateCoachMutation
+    const mutation = type === 'thumbnail' ? updateThumbnailMutation : type === 'script' ? updateScriptMutation : updateCoachMutation
     try {
       await mutation.mutateAsync({
         conversationId,
@@ -391,10 +418,11 @@ export function Sidebar({
     const type = deleteChatConversationType
     if (!conversationId) return
     closeDeleteChatDialog()
-    const mutation = type === 'script' ? deleteScriptMutation : deleteCoachMutation
+    const mutation = type === 'thumbnail' ? deleteThumbnailMutation : type === 'script' ? deleteScriptMutation : deleteCoachMutation
     try {
       await mutation.mutateAsync(conversationId)
-      const isSelected = (type === 'script' && Number(activeScriptConversationId) === Number(conversationId)) ||
+      const isSelected = (type === 'thumbnail' && Number(activeThumbnailConversationId) === Number(conversationId)) ||
+        (type === 'script' && Number(activeScriptConversationId) === Number(conversationId)) ||
         (type === 'coach' && Number(activeConversationId ?? getCoachConversationIdFromHash()) === Number(conversationId))
       if (isSelected) handleNewChat()
     } catch (error) {
@@ -518,7 +546,11 @@ export function Sidebar({
             <span className="sidebar-label">Optimize</span>
           </a>
 
-          <a href="#dashboard" className="sidebar-link" onClick={(e) => { e.preventDefault(); closeMobile(); window.location.hash = 'dashboard' }}>
+          <a
+            href="#library"
+            className={`sidebar-link ${currentScreen === 'library' ? 'active' : ''}`}
+            onClick={(e) => { e.preventDefault(); closeMobile(); window.location.hash = 'library' }}
+          >
             <span className="sidebar-icon"><IconFolder /></span>
             <span className="sidebar-label">Library</span>
           </a>
@@ -546,102 +578,99 @@ export function Sidebar({
               </div>
             )}
 
-            {!isHistoryLoading && currentScreen === 'coach' && (() => {
-              if (mergedHistoryItems.length === 0) {
-                return (
+            {!isHistoryLoading && (
+              <>
+                {mergedHistoryItems.length === 0 ? (
                   <div className="sidebar-history-empty">
                     <span className="sidebar-history-empty-icon" aria-hidden><IconFolder /></span>
-                    <span className="sidebar-history-empty-text">No history yet</span>
+                    <span className="sidebar-history-empty-text">No chats yet. Start in AI Coach, Script Generator, or Thumbnail Generator.</span>
                   </div>
-                )
-              }
-
-              return mergedHistoryItems.map((conversation) => {
-                const isScript = conversation._type === 'script'
-                const type = isScript ? 'script' : 'coach'
-                const isActive = isScript
-                  ? (currentScreen === 'coach' && Number(activeScriptConversationId) === Number(conversation.id))
-                  : (currentScreen === 'coach' && Number(activeConversationId ?? getCoachConversationIdFromHash()) === Number(conversation.id))
-                const isEditing = editingConversationId === conversation.id && editingConversationType === type
-                const updateMutation = isScript ? updateScriptMutation : updateCoachMutation
-                return (
-                  <div
-                    key={`${type}-${conversation.id}`}
-                    className={`sidebar-history-item ${isActive ? 'active' : ''}`}
-                    role="listitem"
-                  >
-                    {isEditing ? (
-                      <form
-                        className="sidebar-history-edit-form"
-                        onSubmit={(e) => {
-                          e.preventDefault()
-                          submitConversationRename(conversation.id)
-                        }}
+                ) : (
+                  mergedHistoryItems.map((conversation) => {
+                    const isScript = conversation._type === 'script'
+                    const isThumbnail = conversation._type === 'thumbnail'
+                    const type = isThumbnail ? 'thumbnail' : isScript ? 'script' : 'coach'
+                    const isActive = isThumbnail
+                      ? (currentScreen === 'coach' && activeTab === 'thumbnails' && Number(activeThumbnailConversationId) === Number(conversation.id))
+                      : isScript
+                        ? (currentScreen === 'coach' && Number(activeScriptConversationId) === Number(conversation.id))
+                        : (currentScreen === 'coach' && Number(activeConversationId ?? getCoachConversationIdFromHash()) === Number(conversation.id))
+                    const isEditing = editingConversationId === conversation.id && editingConversationType === type
+                    const updateMutation = isThumbnail ? updateThumbnailMutation : isScript ? updateScriptMutation : updateCoachMutation
+                    return (
+                      <div
+                        key={`${type}-${conversation.id}`}
+                        className={`sidebar-history-item ${isActive ? 'active' : ''}`}
+                        role="listitem"
                       >
-                        <input
-                          autoFocus
-                          className="sidebar-history-title-input"
-                          value={editingTitle}
-                          onChange={(e) => setEditingTitle(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Escape') cancelRenamingConversation()
-                          }}
-                        />
-                        <button
-                          type="submit"
-                          className="sidebar-history-edit-action"
-                          aria-label="Save title"
-                          disabled={updateMutation.isPending || !editingTitle.trim()}
-                        >
-                          <IconCheck />
-                        </button>
-                        <button
-                          type="button"
-                          className="sidebar-history-edit-action"
-                          aria-label="Cancel editing"
-                          onClick={cancelRenamingConversation}
-                        >
-                          <IconX />
-                        </button>
-                      </form>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          className="sidebar-history-item-main"
-                          onClick={() => {
-                            closeMobile()
-                            if (isScript) goToScriptConversation(conversation.id)
-                            else goToCoachConversation(conversation.id)
-                          }}
-                        >
-                          <span className={`sidebar-history-item-icon ${isScript ? 'icon-script' : 'icon-coach'}`}>
-                            {isScript ? <IconScript /> : <IconMessage />}
-                          </span>
-                          <span className="sidebar-history-item-title">
-                            {conversation.title || (isScript ? 'Untitled script' : 'Untitled chat')}
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          className="sidebar-history-item-menu"
-                          aria-label={`Open actions for ${conversation.title || (isScript ? 'script' : 'chat')}`}
-                          onClick={(e) => openHistoryMenu(conversation.id, type, e)}
-                        >
-                          <IconDots />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )
-              })
-            })()}
-
-            {!isHistoryLoading && currentScreen !== 'coach' && (
-              <div className="sidebar-history-empty">
-                <span className="sidebar-history-empty-icon" aria-hidden><IconFolder /></span>
-                <span className="sidebar-history-empty-text">Go to AI Coach to see history</span>
-              </div>
+                        {isEditing ? (
+                          <form
+                            className="sidebar-history-edit-form"
+                            onSubmit={(e) => {
+                              e.preventDefault()
+                              submitConversationRename(conversation.id)
+                            }}
+                          >
+                            <input
+                              autoFocus
+                              className="sidebar-history-title-input"
+                              value={editingTitle}
+                              onChange={(e) => setEditingTitle(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Escape') cancelRenamingConversation()
+                              }}
+                            />
+                            <button
+                              type="submit"
+                              className="sidebar-history-edit-action"
+                              aria-label="Save title"
+                              disabled={updateMutation.isPending || !editingTitle.trim()}
+                            >
+                              <IconCheck />
+                            </button>
+                            <button
+                              type="button"
+                              className="sidebar-history-edit-action"
+                              aria-label="Cancel editing"
+                              onClick={cancelRenamingConversation}
+                            >
+                              <IconX />
+                            </button>
+                          </form>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="sidebar-history-item-main"
+                              onClick={() => {
+                                closeMobile()
+                                if (isThumbnail) goToThumbnailConversation(conversation.id)
+                                else if (isScript) goToScriptConversation(conversation.id)
+                                else goToCoachConversation(conversation.id)
+                              }}
+                            >
+                              <span className={`sidebar-history-item-icon ${isThumbnail ? 'icon-thumbnail' : isScript ? 'icon-script' : 'icon-coach'}`}>
+                                {isThumbnail ? <IconThumbnail /> : isScript ? <IconScript /> : <IconMessage />}
+                              </span>
+                              <span className="sidebar-history-item-title">
+                                {conversation.title || (isThumbnail ? 'Untitled thumbnails' : isScript ? 'Untitled script' : 'Untitled chat')}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              className="sidebar-history-item-menu"
+                              aria-label={`Open actions for ${conversation.title || (isScript ? 'script' : 'chat')}`}
+                              onClick={(e) => openHistoryMenu(conversation.id, type, e)}
+                            >
+                              <IconDots />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )
+                  })
+                )}
+              </>
             )}
           </div>
         </nav>
@@ -718,7 +747,7 @@ export function Sidebar({
             <button
               type="button"
               onClick={() => {
-                const items = historyMenu.type === 'script' ? scriptItems : coachItems
+                const items = historyMenu.type === 'thumbnail' ? thumbnailItems : historyMenu.type === 'script' ? scriptItems : coachItems
                 const conversation = items.find((item) => item.id === historyMenu.conversationId)
                 if (conversation) startRenamingConversation(conversation, historyMenu.type)
               }}

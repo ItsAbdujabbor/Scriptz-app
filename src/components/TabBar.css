@@ -1,0 +1,92 @@
+/* TabBar — sliding indicator, reusable across app */
+
+.tabbar {
+  position: relative;
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tabbar.minimal {
+  border-bottom: none;
+  background: transparent;
+}
+
+.tabbar.modal {
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px 10px 0 0;
+}
+
+.tabbar-tab {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px;
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.tabbar.minimal .tabbar-tab {
+  padding: 8px 16px 10px;
+  color: rgba(229, 229, 231, 0.55);
+}
+
+.tabbar-tab:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.tabbar.minimal .tabbar-tab:hover {
+  color: rgba(229, 229, 231, 0.85);
+}
+
+.tabbar-tab.is-active {
+  color: #a78bfa;
+}
+
+.tabbar.minimal .tabbar-tab.is-active {
+  color: #e5e5e7;
+}
+
+.tabbar-tab-icon {
+  display: inline-flex;
+}
+
+.tabbar-tab-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.tabbar-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #a78bfa, #8b5cf6);
+  border-radius: 2px 2px 0 0;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.tabbar.minimal .tabbar-indicator {
+  background: linear-gradient(90deg, #a78bfa, #818cf8);
+}
+
+@media (max-width: 680px) {
+  .tabbar-tab {
+    padding: 12px 16px;
+    font-size: 13px;
+  }
+
+  .tabbar.minimal .tabbar-tab {
+    padding: 6px 12px 8px;
+    font-size: 0.8125rem;
+  }
+}
