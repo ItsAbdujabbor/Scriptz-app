@@ -15,12 +15,11 @@ export function Hero() {
           <span className="lin-h1-accent">Impossible to Ignore.</span>
         </h1>
         <p className="lin-sub">
-          From ignored to viral with data-backed video strategy.
-          <br />
-          Scripts, thumbnails, and insights — all powered by AI.
+          Scripts, thumbnails, and channel insights built on your real analytics—so you ship videos
+          that earn attention, not just uploads.
         </p>
         <p className="lin-waitlist-lead">
-          Get early access: join the waitlist. We’ll email you when the workspace opens — no spam.
+          Join the waitlist for early access. We’ll send one email when Scriptz opens—unsubscribe anytime.
         </p>
         <WaitlistForm />
       </div>

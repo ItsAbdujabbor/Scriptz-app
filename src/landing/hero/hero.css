@@ -126,13 +126,15 @@
 }
 
 .lin-sub {
-  margin: 1.6rem auto 0;
-  font-size: clamp(0.95rem, 1.35vw, 1.1rem);
-  line-height: 1.8;
-  color: #9ca3af;
-  max-width: 680px;
+  margin: 1.35rem auto 0;
+  padding: 0 0.5rem;
+  font-size: clamp(1rem, 1.5vw, 1.125rem);
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.72);
+  max-width: min(36rem, 92vw);
   font-weight: 400;
-  letter-spacing: 0.005em;
+  letter-spacing: 0.01em;
+  text-wrap: balance;
 }
 
 /* Keyframes — hero copy */
@@ -154,7 +156,7 @@
 @media (min-width: 1600px) {
   .lin-copy { max-width: 1280px; }
   .lin-h1 { font-size: 5.2rem; }
-  .lin-sub { font-size: 1.12rem; max-width: 780px; }
+  .lin-sub { font-size: 1.125rem; max-width: 38rem; }
 }
 
 @media (max-width: 800px) {
@@ -165,6 +167,8 @@
   .lin-hero { overflow-x: hidden; }
   .lin-copy { padding: 4.5rem 1.5rem 3rem; }
   .lin-h1 { font-size: 2.5rem; }
+  .lin-sub { font-size: 1rem; padding: 0; margin-top: 1.15rem; }
+  .lin-waitlist-lead { margin-top: 1.35rem; padding: 0; }
 }
 
 @media (max-width: 400px) {
@@ -177,11 +181,15 @@
 }
 
 .lin-waitlist-lead {
-  max-width: 520px;
-  margin: 1.5rem auto 0;
-  font-size: 0.95rem;
-  line-height: 1.65;
-  color: rgba(255, 255, 255, 0.45);
+  max-width: min(28rem, 92vw);
+  margin: 1.75rem auto 0;
+  padding: 0 0.5rem;
+  font-size: clamp(0.9rem, 1.1vw, 0.98rem);
+  line-height: 1.55;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.01em;
+  text-wrap: balance;
 }
 
 /* Email + Join — single pill bar, centered */
