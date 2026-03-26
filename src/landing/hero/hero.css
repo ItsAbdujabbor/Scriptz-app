@@ -70,6 +70,9 @@
   padding: 5.5rem 4vw 4rem;
   margin: 0 auto;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   animation: linFadeUp 0.85s cubic-bezier(0.16,1,0.3,1) both;
 }
 
@@ -112,6 +115,9 @@
   line-height: 1.06;
   color: var(--lt1);
   margin: 0;
+  width: 100%;
+  text-align: center;
+  text-wrap: balance;
 }
 /* Vivid gradient on the accent line */
 .lin-h1-accent {
@@ -136,6 +142,7 @@
   font-weight: 400;
   letter-spacing: 0.01em;
   text-wrap: balance;
+  text-align: center;
 }
 
 /* Keyframes — hero copy */
@@ -173,6 +180,12 @@
       max(2.5rem, env(safe-area-inset-bottom, 0px))
       max(1rem, env(safe-area-inset-left, 0px));
     box-sizing: border-box;
+  }
+  #main-content.landing-waitlist-mode .lin-copy {
+    padding: calc(env(safe-area-inset-top, 0px) + 3.75rem)
+      max(1rem, env(safe-area-inset-right, 0px))
+      max(2.25rem, env(safe-area-inset-bottom, 0px))
+      max(1rem, env(safe-area-inset-left, 0px));
   }
   .lin-eyebrow {
     margin-bottom: 1.5rem;
@@ -246,6 +259,12 @@
     padding-left: max(1rem, env(safe-area-inset-left, 0px));
     padding-right: max(1rem, env(safe-area-inset-right, 0px));
   }
+  #main-content.landing-waitlist-mode .lin-copy {
+    padding: calc(env(safe-area-inset-top, 0px) + 3.5rem)
+      max(1rem, env(safe-area-inset-right, 0px))
+      max(2rem, env(safe-area-inset-bottom, 0px))
+      max(1rem, env(safe-area-inset-left, 0px));
+  }
   .lin-eyebrow {
     font-size: 0.625rem;
     letter-spacing: 0.06em;
@@ -274,9 +293,21 @@
   .lin-h1 { font-size: 1.75rem; }
 }
 
+/* Waitlist-only landing: vertically balance block in the viewport */
 #main-content.landing-waitlist-mode .lin-hero {
-  min-height: auto;
+  min-height: 100dvh;
+  min-height: 100svh;
+  justify-content: center;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
   padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+}
+
+#main-content.landing-waitlist-mode .lin-copy {
+  padding-top: 3.25rem;
+  padding-bottom: 2.5rem;
+  padding-left: 4vw;
+  padding-right: 4vw;
 }
 
 .lin-waitlist-lead {
@@ -289,14 +320,16 @@
   color: rgba(255, 255, 255, 0.55);
   letter-spacing: 0.01em;
   text-wrap: balance;
+  text-align: center;
+  width: 100%;
 }
 
-/* Email + Join — single pill bar, centered */
+/* Email + Join — card centered under headline */
 .lin-waitlist {
   width: 100%;
   max-width: 520px;
   margin: 1.5rem auto 0;
-  text-align: left;
+  text-align: center;
 }
 
 .lin-waitlist-form {
@@ -338,6 +371,7 @@
   font-family: var(--lfont);
   color: var(--lt1);
   outline: none;
+  text-align: left;
 }
 .lin-waitlist-input::placeholder {
   color: rgba(255, 255, 255, 0.32);
