@@ -1,41 +1,48 @@
 import { useCallback, useRef, useState } from 'react'
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-const BREVO_CONTACTS = 'https://api.brevo.com/v3/contacts'
-
-function brevoContactsUrl() {
-  // Dev: Vite proxy avoids browser CORS to api.brevo.com. Production: direct (may fail CORS; use a tiny proxy if needed).
-  return import.meta.env.DEV ? '/brevo-api/v3/contacts' : BREVO_CONTACTS
+/** Lenient check — full validation happens on the server (Pydantic / email-validator). */
+function isPlausibleEmail(s) {
+  const t = typeof s === 'string' ? s.trim() : ''
+  if (t.length < 3 || t.length > 254) return false
+  const at = t.indexOf('@')
+  if (at <= 0) return false
+  if (t.indexOf('@', at + 1) !== -1) return false
+  const local = t.slice(0, at)
+  const domain = t.slice(at + 1)
+  if (!local.length || !domain.length) return false
+  const d = domain.toLowerCase()
+  if (d.startsWith('.') || d.endsWith('.') || d.includes('..')) return false
+  return true
 }
 
-function parseBrevoListId(raw) {
-  if (raw == null || raw === '') return null
-  const n = Number.parseInt(String(raw), 10)
-  return Number.isFinite(n) && n > 0 ? n : null
+/** Lowercase domain only (RFC allows case-sensitive local part; Brevo accepts normalized input). */
+function normalizeEmailForSubmit(raw) {
+  const t = typeof raw === 'string' ? raw.trim() : ''
+  const at = t.lastIndexOf('@')
+  if (at <= 0) return t
+  return t.slice(0, at + 1) + t.slice(at + 1).toLowerCase()
+}
+
+function getApiBaseUrl() {
+  const env = import.meta.env
+  if (env.DEV) return ''
+  const explicit = env.VITE_API_BASE_URL
+  return explicit && String(explicit).trim() !== ''
+    ? String(explicit).trim()
+    : 'http://localhost:8000'
 }
 
 /**
- * Waitlist: validates email (lowercase), honeypot.
- * Subscribes via Brevo when `VITE_BREVO_API_KEY` + `VITE_BREVO_LIST_ID` are set (frontend-only).
- * Falls back to `VITE_WAITLIST_POST_URL` if Brevo is not configured.
- *
- * Note: shipping a full API key in the client exposes it in the bundle; prefer a server or
- * serverless proxy for production if the key must stay secret.
+ * Landing waitlist — POSTs to Scriptz API `/api/waitlist`, which adds the contact in Brevo.
+ * The API key stays on the server so Brevo authorised IPs can list only your server while anyone worldwide can sign up.
  */
 export function WaitlistForm({ id = 'waitlist', className = '' }) {
-  const brevoKey = (import.meta.env.VITE_BREVO_API_KEY || '').trim()
-  const brevoListId = parseBrevoListId(import.meta.env.VITE_BREVO_LIST_ID)
-  const hasBrevo = Boolean(brevoKey && brevoListId != null)
-
-  const postUrl = (import.meta.env.VITE_WAITLIST_POST_URL || '').trim()
-
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
   const [status, setStatus] = useState('idle')
   const hpRef = useRef(null)
 
-  const normalize = useCallback((v) => (typeof v === 'string' ? v.trim().toLowerCase() : ''), [])
+  const normalize = useCallback((v) => (typeof v === 'string' ? v.trim() : ''), [])
 
   const onSubmit = async (e) => {
     e.preventDefault()
@@ -45,77 +52,45 @@ export function WaitlistForm({ id = 'waitlist', className = '' }) {
       return
     }
 
-    const em = normalize(email)
+    const em = normalizeEmailForSubmit(email)
     if (!em) {
       setError('Please enter your email address.')
       return
     }
-    if (!EMAIL_RE.test(em)) {
+    if (!isPlausibleEmail(em)) {
       setError('Please enter a valid email address.')
-      return
-    }
-
-    if (!hasBrevo && !postUrl) {
-      setStatus('success')
       return
     }
 
     setStatus('loading')
     try {
-      if (hasBrevo) {
-        const res = await fetch(brevoContactsUrl(), {
-          method: 'POST',
-          headers: {
-            accept: 'application/json',
-            'content-type': 'application/json',
-            'api-key': brevoKey,
-          },
-          body: JSON.stringify({
-            email: em,
-            listIds: [brevoListId],
-            updateEnabled: true,
-          }),
-        })
-        const data = await res.json().catch(() => ({}))
-        if (!res.ok) {
-          const msg =
-            (typeof data?.message === 'string' && data.message) ||
-            `Could not join the list (${res.status}).`
-          setError(msg)
-          setStatus('idle')
-          return
-        }
-        setStatus('success')
-        return
-      }
-
-      const res = await fetch(postUrl, {
+      const base = getApiBaseUrl()
+      const res = await fetch(`${base}/api/waitlist`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ email: em }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         const msg =
-          data?.error?.message ||
-          data?.message ||
+          (data && data.error && data.error.message) ||
           (typeof data?.detail === 'string' ? data.detail : null) ||
-          'Could not submit. Try again later.'
+          `Could not join the list (${res.status}).`
         setError(msg)
         setStatus('idle')
         return
       }
       setStatus('success')
     } catch {
-      setError(
-        'Network error. If this persists, the form may be blocked by the browser (CORS). Try from the dev server or add a small proxy.',
-      )
+      setError('Network error. Check your connection and that the API is running.')
       setStatus('idle')
     }
   }
 
   const busy = status === 'loading' || status === 'success'
-  const submitted = hasBrevo || postUrl
 
   return (
     <div className={`lin-waitlist ${className}`.trim()} id={id}>
@@ -133,7 +108,7 @@ export function WaitlistForm({ id = 'waitlist', className = '' }) {
         </div>
         <div className="lin-waitlist-combo">
           <input
-            type="email"
+            type="text"
             name="email"
             className="lin-waitlist-input"
             placeholder="you@example.com"
@@ -158,9 +133,7 @@ export function WaitlistForm({ id = 'waitlist', className = '' }) {
         ) : null}
         {status === 'success' ? (
           <p className="lin-waitlist-msg lin-waitlist-msg--ok" role="status">
-            {submitted
-              ? 'You’re on the list. We’ll email you when invites open.'
-              : 'Thanks — we’ll be in touch when Scriptz opens.'}
+            You’re on the list. We’ll email you when invites open.
           </p>
         ) : null}
         <p id="lin-waitlist-fineprint" className="lin-waitlist-fineprint">
