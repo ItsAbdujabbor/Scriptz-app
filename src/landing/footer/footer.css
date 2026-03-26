@@ -89,6 +89,13 @@
   transform: translateX(3px);
 }
 
+.ftr-link-soon {
+  font-size: .855rem;
+  color: var(--ftr-t3);
+  opacity: 0.75;
+  display: inline-block;
+}
+
 /* ── Bottom bar ── */
 .ftr-bottom {
   display: flex;

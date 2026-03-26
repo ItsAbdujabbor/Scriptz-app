@@ -195,99 +195,22 @@ export function LandingPage() {
       el.classList.add('fcta-visible')
     })
 
-    // Header nav active state: highlight link for section in view
-    const SECTION_NAV = {
-      solution: 'nav-features',
-      results: 'nav-how',
-      pricing: 'nav-pricing',
-      'social-proof': 'nav-reviews',
-      faq: 'nav-faq',
-    }
-    const sectionIds = Object.keys(SECTION_NAV)
-    const sectionEls = sectionIds
-      .map((id) => document.getElementById(id))
-      .filter(Boolean)
-
-    function clearHeaderActive() {
-      headerEl?.querySelectorAll('.header-nav-link, .header-mobile-link').forEach((l) => {
-        l.classList.remove('active')
-      })
-    }
-    function setHeaderActive(sectionId) {
-      clearHeaderActive()
-      const navId = SECTION_NAV[sectionId]
-      if (!navId) return
-      const desktopLink = document.getElementById(navId)
-      if (desktopLink) desktopLink.classList.add('active')
-      const mobileMenu = document.getElementById('header-mobile')
-      const mobileLink = mobileMenu?.querySelector(`[data-section="${sectionId}"]`)
-      if (mobileLink) mobileLink.classList.add('active')
-    }
-
-    let navObserver = null
-    if (sectionEls.length && typeof IntersectionObserver !== 'undefined') {
-      navObserver = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) setHeaderActive(entry.target.id)
-          })
-        },
-        { rootMargin: '-12% 0px -58% 0px', threshold: 0 },
-      )
-      sectionEls.forEach((el) => navObserver.observe(el))
-    }
-
-    function handleNavClick(e) {
+    function handleLogoClick(e) {
       const href = e.currentTarget.getAttribute('href')
-      if (!href || href.charAt(0) !== '#' || href === '#login' || href === '#register') return
-      const targetId = href.slice(1)
-      const target = document.getElementById(targetId)
+      if (!href || href !== '#home') return
+      const target = document.getElementById('home')
       if (!target) return
       e.preventDefault()
       const headerHeight = headerEl?.getBoundingClientRect().height ?? 64
       const top = target.getBoundingClientRect().top + window.scrollY - headerHeight - 16
       window.scrollTo({ top, behavior: 'smooth' })
-      const mobileMenuEl = document.getElementById('header-mobile')
-      const burgerEl = document.getElementById('header-burger')
-      if (burgerEl?.classList.contains('open') && mobileMenuEl) {
-        burgerEl.classList.remove('open')
-        mobileMenuEl.classList.remove('open')
-        mobileMenuEl.setAttribute('aria-hidden', 'true')
-        document.body.style.overflow = ''
-      }
     }
 
-    const navLinks = headerEl?.querySelectorAll('.header-nav-link, .header-mobile-link') ?? []
-    navLinks.forEach((link) => link.addEventListener('click', handleNavClick))
-
-    // Hamburger toggle (header HTML has no script)
-    const burger = document.getElementById('header-burger')
-    const mobileMenu = document.getElementById('header-mobile')
-    function closeMobile() {
-      burger?.classList.remove('open')
-      mobileMenu?.classList.remove('open')
-      mobileMenu?.setAttribute('aria-hidden', 'true')
-      document.body.style.overflow = ''
-    }
-    function handleBurgerClick() {
-      const open = burger?.classList.contains('open')
-      if (open) closeMobile()
-      else {
-        burger?.classList.add('open')
-        mobileMenu?.classList.add('open')
-        mobileMenu?.setAttribute('aria-hidden', 'false')
-        document.body.style.overflow = 'hidden'
-      }
-    }
-    burger?.addEventListener('click', handleBurgerClick)
-    const handleEscape = (e) => { if (e.key === 'Escape') closeMobile() }
-    document.addEventListener('keydown', handleEscape)
+    const logoLink = headerEl?.querySelector('.header-logo')
+    logoLink?.addEventListener('click', handleLogoClick)
 
     return () => {
-      if (navObserver) navObserver.disconnect()
-      navLinks.forEach((link) => link.removeEventListener('click', handleNavClick))
-      burger?.removeEventListener('click', handleBurgerClick)
-      document.removeEventListener('keydown', handleEscape)
+      logoLink?.removeEventListener('click', handleLogoClick)
       window.removeEventListener('scroll', updateHeaderScroll)
       openDemoButtons.forEach((btn) => btn.removeEventListener('click', openDemo))
       closeDemoButtons.forEach((btn) => btn.removeEventListener('click', closeDemo))
@@ -295,25 +218,31 @@ export function LandingPage() {
   }, [])
 
   return (
-    <>
+    <div className="landing-waitlist-root">
       <div id="landing-header">
         <Header />
       </div>
-      <div id="landing-demo-modal">
+      <div id="landing-demo-modal" className="landing-waitlist-hide-demo">
         <DemoModal />
       </div>
-      <main id="main-content">
+      <main id="main-content" className="landing-waitlist-mode">
         <Hero />
-        <AnotherTen />
-        <Solution />
-        <Results />
-        <SocialProof />
-        <Pricing />
-        <Faq />
+        {/* Full marketing sections kept in DOM but hidden for waitlist launch */}
+        <div
+          className="landing-waitlist-hidden"
+          aria-hidden="true"
+        >
+          <AnotherTen />
+          <Solution />
+          <Results />
+          <SocialProof />
+          <Pricing />
+          <Faq />
+        </div>
         <FinalCta />
         <Footer />
       </main>
-    </>
+    </div>
   )
 }
 

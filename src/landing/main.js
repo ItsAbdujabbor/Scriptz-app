@@ -22,7 +22,6 @@
 
   var SCRIPTS = [
     'header/header.js',
-    'hero/hero.js',
     'demo-modal/demo-modal.js',
     // ── Section scripts (add new ones here) ──
     'sections/another-10/another-10.js',

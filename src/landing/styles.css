@@ -875,3 +875,18 @@ body.theme-light .header {
   .form-row-3 { grid-template-columns: 1fr; }
   .form-row.form-row-checkbox { grid-template-columns: 1fr; }
 }
+
+/* ===== Waitlist landing: hide full marketing sections + demo modal (DOM kept) ===== */
+.landing-waitlist-hidden {
+  display: none !important;
+}
+
+.landing-waitlist-hide-demo {
+  display: none !important;
+}
+
+.landing-waitlist-root .ftr-link-soon {
+  color: var(--text-muted);
+  cursor: default;
+  pointer-events: none;
+}

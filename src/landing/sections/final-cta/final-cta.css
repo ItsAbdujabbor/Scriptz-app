@@ -159,6 +159,19 @@
 
 .fcta-btn:hover svg { transform: translateX(3px); }
 
+.fcta-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.fcta-btn-primary {
+  cursor: pointer;
+}
+
 .fcta-note {
   font-size: .75rem;
   color: rgba(99,102,241,.4);
