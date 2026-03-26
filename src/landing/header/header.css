@@ -59,8 +59,14 @@
 }
 
 @media (max-width: 768px) {
+  .header {
+    /* Clear the notch / status bar; logo row stays one compact band below it */
+    padding-top: env(safe-area-inset-top, 0);
+  }
   .header .header-inner {
-    padding: 0 1.25rem;
-    height: 60px;
+    height: 56px;
+    min-height: 56px;
+    padding: 0 max(1rem, env(safe-area-inset-right, 0)) 0 max(1rem, env(safe-area-inset-left, 0));
+    box-sizing: border-box;
   }
 }
