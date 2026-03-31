@@ -1,12 +1,8 @@
-const getBaseUrl = () => {
-  const env = typeof import.meta !== 'undefined' && import.meta.env
-  if (env?.DEV) return ''
-  const explicit = env?.VITE_API_BASE_URL
-  return (explicit && String(explicit).trim() !== '') ? String(explicit).trim() : 'http://localhost:8000'
-}
+/** AI Coach chat API. */
+import { getApiBaseUrl } from '../lib/env.js'
 
 function request(method, path, accessToken, body = null, headers = {}) {
-  const url = getBaseUrl() + path
+  const url = getApiBaseUrl() + path
   const h = { 'Content-Type': 'application/json', ...headers }
   if (accessToken) h.Authorization = `Bearer ${accessToken}`
 
@@ -54,7 +50,7 @@ export const coachApi = {
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`
     if (channelId) headers['X-Channel-Id'] = channelId
 
-    const response = await fetch(getBaseUrl() + '/api/coach/chat/stream', {
+    const response = await fetch(getApiBaseUrl() + '/api/coach/chat/stream', {
       method: 'POST',
       headers,
       body: JSON.stringify(payload),
@@ -119,7 +115,7 @@ export const coachApi = {
     if (trailing) emit(trailing)
   },
   async transcribeAudio(accessToken, audioBlob, mimeType = 'audio/webm', { signal = null } = {}) {
-    const url = getBaseUrl() + '/api/coach/transcribe'
+    const url = getApiBaseUrl() + '/api/coach/transcribe'
     const headers = {}
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`
 

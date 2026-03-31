@@ -92,6 +92,8 @@ export function SettingsModal({
   setIncludePersonalStories,
   setUseFirstPerson,
   onLogout,
+  /** When true, password is not required to delete (e.g. Google / Supabase session). */
+  accountDeletePasswordOptional = false,
 }) {
   const [activeSection, setActiveSection] = useState(initialSection)
 
@@ -229,7 +231,7 @@ export function SettingsModal({
   const handleDeleteAccount = async (e) => {
     e.preventDefault()
     setDeleteAccountError('')
-    if (!deleteAccountDialogPassword?.trim()) {
+    if (!accountDeletePasswordOptional && !deleteAccountDialogPassword?.trim()) {
       setDeleteAccountError('Please enter your password to confirm.')
       return
     }
@@ -237,7 +239,8 @@ export function SettingsModal({
       setDeleteAccountError('Please confirm that you understand this action cannot be undone.')
       return
     }
-    const result = deleteAccount ? await deleteAccount(deleteAccountDialogPassword.trim()) : { ok: false }
+    const pwd = deleteAccountDialogPassword?.trim() || ''
+    const result = deleteAccount ? await deleteAccount(pwd) : { ok: false }
     if (result?.ok) {
       setDeleteAccountDialogOpen(false)
       setDeleteAccountDialogConfirm(false)
@@ -520,8 +523,12 @@ export function SettingsModal({
                     <p className="settings-confirm-dialog-desc">This will permanently delete your account and all associated data. This action cannot be undone.</p>
                     {deleteAccountError && <p className="settings-message settings-message--error">{deleteAccountError}</p>}
                     <form onSubmit={handleDeleteAccount} className="settings-form">
-                      <label>Enter your password to confirm</label>
-                      <input type="password" value={deleteAccountDialogPassword} onChange={(e) => setDeleteAccountDialogPassword(e.target.value)} placeholder="Your password" disabled={authLoading} autoComplete="current-password" className="settings-confirm-password-input" />
+                      <label>
+                        {accountDeletePasswordOptional
+                          ? 'Password (optional if you sign in with Google)'
+                          : 'Enter your password to confirm'}
+                      </label>
+                      <input type="password" value={deleteAccountDialogPassword} onChange={(e) => setDeleteAccountDialogPassword(e.target.value)} placeholder={accountDeletePasswordOptional ? 'Leave blank if you use Google' : 'Your password'} disabled={authLoading} autoComplete="current-password" className="settings-confirm-password-input" />
                       <label className="settings-confirm-checkbox">
                         <input type="checkbox" checked={deleteAccountDialogConfirm} onChange={(e) => setDeleteAccountDialogConfirm(e.target.checked)} disabled={authLoading} />
                         <span className="settings-confirm-checkbox-box" aria-hidden />
@@ -529,7 +536,7 @@ export function SettingsModal({
                       </label>
                       <div className="settings-confirm-dialog-actions">
                         <button type="button" className="settings-btn settings-btn-ghost" onClick={() => setDeleteAccountDialogOpen(false)}>Cancel</button>
-                        <button type="submit" className="settings-btn settings-btn-danger" disabled={authLoading || !deleteAccountDialogPassword?.trim() || !deleteAccountDialogConfirm}>Delete account</button>
+                        <button type="submit" className="settings-btn settings-btn-danger" disabled={authLoading || (!accountDeletePasswordOptional && !deleteAccountDialogPassword?.trim()) || !deleteAccountDialogConfirm}>Delete account</button>
                       </div>
                     </form>
                   </div>

@@ -1,8 +1,30 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { thumbnailsApi } from '../../api/thumbnails'
+import {
+  chatThreadQueryOptions,
+  mergeThumbnailConversationsListCache,
+  refreshThumbnailConversationCache,
+  removeThumbnailConversationFromListCaches,
+} from '../../lib/query/chatCacheUtils'
 import { getAccessTokenOrNull } from '../../lib/query/authToken'
 import { queryKeys } from '../../lib/query/queryKeys'
 import { queryFreshness } from '../../lib/query/queryConfig'
+
+/** Warm React Query after a chat turn so the thread is ready when the URL gains ?id= */
+export async function prefetchThumbnailConversationCache(queryClient, conversationId) {
+  if (conversationId == null) return
+  const token = await getAccessTokenOrNull()
+  if (!token) return
+  try {
+    await queryClient.prefetchQuery({
+      queryKey: queryKeys.thumbnails.conversation(conversationId),
+      queryFn: () => thumbnailsApi.getConversation(token, conversationId),
+      ...chatThreadQueryOptions,
+    })
+  } catch {
+    /* Active screen will refetch; avoid wiping cache */
+  }
+}
 
 export function useThumbnailConversationsQuery(params = {}) {
   return useQuery({
@@ -12,8 +34,9 @@ export function useThumbnailConversationsQuery(params = {}) {
       if (!token) return { items: [], total: 0, has_more: false, limit: params.limit ?? 50, offset: params.offset ?? 0 }
       return thumbnailsApi.listConversations(token, params)
     },
-    staleTime: queryFreshness.short,
-    gcTime: queryFreshness.long,
+    staleTime: queryFreshness.long,
+    gcTime: queryFreshness.chatThreadGc,
+    placeholderData: (prev) => prev,
   })
 }
 
@@ -26,8 +49,9 @@ export function useThumbnailConversationQuery(conversationId) {
       if (!token) throw new Error('Not authenticated')
       return thumbnailsApi.getConversation(token, conversationId)
     },
-    staleTime: queryFreshness.short,
-    gcTime: queryFreshness.long,
+    staleTime: queryFreshness.chatThread,
+    gcTime: queryFreshness.chatThreadGc,
+    placeholderData: (prev) => prev,
   })
 }
 
@@ -41,10 +65,9 @@ export function useThumbnailChatMutation(onConversationCreated) {
       return thumbnailsApi.chat(token, payload)
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['thumbnails', 'conversations'] })
       if (data?.conversation_id != null) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.thumbnails.conversation(data.conversation_id) })
         onConversationCreated?.(data.conversation_id)
+        void refreshThumbnailConversationCache(queryClient, data.conversation_id)
       }
     },
   })
@@ -60,9 +83,12 @@ export function useUpdateThumbnailConversationMutation() {
       return thumbnailsApi.updateConversation(token, conversationId, payload)
     },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['thumbnails', 'conversations'] })
-      if (variables?.conversationId != null) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.thumbnails.conversation(variables.conversationId) })
+      const id = variables?.conversationId
+      if (id != null && data) {
+        queryClient.setQueryData(queryKeys.thumbnails.conversation(id), (old) =>
+          old && typeof old === 'object' ? { ...old, ...data } : old
+        )
+        mergeThumbnailConversationsListCache(queryClient, id, data)
       }
       return data
     },
@@ -80,8 +106,8 @@ export function useDeleteThumbnailConversationMutation() {
       return conversationId
     },
     onSuccess: (conversationId) => {
-      queryClient.invalidateQueries({ queryKey: ['thumbnails', 'conversations'] })
       if (conversationId != null) {
+        removeThumbnailConversationFromListCaches(queryClient, conversationId)
         queryClient.removeQueries({ queryKey: queryKeys.thumbnails.conversation(conversationId) })
       }
     },

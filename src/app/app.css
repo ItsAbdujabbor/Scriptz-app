@@ -5,8 +5,8 @@
 
 .app-screen {
   --app-bg: #060607;
-  --app-surface: #08080a;
-  --app-surface-2: #0c0c0e;
+  --app-surface: #1a1a1a;
+  --app-surface-2: #1f1f1f;
   --app-border: rgba(255, 255, 255, 0.065);
   --app-border-2: rgba(255, 255, 255, 0.12);
   --app-text: #e5e5e7;
@@ -21,8 +21,8 @@
 
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--app-bg);
-  font-family: var(--font, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  background: transparent;
+  font-family: var(--font, 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
   -webkit-font-smoothing: antialiased;
   color: var(--app-text);
   position: relative;

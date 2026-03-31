@@ -15,12 +15,12 @@
   height: 100dvh;
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--auth-bg);
+  background: transparent;
   display: flex;
   flex-direction: row;
   position: relative;
   overflow: hidden;
-  font-family: var(--font, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  font-family: var(--font, 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -531,6 +531,62 @@
   transform: rotate(45deg) translateY(-1px);
 }
 
+.auth-btn-google {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: #fff;
+  color: #1f2937;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-weight: 600;
+}
+.auth-btn-google:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+.auth-btn-google:disabled {
+  opacity: 0.6;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--auth-border);
+}
+.auth-divider span {
+  flex-shrink: 0;
+}
+
+.auth-btn-secondary {
+  background: transparent;
+  color: #e5e7eb;
+  border: 1px solid var(--auth-border);
+}
+.auth-btn-secondary:hover:not(:disabled) {
+  border-color: rgba(167, 139, 250, 0.45);
+  color: #fff;
+}
+.auth-btn-compact {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.85rem;
+  width: auto;
+  align-self: flex-start;
+}
+
 .auth-success-msg {
   font-size: 0.9rem;
   color: #4ade80;
@@ -539,6 +595,27 @@
   border: 1px solid rgba(34, 197, 94, 0.25);
   border-radius: 10px;
   margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+.auth-success-msg-text {
+  margin: 0;
+}
+
+.auth-inline-action {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(167, 139, 250, 0.25);
+  background: rgba(139, 92, 246, 0.08);
+}
+.auth-inline-action-text {
+  margin: 0 0 0.65rem;
+  font-size: 0.85rem;
+  color: #d1d5db;
+  line-height: 1.45;
 }
 
 .auth-error-msg {

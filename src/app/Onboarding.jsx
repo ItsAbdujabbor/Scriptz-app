@@ -27,6 +27,7 @@ export function Onboarding({ onComplete }) {
   const [step, setStep] = useState(0)
   const [customNiche, setCustomNiche] = useState('')
   const [youtubeConnecting, setYoutubeConnecting] = useState(false)
+  const [youtubeConnectError, setYoutubeConnectError] = useState(null)
   const saveUserPreferencesMutation = useSaveUserPreferencesMutation()
   const updateUserProfileMutation = useUpdateUserProfileMutation()
 
@@ -77,30 +78,34 @@ export function Onboarding({ onComplete }) {
     completeOnboarding()
     const token = await useAuthStore.getState().getValidAccessToken()
     if (token) {
-      const state = useOnboardingStore.getState()
-      await Promise.all([
-        saveUserPreferencesMutation.mutateAsync({
-          preferredLanguage: state.preferredLanguage,
-          niche: state.niche,
-          videoFormat: state.videoFormat,
-          uploadFrequency: state.uploadFrequency,
-          youtube: state.youtube,
-        }),
-        updateUserProfileMutation.mutateAsync({
-          niche: state.niche,
-          video_format: state.videoFormat,
-          upload_frequency: state.uploadFrequency,
-          preferred_tone: state.preferredTone || null,
-          speaking_style: state.speakingStyle || null,
-          preferred_cta_style: state.preferredCtaStyle || null,
-          include_personal_stories: state.includePersonalStories,
-          use_first_person: state.useFirstPerson,
-        }),
-      ])
+      try {
+        const state = useOnboardingStore.getState()
+        await Promise.all([
+          saveUserPreferencesMutation.mutateAsync({
+            preferredLanguage: state.preferredLanguage,
+            niche: state.niche,
+            videoFormat: state.videoFormat,
+            uploadFrequency: state.uploadFrequency,
+            youtube: state.youtube,
+          }),
+          updateUserProfileMutation.mutateAsync({
+            niche: state.niche,
+            video_format: state.videoFormat,
+            upload_frequency: state.uploadFrequency,
+            preferred_tone: state.preferredTone || null,
+            speaking_style: state.speakingStyle || null,
+            preferred_cta_style: state.preferredCtaStyle || null,
+            include_personal_stories: state.includePersonalStories,
+            use_first_person: state.useFirstPerson,
+          }),
+        ])
 
-      const cid = state.youtube?.channelId ?? state.youtube?.channel_id
-      if (cid) {
-        await state.syncChannelToBackend?.(token, cid, {})
+        const cid = state.youtube?.channelId ?? state.youtube?.channel_id
+        if (cid) {
+          await state.syncChannelToBackend?.(token, cid, {})
+        }
+      } catch (_) {
+        // Save can fail (401, network). Onboarding is still marked complete locally; proceed to app.
       }
     }
     onComplete?.()
@@ -259,15 +264,24 @@ export function Onboarding({ onComplete }) {
                     type="button"
                     className="onboarding-btn onboarding-connect-youtube-btn"
                     onClick={async () => {
+                      setYoutubeConnectError(null)
                       setYoutubeConnecting(true)
                       try {
                         const token = await useAuthStore.getState().getValidAccessToken()
-                        if (token) {
-                          const url = await youtubeApi.getAuthorizationUrl(token)
-                          window.location.href = url
+                        if (!token) {
+                          setYoutubeConnectError('Not signed in. Please refresh and try again.')
+                          setYoutubeConnecting(false)
                           return
                         }
-                      } catch (_) {}
+                        const url = await youtubeApi.getAuthorizationUrl(token)
+                        window.location.href = url
+                        return
+                      } catch (e) {
+                        const msg =
+                          e?.message ||
+                          (typeof e === 'string' ? e : 'Could not start YouTube connection.')
+                        setYoutubeConnectError(msg)
+                      }
                       setYoutubeConnecting(false)
                     }}
                     disabled={youtubeConnecting}
@@ -281,6 +295,11 @@ export function Onboarding({ onComplete }) {
                       </>
                     )}
                   </button>
+                  {youtubeConnectError ? (
+                    <p className="onboarding-youtube-error" role="alert">
+                      {youtubeConnectError}
+                    </p>
+                  ) : null}
                 </div>
                 <button type="button" className="onboarding-youtube-skip" onClick={goNext}>
                   <IconSkipForward />

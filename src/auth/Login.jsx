@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '../stores/authStore'
+import { isLocalApiAuthMode } from '../lib/authMode'
 import './auth.css'
 
 const MailIcon = () => (
@@ -65,7 +66,16 @@ export function Login({ onBack, onGoToSignup, onGoToForgotPassword, onSuccess })
   const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState({ email: '', password: '' })
 
-  const { login, isLoading: loading, error: storeError, clearError } = useAuthStore()
+  const {
+    login,
+    signInWithGoogle,
+    resendSignupEmail,
+    isLoading: loading,
+    error: storeError,
+    clearError,
+  } = useAuthStore()
+  const [showResendConfirmation, setShowResendConfirmation] = useState(false)
+  const [resendBusy, setResendBusy] = useState(false)
 
   useEffect(() => {
     clearError()
@@ -87,10 +97,28 @@ export function Login({ onBack, onGoToSignup, onGoToForgotPassword, onSuccess })
     e.preventDefault()
     if (!validate()) return
     clearError()
+    setShowResendConfirmation(false)
     const result = await login(email.trim(), password)
     if (result?.ok) {
       onSuccess?.()
+    } else if (result?.needsEmailConfirmation) {
+      setShowResendConfirmation(true)
     }
+  }
+
+  const handleGoogle = async () => {
+    clearError()
+    setShowResendConfirmation(false)
+    await signInWithGoogle()
+  }
+
+  const handleResendConfirmation = async () => {
+    const em = email.trim()
+    if (!em) return
+    setResendBusy(true)
+    clearError()
+    await resendSignupEmail(em)
+    setResendBusy(false)
   }
 
   return (
@@ -134,6 +162,33 @@ export function Login({ onBack, onGoToSignup, onGoToForgotPassword, onSuccess })
             <p className="auth-subtitle">Log in to your Scriptz AI account to continue.</p>
 
             {submitError && <p className="auth-error-msg" role="alert">{submitError}</p>}
+            {showResendConfirmation && !isLocalApiAuthMode() && (
+              <div className="auth-inline-action" role="status">
+                <p className="auth-inline-action-text">We sent a confirmation link to this address. You can resend it if you didn&apos;t receive it.</p>
+                <button
+                  type="button"
+                  className="auth-btn auth-btn-secondary auth-btn-compact"
+                  onClick={handleResendConfirmation}
+                  disabled={resendBusy || loading}
+                >
+                  {resendBusy ? 'Sending…' : 'Resend confirmation email'}
+                </button>
+              </div>
+            )}
+
+            {!isLocalApiAuthMode() && (
+              <>
+                <button
+                  type="button"
+                  className="auth-btn auth-btn-google"
+                  onClick={handleGoogle}
+                  disabled={loading}
+                >
+                  Continue with Google
+                </button>
+                <p className="auth-divider"><span>or email</span></p>
+              </>
+            )}
 
             <form className="auth-form" onSubmit={handleSubmit} noValidate>
               <div className="form-group">

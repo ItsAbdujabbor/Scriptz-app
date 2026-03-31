@@ -1,6 +1,27 @@
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '../stores/authStore'
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
+import { isLocalApiAuthMode } from '../lib/authMode'
 import './auth.css'
+
+function parseResetTokenFromHash() {
+  if (typeof window === 'undefined') return ''
+  const hash = window.location.hash || ''
+  const qIndex = hash.indexOf('?')
+  if (qIndex === -1) return ''
+  const qs = new URLSearchParams(hash.slice(qIndex + 1))
+  return (qs.get('token') || '').trim()
+}
+
+async function getSessionAfterRecoveryParse() {
+  if (!supabase) return null
+  await supabase.auth.getSession()
+  let { data: { session } } = await supabase.auth.getSession()
+  if (session) return session
+  await new Promise((r) => setTimeout(r, 450))
+  ;({ data: { session } } = await supabase.auth.getSession())
+  return session
+}
 
 const LockIcon = () => (
   <svg viewBox="0 0 20 20" fill="none" width="16" height="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -45,16 +66,6 @@ const BRAND_FEATURES = [
   'YouTube analytics & growth insights',
 ]
 
-function getTokenFromUrl() {
-  if (typeof window === 'undefined') return null
-  const params = new URLSearchParams(window.location.search)
-  const token = params.get('token')
-  if (token) return token
-  const hash = (window.location.hash || '').replace(/^#/, '')
-  const hashParams = new URLSearchParams(hash.split('?')[1] || '')
-  return hashParams.get('token')
-}
-
 export function ResetPassword({ onBack, onSuccess }) {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -62,13 +73,48 @@ export function ResetPassword({ onBack, onSuccess }) {
   const [showConfirm, setShowConfirm] = useState(false)
   const [success, setSuccess] = useState(false)
   const [errors, setErrors] = useState({ password: '', confirm: '' })
+  const [checking, setChecking] = useState(() => !isLocalApiAuthMode())
+  const [hasSession, setHasSession] = useState(false)
+  const [localResetToken, setLocalResetToken] = useState('')
 
-  const token = getTokenFromUrl()
-  const { resetPassword, isLoading: loading, error: storeError, clearError } = useAuthStore()
+  const resetPassword = useAuthStore((s) => s.resetPassword)
+  const loading = useAuthStore((s) => s.isLoading)
+  const storeError = useAuthStore((s) => s.error)
+  const clearError = useAuthStore((s) => s.clearError)
+  const ensureSession = useAuthStore((s) => s.ensureSession)
 
   useEffect(() => {
     clearError()
   }, [clearError])
+
+  useEffect(() => {
+    if (isLocalApiAuthMode()) {
+      const t = parseResetTokenFromHash()
+      setLocalResetToken(t)
+      setHasSession(Boolean(t))
+      setChecking(false)
+      return () => {}
+    }
+    let cancelled = false
+    if (!isSupabaseConfigured() || !supabase) {
+      setChecking(false)
+      setHasSession(false)
+      return () => {}
+    }
+
+    async function check() {
+      await ensureSession()
+      const session = await getSessionAfterRecoveryParse()
+      if (!cancelled) {
+        setHasSession(!!session)
+        setChecking(false)
+      }
+    }
+    check()
+    return () => {
+      cancelled = true
+    }
+  }, [ensureSession])
 
   const validate = () => {
     const next = { password: '', confirm: '' }
@@ -81,17 +127,13 @@ export function ResetPassword({ onBack, onSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!token) {
-      setErrors({ password: '', confirm: 'Invalid or missing reset link. Please request a new one.' })
-      return
-    }
     if (!validate()) return
     clearError()
-    const result = await resetPassword(token, password)
+    const result = await resetPassword(isLocalApiAuthMode() ? localResetToken : null, password)
     if (result?.ok) setSuccess(true)
   }
 
-  if (!token && !success) {
+  if (!isLocalApiAuthMode() && !isSupabaseConfigured()) {
     return (
       <div className="auth-screen">
         <div className="auth-aura" aria-hidden="true" />
@@ -99,8 +141,40 @@ export function ResetPassword({ onBack, onSuccess }) {
           <div className="auth-wrap">
             <a href="#" className="auth-back" onClick={(e) => { e.preventDefault(); onBack?.() }}>Back</a>
             <div className="auth-card">
-              <h1 className="auth-title">Invalid reset link</h1>
-              <p className="auth-subtitle">This link is missing or expired. Please request a new password reset from the login page.</p>
+              <h1 className="auth-title">Supabase not configured</h1>
+              <p className="auth-subtitle">Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to reset your password.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (checking) {
+    return (
+      <div className="auth-screen">
+        <div className="auth-aura" aria-hidden="true" />
+        <div className="auth-panel-form">
+          <div className="auth-wrap">
+            <div className="auth-card" style={{ textAlign: 'center', padding: '2rem' }}>
+              <p className="auth-subtitle" style={{ margin: 0 }}>Verifying reset link…</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!hasSession && !success) {
+    return (
+      <div className="auth-screen">
+        <div className="auth-aura" aria-hidden="true" />
+        <div className="auth-panel-form">
+          <div className="auth-wrap">
+            <a href="#" className="auth-back" onClick={(e) => { e.preventDefault(); onBack?.() }}>Back</a>
+            <div className="auth-card">
+              <h1 className="auth-title">Invalid or expired link</h1>
+              <p className="auth-subtitle">Open the link from your latest password reset email, or request a new one from the login page.</p>
               <a href="#login" className="auth-link auth-link-bold" onClick={(e) => { e.preventDefault(); onBack?.() }}>Go to login →</a>
             </div>
           </div>

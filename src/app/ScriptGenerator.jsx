@@ -2,10 +2,97 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { scriptsApi } from '../api/scripts'
-import { useScriptConversationQuery } from '../queries/scripts/scriptQueries'
-import { queryKeys } from '../lib/query/queryKeys'
+import {
+  useScriptConversationQuery,
+  useScriptWritingSuggestionsQuery,
+} from '../queries/scripts/scriptQueries'
+import { refreshScriptConversationCache } from '../lib/query/chatCacheUtils'
 import { stripHashQueryParams } from '../lib/dashboardActionPayload'
+import { ChatHistoryLoading } from '../components/ChatHistoryLoading'
 import './ScriptGenerator.css'
+
+function packClarificationFromResponse(res) {
+  if (!res?.clarification) return undefined
+  return {
+    clarification: {
+      questions: res.clarification.questions ?? [],
+      quick_replies: res.clarification.quick_replies ?? [],
+    },
+  }
+}
+
+/** Mirrors API intent: full step loader only when we expect real script generation. */
+const SCRIPT_INTENT_KEYWORDS = [
+  'generate',
+  'create',
+  'make',
+  'write',
+  'script',
+  'video about',
+  'video on',
+  'content about',
+  'content on',
+  'i need',
+  'i want',
+  'can you',
+  'please',
+]
+
+function looksLikeScriptUiPayload(text) {
+  return /\bTone:\s*\S+/i.test(text) || /\bAudience:\s*\S+/i.test(text)
+}
+
+function stripScriptUiSuffixes(text) {
+  let s = String(text || '').trim()
+  s = s.replace(/\s*\.?\s*Tone:\s*[^.]+\s*\.\s*Audience:\s*.+$/i, '')
+  s = s.replace(/\s*\.?\s*Audience:\s*.+$/i, '')
+  s = s.replace(/\s*\.?\s*Tone:\s*[^.]+$/i, '')
+  return s.replace(/\s+/g, ' ').replace(/\s*\.\s*/g, ' ').trim().replace(/^\.|\.$/g, '').trim()
+}
+
+function clientTopicNeedsClarification(bare) {
+  if (!bare || bare.length < 4) return true
+  const words = bare.toLowerCase().match(/[a-z]{2,}/g) || []
+  if (words.length < 1) return true
+  const vowels = new Set('aeiouy')
+  const isGarbage = (w) => ![...w].some((c) => vowels.has(c))
+  const garbageCount = words.filter(isGarbage).length
+  if (garbageCount >= Math.max(1, Math.ceil(words.length / 2))) return true
+  if (words.length === 1 && words[0].length >= 10 && isGarbage(words[0])) return true
+  return false
+}
+
+function hasScriptIntentKeyword(text) {
+  const lower = String(text || '').toLowerCase()
+  return SCRIPT_INTENT_KEYWORDS.some((k) => lower.includes(k))
+}
+
+/** Quick-reply lines always request generation; composer uses same heuristics as the API. */
+function expectsFullScriptGeneration(message, isQuickReply) {
+  if (isQuickReply) return true
+  const text = String(message || '')
+  const ui = looksLikeScriptUiPayload(text)
+  const kw = hasScriptIntentKeyword(text)
+  if (!kw && !ui) return false
+  const bare = stripScriptUiSuffixes(text)
+  if (!bare) return false
+  if (clientTopicNeedsClarification(bare)) return false
+  return true
+}
+
+/** Consecutive assistant clarification turns without a delivered script; resets after `has_script`. */
+function clarificationStreakFromMessages(messageList) {
+  let streak = 0
+  for (const msg of messageList || []) {
+    if (msg.role !== 'assistant') continue
+    if (msg.has_script) {
+      streak = 0
+      continue
+    }
+    if (msg.extra?.clarification) streak += 1
+  }
+  return streak
+}
 
 function IconCopy() {
   return (
@@ -267,6 +354,8 @@ export function ScriptGenerator({ channelId, youtube, conversationId: conversati
   const [sendError, setSendError] = useState('')
   const [pendingUserMessage, setPendingUserMessage] = useState(null)
   const [pendingAssistant, setPendingAssistant] = useState(false)
+  /** 'full' = multi-step generation UI; 'minimal' = fast clarify / short reply (no fake hour-long steps). */
+  const [pendingLoadMode, setPendingLoadMode] = useState(null)
   const [loadingStepIndex, setLoadingStepIndex] = useState(0)
   const stepIntervalRef = useRef(null)
   const threadRef = useRef(null)
@@ -274,8 +363,17 @@ export function ScriptGenerator({ channelId, youtube, conversationId: conversati
   const textareaRef = useRef(null)
 
   const messages = conversationIdProp != null ? loadedMessages : localMessages
-  const isLoadingConversation = conversationIdProp != null && conversationQuery.isPending
-  const isEmptyScreen = !isLoadingConversation && messages.length === 0 && !pendingUserMessage && !pendingAssistant
+  const clarificationStreak = useMemo(() => clarificationStreakFromMessages(messages), [messages])
+  const inputBlocked = clarificationStreak >= 3
+  const suggestionsPrefetch = inputBlocked || clarificationStreak >= 2
+  const suggestionsQuery = useScriptWritingSuggestionsQuery(channelId, suggestionsPrefetch)
+
+  const isHistoryLoading =
+    conversationIdProp != null &&
+    (conversationQuery.isPending || conversationQuery.isPlaceholderData)
+  const isEmptyScreen =
+    !isHistoryLoading && messages.length === 0 && !pendingUserMessage && !pendingAssistant
+  const layoutCentered = isEmptyScreen || isHistoryLoading
 
   useEffect(() => {
     if (conversationIdProp != null) setLocalMessages([])
@@ -327,7 +425,7 @@ export function ScriptGenerator({ channelId, youtube, conversationId: conversati
   }, [messages.length, pendingUserMessage, pendingAssistant])
 
   useEffect(() => {
-    if (!pendingAssistant) {
+    if (!pendingAssistant || pendingLoadMode !== 'full') {
       setLoadingStepIndex(0)
       if (stepIntervalRef.current) {
         clearInterval(stepIntervalRef.current)
@@ -337,7 +435,7 @@ export function ScriptGenerator({ channelId, youtube, conversationId: conversati
     }
     setLoadingStepIndex(0)
     const totalSteps = SCRIPT_LOADING_STEPS.length
-    const intervalMs = 12000
+    const intervalMs = 850
     stepIntervalRef.current = setInterval(() => {
       setLoadingStepIndex((prev) => Math.min(prev + 1, totalSteps - 1))
     }, intervalMs)
@@ -346,7 +444,7 @@ export function ScriptGenerator({ channelId, youtube, conversationId: conversati
         clearInterval(stepIntervalRef.current)
       }
     }
-  }, [pendingAssistant])
+  }, [pendingAssistant, pendingLoadMode])
 
   useEffect(() => {
     const el = textareaRef.current
@@ -364,65 +462,91 @@ export function ScriptGenerator({ channelId, youtube, conversationId: conversati
     })
   }
 
-  const buildMessage = () => {
+  const buildMessage = useCallback(() => {
     const topic = String(draft || '').trim()
     const parts = [topic]
     if (tone) parts.push(`Tone: ${tone}`)
     if (audience) parts.push(`Audience: ${audience}`)
     return parts.join('. ')
-  }
+  }, [draft, tone, audience])
 
-  const handleSubmit = async (e) => {
-    e?.preventDefault?.()
-    const trimmed = String(draft || '').trim()
-    if (!trimmed || pendingAssistant) return
+  const submitScriptMessage = useCallback(
+    async (overrideText) => {
+      const fromComposer = overrideText == null
+      if (pendingAssistant) return
+      if (fromComposer && clarificationStreak >= 3) return
+      if (fromComposer && !String(draft || '').trim()) return
+      const finalMessage = fromComposer ? buildMessage() : String(overrideText || '').trim()
+      if (!finalMessage) return
 
-    const finalMessage = buildMessage()
-    setSendError('')
-    setPendingUserMessage(finalMessage)
-    setPendingAssistant(true)
-    setDraft('')
+      const draftSnapshot = draft
+      const isQuickReply = overrideText != null
+      const loadMode = expectsFullScriptGeneration(finalMessage, isQuickReply) ? 'full' : 'minimal'
+      setSendError('')
+      setPendingLoadMode(loadMode)
+      setPendingUserMessage(finalMessage)
+      setPendingAssistant(true)
+      if (fromComposer) setDraft('')
 
-    try {
-      const token = await getAccessTokenOrNull()
-      if (!token) throw new Error('Not authenticated')
+      try {
+        const token = await getAccessTokenOrNull()
+        if (!token) throw new Error('Not authenticated')
 
-      const res = await scriptsApi.sendChatMessage(
-        token,
-        {
-          message: finalMessage,
-          conversation_id: conversationIdProp ?? undefined,
-          channel_id: channelId || undefined,
-        },
-        channelId
-      )
-
-      if (conversationIdProp == null) {
-        setLocalMessages((prev) => [
-          ...prev,
-          { id: `user-${Date.now()}`, role: 'user', content: finalMessage },
+        const res = await scriptsApi.sendChatMessage(
+          token,
           {
-            id: `assistant-${Date.now()}`,
-            role: 'assistant',
-            content: res.content || '',
-            script_response: res.script_response,
-            has_script: res.has_script,
+            message: finalMessage,
+            conversation_id: conversationIdProp ?? undefined,
+            channel_id: channelId || undefined,
           },
-        ])
-      }
+          channelId
+        )
 
-      if (res.conversation_id != null) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.scripts.conversations() })
-        queryClient.invalidateQueries({ queryKey: queryKeys.scripts.conversation(res.conversation_id) })
-        onNavigateToConversation?.(res.conversation_id)
+        const extra = packClarificationFromResponse(res)
+
+        if (conversationIdProp == null) {
+          setLocalMessages((prev) => [
+            ...prev,
+            { id: `user-${Date.now()}`, role: 'user', content: finalMessage },
+            {
+              id: `assistant-${Date.now()}`,
+              role: 'assistant',
+              content: res.content || '',
+              script_response: res.script_response,
+              has_script: res.has_script,
+              extra,
+            },
+          ])
+        }
+
+        if (res.conversation_id != null) {
+          await refreshScriptConversationCache(queryClient, res.conversation_id)
+          onNavigateToConversation?.(res.conversation_id)
+        }
+      } catch (err) {
+        setSendError(err?.message || 'Could not generate script.')
+        if (fromComposer) setDraft(draftSnapshot)
+      } finally {
+        setPendingUserMessage(null)
+        setPendingAssistant(false)
+        setPendingLoadMode(null)
       }
-    } catch (err) {
-      setSendError(err?.message || 'Could not generate script.')
-      setDraft(trimmed)
-    } finally {
-      setPendingUserMessage(null)
-      setPendingAssistant(false)
-    }
+    },
+    [
+      pendingAssistant,
+      draft,
+      buildMessage,
+      conversationIdProp,
+      channelId,
+      queryClient,
+      onNavigateToConversation,
+      clarificationStreak,
+    ]
+  )
+
+  const handleSubmit = (e) => {
+    e?.preventDefault?.()
+    void submitScriptMessage(null)
   }
 
   const handleCopyMessage = async (msg) => {
@@ -438,14 +562,14 @@ export function ScriptGenerator({ channelId, youtube, conversationId: conversati
   return (
     <div
       id="coach-panel-scripts"
-      className={`coach-main ${isEmptyScreen ? 'coach-main--empty' : ''}`}
+      className={`coach-main ${layoutCentered ? 'coach-main--empty' : ''}`}
       role="tabpanel"
       aria-labelledby="coach-tab-scripts"
     >
-      <section className={`coach-chat-shell ${isEmptyScreen ? 'coach-chat-shell--empty' : ''}`}>
-        <div ref={threadRef} className={`coach-thread ${isEmptyScreen ? 'coach-thread--empty' : ''}`}>
-          {isLoadingConversation && (
-            <div className="coach-thread-state">Loading script…</div>
+      <section className={`coach-chat-shell ${layoutCentered ? 'coach-chat-shell--empty' : ''}`}>
+        <div ref={threadRef} className={`coach-thread ${layoutCentered ? 'coach-thread--empty' : ''}`}>
+          {isHistoryLoading && (
+            <ChatHistoryLoading kicker="Script Generator" label="Loading your script chat…" />
           )}
           {isEmptyScreen && (
             <div className="coach-empty-state">
@@ -470,7 +594,8 @@ export function ScriptGenerator({ channelId, youtube, conversationId: conversati
             </div>
           )}
 
-          {messages.map((msg) => (
+          {!isHistoryLoading &&
+            messages.map((msg) => (
             <article
               key={msg.id}
               className={`coach-message ${msg.role === 'user' ? 'coach-message--user' : 'coach-message--assistant'}`}
@@ -483,9 +608,58 @@ export function ScriptGenerator({ channelId, youtube, conversationId: conversati
                 </div>
               ) : (
                 <div className="coach-message-bubble">
-                  {msg.content && <p>{msg.content}</p>}
-                  {msg.has_script && msg.script_response?.content_package && (
-                    <ScriptContentBlock pkg={msg.script_response.content_package} />
+                  {msg.has_script && msg.script_response?.content_package ? (
+                    <div className="script-gen-output-shell">
+                      <header className="script-gen-output-header">
+                        <span className="script-gen-output-kicker">Script package</span>
+                        <h3 className="script-gen-output-title">Your generated content</h3>
+                        <p className="script-gen-output-meta">
+                          Hook, script, titles, tags, and notes — together in one place.
+                        </p>
+                      </header>
+                      {msg.content?.trim() ? (
+                        <div className="script-gen-output-intro script-assistant-text">{msg.content}</div>
+                      ) : null}
+                      <div className="script-gen-output-body">
+                        <ScriptContentBlock pkg={msg.script_response.content_package} />
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {msg.content && (
+                        <p className="script-assistant-text">{msg.content}</p>
+                      )}
+                      {msg.extra?.clarification && (
+                        <div className="script-clarification-panel">
+                          {(msg.extra.clarification.questions?.length ?? 0) > 0 ? (
+                            <ol className="script-clarification-questions">
+                              {msg.extra.clarification.questions.map((q, qi) => (
+                                <li key={qi}>{q}</li>
+                              ))}
+                            </ol>
+                          ) : null}
+                          {msg.extra.clarification.quick_replies?.length > 0 && (
+                            <div
+                              className="script-clarification-chips"
+                              role="group"
+                              aria-label="Quick reply suggestions"
+                            >
+                              {msg.extra.clarification.quick_replies.map((qr, ri) => (
+                                <button
+                                  key={ri}
+                                  type="button"
+                                  className="script-clarification-chip"
+                                  disabled={pendingAssistant || inputBlocked}
+                                  onClick={() => submitScriptMessage(qr.message)}
+                                >
+                                  {qr.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -512,32 +686,96 @@ export function ScriptGenerator({ channelId, youtube, conversationId: conversati
             </article>
           )}
 
-          {pendingAssistant && (
-            <article className="coach-message coach-message--assistant">
-              <div className="coach-message-bubble script-loading-bubble">
-                <div className="script-loading-steps" role="status" aria-live="polite" aria-label="Generating script">
-                  <div className="script-loading-header">
-                    <div className="script-loading-spinner" aria-hidden />
-                    <span className="script-loading-title">Creating your script</span>
-                  </div>
-                  <ul className="script-loading-list">
-                    {SCRIPT_LOADING_STEPS.map((step, i) => {
-                      const done = i < loadingStepIndex
-                      const active = i === loadingStepIndex
-                      return (
-                        <li
-                          key={step.id}
-                          className={`script-loading-step ${done ? 'is-done' : ''} ${active ? 'is-active' : ''}`}
-                        >
-                          <span className="script-loading-step-icon">
-                            {done ? <IconCheck /> : active ? <span className="script-loading-step-dot" /> : <span className="script-loading-step-pending" />}
-                          </span>
-                          <span className="script-loading-step-label">{step.label}</span>
-                        </li>
-                      )
-                    })}
-                  </ul>
+          {pendingAssistant && pendingLoadMode === 'minimal' && (
+            <article className="coach-message coach-message--assistant script-gen-progress-wrap">
+              <div
+                className="script-gen-quick-loader"
+                role="status"
+                aria-live="polite"
+                aria-label="Working on your request"
+              >
+                <span className="script-gen-quick-loader-ring" aria-hidden />
+                <div className="script-gen-quick-loader-copy">
+                  <span className="script-gen-quick-loader-title">One moment</span>
+                  <span className="script-gen-quick-loader-sub">
+                    Understanding your message — this should only take a second.
+                  </span>
                 </div>
+              </div>
+            </article>
+          )}
+
+          {pendingAssistant && pendingLoadMode === 'full' && (
+            <article className="coach-message coach-message--assistant script-gen-progress-wrap">
+              <div
+                className="script-gen-progress-card"
+                role="status"
+                aria-live="polite"
+                aria-label="Generating script"
+              >
+                <div
+                  className="script-gen-progress-track"
+                  aria-hidden
+                  style={{
+                    ['--script-gen-progress']: `${Math.min(
+                      100,
+                      ((loadingStepIndex + 0.35) / SCRIPT_LOADING_STEPS.length) * 100
+                    )}%`,
+                  }}
+                />
+                <header className="script-gen-progress-head">
+                  <div className="script-gen-progress-head-left">
+                    <span className="script-gen-progress-kicker">Generating</span>
+                    <h3 className="script-gen-progress-title">Writing your script</h3>
+                    <p className="script-gen-progress-sub">Hang tight — usually under a minute.</p>
+                  </div>
+                  <div className="script-gen-progress-head-right">
+                    <span className="script-gen-progress-spinner" aria-hidden />
+                    <span className="script-gen-progress-pill">
+                      Step {Math.min(loadingStepIndex + 1, SCRIPT_LOADING_STEPS.length)} of {SCRIPT_LOADING_STEPS.length}
+                    </span>
+                  </div>
+                </header>
+                <ol className="script-gen-progress-list">
+                  {SCRIPT_LOADING_STEPS.map((step, i) => {
+                    const done = i < loadingStepIndex
+                    const active = i === loadingStepIndex
+                    return (
+                      <li
+                        key={step.id}
+                        className={`script-gen-progress-row ${done ? 'is-done' : ''} ${active ? 'is-active' : ''}`}
+                        style={{ '--script-gen-i': i }}
+                      >
+                        <div className="script-gen-progress-row-left">
+                          <span className="script-gen-progress-num" aria-hidden>
+                            {i + 1}
+                          </span>
+                          <span className="script-gen-progress-label">{step.label}</span>
+                        </div>
+                        <div className="script-gen-progress-row-right">
+                          {done ? (
+                            <>
+                              <span className="script-gen-progress-status script-gen-progress-status--done">Complete</span>
+                              <span className="script-gen-progress-check" aria-hidden>
+                                <IconCheck />
+                              </span>
+                            </>
+                          ) : active ? (
+                            <>
+                              <span className="script-gen-progress-status script-gen-progress-status--active">In progress</span>
+                              <span className="script-gen-progress-mini-ring" aria-hidden />
+                            </>
+                          ) : (
+                            <>
+                              <span className="script-gen-progress-status script-gen-progress-status--wait">Pending</span>
+                              <span className="script-gen-progress-wait-dot" aria-hidden />
+                            </>
+                          )}
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ol>
               </div>
             </article>
           )}
@@ -545,7 +783,48 @@ export function ScriptGenerator({ channelId, youtube, conversationId: conversati
           <div ref={messagesEndRef} />
         </div>
 
-        <footer className={`coach-composer-wrap ${isEmptyScreen ? 'coach-composer-wrap--empty' : ''}`}>
+        <footer
+          className={`coach-composer-wrap ${layoutCentered ? 'coach-composer-wrap--empty' : ''} ${inputBlocked ? 'coach-composer-wrap--script-blocked' : ''}`}
+        >
+          {inputBlocked && (
+            <div className="script-gen-blocked-panel" role="region" aria-label="Pick a direction to continue">
+              <p className="script-gen-blocked-lead">
+                We still need a clearer topic. Tap one idea below — it sends a ready-made prompt for your channel.
+              </p>
+              <div className="script-gen-suggestion-cards">
+                {suggestionsQuery.isPending && (
+                  <>
+                    <div className="script-gen-suggestion-card script-gen-suggestion-card--skeleton" aria-hidden />
+                    <div className="script-gen-suggestion-card script-gen-suggestion-card--skeleton" aria-hidden />
+                    <div className="script-gen-suggestion-card script-gen-suggestion-card--skeleton" aria-hidden />
+                  </>
+                )}
+                {suggestionsQuery.isError && (
+                  <p className="script-gen-suggestion-error">
+                    Could not load ideas.{' '}
+                    <button type="button" className="script-gen-suggestion-retry" onClick={() => suggestionsQuery.refetch()}>
+                      Retry
+                    </button>
+                  </p>
+                )}
+                {suggestionsQuery.data?.cards?.map((card, ci) => (
+                  <button
+                    key={ci}
+                    type="button"
+                    className="script-gen-suggestion-card"
+                    disabled={pendingAssistant}
+                    onClick={() => void submitScriptMessage(card.message)}
+                  >
+                    <span className="script-gen-suggestion-card-title">{card.title}</span>
+                    {card.subtitle ? (
+                      <span className="script-gen-suggestion-card-subtitle">{card.subtitle}</span>
+                    ) : null}
+                    <span className="script-gen-suggestion-card-desc">{card.description}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {sendError && <div className="coach-compose-error">{sendError}</div>}
           <form className="coach-composer script-gen-composer" onSubmit={handleSubmit}>
             <div className="coach-composer-input-wrap">
@@ -557,6 +836,7 @@ export function ScriptGenerator({ channelId, youtube, conversationId: conversati
                 rows={1}
                 className="coach-composer-input"
                 maxLength={3000}
+                disabled={inputBlocked}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault()
@@ -572,6 +852,7 @@ export function ScriptGenerator({ channelId, youtube, conversationId: conversati
                   value={tone}
                   onChange={(e) => setTone(e.target.value)}
                   aria-label="Tone"
+                  disabled={inputBlocked}
                 >
                   <option value="">Tone</option>
                   <option value="educational">Educational</option>
@@ -584,6 +865,7 @@ export function ScriptGenerator({ channelId, youtube, conversationId: conversati
                   value={audience}
                   onChange={(e) => setAudience(e.target.value)}
                   aria-label="Audience"
+                  disabled={inputBlocked}
                 >
                   <option value="">Audience</option>
                   <option value="beginners">Beginners</option>
@@ -594,7 +876,7 @@ export function ScriptGenerator({ channelId, youtube, conversationId: conversati
               <button
                 type="submit"
                 className="coach-composer-send coach-composer-primary-action is-send"
-                disabled={!draft.trim() || pendingAssistant}
+                disabled={!draft.trim() || pendingAssistant || inputBlocked}
                 aria-label="Send"
               >
                 <IconArrowUp />

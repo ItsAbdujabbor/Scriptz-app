@@ -13,7 +13,7 @@ export function usePersonasQuery() {
       if (!token) return { items: [], total: 0, pinned_ids: [] }
       return personasApi.list(token)
     },
-    staleTime: queryFreshness.medium,
+    staleTime: queryFreshness.long,
     gcTime: queryFreshness.long,
   })
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '../stores/authStore'
+import { isLocalApiAuthMode } from '../lib/authMode'
 import './auth.css'
 
 const MailIcon = () => (
@@ -67,7 +68,16 @@ export function Signup({ onBack, onGoToLogin, onSuccess }) {
   const [showConfirm, setShowConfirm] = useState(false)
   const [errors, setErrors] = useState({ email: '', password: '', confirm: '', terms: '' })
 
-  const { register: doRegister, login, isLoading: loading, error: storeError, clearError } = useAuthStore()
+  const {
+    register: doRegister,
+    signInWithGoogle,
+    resendSignupEmail,
+    isLoading: loading,
+    error: storeError,
+    clearError,
+  } = useAuthStore()
+  const [verificationSent, setVerificationSent] = useState(false)
+  const [resendBusy, setResendBusy] = useState(false)
 
   useEffect(() => {
     clearError()
@@ -94,13 +104,25 @@ export function Signup({ onBack, onGoToLogin, onSuccess }) {
     clearError()
     const result = await doRegister(email.trim(), password)
     if (!result?.ok) return
-    // Log in so user has a session, then show splash and go to onboarding
-    const loginResult = await login(email.trim(), password)
-    if (loginResult?.ok) {
-      onSuccess?.()
-    } else {
-      onGoToLogin?.()
+    if (result.needsEmailConfirmation) {
+      setVerificationSent(true)
+      return
     }
+    onSuccess?.()
+  }
+
+  const handleGoogle = async () => {
+    clearError()
+    await signInWithGoogle()
+  }
+
+  const handleResend = async () => {
+    const em = email.trim()
+    if (!em) return
+    setResendBusy(true)
+    clearError()
+    await resendSignupEmail(em)
+    setResendBusy(false)
   }
 
   return (
@@ -144,6 +166,35 @@ export function Signup({ onBack, onGoToLogin, onSuccess }) {
             <p className="auth-subtitle">Start creating viral scripts in minutes. Free to try.</p>
 
             {submitError && <p className="auth-error-msg" role="alert">{submitError}</p>}
+            {verificationSent && (
+              <div className="auth-success-msg" role="status">
+                <p className="auth-success-msg-text">
+                  Check <strong>{email.trim()}</strong> for a confirmation link. After you verify, you can log in.
+                </p>
+                <button
+                  type="button"
+                  className="auth-btn auth-btn-secondary auth-btn-compact"
+                  onClick={handleResend}
+                  disabled={resendBusy || loading}
+                >
+                  {resendBusy ? 'Sending…' : 'Resend confirmation email'}
+                </button>
+              </div>
+            )}
+
+            {!verificationSent && !isLocalApiAuthMode() && (
+            <>
+            <button
+              type="button"
+              className="auth-btn auth-btn-google"
+              onClick={handleGoogle}
+              disabled={loading}
+            >
+              Continue with Google
+            </button>
+            <p className="auth-divider"><span>or email</span></p>
+            </>
+            )}
 
             <form className="auth-form" onSubmit={handleSubmit} noValidate>
               <div className="form-group">
@@ -232,7 +283,7 @@ export function Signup({ onBack, onGoToLogin, onSuccess }) {
               </label>
               {errors.terms && <p className="form-error" role="alert">{errors.terms}</p>}
 
-              <button type="submit" className="auth-btn" disabled={loading}>
+              <button type="submit" className="auth-btn" disabled={loading || verificationSent}>
                 {loading ? <span className="auth-btn-spinner" /> : null}
                 <span>{loading ? 'Creating account…' : 'Create account'}</span>
               </button>

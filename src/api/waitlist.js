@@ -8,10 +8,12 @@
  * Prod: set VITE_BREVO_API_URL to a same-origin path if your host proxies to Brevo, or rely on Brevo CORS.
  */
 
+import { getViteEnv } from '../lib/env.js'
+
 const DEFAULT_BREVO = 'https://api.brevo.com/v3/contacts'
 
 function getContactsUrl() {
-  const env = typeof import.meta !== 'undefined' && import.meta.env
+  const env = getViteEnv()
   const custom = env?.VITE_BREVO_API_URL
   if (custom && String(custom).trim() !== '') return String(custom).trim()
   if (env?.DEV) return '/__brevo/v3/contacts'
@@ -28,7 +30,7 @@ export async function joinWaitlist(email, honeypot) {
     return { ok: true, message: "You're on the list." }
   }
 
-  const env = typeof import.meta !== 'undefined' && import.meta.env
+  const env = getViteEnv()
   const apiKey = (env?.VITE_BREVO_API_KEY || '').trim()
   if (!apiKey) {
     throw new Error('Waitlist is not configured (add VITE_BREVO_API_KEY to .env).')

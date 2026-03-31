@@ -21,7 +21,7 @@ function IconChevronDown() {
   )
 }
 
-export function PersonaSelector({ onOpenLibrary, compact }) {
+export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' }) {
   const { data, isPending } = usePersonasQuery()
   const { selectedPersonaId, selectedPersona, setSelectedPersona, clearSelectedPersona } = usePersonaStore()
   const [open, setOpen] = useState(false)
@@ -51,16 +51,21 @@ export function PersonaSelector({ onOpenLibrary, compact }) {
     setOpen(false)
   }
 
+  const isGlassCircle = variant === 'glassCircle'
+
   return (
-    <div ref={ref} className={`persona-selector ${compact ? 'persona-selector--compact' : ''}`}>
+    <div
+      ref={ref}
+      className={`persona-selector ${compact ? 'persona-selector--compact' : ''} ${isGlassCircle ? 'persona-selector--glass-circle' : ''}`}
+    >
       <button
         type="button"
-        className="persona-selector-trigger"
+        className={`persona-selector-trigger ${isGlassCircle ? 'persona-selector-trigger--circle' : ''}`}
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={selectedPersona ? `Persona: ${selectedPersona.name}` : 'Select persona'}
-        title={selectedPersona ? selectedPersona.name : 'Choose a persona to customize AI output'}
+        title={selectedPersona ? selectedPersona.name : 'Persona — guides face & voice in thumbnails'}
       >
         {selectedPersona?.image_url ? (
           <span className="persona-selector-trigger-img">
@@ -71,16 +76,20 @@ export function PersonaSelector({ onOpenLibrary, compact }) {
             <IconPersona />
           </span>
         )}
-        <span className="persona-selector-label">
-          {selectedPersona ? selectedPersona.name : 'Persona'}
-        </span>
-        <span className="persona-selector-chevron">
-          <IconChevronDown />
-        </span>
+        {!isGlassCircle && (
+          <>
+            <span className="persona-selector-label">
+              {selectedPersona ? selectedPersona.name : 'Persona'}
+            </span>
+            <span className="persona-selector-chevron">
+              <IconChevronDown />
+            </span>
+          </>
+        )}
       </button>
 
       {open && (
-        <div className="persona-selector-dropdown" role="listbox">
+        <div className={`persona-selector-dropdown ${isGlassCircle ? 'persona-selector-dropdown--glass' : ''}`} role="listbox">
           {isPending && <div className="persona-selector-loading">Loading…</div>}
           {!isPending && items.length === 0 && (
             <div className="persona-selector-empty">

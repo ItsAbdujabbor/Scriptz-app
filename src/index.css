@@ -1,8 +1,14 @@
-body {
-  margin: 0;
+:root {
+  --font-sans: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font: var(--font-sans);
 }
 
-#root {
-  min-height: 100vh;
-  width: 100%;
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
 }

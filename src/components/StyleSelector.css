@@ -81,14 +81,16 @@
   bottom: 100%;
   left: 0;
   margin-bottom: 6px;
-  min-width: 220px;
+  min-width: 224px;
   max-height: 300px;
   overflow-y: auto;
-  background: #1a1a1c;
+  background: #1a1a1a;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  border-radius: 14px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
   z-index: 100;
+  transform-origin: bottom left;
+  animation: style-selector-pop-in 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .style-selector-loading,
@@ -123,14 +125,14 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 11px 13px;
   border: none;
   background: none;
   color: rgba(255, 255, 255, 0.9);
   font-size: 13px;
   text-align: left;
   cursor: pointer;
-  transition: background 0.12s;
+  transition: background 0.18s ease, color 0.18s ease;
 }
 
 .style-selector-option:hover {
@@ -182,4 +184,63 @@
   color: rgba(255, 255, 255, 0.7);
   font-size: 10px;
   text-transform: uppercase;
+}
+
+.style-selector--glass-circle .style-selector-trigger--circle {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0;
+  border-radius: 50%;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.style-selector--glass-circle .style-selector-trigger--circle:hover {
+  border-color: rgba(167, 139, 250, 0.55);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.style-selector--glass-circle .style-selector-trigger--circle[aria-expanded='true'] {
+  border-color: rgba(167, 139, 250, 0.75);
+  box-shadow: none;
+}
+
+.style-selector--glass-circle .style-selector-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.style-selector--glass-circle .style-selector-trigger-img {
+  width: 24px;
+  height: 15px;
+  border-radius: 6px;
+}
+
+.style-selector-dropdown--glass {
+  background:
+    linear-gradient(180deg, rgba(28, 28, 34, 0.82), rgba(20, 20, 24, 0.86)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 18px !important;
+  box-shadow:
+    0 20px 56px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+}
+
+@keyframes style-selector-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

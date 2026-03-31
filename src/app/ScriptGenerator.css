@@ -48,6 +48,205 @@
   margin: 0.5rem 0 0;
 }
 
+.script-assistant-text {
+  white-space: pre-wrap;
+  margin: 0 0 0.75rem;
+  line-height: 1.55;
+  color: #e8eaef;
+}
+
+.script-clarification-panel {
+  margin: 0 0 0.75rem;
+  padding: 0.9rem 1rem;
+  border-radius: 16px;
+  background: linear-gradient(165deg, rgba(167, 139, 250, 0.12) 0%, rgba(255, 255, 255, 0.03) 100%);
+  border: 1px solid rgba(167, 139, 250, 0.22);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.script-clarification-questions {
+  margin: 0 0 0.9rem;
+  padding-left: 1.2rem;
+  color: rgba(248, 250, 252, 0.94);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.script-clarification-questions li + li {
+  margin-top: 0.35rem;
+}
+
+.script-clarification-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.script-clarification-chip {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f1f5f9;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.12s ease;
+  text-align: left;
+  max-width: 100%;
+}
+
+.script-clarification-chip:hover:not(:disabled) {
+  background: rgba(167, 139, 250, 0.18);
+  border-color: rgba(196, 181, 253, 0.4);
+  transform: translateY(-1px);
+}
+
+.script-clarification-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Immediate feedback when we’re not running full generation (clarify / short reply) */
+.script-gen-quick-loader {
+  width: 100%;
+  max-width: var(--coach-content-width);
+  margin: 0 auto;
+  padding: 1rem 1.15rem;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-sizing: border-box;
+  background: rgba(167, 139, 250, 0.1);
+  border: 1px solid rgba(167, 139, 250, 0.28);
+}
+
+.script-gen-quick-loader-ring {
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2.5px solid rgba(167, 139, 250, 0.2);
+  border-top-color: #d8b4fe;
+  animation: script-gen-spin 0.75s linear infinite;
+}
+
+.script-gen-quick-loader-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  text-align: left;
+}
+
+.script-gen-quick-loader-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: -0.02em;
+}
+
+.script-gen-quick-loader-sub {
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: rgba(203, 213, 225, 0.92);
+}
+
+/* Single container for hook + script + titles + rationale */
+.script-gen-output-shell {
+  width: 100%;
+  max-width: var(--coach-content-width);
+  margin: 0 auto;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, #1e1e22 0%, #161618 100%);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.38),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.script-gen-output-header {
+  padding: 1rem 1.15rem 0.95rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(167, 139, 250, 0.12) 0%, rgba(167, 139, 250, 0.03) 100%);
+  text-align: left;
+}
+
+.script-gen-output-kicker {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(167, 139, 250, 0.15);
+  border: 1px solid rgba(196, 181, 253, 0.28);
+  color: #e9d5ff;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.45rem;
+}
+
+.script-gen-output-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #f8fafc;
+  line-height: 1.2;
+}
+
+.script-gen-output-meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: rgba(180, 187, 199, 0.95);
+  max-width: 36rem;
+}
+
+.script-gen-output-intro {
+  padding: 0.85rem 1.15rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: #e8eaef;
+  white-space: pre-wrap;
+  text-align: left;
+}
+
+.script-gen-output-body {
+  padding: 0.65rem 0.85rem 1rem;
+}
+
+.script-gen-output-body .script-gen-content {
+  margin-top: 0;
+  gap: 0.55rem;
+}
+
+.script-gen-output-shell .script-gen-block {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .script-gen-quick-loader-ring {
+    animation: none;
+    border-color: rgba(196, 181, 253, 0.45);
+  }
+}
+
 .coach-empty-action--short .coach-empty-action-icon-wrap {
   color: #3b82f6;
   background: rgba(59, 130, 246, 0.12);
@@ -76,8 +275,8 @@
 
 .script-gen-block {
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   overflow: hidden;
 }
 
@@ -95,7 +294,7 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: rgba(167, 139, 250, 0.9);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.04);
   cursor: default;
 }
 
@@ -269,7 +468,396 @@
   margin-left: 0.15rem;
 }
 
-/* Centered loading steps */
+/* Script generation progress — same width as thread / composer (--coach-content-width) */
+.script-gen-progress-wrap {
+  width: 100%;
+}
+
+.script-gen-progress-card {
+  width: 100%;
+  max-width: var(--coach-content-width);
+  margin: 0 auto;
+  padding: 1rem 1.05rem 1.05rem;
+  border-radius: 20px;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-sizing: border-box;
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.14) inset,
+    0 -1px 0 rgba(255, 255, 255, 0.05) inset;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+}
+
+.script-gen-progress-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(165deg, rgba(167, 139, 250, 0.09) 0%, transparent 42%, rgba(255, 255, 255, 0.02) 100%);
+  pointer-events: none;
+}
+
+.script-gen-progress-track {
+  position: relative;
+  z-index: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 0 0 1rem;
+  overflow: hidden;
+}
+
+.script-gen-progress-track::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--script-gen-progress, 0%);
+  max-width: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #6d28d9 0%, #a78bfa 55%, #c4b5fd 100%);
+  box-shadow: 0 0 12px rgba(167, 139, 250, 0.45);
+  transition: width 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.script-gen-progress-head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.script-gen-progress-head-left {
+  min-width: 0;
+  text-align: left;
+  flex: 1;
+}
+
+.script-gen-progress-kicker {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(167, 139, 250, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.22);
+  color: #d8b4fe;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.45rem;
+}
+
+.script-gen-progress-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #f8fafc;
+  line-height: 1.2;
+}
+
+.script-gen-progress-sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: rgba(180, 187, 199, 0.88);
+  max-width: 28rem;
+}
+
+.script-gen-progress-head-right {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.script-gen-progress-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid rgba(167, 139, 250, 0.2);
+  border-top-color: rgba(196, 181, 253, 0.95);
+  border-radius: 50%;
+  animation: script-gen-spin 0.85s linear infinite;
+}
+
+.script-gen-progress-pill {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(196, 181, 253, 0.95);
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+}
+
+.script-gen-progress-list {
+  position: relative;
+  z-index: 1;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.script-gen-progress-row {
+  --script-gen-i: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.62rem 0.72rem;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.02);
+  text-align: left;
+  animation: script-gen-row-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--script-gen-i) * 0.06s);
+  transition:
+    background 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease,
+    transform 0.3s ease;
+}
+
+.script-gen-progress-row-left {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.script-gen-progress-num {
+  flex-shrink: 0;
+  width: 1.65rem;
+  height: 1.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: inherit;
+}
+
+.script-gen-progress-label {
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.42);
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  transition: color 0.3s ease;
+}
+
+.script-gen-progress-row-right {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  min-width: 7.5rem;
+}
+
+.script-gen-progress-status {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.script-gen-progress-status--wait {
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.script-gen-progress-status--active {
+  color: #d8b4fe;
+  animation: script-gen-status-pulse 1.4s ease-in-out infinite;
+}
+
+.script-gen-progress-status--done {
+  color: #86efac;
+}
+
+.script-gen-progress-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.18);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  color: #86efac;
+  animation: script-gen-check-pop 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.script-gen-progress-check svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2.5;
+}
+
+.script-gen-progress-mini-ring {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 2px solid rgba(167, 139, 250, 0.2);
+  border-top-color: #c4b5fd;
+  border-radius: 50%;
+  animation: script-gen-spin 0.75s linear infinite;
+}
+
+.script-gen-progress-wait-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.script-gen-progress-row.is-active {
+  background: rgba(167, 139, 250, 0.1);
+  border-color: rgba(167, 139, 250, 0.28);
+  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.08), 0 8px 28px rgba(88, 28, 135, 0.18);
+}
+
+.script-gen-progress-row.is-active .script-gen-progress-num {
+  color: #f5f3ff;
+  background: rgba(167, 139, 250, 0.22);
+  border-color: rgba(196, 181, 253, 0.35);
+}
+
+.script-gen-progress-row.is-active .script-gen-progress-label {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.script-gen-progress-row.is-done {
+  background: rgba(34, 197, 94, 0.06);
+  border-color: rgba(74, 222, 128, 0.12);
+}
+
+.script-gen-progress-row.is-done .script-gen-progress-num {
+  color: rgba(134, 239, 172, 0.95);
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(74, 222, 128, 0.22);
+}
+
+.script-gen-progress-row.is-done .script-gen-progress-label {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+@keyframes script-gen-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes script-gen-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes script-gen-check-pop {
+  0% {
+    transform: scale(0.65);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes script-gen-status-pulse {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 560px) {
+  .script-gen-progress-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .script-gen-progress-head-right {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .script-gen-progress-row-right {
+    min-width: 6.5rem;
+  }
+
+  .script-gen-progress-status {
+    font-size: 0.62rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .script-gen-progress-spinner,
+  .script-gen-progress-mini-ring,
+  .script-gen-progress-track::after {
+    animation: none;
+  }
+
+  .script-gen-progress-track::after {
+    transition: none;
+  }
+
+  .script-gen-progress-row {
+    animation: none;
+  }
+
+  .script-gen-progress-status--active {
+    animation: none;
+  }
+
+  .script-gen-progress-check {
+    animation: none;
+  }
+}
+
+/* Thumbnail generator still uses these (centered step list) */
 .script-loading-bubble {
   padding: 1.5rem 1.75rem;
   min-width: 280px;
@@ -379,6 +967,145 @@
   border-radius: 50%;
   border: 1.5px solid rgba(255, 255, 255, 0.2);
   background: transparent;
+}
+
+/* After 3 clarification-only assistant turns: block free-form input; show channel-aware cards */
+.coach-composer-wrap--script-blocked .coach-composer-input-wrap {
+  opacity: 0.48;
+  pointer-events: none;
+}
+
+.script-gen-blocked-panel {
+  padding: 0.65rem 0 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 0.2rem;
+}
+
+.script-gen-blocked-lead {
+  margin: 0 0 0.65rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: rgba(203, 213, 225, 0.92);
+}
+
+.script-gen-suggestion-cards {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 0.6rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+  margin: 0 -0.1rem;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.script-gen-suggestion-card {
+  flex: 1 1 200px;
+  min-width: min(240px, 88vw);
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 0.3rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid rgba(167, 139, 250, 0.28);
+  background: linear-gradient(165deg, rgba(167, 139, 250, 0.14) 0%, rgba(255, 255, 255, 0.04) 100%);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+  box-sizing: border-box;
+}
+
+.script-gen-suggestion-card:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: rgba(196, 181, 253, 0.45);
+  background: linear-gradient(165deg, rgba(167, 139, 250, 0.2) 0%, rgba(255, 255, 255, 0.06) 100%);
+}
+
+.script-gen-suggestion-card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.script-gen-suggestion-card-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.script-gen-suggestion-card-subtitle {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(196, 181, 253, 0.95);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.script-gen-suggestion-card-desc {
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: rgba(203, 213, 225, 0.9);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.script-gen-suggestion-card--skeleton {
+  min-height: 118px;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+  animation: script-suggestion-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes script-suggestion-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.script-gen-suggestion-error {
+  flex: 1 1 100%;
+  min-width: 100%;
+  margin: 0;
+  font-size: 0.78rem;
+  color: rgba(248, 113, 113, 0.95);
+}
+
+.script-gen-suggestion-retry {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #c4b5fd;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.script-gen-suggestion-retry:hover {
+  color: #ddd6fe;
 }
 
 @media (max-width: 560px) {

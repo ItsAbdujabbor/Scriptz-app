@@ -1,12 +1,8 @@
-const getBaseUrl = () => {
-  const env = typeof import.meta !== 'undefined' && import.meta.env
-  if (env?.DEV) return ''
-  const explicit = env?.VITE_API_BASE_URL
-  return (explicit && String(explicit).trim() !== '') ? String(explicit).trim() : 'http://localhost:8000'
-}
+/** Personas API — list, CRUD, favorites, AI generation. */
+import { getApiBaseUrl } from '../lib/env.js'
 
 function request(method, path, accessToken, body = null, headers = {}) {
-  const url = getBaseUrl() + path
+  const url = getApiBaseUrl() + path
   const h = { 'Content-Type': 'application/json', ...headers }
   if (accessToken) h.Authorization = `Bearer ${accessToken}`
 
@@ -41,7 +37,7 @@ export const personasApi = {
     return request('POST', '/api/personas', accessToken, payload)
   },
   createFromImages(accessToken, formData) {
-    const url = getBaseUrl() + '/api/personas/generate-from-images'
+    const url = getApiBaseUrl() + '/api/personas/generate-from-images'
     const headers = {}
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`
     // FormData must include 'name' as required by API (no Content-Type - fetch sets multipart boundary)

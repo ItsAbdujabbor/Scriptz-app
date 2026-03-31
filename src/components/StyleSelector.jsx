@@ -23,7 +23,7 @@ function IconChevronDown() {
   )
 }
 
-export function StyleSelector({ onOpenLibrary, compact }) {
+export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
   const { data, isPending } = useStylesQuery()
   const { selectedStyleId, selectedStyle, setSelectedStyle, clearSelectedStyle } = useStyleStore()
   const [open, setOpen] = useState(false)
@@ -52,16 +52,21 @@ export function StyleSelector({ onOpenLibrary, compact }) {
     setOpen(false)
   }
 
+  const isGlassCircle = variant === 'glassCircle'
+
   return (
-    <div ref={ref} className={`style-selector ${compact ? 'style-selector--compact' : ''}`}>
+    <div
+      ref={ref}
+      className={`style-selector ${compact ? 'style-selector--compact' : ''} ${isGlassCircle ? 'style-selector--glass-circle' : ''}`}
+    >
       <button
         type="button"
-        className="style-selector-trigger"
+        className={`style-selector-trigger ${isGlassCircle ? 'style-selector-trigger--circle' : ''}`}
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={selectedStyle ? `Style: ${selectedStyle.name}` : 'Select style'}
-        title={selectedStyle ? selectedStyle.name : 'Choose a thumbnail style'}
+        title={selectedStyle ? selectedStyle.name : 'Visual style — reference look for thumbnails'}
       >
         {selectedStyle?.image_url ? (
           <span className="style-selector-trigger-img">
@@ -72,16 +77,20 @@ export function StyleSelector({ onOpenLibrary, compact }) {
             <IconStyle />
           </span>
         )}
-        <span className="style-selector-label">
-          {selectedStyle ? selectedStyle.name : 'Style'}
-        </span>
-        <span className="style-selector-chevron">
-          <IconChevronDown />
-        </span>
+        {!isGlassCircle && (
+          <>
+            <span className="style-selector-label">
+              {selectedStyle ? selectedStyle.name : 'Style'}
+            </span>
+            <span className="style-selector-chevron">
+              <IconChevronDown />
+            </span>
+          </>
+        )}
       </button>
 
       {open && (
-        <div className="style-selector-dropdown" role="listbox">
+        <div className={`style-selector-dropdown ${isGlassCircle ? 'style-selector-dropdown--glass' : ''}`} role="listbox">
           {isPending && <div className="style-selector-loading">Loading…</div>}
           {!isPending && items.length === 0 && (
             <div className="style-selector-empty">

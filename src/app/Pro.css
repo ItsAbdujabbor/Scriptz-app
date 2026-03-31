@@ -4,12 +4,12 @@
   max-width: 1280px;
   margin: 0 auto;
   padding: 1.25rem 1.5rem 2rem;
-  background: #0a0a0d;
+  background: transparent;
 }
 
 .pro-page .pri-section {
   padding: 2rem 0 3rem;
-  background: #0a0a0d;
+  background: transparent;
 }
 
 .pro-page .pri-inner {

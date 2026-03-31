@@ -1,12 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '../stores/authStore'
 import { useThumbnailsQuery, useDeleteThumbnailMutation } from '../queries/thumbnails/thumbnailQueries'
-import {
-  useScriptConversationsQuery,
-  useUpdateScriptConversationMutation,
-  useDeleteScriptConversationMutation,
-} from '../queries/scripts/scriptQueries'
-import { TabBar } from '../components/TabBar'
 import { Sidebar } from './Sidebar'
 import './Sidebar.css'
 import './Library.css'
@@ -16,16 +10,6 @@ const IconFolder = () => (
     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
     <path d="M12 11v6" />
     <path d="M9 14h6" />
-  </svg>
-)
-
-const IconScript = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-    <polyline points="14 2 14 8 20 8" />
-    <line x1="16" y1="13" x2="8" y2="13" />
-    <line x1="16" y1="17" x2="8" y2="17" />
-    <polyline points="10 9 9 9 8 9" />
   </svg>
 )
 
@@ -46,21 +30,6 @@ const IconTrash = () => (
   </svg>
 )
 
-const IconPencil = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-    <path d="m15 5 4 4" />
-  </svg>
-)
-
-const IconDownload = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-    <polyline points="7 10 12 15 17 10" />
-    <line x1="12" y1="15" x2="12" y2="3" />
-  </svg>
-)
-
 const IconX = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="m18 6-12 12" />
@@ -72,6 +41,14 @@ const IconCopy = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+)
+
+const IconDownload = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
   </svg>
 )
 
@@ -263,144 +240,8 @@ function ThumbnailsSection() {
   )
 }
 
-function ScriptsSection() {
-  const { data, isPending } = useScriptConversationsQuery({ limit: 50 })
-  const updateMutation = useUpdateScriptConversationMutation()
-  const deleteMutation = useDeleteScriptConversationMutation()
-  const items = data?.items ?? []
-  const [editingId, setEditingId] = useState(null)
-  const [editTitle, setEditTitle] = useState('')
-
-  const handleOpen = (conversationId) => {
-    window.location.hash = conversationId ? `#coach/scripts?id=${conversationId}` : '#coach/scripts'
-  }
-
-  const startEdit = (item) => {
-    setEditingId(item.id)
-    setEditTitle(item.title || '')
-  }
-
-  const cancelEdit = () => {
-    setEditingId(null)
-    setEditTitle('')
-  }
-
-  const saveEdit = async (e) => {
-    e.preventDefault()
-    if (!editingId || !editTitle.trim()) return
-    try {
-      await updateMutation.mutateAsync({ conversationId: editingId, payload: { title: editTitle.trim() } })
-      setEditingId(null)
-      setEditTitle('')
-    } catch (_) {}
-  }
-
-  const handleDelete = async (item) => {
-    if (!window.confirm(`Delete "${item.title || 'Untitled script'}"?`)) return
-    try {
-      await deleteMutation.mutateAsync(item.id)
-    } catch (_) {}
-  }
-
-  if (isPending) {
-    return (
-      <div className="library-section library-section--loading">
-        <span>Loading scripts…</span>
-      </div>
-    )
-  }
-
-  if (items.length === 0) {
-    return (
-      <div className="library-section library-section--empty">
-        <span className="library-empty-icon"><IconScript /></span>
-        <h3>No scripts yet</h3>
-        <p>Create scripts in Script Generator to see them here.</p>
-        <a href="#coach/scripts" className="library-cta-btn">
-          <IconScript />
-          Go to Script Generator
-        </a>
-      </div>
-    )
-  }
-
-  return (
-    <div className="library-scripts-grid">
-      {items.map((item) => (
-        <div key={item.id} className="library-script-card">
-          {editingId === item.id ? (
-            <form className="library-script-edit-form" onSubmit={saveEdit}>
-              <input
-                type="text"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                placeholder="Script title"
-                maxLength={200}
-                autoFocus
-                className="library-script-edit-input"
-              />
-              <div className="library-script-edit-btns">
-                <button type="submit" disabled={updateMutation.isPending || !editTitle.trim()}>
-                  {updateMutation.isPending ? 'Saving…' : 'Save'}
-                </button>
-                <button type="button" onClick={cancelEdit}>Cancel</button>
-              </div>
-            </form>
-          ) : (
-            <>
-              <div className="library-script-icon">
-                <IconScript />
-              </div>
-              <h4 className="library-script-title">{item.title || 'Untitled script'}</h4>
-              <p className="library-script-meta">
-                {item.message_count ?? 0} message{(item.message_count ?? 0) !== 1 ? 's' : ''}
-              </p>
-              <div className="library-script-actions">
-                <button
-                  type="button"
-                  className="library-script-btn library-script-btn--edit"
-                  onClick={() => startEdit(item)}
-                  title="Rename"
-                  aria-label="Rename script"
-                >
-                  <IconPencil />
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="library-script-btn library-script-btn--open"
-                  onClick={() => handleOpen(item.id)}
-                >
-                  <IconExternal />
-                  Open
-                </button>
-                <button
-                  type="button"
-                  className="library-script-btn library-script-btn--delete"
-                  onClick={() => handleDelete(item)}
-                  title="Delete"
-                  aria-label="Delete script"
-                >
-                  <IconTrash />
-                  Delete
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-const LIBRARY_TABS = [
-  { id: 'thumbnails', label: 'Thumbnails', icon: <IconFolder /> },
-  { id: 'scripts', label: 'Scripts', icon: <IconScript /> },
-]
-
 export function Library({ onLogout }) {
   const { user } = useAuthStore()
-  const [libraryTab, setLibraryTab] = useState('thumbnails')
 
   return (
     <div className="library-layout">
@@ -412,30 +253,12 @@ export function Library({ onLogout }) {
       <main className="library-main">
         <header className="library-header">
           <h1>Library</h1>
-          <p className="library-subtitle">Your saved thumbnails and scripts</p>
+          <p className="library-subtitle">Your saved thumbnails</p>
         </header>
 
-        <TabBar
-          tabs={LIBRARY_TABS}
-          value={libraryTab}
-          onChange={setLibraryTab}
-          ariaLabel="Library sections"
-        />
-
         <div className="library-content">
-          <div
-            className={`library-panel ${libraryTab === 'thumbnails' ? 'is-active' : ''}`}
-            role="tabpanel"
-            aria-labelledby="tab-thumbnails"
-          >
-            {libraryTab === 'thumbnails' && <ThumbnailsSection />}
-          </div>
-          <div
-            className={`library-panel ${libraryTab === 'scripts' ? 'is-active' : ''}`}
-            role="tabpanel"
-            aria-labelledby="tab-scripts"
-          >
-            {libraryTab === 'scripts' && <ScriptsSection />}
+          <div className="library-panel is-active" role="region" aria-label="Thumbnails">
+            <ThumbnailsSection />
           </div>
         </div>
       </main>

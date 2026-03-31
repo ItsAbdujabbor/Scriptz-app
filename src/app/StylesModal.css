@@ -66,6 +66,95 @@
   margin-bottom: 16px;
 }
 
+.styles-create-wrap {
+  margin-bottom: 20px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.styles-create-title {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.styles-create-source-tabs.tabbar {
+  margin-bottom: 14px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.styles-create-source-tabs .tabbar-tab {
+  flex: 1;
+  justify-content: center;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.styles-yt-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 6px;
+}
+
+.styles-yt-url-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+.styles-yt-url-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.styles-yt-preview-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.styles-yt-preview-frame {
+  width: 100%;
+  max-width: 220px;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.styles-yt-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.styles-yt-preview-loading,
+.styles-yt-preview-empty {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  padding: 0 12px;
+  text-align: center;
+}
+
 .styles-modal-actions {
   margin-bottom: 20px;
 }

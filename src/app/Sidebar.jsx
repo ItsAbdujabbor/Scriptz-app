@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './Sidebar.css'
 import { useSidebarStore } from '../stores/sidebarStore'
 import {
@@ -16,6 +16,7 @@ import {
   useDeleteThumbnailConversationMutation,
   useUpdateThumbnailConversationMutation,
 } from '../queries/thumbnails/thumbnailQueries'
+import { appendPrefillToHash, coachPrefill, optimizePrefill } from '../lib/dashboardActionPayload'
 
 const IconDashboard = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -185,6 +186,34 @@ const TOOLKIT_ITEMS = [
   { label: 'Niche Competitor Analyzer', id: 'niche-analyzer' },
 ]
 
+function getToolkitHash(toolId) {
+  switch (toolId) {
+    case 'script-generator':
+      return '#coach/scripts'
+    case 'thumbnail-generator':
+      return '#coach/thumbnails'
+    case 'thumbnail-rate':
+      return '#coach/thumbnails?view=analyze'
+    case 'title-generator':
+      return appendPrefillToHash(
+        '#coach',
+        coachPrefill('Titles', null, 'Generate 10 YouTube title ideas I can test. Mix curiosity, specificity, and clear benefits; add a one-line rationale per title.'),
+      )
+    case 'keyword-search':
+      return appendPrefillToHash(
+        '#optimize',
+        `${optimizePrefill('SEO / keywords', null)} Suggest search terms and tags to prioritize and where to use them in titles and descriptions.`,
+      )
+    case 'niche-analyzer':
+      return appendPrefillToHash(
+        '#coach',
+        coachPrefill('Competition', null, 'Walk me through niche competitor analysis: which channels to study, what metrics matter, and 5 concrete ways to differentiate my content.'),
+      )
+    default:
+      return '#dashboard'
+  }
+}
+
 function getCoachConversationIdFromHash() {
   const hash = (typeof window !== 'undefined' && window.location.hash) || ''
   const normalized = hash.replace(/^#/, '').replace(/^\/+/, '')
@@ -224,6 +253,93 @@ const IconThumbnail = () => (
     <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
   </svg>
 )
+
+const HistoryItem = memo(function HistoryItem({
+  conversation,
+  type,
+  isActive,
+  isEditing,
+  editingTitle,
+  setEditingTitle,
+  submitConversationRename,
+  cancelRenamingConversation,
+  updateMutation,
+  closeMobile,
+  openHistoryMenu,
+}) {
+  if (isEditing) {
+    return (
+      <div className={`sidebar-history-item ${isActive ? 'active' : ''}`} role="listitem">
+        <form
+          className="sidebar-history-edit-form"
+          onSubmit={(e) => {
+            e.preventDefault()
+            submitConversationRename(conversation.id)
+          }}
+        >
+          <input
+            autoFocus
+            className="sidebar-history-title-input"
+            value={editingTitle}
+            onChange={(e) => setEditingTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') cancelRenamingConversation()
+            }}
+          />
+          <button
+            type="submit"
+            className="sidebar-history-edit-action"
+            aria-label="Save title"
+            disabled={updateMutation.isPending || !editingTitle.trim()}
+          >
+            <IconCheck />
+          </button>
+          <button
+            type="button"
+            className="sidebar-history-edit-action"
+            aria-label="Cancel editing"
+            onClick={cancelRenamingConversation}
+          >
+            <IconX />
+          </button>
+        </form>
+      </div>
+    )
+  }
+
+  const isThumbnail = type === 'thumbnail'
+  const isScript = type === 'script'
+
+  return (
+    <div className={`sidebar-history-item ${isActive ? 'active' : ''}`} role="listitem">
+      <button
+        type="button"
+        className="sidebar-history-item-main"
+        onClick={() => {
+          closeMobile()
+          if (isThumbnail) goToThumbnailConversation(conversation.id)
+          else if (isScript) goToScriptConversation(conversation.id)
+          else goToCoachConversation(conversation.id)
+        }}
+      >
+        <span className={`sidebar-history-item-icon ${isThumbnail ? 'icon-thumbnail' : isScript ? 'icon-script' : 'icon-coach'}`}>
+          {isThumbnail ? <IconThumbnail /> : isScript ? <IconScript /> : <IconMessage />}
+        </span>
+        <span className="sidebar-history-item-title">
+          {conversation.title || (isThumbnail ? 'Untitled thumbnails' : isScript ? 'Untitled script' : 'Untitled chat')}
+        </span>
+      </button>
+      <button
+        type="button"
+        className="sidebar-history-item-menu"
+        aria-label={`Open actions for ${conversation.title || (isScript ? 'script' : 'chat')}`}
+        onClick={(e) => openHistoryMenu(conversation.id, type, e)}
+      >
+        <IconDots />
+      </button>
+    </div>
+  )
+})
 
 export function Sidebar({
   user,
@@ -276,16 +392,22 @@ export function Sidebar({
   const thumbnailItems = useMemo(() => thumbnailConversationsQuery.data?.items || [], [thumbnailConversationsQuery.data])
 
   const mergedHistoryItems = useMemo(() => {
+    const dateCache = new Map()
+    const parseDate = (str) => {
+      if (!str) return 0
+      let v = dateCache.get(str)
+      if (v === undefined) {
+        v = new Date(str).getTime()
+        dateCache.set(str, v)
+      }
+      return v
+    }
     const withType = [
-      ...coachItems.map((c) => ({ ...c, _type: 'coach', _sortAt: c.last_message_at || c.created_at })),
-      ...scriptItems.map((c) => ({ ...c, _type: 'script', _sortAt: c.last_message_at || c.created_at })),
-      ...thumbnailItems.map((c) => ({ ...c, _type: 'thumbnail', _sortAt: c.last_message_at || c.created_at })),
+      ...coachItems.map((c) => ({ ...c, _type: 'coach', _sortTs: parseDate(c.last_message_at || c.created_at) })),
+      ...scriptItems.map((c) => ({ ...c, _type: 'script', _sortTs: parseDate(c.last_message_at || c.created_at) })),
+      ...thumbnailItems.map((c) => ({ ...c, _type: 'thumbnail', _sortTs: parseDate(c.last_message_at || c.created_at) })),
     ]
-    withType.sort((a, b) => {
-      const aVal = a._sortAt ? new Date(a._sortAt).getTime() : 0
-      const bVal = b._sortAt ? new Date(b._sortAt).getTime() : 0
-      return bVal - aVal
-    })
+    withType.sort((a, b) => b._sortTs - a._sortTs)
     return withType
   }, [coachItems, scriptItems, thumbnailItems])
 
@@ -295,7 +417,11 @@ export function Sidebar({
     ? (activeScriptConversationId ?? null)
     : (activeConversationId ?? getCoachConversationIdFromHash())
 
-  const isHistoryLoading = coachConversationsQuery.isPending || scriptConversationsQuery.isPending || thumbnailConversationsQuery.isPending
+  // Show the merged list as soon as any list returns; don't block on the slowest API.
+  const isHistoryLoading =
+    coachConversationsQuery.isPending &&
+    scriptConversationsQuery.isPending &&
+    thumbnailConversationsQuery.isPending
 
   useEffect(() => {
     if (!accountDialogOpen) return
@@ -529,11 +655,24 @@ export function Sidebar({
               </span>
             </button>
             <div className="sidebar-dropdown-content" id="sidebar-tools-content" role="menu">
-              {TOOLKIT_ITEMS.map(({ id, label }) => (
-                <a key={id} href="#dashboard" className="sidebar-sub-link" role="menuitem" onClick={(e) => { e.preventDefault(); closeMobile(); window.location.hash = 'dashboard' }}>
-                  {label}
-                </a>
-              ))}
+              {TOOLKIT_ITEMS.map(({ id, label }) => {
+                const href = getToolkitHash(id)
+                return (
+                  <a
+                    key={id}
+                    href={href}
+                    className="sidebar-sub-link"
+                    role="menuitem"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      closeMobile()
+                      window.location.hash = href.replace(/^#/, '')
+                    }}
+                  >
+                    {label}
+                  </a>
+                )
+              })}
             </div>
           </div>
 
@@ -598,75 +737,20 @@ export function Sidebar({
                     const isEditing = editingConversationId === conversation.id && editingConversationType === type
                     const updateMutation = isThumbnail ? updateThumbnailMutation : isScript ? updateScriptMutation : updateCoachMutation
                     return (
-                      <div
+                      <HistoryItem
                         key={`${type}-${conversation.id}`}
-                        className={`sidebar-history-item ${isActive ? 'active' : ''}`}
-                        role="listitem"
-                      >
-                        {isEditing ? (
-                          <form
-                            className="sidebar-history-edit-form"
-                            onSubmit={(e) => {
-                              e.preventDefault()
-                              submitConversationRename(conversation.id)
-                            }}
-                          >
-                            <input
-                              autoFocus
-                              className="sidebar-history-title-input"
-                              value={editingTitle}
-                              onChange={(e) => setEditingTitle(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Escape') cancelRenamingConversation()
-                              }}
-                            />
-                            <button
-                              type="submit"
-                              className="sidebar-history-edit-action"
-                              aria-label="Save title"
-                              disabled={updateMutation.isPending || !editingTitle.trim()}
-                            >
-                              <IconCheck />
-                            </button>
-                            <button
-                              type="button"
-                              className="sidebar-history-edit-action"
-                              aria-label="Cancel editing"
-                              onClick={cancelRenamingConversation}
-                            >
-                              <IconX />
-                            </button>
-                          </form>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              className="sidebar-history-item-main"
-                              onClick={() => {
-                                closeMobile()
-                                if (isThumbnail) goToThumbnailConversation(conversation.id)
-                                else if (isScript) goToScriptConversation(conversation.id)
-                                else goToCoachConversation(conversation.id)
-                              }}
-                            >
-                              <span className={`sidebar-history-item-icon ${isThumbnail ? 'icon-thumbnail' : isScript ? 'icon-script' : 'icon-coach'}`}>
-                                {isThumbnail ? <IconThumbnail /> : isScript ? <IconScript /> : <IconMessage />}
-                              </span>
-                              <span className="sidebar-history-item-title">
-                                {conversation.title || (isThumbnail ? 'Untitled thumbnails' : isScript ? 'Untitled script' : 'Untitled chat')}
-                              </span>
-                            </button>
-                            <button
-                              type="button"
-                              className="sidebar-history-item-menu"
-                              aria-label={`Open actions for ${conversation.title || (isScript ? 'script' : 'chat')}`}
-                              onClick={(e) => openHistoryMenu(conversation.id, type, e)}
-                            >
-                              <IconDots />
-                            </button>
-                          </>
-                        )}
-                      </div>
+                        conversation={conversation}
+                        type={type}
+                        isActive={isActive}
+                        isEditing={isEditing}
+                        editingTitle={editingTitle}
+                        setEditingTitle={setEditingTitle}
+                        submitConversationRename={submitConversationRename}
+                        cancelRenamingConversation={cancelRenamingConversation}
+                        updateMutation={updateMutation}
+                        closeMobile={closeMobile}
+                        openHistoryMenu={openHistoryMenu}
+                      />
                     )
                   })
                 )}

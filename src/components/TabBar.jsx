@@ -10,13 +10,14 @@ import './TabBar.css'
  * @param {string} [props.ariaLabel] - Accessibility label for tablist
  * @param {string} [props.className] - Additional class for the container
  * @param {string} [props.variant] - 'default' | 'minimal' | 'modal'
+ * @param {boolean} [props.showIndicator] - sliding underline/pill (default true); false for pill tabs that style selection in CSS
  */
-export function TabBar({ tabs, value, onChange, ariaLabel = 'Tabs', className = '', variant = 'default' }) {
+export function TabBar({ tabs, value, onChange, ariaLabel = 'Tabs', className = '', variant = 'default', showIndicator = true }) {
   const tabsRef = useRef(null)
   const [indicatorStyle, setIndicatorStyle] = useState({ width: 0, left: 0 })
 
   const updateIndicator = () => {
-    if (!tabsRef.current) return
+    if (!showIndicator || !tabsRef.current) return
     const activeBtn = tabsRef.current.querySelector('.tabbar-tab.is-active')
     if (activeBtn) {
       setIndicatorStyle({
@@ -27,11 +28,12 @@ export function TabBar({ tabs, value, onChange, ariaLabel = 'Tabs', className = 
   }
 
   useEffect(() => {
+    if (!showIndicator) return
     updateIndicator()
     const ro = new ResizeObserver(updateIndicator)
     if (tabsRef.current) ro.observe(tabsRef.current)
     return () => ro.disconnect()
-  }, [value])
+  }, [value, showIndicator])
 
   return (
     <div ref={tabsRef} className={`tabbar ${variant} ${className}`.trim()} role="tablist" aria-label={ariaLabel}>
@@ -49,11 +51,13 @@ export function TabBar({ tabs, value, onChange, ariaLabel = 'Tabs', className = 
           <span className="tabbar-tab-label">{tab.label}</span>
         </button>
       ))}
-      <span
-        className="tabbar-indicator"
-        style={{ width: indicatorStyle.width, transform: `translateX(${indicatorStyle.left}px)` }}
-        aria-hidden
-      />
+      {showIndicator ? (
+        <span
+          className="tabbar-indicator"
+          style={{ width: indicatorStyle.width, transform: `translateX(${indicatorStyle.left}px)` }}
+          aria-hidden
+        />
+      ) : null}
     </div>
   )
 }

@@ -1,11 +1,15 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   useStylesQuery,
   useCreateStyleFromUploadMutation,
+  useCreateStyleMutation,
   useUpdateStyleMutation,
   useDeleteStyleMutation,
 } from '../queries/styles/styleQueries'
 import { useStyleStore } from '../stores/styleStore'
+import { thumbnailsApi } from '../api/thumbnails'
+import { getAccessTokenOrNull } from '../lib/query/authToken'
+import { extractYoutubeUrl } from '../lib/youtubeUrl'
 import { TabBar } from '../components/TabBar'
 import './StylesModal.css'
 
@@ -29,12 +33,17 @@ function IconPlus() {
 export function StylesModal({ onClose }) {
   const { data, isPending } = useStylesQuery()
   const createMutation = useCreateStyleFromUploadMutation()
+  const createFromUrlMutation = useCreateStyleMutation()
   const updateMutation = useUpdateStyleMutation()
   const deleteMutation = useDeleteStyleMutation()
   const { selectedStyleId, setSelectedStyle } = useStyleStore()
 
   const [showCreate, setShowCreate] = useState(false)
+  const [createSourceTab, setCreateSourceTab] = useState('upload')
   const [createImage, setCreateImage] = useState(null)
+  const [createYoutubeUrl, setCreateYoutubeUrl] = useState('')
+  const [createYoutubePreview, setCreateYoutubePreview] = useState(null)
+  const [createYoutubeFetching, setCreateYoutubeFetching] = useState(false)
   const [createName, setCreateName] = useState('')
   const [createError, setCreateError] = useState('')
   const [styleTab, setStyleTab] = useState('personal')
@@ -53,6 +62,29 @@ export function StylesModal({ onClose }) {
     setCreateError('')
   }
 
+  useEffect(() => {
+    const url = extractYoutubeUrl(createYoutubeUrl)
+    if (!url || createSourceTab !== 'video') {
+      setCreateYoutubePreview(null)
+      return
+    }
+    const t = setTimeout(async () => {
+      setCreateYoutubeFetching(true)
+      setCreateYoutubePreview(null)
+      try {
+        const token = await getAccessTokenOrNull()
+        if (!token) return
+        const res = await thumbnailsApi.fetchExistingThumbnail(token, url)
+        if (res?.thumbnail_url) setCreateYoutubePreview(res.thumbnail_url)
+      } catch {
+        setCreateYoutubePreview(null)
+      } finally {
+        setCreateYoutubeFetching(false)
+      }
+    }, 450)
+    return () => clearTimeout(t)
+  }, [createYoutubeUrl, createSourceTab])
+
   const handleCreate = async (e) => {
     e.preventDefault()
     if (!createImage) {
@@ -69,6 +101,34 @@ export function StylesModal({ onClose }) {
       const style = await createMutation.mutateAsync({ image: createImage, name })
       setSelectedStyle(style)
       setCreateImage(null)
+      setCreateName('')
+      setShowCreate(false)
+    } catch (err) {
+      setCreateError(err?.message || 'Could not create style.')
+    }
+  }
+
+  const handleCreateFromYoutube = async (e) => {
+    e.preventDefault()
+    const url = extractYoutubeUrl(createYoutubeUrl)
+    if (!url) {
+      setCreateError('Paste a valid YouTube watch or youtu.be link.')
+      return
+    }
+    if (!createYoutubePreview) {
+      setCreateError('Wait for the thumbnail preview, or check the link.')
+      return
+    }
+    const name = createName.trim() || 'My Style'
+    setCreateError('')
+    try {
+      const style = await createFromUrlMutation.mutateAsync({
+        name,
+        image_url: createYoutubePreview,
+      })
+      setSelectedStyle(style)
+      setCreateYoutubeUrl('')
+      setCreateYoutubePreview(null)
       setCreateName('')
       setShowCreate(false)
     } catch (err) {
@@ -100,6 +160,9 @@ export function StylesModal({ onClose }) {
   const selectStyle = (s) => setSelectedStyle(s)
   const clearCreateForm = () => {
     setCreateImage(null)
+    setCreateYoutubeUrl('')
+    setCreateYoutubePreview(null)
+    setCreateSourceTab('upload')
     setCreateName('')
     setCreateError('')
     setShowCreate(false)
@@ -116,7 +179,7 @@ export function StylesModal({ onClose }) {
         </div>
 
         <p className="styles-modal-intro">
-          Styles are reference thumbnails. Upload one image and give it a name. When selected, thumbnails will match that visual style.
+          Reference looks for generation — upload an image or grab a still from any YouTube video. Selected styles steer layout, color, and vibe.
         </p>
 
         <TabBar
@@ -144,60 +207,131 @@ export function StylesModal({ onClose }) {
         )}
 
         {showCreate && styleTab === 'personal' && (
-          <form className="styles-form" onSubmit={handleCreate}>
-            <h3>New style</h3>
-            <p className="styles-form-hint">Upload one thumbnail image. Give it a name.</p>
-            <div className="styles-image-slot">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="styles-image-input"
-                onChange={(e) => handleImageSelect(e.target.files?.[0])}
-              />
-              {createImage ? (
-                <div className="styles-image-preview">
-                  <img src={URL.createObjectURL(createImage)} alt="Preview" />
-                  <button
-                    type="button"
-                    className="styles-image-remove"
-                    onClick={() => {
-                      setCreateImage(null)
-                      if (fileInputRef.current) fileInputRef.current.value = ''
-                    }}
-                  >
-                    Remove
+          <div className="styles-create-wrap">
+            <h3 className="styles-create-title">New visual style</h3>
+            <TabBar
+              tabs={[
+                { id: 'upload', label: 'Upload image' },
+                { id: 'video', label: 'From YouTube' },
+              ]}
+              value={createSourceTab}
+              onChange={(id) => {
+                setCreateError('')
+                setCreateSourceTab(id)
+              }}
+              ariaLabel="How to add reference image"
+              variant="modal"
+              className="styles-create-source-tabs"
+            />
+
+            {createSourceTab === 'upload' && (
+              <form className="styles-form" onSubmit={handleCreate}>
+                <p className="styles-form-hint">Drop in a reference thumbnail — we’ll match its look when you generate.</p>
+                <div className="styles-image-slot">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="styles-image-input"
+                    onChange={(e) => handleImageSelect(e.target.files?.[0])}
+                  />
+                  {createImage ? (
+                    <div className="styles-image-preview">
+                      <img src={URL.createObjectURL(createImage)} alt="Preview" />
+                      <button
+                        type="button"
+                        className="styles-image-remove"
+                        onClick={() => {
+                          setCreateImage(null)
+                          if (fileInputRef.current) fileInputRef.current.value = ''
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="styles-image-placeholder"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      Click to upload thumbnail
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  placeholder="Name this style"
+                  value={createName}
+                  onChange={(e) => setCreateName(e.target.value)}
+                  maxLength={80}
+                  className="styles-name-input"
+                  required
+                />
+                {createError && <p className="styles-form-error">{createError}</p>}
+                <div className="styles-form-btns">
+                  <button type="submit" disabled={createMutation.isPending || !createImage}>
+                    {createMutation.isPending ? 'Creating…' : 'Create style'}
+                  </button>
+                  <button type="button" onClick={clearCreateForm}>
+                    Cancel
                   </button>
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  className="styles-image-placeholder"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  Click to upload thumbnail
-                </button>
-              )}
-            </div>
-            <input
-              type="text"
-              placeholder="Style name"
-              value={createName}
-              onChange={(e) => setCreateName(e.target.value)}
-              maxLength={80}
-              className="styles-name-input"
-              required
-            />
-            {createError && <p className="styles-form-error">{createError}</p>}
-            <div className="styles-form-btns">
-              <button type="submit" disabled={createMutation.isPending || !createImage}>
-                {createMutation.isPending ? 'Creating…' : 'Create'}
-              </button>
-              <button type="button" onClick={clearCreateForm}>
-                Cancel
-              </button>
-            </div>
-          </form>
+              </form>
+            )}
+
+            {createSourceTab === 'video' && (
+              <form className="styles-form styles-form--video" onSubmit={handleCreateFromYoutube}>
+                <p className="styles-form-hint">We’ll use that video’s current thumbnail as the style reference.</p>
+                <label className="styles-yt-label" htmlFor="styles-yt-url">
+                  Video URL
+                </label>
+                <input
+                  id="styles-yt-url"
+                  type="url"
+                  className="styles-yt-url-input"
+                  placeholder="https://www.youtube.com/watch?v=…"
+                  value={createYoutubeUrl}
+                  onChange={(e) => setCreateYoutubeUrl(e.target.value.slice(0, 280))}
+                  autoComplete="off"
+                />
+                <div className="styles-yt-preview-row">
+                  <div className="styles-yt-preview-frame">
+                    {createYoutubeFetching && <span className="styles-yt-preview-loading">Loading preview…</span>}
+                    {!createYoutubeFetching && createYoutubePreview && (
+                      <img src={createYoutubePreview} alt="" className="styles-yt-preview-img" />
+                    )}
+                    {!createYoutubeFetching && !createYoutubePreview && extractYoutubeUrl(createYoutubeUrl) && (
+                      <span className="styles-yt-preview-empty">Couldn’t load thumbnail</span>
+                    )}
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Name this style"
+                  value={createName}
+                  onChange={(e) => setCreateName(e.target.value)}
+                  maxLength={80}
+                  className="styles-name-input"
+                  required
+                />
+                {createError && <p className="styles-form-error">{createError}</p>}
+                <div className="styles-form-btns">
+                  <button
+                    type="submit"
+                    disabled={
+                      createFromUrlMutation.isPending || !createYoutubePreview || !extractYoutubeUrl(createYoutubeUrl)
+                    }
+                  >
+                    {createFromUrlMutation.isPending ? 'Creating…' : 'Create style'}
+                  </button>
+                  <button type="button" onClick={clearCreateForm}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         )}
 
         <div className="styles-list">

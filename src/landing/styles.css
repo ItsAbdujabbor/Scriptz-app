@@ -15,8 +15,8 @@
   --glass-bg: #1F2023;
   --glass-border: #2A2C30;
   --glass-blur: 24px;
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-display: 'Inter', sans-serif;
+  --font: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Poppins', sans-serif;
   --radius-pill: 9999px;
   --radius-md: 10px;
   --radius-lg: 12px;
@@ -28,10 +28,12 @@
 
 /* ===== Reset ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+}
 body {
   font-family: var(--font);
-  background: var(--bg);
+  background: transparent;
   color: var(--text);
   line-height: 1.6;
   min-height: 100vh;
@@ -80,8 +82,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 #main-content {
   min-height: 100vh;
   padding-top: 0;
-  /* Match the dark landing section background so curved bottoms blend into the next section */
-  background: #0b0b0c;
+  background: transparent;
 }
 
 /* Sections kept in markup but hidden (unverified testimonials / metrics) */

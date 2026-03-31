@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/authStore'
 import { useOnboardingStore } from '../stores/onboardingStore'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { queryKeys } from '../lib/query/queryKeys'
+import { refreshCoachConversationCache } from '../lib/query/chatCacheUtils'
 import { coachApi } from '../api/coach'
 import { youtubeApi } from '../api/youtube'
 import { Sidebar } from './Sidebar'
@@ -18,7 +19,9 @@ import './Sidebar.css'
 import './SettingsModal.css'
 import './CoachChat.css'
 import { TabBar } from '../components/TabBar'
+import { ChatHistoryLoading } from '../components/ChatHistoryLoading'
 import { stripPrefillFromHash } from '../lib/dashboardActionPayload'
+import { getCoachHashState } from '../lib/coachHashRoute'
 import { ScriptGenerator } from './ScriptGenerator'
 import { ThumbnailGenerator } from './ThumbnailGenerator'
 
@@ -27,42 +30,6 @@ const COACH_TABS = [
   { id: 'scripts', label: 'Script Generator', hash: 'coach/scripts' },
   { id: 'thumbnails', label: 'Thumbnail Generator', hash: 'coach/thumbnails' },
 ]
-
-function getCoachHashState() {
-  const hash = (typeof window !== 'undefined' && window.location.hash) || '#coach'
-  const normalized = hash.replace(/^#/, '').replace(/^\/+/, '')
-  const [routePart, search = ''] = normalized.split('?')
-  const params = new URLSearchParams(search)
-  const rawId = params.get('id')
-  const conversationId = rawId && /^\d+$/.test(rawId) ? Number(rawId) : null
-  const prefillRaw = params.get('prefill')
-  let dashboardPrefill = null
-  if (prefillRaw) {
-    try {
-      dashboardPrefill = decodeURIComponent(prefillRaw)
-    } catch {
-      dashboardPrefill = null
-    }
-  }
-
-  let activeTab = 'coach'
-  if (routePart === 'coach/scripts') activeTab = 'scripts'
-  else if (routePart === 'coach/thumbnails') activeTab = 'thumbnails'
-
-  const coachConversationId = activeTab === 'coach' && routePart === 'coach' ? conversationId : null
-  const scriptConversationId = activeTab === 'scripts' && routePart === 'coach/scripts' ? conversationId : null
-  const thumbnailConversationId = activeTab === 'thumbnails' && routePart === 'coach/thumbnails' ? conversationId : null
-
-  return {
-    route: routePart,
-    conversationId,
-    activeTab,
-    coachConversationId,
-    scriptConversationId,
-    thumbnailConversationId,
-    dashboardPrefill,
-  }
-}
 
 function setCoachTabHash(tabId, conversationId = null) {
   const tab = COACH_TABS.find((t) => t.id === tabId)
@@ -611,6 +578,7 @@ export function CoachChat({ onLogout }) {
     deleteData,
     deleteAccount,
     getValidAccessToken,
+    allowsPasswordlessAccountDelete,
     isLoading: authLoading,
   } = useAuthStore()
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -702,6 +670,8 @@ export function CoachChat({ onLogout }) {
       await youtubeApi.disconnectChannel(token, channelId)
       setYouTube(false, {})
       setYoutubeChannels((prev) => prev.filter((c) => c.channel_id !== channelId))
+      await syncToBackend(token)
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.preferences })
     } catch (e) {
       setYoutubeOAuthError(e?.message || 'Could not disconnect.')
     }
@@ -725,6 +695,8 @@ export function CoachChat({ onLogout }) {
       const list = await youtubeApi.listChannels(token)
       setYoutubeChannels(list.channels || [])
       await syncChannelToBackend(token, channelId, info)
+      await syncToBackend(token)
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.preferences })
     } catch (_) {}
     setYoutubeLoading(false)
   }
@@ -735,17 +707,20 @@ export function CoachChat({ onLogout }) {
   }
 
   useEffect(() => {
+    let cancelled = false
     getValidAccessToken().then(async (token) => {
-      if (token) {
-        try {
-          const list = await youtubeApi.listChannels(token)
-          setYoutubeChannels(list.channels || [])
-        } catch (_) {
-          setYoutubeChannels([])
-        }
+      if (!token || cancelled) return
+      try {
+        const bootstrap = await useOnboardingStore.getState().bootstrapYouTube(token)
+        if (!cancelled) setYoutubeChannels(bootstrap.channels || [])
+      } catch (_) {
+        if (!cancelled) setYoutubeChannels([])
       }
     })
-  }, [])
+    return () => {
+      cancelled = true
+    }
+  }, [getValidAccessToken])
 
   useEffect(() => {
     if (prefsHydratedRef.current) return
@@ -1516,12 +1491,9 @@ export function CoachChat({ onLogout }) {
       if (activeRequestIdRef.current !== requestId) return
 
       if (finalConversationId != null) {
-        queryClient.invalidateQueries({ queryKey: ['coach', 'conversations'] })
-        queryClient.invalidateQueries({ queryKey: queryKeys.coach.conversation(finalConversationId) })
+        await refreshCoachConversationCache(queryClient, finalConversationId)
         if (finalConversationId !== selectedConversationId) {
           setCoachHash(finalConversationId)
-        } else {
-          await conversationQuery.refetch()
         }
       }
     } catch (error) {
@@ -1744,9 +1716,13 @@ export function CoachChat({ onLogout }) {
     </div>
   )
 
-  const isLoadingConversation = selectedConversationId != null && conversationQuery.isPending
+  const isHistoryLoading =
+    selectedConversationId != null &&
+    (conversationQuery.isPending || conversationQuery.isPlaceholderData)
   const hasMessages = messages.length > 0
-  const isEmptyScreen = !isLoadingConversation && !hasMessages && !pendingUserMessage && pendingUserImages.length === 0
+  const isEmptyScreen =
+    !isHistoryLoading && !hasMessages && !pendingUserMessage && pendingUserImages.length === 0
+  const coachLayoutCentered = isEmptyScreen || isHistoryLoading
   const isRecording = recorderState === 'recording'
   const isTranscribing = recorderState === 'transcribing'
   const isVoiceMode = isRecording || isTranscribing
@@ -1797,11 +1773,16 @@ export function CoachChat({ onLogout }) {
               onConversationCreated={setThumbnailConversationHash}
             />
           ) : (
-          <div id="coach-panel-coach" className={`coach-main ${isEmptyScreen ? 'coach-main--empty' : ''}`} role="tabpanel" aria-labelledby="coach-tab-coach">
-            <section className={`coach-chat-shell ${isEmptyScreen ? 'coach-chat-shell--empty' : ''}`}>
-              <div ref={threadRef} className={`coach-thread ${isEmptyScreen ? 'coach-thread--empty' : ''}`}>
-                {isLoadingConversation && (
-                  <div className="coach-thread-state">Loading conversation…</div>
+          <div
+            id="coach-panel-coach"
+            className={`coach-main ${coachLayoutCentered ? 'coach-main--empty' : ''}`}
+            role="tabpanel"
+            aria-labelledby="coach-tab-coach"
+          >
+            <section className={`coach-chat-shell ${coachLayoutCentered ? 'coach-chat-shell--empty' : ''}`}>
+              <div ref={threadRef} className={`coach-thread ${coachLayoutCentered ? 'coach-thread--empty' : ''}`}>
+                {isHistoryLoading && (
+                  <ChatHistoryLoading kicker="AI Coach" label="Loading your conversation…" />
                 )}
 
                 {isEmptyScreen && (
@@ -1829,7 +1810,7 @@ export function CoachChat({ onLogout }) {
                   </div>
                 )}
 
-                {!isLoadingConversation && messages.map((message, messageIndex) => (
+                {!isHistoryLoading && messages.map((message, messageIndex) => (
                   (() => {
                     const userPresentation = message.role === 'user'
                       ? getUserMessagePresentation(message, messageIndex, messages)
@@ -1919,7 +1900,7 @@ export function CoachChat({ onLogout }) {
                   </article>
                 )}
 
-                {conversationQuery.isError && (
+                {!isHistoryLoading && conversationQuery.isError && (
                   <div className="coach-thread-state coach-thread-state--error">
                     {conversationQuery.error?.message || 'Could not load this chat.'}
                   </div>
@@ -2096,6 +2077,7 @@ export function CoachChat({ onLogout }) {
         initialSection={settingsSection}
         onClose={() => setSettingsOpen(false)}
         user={user}
+        accountDeletePasswordOptional={typeof allowsPasswordlessAccountDelete === 'function' && allowsPasswordlessAccountDelete()}
         authLoading={authLoading}
         changePassword={changePassword}
         deleteData={deleteData}

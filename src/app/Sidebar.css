@@ -9,11 +9,11 @@
   --sidebar-collapsed: 60px;
   --sidebar-btn-height: 40px;
 
-  /* Landing-page aligned palette */
-  --sidebar-bg: #09090b;
-  --sidebar-surface: rgba(255, 255, 255, 0.045);
-  --sidebar-surface-2: rgba(255, 255, 255, 0.075);
-  --sidebar-border: rgba(255, 255, 255, 0.08);
+  /* Aligned with app canvas (#121212) + card surfaces (#1a1a1a) */
+  --sidebar-bg: #121212;
+  --sidebar-surface: #1a1a1a;
+  --sidebar-surface-2: rgba(167, 139, 250, 0.08);
+  --sidebar-border: rgba(255, 255, 255, 0.07);
 
   --text: #f5f5f6;
   --text-muted: rgba(255, 255, 255, 0.64);
@@ -44,6 +44,7 @@
   border-radius: 0;
   background: var(--sidebar-bg) !important;
   border-right: 1px solid var(--sidebar-border);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.03);
   transition: width var(--sidebar-transition);
   overflow: visible;
   position: sticky;
@@ -217,7 +218,7 @@
 }
 
 .app-sidebar.collapsed .sidebar-user-block:hover {
-  background: rgba(255,255,255,0.05);
+  background: #1a1a1a;
 }
 
 /* Keep icons centered in closed state */
@@ -237,12 +238,12 @@
 
 /* Collapsed: selected link — simple rounded square */
 .app-sidebar.collapsed .sidebar-link.active {
-  background: rgba(255, 255, 255, 0.08);
+  background: #1a1a1a;
   color: var(--text);
   display: flex;
   justify-content: center;
   align-items: center;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  box-shadow: none;
 }
 
 .app-sidebar.collapsed .sidebar-link.active::before {
@@ -272,7 +273,14 @@
   right: 0.85rem;
   bottom: 0;
   height: 1px;
-  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 14%, rgba(255,255,255,0.1) 86%, rgba(255,255,255,0) 100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(139, 92, 246, 0.12) 18%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(139, 92, 246, 0.12) 82%,
+    transparent 100%
+  );
   pointer-events: none;
 }
 
@@ -377,7 +385,7 @@
   font-size: 0.875rem;
   letter-spacing: -0.03em;
   color: var(--text);
-  text-decoration: none;
+  text-decoration: none !important;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -385,6 +393,11 @@
   flex: 1;
   transition: opacity var(--sidebar-transition), visibility var(--sidebar-transition),
     max-width var(--sidebar-transition), transform var(--sidebar-transition);
+}
+
+.sidebar-brand:visited {
+  color: var(--text);
+  text-decoration: none;
 }
 
 .sidebar-brand:hover {
@@ -497,6 +510,7 @@
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--text-muted);
+  text-decoration: none;
   border-radius: 8px;
   transition: background var(--sidebar-transition), color var(--sidebar-transition), transform var(--sidebar-transition), box-shadow var(--sidebar-transition);
   outline: none;
@@ -507,13 +521,22 @@
   isolation: isolate;
 }
 
+.sidebar-link:visited {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.sidebar-link.active:visited {
+  color: var(--text);
+}
+
 .sidebar-link::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  background: #1a1a1a;
+  box-shadow: none;
   opacity: 0;
   transform: scale(0.985);
   transition: opacity 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -545,14 +568,14 @@
   stroke-linejoin: round;
 }
 
-/* Hover: slight lift, no glow */
+/* Hover — same card surface as main content */
 .sidebar-link:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.06);
 }
 
 .sidebar-link:not(.active):hover {
-  transform: translateY(-0.5px);
+  background: #1a1a1a;
+  transform: none;
 }
 
 .sidebar-link:focus-visible {
@@ -627,8 +650,8 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: rgba(255, 255, 255, 0.07);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  background: #1a1a1a;
+  box-shadow: none;
   opacity: 0;
   transform: scale(0.985);
   transition: opacity 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -708,7 +731,22 @@
 }
 
 .sidebar-dropdown.expanded .sidebar-dropdown-content {
-  max-height: 220px;
+  max-height: 320px;
+}
+
+.sidebar-dropdown.expanded .sidebar-dropdown-trigger {
+  color: var(--text);
+  background: transparent;
+  box-shadow: none;
+}
+
+.sidebar-dropdown.expanded .sidebar-dropdown-trigger::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.sidebar-dropdown.expanded .sidebar-dropdown-trigger .sidebar-icon {
+  color: var(--accent);
 }
 
 .sidebar-sub-link {
@@ -718,7 +756,7 @@
   font-size: 0.8rem;
   font-weight: 500;
   color: var(--text-muted);
-  text-decoration: none;
+  text-decoration: none !important;
   border-radius: 4px;
   white-space: nowrap;
   overflow: hidden;
@@ -732,8 +770,8 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: rgba(255, 255, 255, 0.07);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  background: #1a1a1a;
+  box-shadow: none;
   opacity: 0;
   transform: scale(0.985);
   transition: opacity 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -744,6 +782,11 @@
 .sidebar-sub-link > * {
   position: relative;
   z-index: 1;
+}
+
+.sidebar-sub-link:visited {
+  color: var(--text-muted);
+  text-decoration: none;
 }
 
 .sidebar-sub-link:hover {
@@ -898,7 +941,7 @@
   z-index: 120;
   min-width: 180px;
   padding: 0.45rem;
-  background: rgba(12,13,16,0.98);
+  background: #1a1a1a;
   border: 1px solid var(--sidebar-border);
   border-radius: 16px;
   box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0,0,0,0.3);
@@ -1026,9 +1069,9 @@
 }
 
 .sidebar-history-item.active {
-  background: rgba(255, 255, 255, 0.08);
+  background: #1a1a1a;
   color: var(--text);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  box-shadow: none;
 }
 
 .sidebar-history-item:hover {
@@ -1065,7 +1108,7 @@
   height: 34px;
   border-radius: 10px;
   border: 1px solid rgba(129, 140, 248, 0.24);
-  background: rgba(255, 255, 255, 0.04);
+  background: #1a1a1a;
   color: var(--text);
   font: inherit;
   font-size: 0.8rem;
@@ -1192,7 +1235,7 @@
   z-index: 120;
   min-width: 160px;
   padding: 0.45rem;
-  background: rgba(12,13,16,0.98);
+  background: #1a1a1a;
   border: 1px solid var(--sidebar-border);
   border-radius: 16px;
   box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0,0,0,0.3);
@@ -1851,13 +1894,13 @@
   color: var(--text-dim);
 }
 
-/* 9. Active link — dark pill + glow (base has it; ensure override doesn’t flatten) */
+/* 9. Active link — filled pill via ::after, no extra border */
 .sidebar-link.active {
-  background: rgba(255, 255, 255, 0.08);
+  background: transparent;
   color: var(--text);
   border-left: none;
   border-radius: 10px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  box-shadow: none;
 }
 .sidebar-link.active .sidebar-icon {
   color: var(--accent);

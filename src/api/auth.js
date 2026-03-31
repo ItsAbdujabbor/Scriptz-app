@@ -4,15 +4,10 @@
  * In production: VITE_API_BASE_URL or fallback http://localhost:8000.
  */
 
-const getBaseUrl = () => {
-  const env = typeof import.meta !== 'undefined' && import.meta.env
-  if (env?.DEV) return '' // proxy in vite.config.js sends /api to backend
-  const explicit = env?.VITE_API_BASE_URL
-  return (explicit && String(explicit).trim() !== '') ? String(explicit).trim() : 'http://localhost:8000'
-}
+import { getApiBaseUrl } from '../lib/env.js'
 
 function request(method, path, body, useAuth = false, token = null) {
-  const url = getBaseUrl() + path
+  const url = getApiBaseUrl() + path
   const headers = { 'Content-Type': 'application/json' }
   if (useAuth && token) headers['Authorization'] = `Bearer ${token}`
   const opts = { method, headers }
@@ -56,12 +51,14 @@ export const authApi = {
   changePassword(currentPassword, newPassword, accessToken) {
     return request('POST', '/api/auth/change-password', { current_password: currentPassword, new_password: newPassword }, true, accessToken)
   },
-  /** Permanently delete account. Requires password confirmation. */
+  /** Permanently delete account. Password optional for Supabase-linked accounts (session proves identity). */
   deleteAccount(password, accessToken) {
-    return request('POST', '/api/auth/delete-account', { password }, true, accessToken)
+    const body = {}
+    if (password != null && String(password).trim() !== '') {
+      body.password = String(password).trim()
+    }
+    return request('POST', '/api/auth/delete-account', body, true, accessToken)
   },
 }
 
-export function getApiBaseUrl() {
-  return getBaseUrl()
-}
+export { getApiBaseUrl }

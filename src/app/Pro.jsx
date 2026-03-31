@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
 import { useOnboardingStore } from '../stores/onboardingStore'
 import { youtubeApi } from '../api/youtube'
@@ -7,6 +8,7 @@ import { SettingsModal } from './SettingsModal'
 import { ProPricingContent } from './ProPricingContent'
 import { useUserPreferencesQuery } from '../queries/user/preferencesQueries'
 import { useUserProfileQuery } from '../queries/user/profileQueries'
+import { queryKeys } from '../lib/query/queryKeys'
 import './Sidebar.css'
 import './SettingsModal.css'
 import './Dashboard.css'
@@ -14,7 +16,17 @@ import './Pro.css'
 import '../landing/sections/pricing/pricing.css'
 
 export function Pro({ onLogout }) {
-  const { user, logout, changePassword, deleteData, deleteAccount, getValidAccessToken, isLoading: authLoading, clearError } = useAuthStore()
+  const {
+    user,
+    logout,
+    changePassword,
+    deleteData,
+    deleteAccount,
+    getValidAccessToken,
+    allowsPasswordlessAccountDelete,
+    isLoading: authLoading,
+    clearError,
+  } = useAuthStore()
   const {
     preferredLanguage,
     niche,
@@ -38,7 +50,11 @@ export function Pro({ onLogout }) {
     setUseFirstPerson,
     clearLocalData,
     syncChannelToBackend,
+    syncToBackend,
+    bootstrapYouTube,
   } = useOnboardingStore()
+
+  const queryClient = useQueryClient()
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsSection, setSettingsSection] = useState('account')
@@ -138,6 +154,8 @@ export function Pro({ onLogout }) {
         videoCount: info.videoCount ?? info.video_count,
       })
       await syncChannelToBackend?.(token, channelId, info)
+      await syncToBackend(token)
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.preferences })
     } catch (_) {
       setYoutubeOAuthError('Could not switch channel.')
     }
@@ -148,17 +166,20 @@ export function Pro({ onLogout }) {
   }, [clearError])
 
   useEffect(() => {
+    let cancelled = false
     getValidAccessToken().then(async (token) => {
-      if (token) {
-        try {
-          const list = await youtubeApi.listChannels(token)
-          setYoutubeChannels(list.channels || [])
-        } catch (_) {
-          setYoutubeChannels([])
-        }
+      if (!token || cancelled) return
+      try {
+        const bootstrap = await bootstrapYouTube(token)
+        if (!cancelled) setYoutubeChannels(bootstrap.channels || [])
+      } catch (_) {
+        if (!cancelled) setYoutubeChannels([])
       }
     })
-  }, [])
+    return () => {
+      cancelled = true
+    }
+  }, [bootstrapYouTube, getValidAccessToken])
 
   return (
     <div className="dashboard-page">
@@ -182,6 +203,7 @@ export function Pro({ onLogout }) {
           initialSection={settingsSection}
           onClose={() => setSettingsOpen(false)}
           user={user}
+          accountDeletePasswordOptional={typeof allowsPasswordlessAccountDelete === 'function' && allowsPasswordlessAccountDelete()}
           authLoading={authLoading}
           changePassword={changePassword}
           deleteData={deleteData}

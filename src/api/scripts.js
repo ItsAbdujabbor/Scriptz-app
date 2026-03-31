@@ -1,12 +1,8 @@
-const getBaseUrl = () => {
-  const env = typeof import.meta !== 'undefined' && import.meta.env
-  if (env?.DEV) return ''
-  const explicit = env?.VITE_API_BASE_URL
-  return (explicit && String(explicit).trim() !== '') ? String(explicit).trim() : 'http://localhost:8000'
-}
+/** Script Generator / flow API client. */
+import { getApiBaseUrl } from '../lib/env.js'
 
 function request(method, path, accessToken, body = null, headers = {}) {
-  const url = getBaseUrl() + path
+  const url = getApiBaseUrl() + path
   const h = { 'Content-Type': 'application/json', ...headers }
   if (accessToken) h.Authorization = `Bearer ${accessToken}`
 
@@ -38,6 +34,13 @@ function withQuery(path, params = {}) {
 }
 
 export const scriptsApi = {
+  writingSuggestions(accessToken, channelId = null) {
+    const path = withQuery(
+      '/api/scripts/chatbot/writing-suggestions',
+      channelId ? { channel_id: channelId } : {}
+    )
+    return request('GET', path, accessToken, null, {})
+  },
   sendChatMessage(accessToken, payload, channelId = null) {
     const headers = {}
     if (channelId) headers['X-Channel-Id'] = channelId

@@ -156,6 +156,12 @@ const IconArrowRight = () => (
   </svg>
 )
 
+const IconYoutubeMark = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+  </svg>
+)
+
 const IconSpark = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
@@ -459,8 +465,20 @@ function DashboardMilestoneStrip({ title, steps, current, animateFrom, major, lo
 }
 
 export function Dashboard({ onLogout }) {
-  const { user, logout, changePassword, deleteData, deleteAccount, getValidAccessToken, isLoading: authLoading, error: authError, clearError } = useAuthStore()
-  const { preferredLanguage, niche, videoFormat, uploadFrequency, youtube, setYouTube, setPreferredLanguage, setNiche, setVideoFormat, setUploadFrequency, preferredTone, speakingStyle, preferredCtaStyle, includePersonalStories, useFirstPerson, setPreferredTone, setSpeakingStyle, setPreferredCtaStyle, setIncludePersonalStories, setUseFirstPerson, clearLocalData, syncToBackend } = useOnboardingStore()
+  const {
+    user,
+    logout,
+    changePassword,
+    deleteData,
+    deleteAccount,
+    getValidAccessToken,
+    allowsPasswordlessAccountDelete,
+    isLoading: authLoading,
+    error: authError,
+    clearError,
+  } = useAuthStore()
+  const { preferredLanguage, niche, videoFormat, uploadFrequency, youtube, setYouTube, setPreferredLanguage, setNiche, setVideoFormat, setUploadFrequency, preferredTone, speakingStyle, preferredCtaStyle, includePersonalStories, useFirstPerson, setPreferredTone, setSpeakingStyle, setPreferredCtaStyle, setIncludePersonalStories, setUseFirstPerson, clearLocalData, syncToBackend, bootstrapYouTube } = useOnboardingStore()
+  const queryClient = useQueryClient()
   const collapsed = useSidebarStore((s) => s.collapsed)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsSection, setSettingsSection] = useState('account')
@@ -532,6 +550,12 @@ export function Dashboard({ onLogout }) {
             videoCount: info.videoCount ?? info.video_count,
           })
           await useOnboardingStore.getState().syncChannelToBackend(token, channelId, info)
+          await useOnboardingStore.getState().syncToBackend(token)
+          try {
+            const list = await youtubeApi.listChannels(token)
+            setYoutubeChannels(list.channels || [])
+          } catch (_) {}
+          queryClient.invalidateQueries({ queryKey: queryKeys.user.preferences })
           if (!useOnboardingStore.getState().onboardingCompleted) {
             useOnboardingStore.getState().completeOnboarding()
           }
@@ -541,36 +565,24 @@ export function Dashboard({ onLogout }) {
         }
       })
     }
-  }, [])
+  }, [queryClient])
 
   useEffect(() => {
     useOnboardingStore.getState().load()
     getValidAccessToken().then(async (token) => {
       if (token) {
         try {
-          const list = await youtubeApi.listChannels(token)
-          setYoutubeChannels(list.channels || [])
-          if (list.channels?.length > 0) {
-            const activeId = list.active_channel_id || list.channels[0]?.channel_id
-            const info = await youtubeApi.getChannelInfo(token, activeId)
-            setYouTube(true, {
-              channelId: info.channel_id,
-              channel_title: info.channel_title,
-              profile_image: info.profile_image,
-              subscriberCount: info.subscriberCount ?? info.subscriber_count,
-              viewCount: info.viewCount ?? info.view_count,
-              videoCount: info.videoCount ?? info.video_count,
-            })
-            await useOnboardingStore.getState().syncChannelToBackend(token, activeId, info)
-          }
+          const bootstrap = await bootstrapYouTube(token)
+          setYoutubeChannels(bootstrap.channels || [])
         } catch (_) {
           setYoutubeChannels([])
         }
       }
     })
-  }, [])
+  }, [bootstrapYouTube, getValidAccessToken])
 
   const channelId = youtube?.channelId || youtube?.channel_id || null
+  const hasChannelData = Boolean(youtube?.connected && channelId)
 
   const utcOffsetMinutes = useMemo(() => -new Date().getTimezoneOffset(), [])
   const snapshotRange = useMemo(() => {
@@ -590,7 +602,8 @@ export function Dashboard({ onLogout }) {
   const insightsError = insightsQuery.isError ? insightsQuery.error?.message : null
   const visibleScriptIdeas = useMemo(() => {
     if (!Array.isArray(insights?.script_suggestions)) return []
-    return insights.script_suggestions.filter(Boolean).slice(0, 3)
+    const list = insights.script_suggestions.filter(Boolean)
+    return list.slice(0, 3)
   }, [insights])
 
   const audit = auditQuery.data
@@ -689,7 +702,6 @@ export function Dashboard({ onLogout }) {
   )
 
   const ideaFeedbackMutation = useIdeaFeedbackMutation({ channelId })
-  const queryClient = useQueryClient()
   const dashboardName = getDashboardName(user)
   const todayLabel = getTodayLabel()
 
@@ -768,6 +780,24 @@ export function Dashboard({ onLogout }) {
     prefsHydratedRef.current = true
   }, [userPreferencesQuery.data])
 
+  // Restore YouTube connection from saved preferences when local storage is empty (other device / cleared).
+  useEffect(() => {
+    const prefs = userPreferencesQuery.data
+    if (!prefs?.youtube || typeof prefs.youtube !== 'object') return
+    if (!prefs.youtube.connected) return
+    const cur = useOnboardingStore.getState().youtube
+    if (cur?.connected && (cur.channelId || cur.channel_id)) return
+    const y = prefs.youtube
+    setYouTube(true, {
+      channelId: y.channelId ?? y.channel_id,
+      channel_title: y.channelTitle ?? y.channel_title,
+      profile_image: y.avatar ?? y.profile_image,
+      subscriberCount: y.subscriberCount ?? y.subscriber_count,
+      viewCount: y.viewCount ?? y.view_count,
+      videoCount: y.videoCount ?? y.video_count,
+    })
+  }, [userPreferencesQuery.data, setYouTube])
+
   useEffect(() => {
     if (profileHydratedRef.current) return
     const profile = userProfileQuery.data
@@ -822,40 +852,32 @@ export function Dashboard({ onLogout }) {
 
   useEffect(() => {
     if (!channelId) return
-    // Warm the dashboard widget cache as soon as the active channel is known.
-    if (!insightsQuery.data) insightsQuery.refetch()
-    if (!auditQuery.data) auditQuery.refetch()
-    if (!growthQuery.data) growthQuery.refetch()
-    if (!snapshotQuery.data) snapshotQuery.refetch()
-    if (!bestTimeQuery.data) bestTimeQuery.refetch()
-  }, [channelId])
-
-  useEffect(() => {
-    if (!channelId) return
     // Prefetch the default Optimize listing page so switching views feels instant.
     const perPage = 15
-    queryClient.prefetchQuery({
-      queryKey: queryKeys.youtube.videos({
-        channelId,
-        page: 1,
-        perPage,
-        search: '',
-        sort: 'published_at',
-        videoType: 'videos',
-      }),
-      queryFn: async () => {
-        const token = await getAccessTokenOrNull()
-        if (!token) return { items: [], total: 0, total_pages: 1, page: 1 }
-        return youtubeApi.listVideos(token, {
+    queryClient
+      .prefetchQuery({
+        queryKey: queryKeys.youtube.videos({
+          channelId,
           page: 1,
-          per_page: perPage,
-          search: undefined,
+          perPage,
+          search: '',
           sort: 'published_at',
-          video_type: 'videos',
-        })
-      },
-      staleTime: queryFreshness.short,
-    })
+          videoType: 'videos',
+        }),
+        queryFn: async () => {
+          const token = await getAccessTokenOrNull()
+          if (!token) return { items: [], total: 0, total_pages: 1, page: 1 }
+          return youtubeApi.listVideos(token, {
+            page: 1,
+            per_page: perPage,
+            search: undefined,
+            sort: 'published_at',
+            video_type: 'videos',
+          })
+        },
+        staleTime: queryFreshness.short,
+      })
+      .catch(() => {})
   }, [channelId, queryClient])
 
   useEffect(() => {
@@ -871,20 +893,8 @@ export function Dashboard({ onLogout }) {
     if (!token) return
     setRefreshing(true)
     try {
-      const list = await youtubeApi.listChannels(token)
-      setYoutubeChannels(list.channels || [])
-      const activeId = list.active_channel_id || youtube?.channelId || list.channels?.[0]?.channel_id
-      if (activeId) {
-        const info = await youtubeApi.getChannelInfo(token, activeId)
-        setYouTube(true, {
-          channelId: info.channel_id,
-          channel_title: info.channel_title,
-          profile_image: info.profile_image,
-          subscriberCount: info.subscriberCount ?? info.subscriber_count,
-          viewCount: info.viewCount ?? info.view_count,
-          videoCount: info.videoCount ?? info.video_count,
-        })
-      }
+      const bootstrap = await bootstrapYouTube(token, { force: true })
+      setYoutubeChannels(bootstrap.channels || [])
     } catch (_) {}
     // Widget queries will automatically re-run for the active channelId,
     // but we also explicitly refetch to avoid waiting for staleTime.
@@ -990,6 +1000,8 @@ export function Dashboard({ onLogout }) {
       await youtubeApi.disconnectChannel(token, channelId)
       setYouTube(false, {})
       setYoutubeChannels((prev) => prev.filter((c) => c.channel_id !== channelId))
+      await useOnboardingStore.getState().syncToBackend(token)
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.preferences })
     } catch (e) {
       setYoutubeOAuthError(e?.message || 'Could not disconnect.')
     }
@@ -1013,6 +1025,8 @@ export function Dashboard({ onLogout }) {
       })
       setYoutubeChannels(await youtubeApi.listChannels(token).then((r) => r.channels || []))
       await useOnboardingStore.getState().syncChannelToBackend(token, channelId, info)
+      await useOnboardingStore.getState().syncToBackend(token)
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.preferences })
     } catch (_) {}
     setYoutubeLoading(false)
   }
@@ -1078,7 +1092,8 @@ export function Dashboard({ onLogout }) {
   const handleDeleteAccount = async (e) => {
     e.preventDefault()
     setDeleteAccountError('')
-    if (!deleteAccountPassword?.trim()) {
+    const passwordOptional = typeof allowsPasswordlessAccountDelete === 'function' && allowsPasswordlessAccountDelete()
+    if (!passwordOptional && !deleteAccountPassword?.trim()) {
       setDeleteAccountError('Please enter your password to confirm.')
       return
     }
@@ -1086,7 +1101,7 @@ export function Dashboard({ onLogout }) {
       setDeleteAccountError('Please confirm that you understand this action cannot be undone.')
       return
     }
-    const result = await deleteAccount(deleteAccountPassword.trim())
+    const result = await deleteAccount(deleteAccountPassword?.trim() || '')
     if (result?.ok) {
       onLogout?.()
     } else {
@@ -1248,6 +1263,7 @@ export function Dashboard({ onLogout }) {
             initialSection={settingsSection}
             onClose={() => setSettingsOpen(false)}
             user={user}
+            accountDeletePasswordOptional={typeof allowsPasswordlessAccountDelete === 'function' && allowsPasswordlessAccountDelete()}
             authLoading={authLoading}
             changePassword={changePassword}
             deleteData={deleteData}
@@ -1283,45 +1299,6 @@ export function Dashboard({ onLogout }) {
             setUseFirstPerson={setUseFirstPerson}
             onLogout={onLogout}
           />
-
-          {/* Welcome hero — when YouTube not connected */}
-          {!youtube?.connected && (
-            <section className="dashboard-welcome-hero">
-              <div className="dashboard-welcome-content">
-                <h2 className="dashboard-welcome-greeting">
-                  {getGreetingText()},{' '}
-                  <span className="dashboard-welcome-accent">{dashboardName}</span>
-                </h2>
-                <p className="dashboard-welcome-lead">
-                  Connect your YouTube channel to unlock your full dashboard — insights, audit, growth tracking, and personalized recommendations.
-                </p>
-                <ul className="dashboard-welcome-benefits">
-                  <li><strong>AI insights</strong> — Weekly video ideas tailored to your niche</li>
-                  <li><strong>Channel audit</strong> — Scores, fixes, and personalized recommendations</li>
-                  <li><strong>Growth analytics</strong> — Best time to post, views velocity, projections</li>
-                  <li><strong>Quick actions</strong> — Scripts, thumbnails, AI coach, optimization</li>
-                </ul>
-                <button
-                  type="button"
-                  className="dashboard-welcome-cta"
-                  onClick={handleConnectYouTube}
-                  disabled={youtubeLoading}
-                >
-                  {youtubeLoading ? (
-                    <>
-                      <span className="dashboard-welcome-cta-spinner" aria-hidden />
-                      Connecting…
-                    </>
-                  ) : (
-                    <>
-                      Connect YouTube
-                      <span className="dashboard-welcome-cta-icon" aria-hidden><IconArrowRight /></span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </section>
-          )}
 
           {ideaDismissIdea && (
             <div className="dashboard-idea-modal-backdrop" role="presentation" onClick={closeIdeaDismissDialog}>
@@ -1391,8 +1368,81 @@ export function Dashboard({ onLogout }) {
             </div>
           )}
 
-          {/* Channel Overview — only when a channel is connected */}
-          {youtube?.connected && (
+          {/* Compact YouTube connect promo — when not connected */}
+          {!youtube?.connected && (
+            <section className="dashboard-yt-connect-banner" aria-label="Connect YouTube">
+              <div className="dashboard-yt-connect-banner-body">
+                <div className="dashboard-yt-connect-banner-head">
+                  <span className="dashboard-yt-connect-banner-badge" aria-hidden>
+                    <IconYoutubeMark />
+                  </span>
+                  <div className="dashboard-yt-connect-banner-titles">
+                    <h2 className="dashboard-yt-connect-banner-greeting">
+                      {getGreetingText()},{' '}
+                      <span className="dashboard-yt-connect-banner-name">{dashboardName}</span>
+                    </h2>
+                    <p className="dashboard-yt-connect-banner-lead">
+                      Link your channel to unlock insights, audit scores, growth tracking, and tailored recommendations.
+                    </p>
+                  </div>
+                </div>
+                <ul className="dashboard-yt-connect-banner-grid">
+                  <li>
+                    <span className="dashboard-yt-connect-banner-cell-icon" aria-hidden><IconSpark /></span>
+                    <div>
+                      <strong>AI insights</strong>
+                      <span>Weekly ideas for your niche</span>
+                    </div>
+                  </li>
+                  <li>
+                    <span className="dashboard-yt-connect-banner-cell-icon" aria-hidden><IconTileGauge /></span>
+                    <div>
+                      <strong>Channel audit</strong>
+                      <span>Scores, fixes, next steps</span>
+                    </div>
+                  </li>
+                  <li>
+                    <span className="dashboard-yt-connect-banner-cell-icon" aria-hidden><IconChartUp /></span>
+                    <div>
+                      <strong>Growth analytics</strong>
+                      <span>Best time, velocity, projections</span>
+                    </div>
+                  </li>
+                  <li>
+                    <span className="dashboard-yt-connect-banner-cell-icon" aria-hidden><IconOptimize /></span>
+                    <div>
+                      <strong>Quick actions</strong>
+                      <span>Scripts, thumbs, coach, optimize</span>
+                    </div>
+                  </li>
+                </ul>
+                <div className="dashboard-yt-connect-banner-cta-wrap">
+                  <button
+                    type="button"
+                    className="dashboard-yt-connect-banner-cta"
+                    onClick={handleConnectYouTube}
+                    disabled={youtubeLoading}
+                  >
+                    {youtubeLoading ? (
+                      <>
+                        <span className="dashboard-yt-connect-banner-cta-spinner" aria-hidden />
+                        Connecting…
+                      </>
+                    ) : (
+                      <>
+                        <span className="dashboard-yt-connect-banner-cta-yt" aria-hidden><IconYoutubeMark /></span>
+                        Connect YouTube
+                        <span className="dashboard-yt-connect-banner-cta-arrow" aria-hidden><IconArrowRight /></span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Channel Overview — linked channel with ID only */}
+          {hasChannelData && (
             <section className="dashboard-section dashboard-channel-overview">
               <div className="dashboard-overview-intro">
                 <h2 className="dashboard-overview-greeting">
@@ -1505,32 +1555,54 @@ export function Dashboard({ onLogout }) {
             </section>
           )}
 
-          {/* Scriptz AI — command center: fix channel, forecast, next video, feature tiles, pipeline */}
+          {youtube?.connected && !channelId && (
+            <section className="dashboard-section dashboard-channel-pending-section" aria-label="Finish channel setup">
+              <div className="dashboard-command-channel-pending" role="status">
+                <div className="dashboard-command-channel-pending-text">
+                  <strong>Pick your channel.</strong> Open Account settings and choose which YouTube channel to analyze—then audits, forecasts, and ranked ideas load here.
+                </div>
+                <button type="button" className="dashboard-btn dashboard-btn-primary" onClick={() => openSettings('account')}>
+                  Open account settings
+                </button>
+              </div>
+            </section>
+          )}
+
+          {hasChannelData && (
           <section className="dashboard-section dashboard-command-center" aria-label="Scriptz AI command center">
             <div className="dashboard-command-head">
               <div className="dashboard-command-head-row">
                 <span className="dashboard-command-badge" aria-hidden><IconSpark /></span>
                 <div className="dashboard-command-head-text">
-                  <h2 className="dashboard-command-brand">Scriptz AI</h2>
+                  <div className="dashboard-command-brand-row">
+                    <h2 className="dashboard-command-brand">Scriptz AI</h2>
+                    <span className="dashboard-command-status dashboard-command-status--live">Channel linked</span>
+                  </div>
                   <p className="dashboard-command-tagline">One next step. Then script, thumbnails, optimize.</p>
+                  <ul className="dashboard-command-flow" aria-label="Workflow">
+                    <li className="dashboard-command-flow-item dashboard-command-flow-item--emphasis">
+                      <span className="dashboard-command-flow-icon" aria-hidden><IconTileGauge /></span>
+                      <span className="dashboard-command-flow-title">Prioritize</span>
+                      <span className="dashboard-command-flow-desc">Audit &amp; next best action</span>
+                    </li>
+                    <li className="dashboard-command-flow-join" aria-hidden />
+                    <li className="dashboard-command-flow-item dashboard-command-flow-item--emphasis">
+                      <span className="dashboard-command-flow-icon" aria-hidden><IconScript /></span>
+                      <span className="dashboard-command-flow-title">Create</span>
+                      <span className="dashboard-command-flow-desc">Scripts &amp; thumbnails</span>
+                    </li>
+                    <li className="dashboard-command-flow-join" aria-hidden />
+                    <li className="dashboard-command-flow-item dashboard-command-flow-item--emphasis">
+                      <span className="dashboard-command-flow-icon" aria-hidden><IconOptimize /></span>
+                      <span className="dashboard-command-flow-title">Polish</span>
+                      <span className="dashboard-command-flow-desc">Optimize before you post</span>
+                    </li>
+                  </ul>
                 </div>
               </div>
             </div>
 
-            {!youtube?.connected && (
-              <div className="dashboard-command-connect-prompt">
-                <p className="dashboard-command-connect-title">Connect YouTube to unlock the full picture</p>
-                <p className="dashboard-command-connect-desc">
-                  Health scores, growth projections, and “fix my channel” actions use your real channel data.
-                </p>
-                <button type="button" className="dashboard-btn dashboard-btn-primary" onClick={() => openSettings('account')}>
-                  Open settings &amp; connect YouTube
-                </button>
-              </div>
-            )}
-
-            {youtube?.connected && channelId && (
-              <div className="dashboard-command-grid-top">
+            <div className="dashboard-command-grid-top">
                 <div className="dashboard-command-panel dashboard-command-panel--fix">
                   {auditLoading && (
                     <div className="dashboard-next-action-card dashboard-next-action-card--loading dashboard-next-action-card--panel">
@@ -1634,9 +1706,8 @@ export function Dashboard({ onLogout }) {
                   )}
                 </div>
               </div>
-            )}
 
-            {insightsLoading && youtube?.connected && (
+            {insightsLoading && (
               <div className="dashboard-hero-next-video dashboard-hero-next-video--skeleton" aria-busy="true">
                 <div className="dashboard-hero-next-video-kicker">Next best video</div>
                 <div className="dashboard-skeleton-block dashboard-skeleton-block--lg" />
@@ -1650,7 +1721,9 @@ export function Dashboard({ onLogout }) {
                 <header className="dashboard-hero-next-video-header">
                   <span className="dashboard-hero-next-video-kicker">Next best video</span>
                   <h3 className="dashboard-hero-next-video-title">{nextBestVideo.title}</h3>
-                  <p className="dashboard-hero-next-video-deck">Top pick from your current ideas batch — script, thumbnails, or tweak the idea first.</p>
+                  <p className="dashboard-hero-next-video-deck">
+                    Top pick from this batch for your connected channel—open Script or Thumbnails with this title prefilled, or refine the idea in Coach first.
+                  </p>
                 </header>
                 <div className="dashboard-hero-next-video-body">
                   {nextBestVideo.hook && (
@@ -1710,7 +1783,7 @@ export function Dashboard({ onLogout }) {
               </article>
             )}
 
-            {!insightsLoading && youtube?.connected && !nextBestVideo && (
+            {!insightsLoading && !nextBestVideo && (
               <div className="dashboard-hero-next-video dashboard-hero-next-video--empty">
                 <p className="dashboard-hero-empty-title">No video idea in this batch yet</p>
                 <p className="dashboard-muted">Regenerate ideas or check your connection — fresh ideas appear here as your top pick.</p>
@@ -1725,8 +1798,7 @@ export function Dashboard({ onLogout }) {
               </div>
             )}
 
-            {youtube?.connected && channelId && (
-              <div className="dashboard-feature-tiles" aria-label="Dashboard features">
+            <div className="dashboard-feature-tiles" aria-label="Dashboard features">
                 <article className="dashboard-feature-tile dashboard-feature-tile--script">
                   <div className="dashboard-feature-tile-head">
                     <span className="dashboard-feature-tile-icon" aria-hidden><IconTileScript /></span>
@@ -1989,16 +2061,21 @@ export function Dashboard({ onLogout }) {
                   </div>
                 </article>
               </div>
-            )}
           </section>
+          )}
 
-          {/* Quick Actions — always visible */}
+          {/* Quick actions — only after YouTube is connected (use sidebar tools otherwise) */}
+          {youtube?.connected && (
           <section className="dashboard-section dashboard-quick-actions">
             <h2 className="dashboard-section-title">
               <span className="dashboard-section-icon" aria-hidden />
-              {youtube?.connected ? 'Quick actions' : 'Get started'}
+              Quick actions
             </h2>
-            <p className="dashboard-section-subtitle">{youtube?.connected ? 'Jump to a tool — context loads for you.' : 'Core tools, one tap each.'}</p>
+            <p className="dashboard-section-subtitle">
+              {channelId
+                ? 'Jump to a tool — we prefill context from your linked channel where it helps.'
+                : 'Jump to a tool — pick a channel in settings for richer defaults.'}
+            </p>
             <div className="dashboard-quick-actions-grid">
               <a
                 href={`#${hashWithPrefill('coach/scripts', scriptPrefill({ concept: null, pillar: 'Next video', score: null }))}`}
@@ -2063,18 +2140,23 @@ export function Dashboard({ onLogout }) {
               </a>
             </div>
           </section>
+          )}
 
           {/* AI Insights — script ideas */}
           <section id="dashboard-video-ideas" className="dashboard-section dashboard-insights-section">
             <div className="dashboard-panel dashboard-panel--ideas">
             <div className="dashboard-script-ideas-header">
               <div className="dashboard-script-ideas-header-text">
-                <h2 className="dashboard-section-title">
+                <h2 className="dashboard-section-title dashboard-script-ideas-title">
                   <span className="dashboard-section-icon" aria-hidden />
-                  {nextBestVideo ? 'More video ideas' : 'AI video ideas'}
+                  {hasChannelData && nextBestVideo ? 'More video ideas' : 'AI video ideas'}
                 </h2>
-                <p className="dashboard-section-subtitle">
-                  {nextBestVideo ? 'More angles — script, thumbnail, or feedback.' : 'Pick an idea → script or thumbnail.'}
+                <p className="dashboard-section-subtitle dashboard-script-ideas-subtitle">
+                  {!hasChannelData
+                    ? 'Tailored to your niche and format. Connect YouTube in the header for channel-specific insights and the full dashboard.'
+                    : nextBestVideo
+                      ? 'More angles — open script or thumbnail, or tell us what to keep.'
+                      : 'Pick an idea, then jump into script or thumbnail in one tap.'}
                 </p>
               </div>
               <button
@@ -2107,7 +2189,10 @@ export function Dashboard({ onLogout }) {
                 </button>
               </div>
             )}
-            {!insightsLoading && !insightsError && insights && (nextBestVideo ? moreScriptIdeas : visibleScriptIdeas).length > 0 && (
+            {!insightsLoading &&
+              !insightsError &&
+              insights &&
+              (hasChannelData && nextBestVideo ? moreScriptIdeas : visibleScriptIdeas).length > 0 && (
               <>
                 {ideaFeedbackNotice && (
                   <div className={`dashboard-inline-notice dashboard-inline-notice--${ideaFeedbackNotice.tone}`} role="status">
@@ -2115,7 +2200,7 @@ export function Dashboard({ onLogout }) {
                   </div>
                 )}
                 <div className="dashboard-script-ideas-grid">
-                  {(nextBestVideo ? moreScriptIdeas : visibleScriptIdeas).map((idea, i) => {
+                  {(hasChannelData && nextBestVideo ? moreScriptIdeas : visibleScriptIdeas).map((idea, i) => {
                     const title = idea?.idea_title ?? idea?.title ?? 'Idea'
                     const script = idea?.short_script ?? idea?.script ?? idea?.description
                     const key = `${title}-${i}`
@@ -2126,23 +2211,29 @@ export function Dashboard({ onLogout }) {
                       idea?.target_emotion,
                       idea?.expected_audience,
                     ].filter(Boolean)
-                    const num = i + 1 + (nextBestVideo ? 1 : 0)
+                    const num = i + 1 + (hasChannelData && nextBestVideo ? 1 : 0)
                     return (
                       <article key={key} className="dashboard-script-idea-card">
                         <div className="dashboard-script-idea-card-top">
-                          <span className="dashboard-script-idea-num">{num}</span>
+                          <span className="dashboard-script-idea-num" aria-hidden>{num}</span>
                           <div className="dashboard-script-idea-card-intro">
                             <h3 className="dashboard-script-idea-card-title">{title}</h3>
                             {script && <p className="dashboard-script-idea-card-desc">{script}</p>}
                           </div>
                         </div>
                         {tags.length > 0 && (
-                          <div className="dashboard-script-idea-card-tags-wrap">
-                            <span className="dashboard-script-idea-card-tags-label">Signals</span>
-                            <div className="dashboard-script-idea-card-tags">
-                              {tags.map((tag) => (
-                                <span key={tag} className="dashboard-script-idea-card-tag">{tag}</span>
-                              ))}
+                          <div className="dashboard-script-idea-signals-slot">
+                            <div className="dashboard-script-idea-signals">
+                              <div className="dashboard-script-idea-signals-head">
+                                <span className="dashboard-script-idea-signals-kicker">Signals</span>
+                                <p className="dashboard-script-idea-signals-sub">Why this could work</p>
+                              </div>
+                              <div className="dashboard-script-idea-signals-divider" aria-hidden />
+                              <div className="dashboard-script-idea-signals-chips">
+                                {tags.map((tag) => (
+                                  <span key={tag} className="dashboard-script-idea-signals-chip">{tag}</span>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         )}
@@ -2178,11 +2269,23 @@ export function Dashboard({ onLogout }) {
                               Thumbnail
                             </a>
                           </div>
-                          <div className="dashboard-script-idea-card-feedback" aria-label="Feedback">
-                            <button type="button" className="dashboard-script-idea-card-save" title="Like this idea" disabled={sending} onClick={() => handleIdeaFeedback(idea, true)}>
-                              {sending ? '…' : '✓'}
+                          <div className="dashboard-script-idea-card-feedback" role="group" aria-label="Idea feedback">
+                            <button
+                              type="button"
+                              className="dashboard-script-idea-feedback-pill dashboard-script-idea-feedback-pill--yes"
+                              title="Like this idea"
+                              aria-label="Like this idea"
+                              disabled={sending}
+                              onClick={() => handleIdeaFeedback(idea, true)}
+                            >
+                              {sending ? '…' : <span aria-hidden>✓</span>}
                             </button>
-                            <button type="button" className="dashboard-script-idea-card-pass" disabled={sending} onClick={() => handleIdeaFeedback(idea, false)}>
+                            <button
+                              type="button"
+                              className="dashboard-script-idea-feedback-pill dashboard-script-idea-feedback-pill--pass"
+                              disabled={sending}
+                              onClick={() => handleIdeaFeedback(idea, false)}
+                            >
                               Pass
                             </button>
                           </div>
@@ -2193,7 +2296,13 @@ export function Dashboard({ onLogout }) {
                 </div>
               </>
             )}
-            {!insightsLoading && !insightsError && insights && nextBestVideo && moreScriptIdeas.length === 0 && visibleScriptIdeas.length > 0 && (
+            {!insightsLoading &&
+              !insightsError &&
+              insights &&
+              hasChannelData &&
+              nextBestVideo &&
+              moreScriptIdeas.length === 0 &&
+              visibleScriptIdeas.length > 0 && (
               <p className="dashboard-ideas-single-note">No other ideas in this batch — regenerate for more options.</p>
             )}
             {!insightsLoading && !insightsError && insights && visibleScriptIdeas.length === 0 && (

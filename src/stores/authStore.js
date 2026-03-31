@@ -1,25 +1,93 @@
 import { create } from 'zustand'
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
+import { isLocalApiAuthMode, API_AUTH_STORAGE_KEY } from '../lib/authMode'
 import { authApi } from '../api/auth'
 import { userApi } from '../api/user'
+import { resetClientCachesForUserChange, LAST_AUTH_USER_ID_KEY } from '../lib/sessionReset'
 
-const STORAGE_KEY = 'scriptz_auth'
-const REFRESH_BEFORE_MS = 2 * 60 * 1000  // refresh if token expires in < 2 min
-const PROACTIVE_REFRESH_INTERVAL_MS = 60 * 1000  // check every 60s
+let authListenerBound = false
+let ensureSessionInFlight = null
+let accessTokenInFlight = null
 
-function loadStored() {
+function mapUser(u) {
+  if (!u) return null
+  return {
+    id: u.id,
+    email: u.email,
+    user_metadata: u.user_metadata,
+    app_metadata: u.app_metadata,
+  }
+}
+
+function mapApiUser(u) {
+  if (!u) return null
+  return {
+    id: String(u.id),
+    email: u.email,
+    user_metadata: {},
+    app_metadata: {},
+  }
+}
+
+function loadApiAuthFromStorage() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : null
+    const raw = localStorage.getItem(API_AUTH_STORAGE_KEY)
+    if (!raw) return null
+    const o = JSON.parse(raw)
+    if (!o?.accessToken || !o?.refreshToken) return null
+    return o
   } catch {
     return null
   }
 }
 
-function saveStored(data) {
+function saveApiAuthToStorage(payload) {
   try {
-    if (data) localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-    else localStorage.removeItem(STORAGE_KEY)
-  } catch {}
+    if (payload) localStorage.setItem(API_AUTH_STORAGE_KEY, JSON.stringify(payload))
+    else localStorage.removeItem(API_AUTH_STORAGE_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+function touchLastUserId(nextUserId) {
+  if (typeof localStorage === 'undefined') return
+  const last = localStorage.getItem(LAST_AUTH_USER_ID_KEY)
+  if (nextUserId) {
+    if (last != null && last !== String(nextUserId)) {
+      resetClientCachesForUserChange()
+    }
+    localStorage.setItem(LAST_AUTH_USER_ID_KEY, String(nextUserId))
+  } else {
+    if (last != null) {
+      resetClientCachesForUserChange()
+    }
+    localStorage.removeItem(LAST_AUTH_USER_ID_KEY)
+  }
+}
+
+function sessionToState(session) {
+  if (!session) {
+    return { user: null, accessToken: null, refreshToken: null, expiresAt: null }
+  }
+  const exp = session.expires_at ? session.expires_at * 1000 : null
+  return {
+    user: mapUser(session.user),
+    accessToken: session.access_token,
+    refreshToken: session.refresh_token,
+    expiresAt: exp,
+  }
+}
+
+export function bindSupabaseAuthListener() {
+  if (isLocalApiAuthMode() || authListenerBound || !supabase) return
+  authListenerBound = true
+  supabase.auth.onAuthStateChange((event, session) => {
+    useAuthStore.getState()._applySession(session)
+    if (event === 'PASSWORD_RECOVERY' && typeof window !== 'undefined') {
+      window.location.hash = 'reset-password'
+    }
+  })
 }
 
 export const useAuthStore = create((set, get) => ({
@@ -31,45 +99,37 @@ export const useAuthStore = create((set, get) => ({
   error: null,
   _refreshIntervalId: null,
 
-  loadSession() {
-    const d = loadStored()
-    if (!d || !d.access_token) {
-      set({ user: null, accessToken: null, refreshToken: null, expiresAt: null })
-      return
-    }
-    set({
-      user: d.user ?? null,
-      accessToken: d.access_token,
-      refreshToken: d.refresh_token ?? null,
-      expiresAt: d.expires_at ?? null,
-    })
-  },
-
-  setSession(accessToken, refreshToken, expiresIn, user) {
-    const now = Date.now()
-    const exp = typeof expiresIn === 'number' ? expiresIn : 900
-    const data = {
-      access_token: accessToken,
-      refresh_token: refreshToken ?? get().refreshToken,
-      expires_in: exp,
-      expires_at: now + exp * 1000,
-      user: user ?? get().user,
-    }
-    saveStored(data)
-    set({
-      user: data.user,
+  _applyApiSession(accessToken, refreshToken, expiresInSeconds, user) {
+    const exp = Date.now() + (expiresInSeconds || 900) * 1000
+    const nextUser = mapApiUser(user)
+    const nextUserId = nextUser?.id ?? null
+    touchLastUserId(nextUserId)
+    saveApiAuthToStorage({
       accessToken,
-      refreshToken: data.refresh_token,
-      expiresAt: data.expires_at,
+      refreshToken,
+      expiresAt: exp,
+      user,
+    })
+    set({
+      user: nextUser,
+      accessToken,
+      refreshToken,
+      expiresAt: exp,
       error: null,
     })
-    get()._startProactiveRefresh()
+    get()._startApiRefreshTimer()
   },
 
-  clearSession() {
-    get()._stopProactiveRefresh()
-    saveStored(null)
-    set({ user: null, accessToken: null, refreshToken: null, expiresAt: null, error: null, _refreshIntervalId: null })
+  _applySession(session) {
+    const next = sessionToState(session)
+    const nextUserId = session?.user?.id ?? null
+    touchLastUserId(nextUserId)
+    set({ ...next, error: null })
+    if (session?.refresh_token) {
+      get()._startProactiveRefresh()
+    } else {
+      get()._stopProactiveRefresh()
+    }
   },
 
   _stopProactiveRefresh() {
@@ -80,72 +140,221 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  _startProactiveRefresh() {
-    if (get()._refreshIntervalId) return
-    if (!get().refreshToken) return
-    const id = setInterval(() => {
+  _startApiRefreshTimer() {
+    if (!isLocalApiAuthMode()) return
+    get()._stopProactiveRefresh()
+    const id = setInterval(async () => {
       const { expiresAt, refreshToken } = get()
-      if (!refreshToken || !expiresAt) return
-      if (Date.now() < expiresAt - REFRESH_BEFORE_MS) return
-      get().refreshSession().catch(() => get().clearSession())
-    }, PROACTIVE_REFRESH_INTERVAL_MS)
+      if (!refreshToken || !expiresAt || Date.now() < expiresAt - 120000) return
+      try {
+        const data = await authApi.refresh(refreshToken)
+        get()._applyApiSession(data.access_token, data.refresh_token, data.expires_in, data.user)
+      } catch {
+        /* keep session until API returns 401 */
+      }
+    }, 60000)
     set({ _refreshIntervalId: id })
   },
 
-  /** Refresh access token using refresh_token; updates stored session. */
-  refreshSession: async () => {
-    const refresh = get().refreshToken
-    if (!refresh) return
-    const res = await authApi.refresh(refresh)
-    get().setSession(res.access_token, res.refresh_token ?? refresh, res.expires_in, res.user)
+  _startProactiveRefresh() {
+    if (isLocalApiAuthMode()) {
+      get()._startApiRefreshTimer()
+      return
+    }
+    if (get()._refreshIntervalId || !supabase) return
+    const id = setInterval(async () => {
+      const { expiresAt } = get()
+      if (!expiresAt || Date.now() < expiresAt - 120000) return
+      const { data, error } = await supabase.auth.refreshSession()
+      if (error || !data.session) return
+      get()._applySession(data.session)
+    }, 60000)
+    set({ _refreshIntervalId: id })
   },
 
-  /**
-   * Call after loadSession() on app init: restore session, refresh if expired, start proactive refresh.
-   * Keeps the user logged in across reloads and refreshes tokens before they expire.
-   */
-  ensureSession: async () => {
-    get().loadSession()
-    const { accessToken, refreshToken, expiresAt } = get()
-    if (!refreshToken) return
-    const now = Date.now()
-    const expired = !expiresAt || now >= expiresAt - 60000
-    if (expired || !accessToken) {
-      try {
-        await get().refreshSession()
-      } catch {
-        get().clearSession()
+  loadSession() {
+    if (isLocalApiAuthMode()) {
+      const s = loadApiAuthFromStorage()
+      if (s?.accessToken) {
+        get()._applyApiSession(s.accessToken, s.refreshToken, Math.max(60, Math.round((s.expiresAt - Date.now()) / 1000)), s.user)
+      } else {
+        set({ user: null, accessToken: null, refreshToken: null, expiresAt: null })
       }
       return
     }
-    get()._startProactiveRefresh()
+    if (!supabase) {
+      set({ user: null, accessToken: null, refreshToken: null, expiresAt: null })
+      return
+    }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      get()._applySession(session)
+    })
   },
 
-  /**
-   * Returns a Promise that resolves with a valid access token (refreshing if needed). Use for API calls.
-   */
-  getValidAccessToken: async () => {
-    const { accessToken, refreshToken, expiresAt } = get()
-    const now = Date.now()
-    const stillValid = accessToken && expiresAt && now < expiresAt - 60000
-    if (stillValid) return accessToken
-    if (!refreshToken) return null
-    await get().refreshSession()
-    return get().accessToken
+  setSession(accessToken, refreshToken, expiresIn, user) {
+    set({
+      accessToken,
+      refreshToken,
+      expiresAt: Date.now() + (expiresIn || 900) * 1000,
+      user,
+      error: null,
+    })
+  },
+
+  clearSession() {
+    get()._stopProactiveRefresh()
+    set({ user: null, accessToken: null, refreshToken: null, expiresAt: null, error: null })
   },
 
   clearError() {
     set({ error: null })
   },
 
+  ensureSession: async () => {
+    if (isLocalApiAuthMode()) {
+      if (ensureSessionInFlight) return ensureSessionInFlight
+      ensureSessionInFlight = (async () => {
+        const stored = loadApiAuthFromStorage()
+        if (!stored?.refreshToken) {
+          get().clearSession()
+          return
+        }
+        if (stored.accessToken && stored.expiresAt && Date.now() < stored.expiresAt - 60000) {
+          get()._applyApiSession(
+            stored.accessToken,
+            stored.refreshToken,
+            Math.max(60, Math.round((stored.expiresAt - Date.now()) / 1000)),
+            stored.user
+          )
+          return
+        }
+        try {
+          const data = await authApi.refresh(stored.refreshToken)
+          get()._applyApiSession(data.access_token, data.refresh_token, data.expires_in, data.user)
+        } catch {
+          saveApiAuthToStorage(null)
+          get().clearSession()
+        }
+      })()
+      try {
+        await ensureSessionInFlight
+      } finally {
+        ensureSessionInFlight = null
+      }
+      return
+    }
+
+    if (!isSupabaseConfigured() || !supabase) {
+      set({ user: null, accessToken: null, refreshToken: null, expiresAt: null })
+      return
+    }
+    bindSupabaseAuthListener()
+    if (ensureSessionInFlight) return ensureSessionInFlight
+    ensureSessionInFlight = (async () => {
+      const { data: { session }, error } = await supabase.auth.getSession()
+      if (error) {
+        get().clearSession()
+        return
+      }
+      get()._applySession(session)
+    })()
+    try {
+      await ensureSessionInFlight
+    } finally {
+      ensureSessionInFlight = null
+    }
+  },
+
+  getValidAccessToken: async () => {
+    if (isLocalApiAuthMode()) {
+      const { accessToken: mem, expiresAt, refreshToken } = get()
+      if (mem && expiresAt && Date.now() < expiresAt - 60000) {
+        return mem
+      }
+      if (accessTokenInFlight) return accessTokenInFlight
+      accessTokenInFlight = (async () => {
+        if (!refreshToken) return null
+        try {
+          if (!mem || !expiresAt || Date.now() >= expiresAt - 60000) {
+            const data = await authApi.refresh(refreshToken)
+            get()._applyApiSession(data.access_token, data.refresh_token, data.expires_in, data.user)
+            return data.access_token
+          }
+          return mem
+        } catch {
+          saveApiAuthToStorage(null)
+          get().clearSession()
+          return null
+        }
+      })()
+      try {
+        return await accessTokenInFlight
+      } finally {
+        accessTokenInFlight = null
+      }
+    }
+
+    if (!supabase) return null
+    const { accessToken: mem, expiresAt } = get()
+    if (mem && expiresAt && Date.now() < expiresAt - 60000) {
+      return mem
+    }
+    if (accessTokenInFlight) return accessTokenInFlight
+    accessTokenInFlight = (async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return null
+      const exp = session.expires_at ? session.expires_at * 1000 : 0
+      if (exp && Date.now() > exp - 60000) {
+        const { data, error } = await supabase.auth.refreshSession()
+        if (!error && data.session) {
+          get()._applySession(data.session)
+          return data.session.access_token
+        }
+      }
+      get()._applySession(session)
+      return session.access_token
+    })()
+    try {
+      return await accessTokenInFlight
+    } finally {
+      accessTokenInFlight = null
+    }
+  },
+
   login: async (email, password) => {
+    if (isLocalApiAuthMode()) {
+      set({ isLoading: true, error: null })
+      try {
+        const data = await authApi.login(email.trim(), password)
+        get()._applyApiSession(data.access_token, data.refresh_token, data.expires_in, data.user)
+        return { ok: true }
+      } catch (err) {
+        const message = err?.message || 'Invalid email or password'
+        set({ error: message })
+        return { ok: false, error: message }
+      } finally {
+        set({ isLoading: false })
+      }
+    }
+    if (!supabase) {
+      set({ error: 'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, or use local API auth (dev default).' })
+      return { ok: false, error: get().error }
+    }
     set({ isLoading: true, error: null })
     try {
-      const res = await authApi.login(email, password)
-      get().setSession(res.access_token, res.refresh_token, res.expires_in, res.user)
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+      if (error) {
+        const msg =
+          error.message === 'Email not confirmed'
+            ? 'Please confirm your email first. Check your inbox or use “Resend confirmation”.'
+            : error.message
+        set({ error: msg })
+        return { ok: false, error: msg, needsEmailConfirmation: error.message === 'Email not confirmed' }
+      }
+      get()._applySession(data.session)
       return { ok: true }
     } catch (err) {
-      const message = err?.message || 'Sign in failed. Please try again.'
+      const message = err?.message || 'Sign in failed.'
       set({ error: message })
       return { ok: false, error: message }
     } finally {
@@ -153,13 +362,98 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  register: async (email, password, username = null) => {
+  signInWithGoogle: async () => {
+    if (isLocalApiAuthMode()) {
+      set({ error: 'Google sign-in uses Supabase. Set VITE_USE_LOCAL_API_AUTH=false and configure Supabase, or sign in with email.' })
+      return { ok: false, error: get().error }
+    }
+    if (!supabase) {
+      set({ error: 'Supabase is not configured.' })
+      return { ok: false }
+    }
     set({ isLoading: true, error: null })
     try {
-      await authApi.register(email, password, username)
+      const redirectTo = `${window.location.origin}${window.location.pathname}`
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo },
+      })
+      if (error) {
+        set({ error: error.message })
+        return { ok: false, error: error.message }
+      }
       return { ok: true }
     } catch (err) {
-      const message = err?.message || 'Registration failed. Please try again.'
+      const message = err?.message || 'Google sign-in failed.'
+      set({ error: message })
+      return { ok: false, error: message }
+    } finally {
+      set({ isLoading: false })
+    }
+  },
+
+  resendSignupEmail: async (email) => {
+    if (isLocalApiAuthMode()) {
+      set({ error: 'Email confirmation is not used for local API accounts.' })
+      return { ok: false, error: get().error }
+    }
+    if (!supabase) {
+      set({ error: 'Supabase is not configured.' })
+      return { ok: false, error: 'Not configured' }
+    }
+    set({ error: null })
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+      options: { emailRedirectTo: `${window.location.origin}/` },
+    })
+    if (error) {
+      set({ error: error.message })
+      return { ok: false, error: error.message }
+    }
+    return { ok: true }
+  },
+
+  register: async (email, password, username = null) => {
+    if (isLocalApiAuthMode()) {
+      set({ isLoading: true, error: null })
+      try {
+        await authApi.register(email.trim(), password, username)
+        const data = await authApi.login(email.trim(), password)
+        get()._applyApiSession(data.access_token, data.refresh_token, data.expires_in, data.user)
+        return { ok: true, needsEmailConfirmation: false }
+      } catch (err) {
+        const message = err?.message || 'Registration failed.'
+        set({ error: message })
+        return { ok: false, error: message }
+      } finally {
+        set({ isLoading: false })
+      }
+    }
+    if (!supabase) {
+      set({ error: 'Supabase is not configured.' })
+      return { ok: false, error: get().error }
+    }
+    set({ isLoading: true, error: null })
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+        },
+      })
+      if (error) {
+        set({ error: error.message })
+        return { ok: false, error: error.message }
+      }
+      const needsEmailConfirmation = !data.session
+      if (data.session) {
+        get()._applySession(data.session)
+      }
+      return { ok: true, needsEmailConfirmation }
+    } catch (err) {
+      const message = err?.message || 'Registration failed.'
       set({ error: message })
       return { ok: false, error: message }
     } finally {
@@ -168,22 +462,61 @@ export const useAuthStore = create((set, get) => ({
   },
 
   logout: async () => {
-    const refresh = get().refreshToken
-    if (refresh) {
-      try {
-        await authApi.logout(refresh)
-      } catch {}
+    if (isLocalApiAuthMode()) {
+      const rt = get().refreshToken
+      if (rt) {
+        try {
+          await authApi.logout(rt)
+        } catch {
+          /* ignore */
+        }
+      }
+      saveApiAuthToStorage(null)
+      resetClientCachesForUserChange()
+      get().clearSession()
+      return
     }
+    if (supabase) {
+      try {
+        await supabase.auth.signOut()
+      } catch {
+        /* ignore */
+      }
+    }
+    resetClientCachesForUserChange()
     get().clearSession()
   },
 
   forgotPassword: async (email) => {
+    if (isLocalApiAuthMode()) {
+      set({ isLoading: true, error: null })
+      try {
+        await authApi.forgotPassword(email.trim())
+        return { ok: true }
+      } catch (err) {
+        const message = err?.message || 'Could not send reset email.'
+        set({ error: message })
+        return { ok: false, error: message }
+      } finally {
+        set({ isLoading: false })
+      }
+    }
+    if (!supabase) {
+      set({ error: 'Supabase is not configured.' })
+      return { ok: false }
+    }
     set({ isLoading: true, error: null })
     try {
-      await authApi.forgotPassword(email)
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/#reset-password`,
+      })
+      if (error) {
+        set({ error: error.message })
+        return { ok: false, error: error.message }
+      }
       return { ok: true }
     } catch (err) {
-      const message = err?.message || 'Could not send reset email. Please try again.'
+      const message = err?.message || 'Could not send reset email.'
       set({ error: message })
       return { ok: false, error: message }
     } finally {
@@ -192,12 +525,34 @@ export const useAuthStore = create((set, get) => ({
   },
 
   resetPassword: async (token, newPassword) => {
+    if (isLocalApiAuthMode()) {
+      if (!token || !String(token).trim()) {
+        set({ error: 'Reset link is invalid or expired.' })
+        return { ok: false, error: get().error }
+      }
+      set({ isLoading: true, error: null })
+      try {
+        await authApi.resetPassword(String(token).trim(), newPassword)
+        return { ok: true }
+      } catch (err) {
+        const message = err?.message || 'Password reset failed.'
+        set({ error: message })
+        return { ok: false, error: message }
+      } finally {
+        set({ isLoading: false })
+      }
+    }
+    if (!supabase) return { ok: false, error: 'Not configured' }
     set({ isLoading: true, error: null })
     try {
-      await authApi.resetPassword(token, newPassword)
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) {
+        set({ error: error.message })
+        return { ok: false, error: error.message }
+      }
       return { ok: true }
     } catch (err) {
-      const message = err?.message || 'Password reset failed. Please try again or request a new link.'
+      const message = err?.message || 'Password reset failed.'
       set({ error: message })
       return { ok: false, error: message }
     } finally {
@@ -206,25 +561,48 @@ export const useAuthStore = create((set, get) => ({
   },
 
   changePassword: async (currentPassword, newPassword) => {
+    if (isLocalApiAuthMode()) {
+      set({ isLoading: true, error: null })
+      try {
+        const token = await get().getValidAccessToken()
+        if (!token) {
+          set({ error: 'Not signed in.' })
+          return { ok: false, error: 'Not signed in.' }
+        }
+        await authApi.changePassword(currentPassword, newPassword, token)
+        return { ok: true }
+      } catch (err) {
+        const message = err?.message || 'Failed to change password.'
+        set({ error: message })
+        return { ok: false, error: message }
+      } finally {
+        set({ isLoading: false })
+      }
+    }
+    if (!supabase) return { ok: false, error: 'Not configured' }
     set({ isLoading: true, error: null })
     try {
-      const token = await get().getValidAccessToken()
-      if (!token) return { ok: false, error: 'Not signed in.' }
-      await authApi.changePassword(currentPassword, newPassword, token)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user?.email) {
+        set({ error: 'Not signed in.' })
+        return { ok: false, error: 'Not signed in.' }
+      }
+      const { error: signErr } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      })
+      if (signErr) {
+        set({ error: 'Current password is incorrect.' })
+        return { ok: false, error: 'Current password is incorrect.' }
+      }
+      const { error: updErr } = await supabase.auth.updateUser({ password: newPassword })
+      if (updErr) {
+        set({ error: updErr.message })
+        return { ok: false, error: updErr.message }
+      }
       return { ok: true }
     } catch (err) {
-      if (err?.status === 401) {
-        try {
-          await get().refreshSession()
-          const token = get().accessToken
-          if (token) {
-            await authApi.changePassword(currentPassword, newPassword, token)
-            return { ok: true }
-          }
-        } catch {}
-        get().clearSession()
-      }
-      const message = err?.message || 'Failed to change password. Please try again.'
+      const message = err?.message || 'Failed to change password.'
       set({ error: message })
       return { ok: false, error: message }
     } finally {
@@ -232,7 +610,6 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  /** Delete all user data on the server (preferences, content). Account remains. */
   deleteData: async () => {
     set({ isLoading: true, error: null })
     try {
@@ -241,7 +618,7 @@ export const useAuthStore = create((set, get) => ({
       await userApi.deleteData(token)
       return { ok: true }
     } catch (err) {
-      const message = err?.message || 'Failed to delete data. Please try again.'
+      const message = err?.message || 'Failed to delete data.'
       set({ error: message })
       return { ok: false, error: message }
     } finally {
@@ -249,21 +626,39 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  /** Permanently delete account. Requires password. Clears session on success. */
   deleteAccount: async (password) => {
     set({ isLoading: true, error: null })
     try {
       const token = await get().getValidAccessToken()
       if (!token) return { ok: false, error: 'Not signed in.' }
       await authApi.deleteAccount(password, token)
-      get().clearSession()
+      await get().logout()
       return { ok: true }
     } catch (err) {
-      const message = err?.message || 'Failed to delete account. Please check your password and try again.'
+      const message = err?.message || 'Failed to delete account.'
       set({ error: message })
       return { ok: false, error: message }
     } finally {
       set({ isLoading: false })
     }
+  },
+
+  allowsPasswordlessAccountDelete: () => !isLocalApiAuthMode(),
+
+  refreshSession: async () => {
+    if (isLocalApiAuthMode()) {
+      const rt = get().refreshToken
+      if (!rt) return
+      try {
+        const data = await authApi.refresh(rt)
+        get()._applyApiSession(data.access_token, data.refresh_token, data.expires_in, data.user)
+      } catch {
+        /* ignore */
+      }
+      return
+    }
+    if (!supabase) return
+    const { data, error } = await supabase.auth.refreshSession()
+    if (!error && data.session) get()._applySession(data.session)
   },
 }))

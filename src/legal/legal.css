@@ -14,8 +14,8 @@
 
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--legal-bg);
-  font-family: var(--font, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  background: transparent;
+  font-family: var(--font, 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
   -webkit-font-smoothing: antialiased;
   color: var(--legal-text);
   position: relative;

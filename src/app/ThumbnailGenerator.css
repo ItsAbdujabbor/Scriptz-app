@@ -22,8 +22,8 @@
 .thumb-concept-card {
   padding: 0.75rem;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .thumb-thumbnail-img-wrap {
@@ -200,6 +200,7 @@
   border: none !important;
   background: transparent !important;
   box-shadow: none !important;
+  overflow: visible !important;
 }
 
 .script-gen-block--thumb-batch .script-gen-block-head {
@@ -210,12 +211,15 @@
   padding: 0.25rem 0;
   border: none !important;
   background: transparent !important;
+  /* ScriptGenerator.css applies scroll to first .script-gen-block — never clip thumbnails */
+  max-height: none !important;
+  overflow: visible !important;
 }
 
 .thumb-batch-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 }
 
 .thumb-batch-grid:has(.thumb-batch-card:only-child) {
@@ -226,13 +230,16 @@
   position: relative;
   border-radius: 20px;
   overflow: visible;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  background: rgba(255, 255, 255, 0.03);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
 }
 
 .thumb-batch-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  border-color: rgba(167, 139, 250, 0.35);
 }
 
 .thumb-batch-card-inner {
@@ -488,45 +495,538 @@
   cursor: not-allowed;
 }
 
-/* Sub-tool tab bar (Prompt / Recreate / Analyze / Edit) above composer */
-/* Parent .coach-composer-wrap uses pointer-events:none so only .coach-composer is clickable;
-   the tab bar sits outside .coach-composer — re-enable hits on the tab strip. */
+/* Sub-tool tab bar (Prompt / Recreate / Analyze / Edit) + composer — one chrome */
+/* Parent .coach-composer-wrap uses pointer-events:none; inner chrome re-enables hits */
 .coach-composer-wrap--thumb-tools {
   flex-direction: column;
   align-items: stretch;
   gap: 0;
 }
 
-.thumb-gen-subtabbar-wrap {
-  width: 100%;
-  padding: 0 0.5rem 0.5rem;
-  flex-shrink: 0;
+/* Footer blur (::after on .coach-composer-wrap) can wash out this strip — hide it in thumbnails */
+#coach-panel-thumbnails .coach-composer-wrap--thumb-tools::after {
+  display: none;
+}
+
+.thumb-gen-footer-chrome {
+  width: var(--coach-content-width);
+  max-width: min(980px, calc(100% - 0.4rem));
+  margin: 0 auto;
   pointer-events: auto;
   position: relative;
-  z-index: 2;
+  z-index: 6;
+  border-radius: 20px;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.16) inset,
+    0 -1px 0 rgba(255, 255, 255, 0.06) inset;
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    max-width 0.28s ease,
+    border-radius 0.28s ease,
+    box-shadow 0.28s ease,
+    padding 0.28s ease;
+}
+
+.thumb-gen-footer-error {
+  margin: 0.35rem auto 0.5rem !important;
+}
+
+.thumb-gen-subtabbar-wrap {
+  width: 100%;
+  padding: 0.24rem 0.28rem 0.24rem;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: stretch;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-sizing: border-box;
+}
+
+.thumb-empty-subcopy {
+  margin: 0.5rem auto 0;
+  max-width: 28rem;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 0.92rem;
+  line-height: 1.45;
 }
 
 @media (min-width: 720px) {
   .thumb-gen-subtabbar-wrap {
-    padding: 0 0.75rem 0.65rem;
+    padding: 0.28rem 0.36rem 0.28rem;
   }
 }
 
+/* Thumbnail mode switcher — full width inside footer chrome (Prompt is part of same bar) */
 .thumb-gen-subtabbar.tabbar {
   width: 100%;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0;
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.22);
+  max-width: none;
+  justify-content: stretch;
+  flex-wrap: nowrap;
+  gap: 3px;
+  margin-left: 0;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  position: relative;
+  z-index: 1;
+}
+
+#coach-panel-thumbnails .coach-composer--thumb-merged {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.thumb-gen-mode-pane {
+  transform-origin: top center;
+}
+
+.thumb-youtube-strip-logo {
+  flex-shrink: 0;
+  display: block;
+}
+
+.thumb-source-block {
+  padding: 0.28rem 0.34rem 0.12rem;
+  transition: padding 0.24s ease;
+}
+
+.thumb-source-mode-tabs {
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 0.24rem;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 2px 4px 0;
+}
+
+.thumb-source-mode-tab {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.58);
+  padding: 0.26rem 0.48rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.thumb-source-mode-tab.is-active {
+  color: #fff;
+  background: rgba(139, 92, 246, 0.26);
+}
+
+.thumb-source-row {
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+  min-height: 38px;
+}
+
+.thumb-source-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.42rem 0.56rem;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.28);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.77rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.thumb-source-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.thumb-source-input:focus {
+  border-color: rgba(239, 68, 68, 0.45);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.12);
+}
+
+.thumb-source-preview {
+  flex-shrink: 0;
+  width: 46px;
+  height: 26px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumb-source-upload-btn {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.88);
+  border-radius: 9px;
+  padding: 0.42rem 0.56rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.thumb-source-upload-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(167, 139, 250, 0.35);
+}
+
+.thumb-source-upload-btn:active {
+  transform: scale(0.98);
+}
+
+.thumb-source-preview-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.thumb-source-preview-strip-img {
+  width: 48px;
+  height: 27px;
+  border-radius: 7px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.thumb-source-preview-strip-clear {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+.thumb-youtube-preview-skel {
+  width: 70%;
+  height: 55%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.06));
+  background-size: 200% 100%;
+  animation: thumbYtShimmer 1.1s ease-in-out infinite;
+}
+
+@keyframes thumbYtShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.thumb-youtube-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.thumb-prompt-input-wrap {
+  padding: 0.28rem 0.34rem 0.16rem;
+}
+
+.thumb-prompt-textarea {
+  min-height: 2.5rem;
+  text-align: left;
+  line-height: 1.45;
+}
+
+.thumb-single-line-input {
+  min-height: 36px;
+}
+
+.thumb-gen-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.32rem;
+  padding: 0.2rem 0.3rem 0.28rem;
+  flex-wrap: nowrap;
+}
+
+.thumb-gen-toolbar .coach-composer-send {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.thumb-gen-toolbar .coach-composer-send svg {
+  width: 14px;
+  height: 14px;
+}
+
+.thumb-gen-toolbar-tools {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.thumb-gen-toolbar-attach {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px;
+  border-radius: 50% !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.03) 100%) !important;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(14px);
+}
+
+/* Batch size — circle + glass popover */
+.thumb-batch-circle-picker {
+  position: relative;
+}
+
+.thumb-batch-circle-picker.is-disabled .thumb-batch-circle-trigger {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.thumb-batch-circle-trigger {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 100%);
+  color: rgba(226, 232, 240, 0.9);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.thumb-batch-circle-trigger:hover:not(:disabled) {
+  border-color: rgba(167, 139, 250, 0.55);
+}
+
+.thumb-batch-circle-trigger[aria-expanded='true'] {
+  border-color: rgba(167, 139, 250, 0.75);
+  box-shadow:
+    0 0 0 2px rgba(124, 58, 237, 0.25),
+    0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.thumb-batch-circle-trigger-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.thumb-batch-circle-trigger-badge--solo {
+  position: static;
+  text-shadow: none;
+}
+
+.thumb-batch-circle-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 200px;
+  padding: 10px;
+  border-radius: 16px;
+  z-index: 120;
+  background: rgba(22, 22, 26, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+}
+
+.thumb-edit-open-cta {
+  border: 1px solid rgba(167, 139, 250, 0.28);
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.18), rgba(99, 102, 241, 0.12));
+  color: #f5f3ff;
+  border-radius: 999px;
+  padding: 0.42rem 0.8rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
+}
+
+.thumb-edit-open-cta:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.24), rgba(99, 102, 241, 0.16));
+  border-color: rgba(167, 139, 250, 0.42);
+}
+
+.thumb-edit-open-cta:disabled {
+  opacity: 0.46;
+  cursor: not-allowed;
+}
+
+.thumb-batch-circle-popover-title {
+  margin: 0 0 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+}
+
+.thumb-batch-circle-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 10px;
+  padding: 8px 10px;
+  margin-bottom: 4px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.thumb-batch-circle-option:last-child {
+  margin-bottom: 0;
+}
+
+.thumb-batch-circle-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.thumb-batch-circle-option.is-active {
+  background: rgba(139, 92, 246, 0.3);
+  color: #f5f3ff;
+}
+
+.thumb-batch-circle-option-n {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.thumb-batch-circle-option-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.thumb-gen-subtabbar .tabbar-indicator {
+  display: none;
 }
 
 .thumb-gen-subtabbar .tabbar-tab {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   justify-content: center;
+  gap: 4px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  font-size: 0.585rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: rgba(203, 213, 225, 0.72);
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.15s ease;
+}
+
+.thumb-gen-subtabbar .tabbar-tab:hover {
+  color: rgba(245, 243, 255, 0.95);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+
+.thumb-gen-subtabbar .tabbar-tab:active:not(.is-active) {
+  transform: scale(0.98);
+}
+
+.thumb-gen-subtabbar .tabbar-tab.is-active {
+  color: #faf5ff;
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 38%, #4f46e5 100%);
+  box-shadow: 0 2px 12px rgba(124, 58, 237, 0.45);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+.thumb-gen-subtabbar .tabbar-tab-icon svg {
+  width: 10px;
+  height: 10px;
+  opacity: 0.92;
+}
+
+.thumb-gen-subtabbar .tabbar-tab:not(.is-active) .tabbar-tab-icon svg {
+  color: rgba(196, 181, 253, 0.55);
+  stroke: currentColor;
+}
+
+.thumb-gen-subtabbar .tabbar-tab.is-active .tabbar-tab-icon svg {
+  color: rgba(255, 255, 255, 0.95);
+  stroke: currentColor;
+}
+
+@media (max-width: 520px) {
+  .thumb-gen-subtabbar.tabbar {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .thumb-gen-subtabbar .tabbar-tab {
+    flex: 1 1 calc(50% - 2px);
+    min-width: 0;
+  }
+}
+
+/* Prompt / recreate: use full thread width for thumbnail grids (no narrow centered column) */
+#coach-panel-thumbnails .coach-thread--thumb-panel {
+  align-items: stretch;
+  --coach-content-width: min(960px, calc(100% - 1rem));
+}
+
+#coach-panel-thumbnails .coach-thread--thumb-panel .coach-message {
+  width: 100%;
+  max-width: var(--coach-content-width);
+  align-self: center;
+}
+
+#coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--assistant .coach-message-bubble {
+  max-width: 100%;
+  width: 100%;
+  overflow: visible;
 }
 
 .coach-thread--thumb-analyze {
@@ -607,4 +1107,104 @@
 /* Ensure hidden file input matches coach chat (CoachChat.css) */
 #coach-panel-thumbnails .coach-file-input {
   display: none;
+}
+
+/* Composer row: persona, style, batch — compact pills aligned with sub-tab bar */
+#coach-panel-thumbnails .script-gen-composer .script-gen-actions-left {
+  align-items: center;
+  gap: 0.38rem;
+}
+
+#coach-panel-thumbnails .script-gen-composer .persona-selector--compact .persona-selector-trigger,
+#coach-panel-thumbnails .script-gen-composer .style-selector--compact .style-selector-trigger {
+  border-radius: 999px;
+  min-height: 1.875rem;
+  box-sizing: border-box;
+  padding: 0.2rem 0.55rem 0.2rem 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.03) 100%);
+  transition: background-color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+#coach-panel-thumbnails .script-gen-composer .persona-selector--compact .persona-selector-trigger:hover,
+#coach-panel-thumbnails .script-gen-composer .style-selector--compact .style-selector-trigger:hover {
+  background: rgba(167, 139, 250, 0.1);
+  border-color: rgba(167, 139, 250, 0.35);
+}
+
+#coach-panel-thumbnails .script-gen-composer .persona-selector--compact .persona-selector-trigger:focus-visible,
+#coach-panel-thumbnails .script-gen-composer .style-selector--compact .style-selector-trigger:focus-visible {
+  outline: none;
+  border-color: rgba(167, 139, 250, 0.5);
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.22);
+}
+
+#coach-panel-thumbnails .script-gen-composer .persona-selector--compact .persona-selector-icon svg,
+#coach-panel-thumbnails .script-gen-composer .persona-selector--compact .persona-selector-trigger-img {
+  width: 14px;
+  height: 14px;
+}
+
+#coach-panel-thumbnails .script-gen-composer .style-selector--compact .style-selector-icon svg,
+#coach-panel-thumbnails .script-gen-composer .style-selector--compact .style-selector-trigger-img {
+  width: 18px;
+  height: 12px;
+}
+
+#coach-panel-thumbnails .script-gen-composer .persona-selector--compact .persona-selector-trigger-img {
+  border-radius: 999px;
+}
+
+#coach-panel-thumbnails .script-gen-composer .script-gen-dropdown {
+  min-height: 1.875rem;
+  min-width: 4rem;
+  padding: 0.2rem 1.45rem 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  text-align: center;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  background-color: rgba(255, 255, 255, 0.04);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%23c4b5fd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center, right 0.4rem center;
+  background-size: 100% 100%, 11px 11px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+#coach-panel-thumbnails .script-gen-composer .script-gen-dropdown:hover {
+  border-color: rgba(167, 139, 250, 0.35);
+  background-color: rgba(167, 139, 250, 0.07);
+  background-image: linear-gradient(180deg, rgba(167, 139, 250, 0.12) 0%, rgba(167, 139, 250, 0.04) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%23e9d5ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center, right 0.4rem center;
+  background-size: 100% 100%, 11px 11px;
+}
+
+#coach-panel-thumbnails .script-gen-composer .script-gen-dropdown:focus {
+  border-color: rgba(167, 139, 250, 0.45);
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+}
+
+#coach-panel-thumbnails .script-gen-composer .script-gen-dropdown:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 560px) {
+  #coach-panel-thumbnails .script-gen-composer .persona-selector--compact .persona-selector-trigger,
+  #coach-panel-thumbnails .script-gen-composer .style-selector--compact .style-selector-trigger {
+    min-height: 1.75rem;
+    font-size: 0.7rem;
+    padding: 0.18rem 0.45rem 0.18rem 0.4rem;
+  }
+
+  #coach-panel-thumbnails .script-gen-composer .script-gen-dropdown {
+    min-height: 1.75rem;
+    font-size: 0.7rem;
+    padding: 0.18rem 1.35rem 0.18rem 0.45rem;
+  }
 }

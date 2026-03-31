@@ -13,7 +13,7 @@ export function useStylesQuery() {
       if (!token) return { items: [], total: 0 }
       return stylesApi.list(token)
     },
-    staleTime: queryFreshness.medium,
+    staleTime: queryFreshness.long,
     gcTime: queryFreshness.long,
   })
 }
@@ -29,6 +29,25 @@ export function useCreateStyleFromUploadMutation() {
       formData.append('image', image)
       formData.append('name', (name || 'My Style').trim().slice(0, 80))
       return stylesApi.createFromUpload(token, formData)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.styles.list() })
+    },
+  })
+}
+
+/** POST /api/styles — name + image URL (e.g. fetched YouTube thumbnail). */
+export function useCreateStyleMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ name, image_url }) => {
+      const token = await getAccessTokenOrNull()
+      if (!token) throw new Error('Not authenticated')
+      return stylesApi.create(token, {
+        name: (name || 'My Style').trim().slice(0, 80),
+        image_url: image_url,
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.styles.list() })

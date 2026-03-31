@@ -17,7 +17,7 @@
   --a10-amb:  #f59e0b;
   --a10-pur:  #a78bfa;
   --a10-blu:  #38bdf8;
-  --a10-font: var(--font, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif);
+  --a10-font: var(--font, 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif);
 
   background: var(--a10-bg);
   color: var(--a10-t1);

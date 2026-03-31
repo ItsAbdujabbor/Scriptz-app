@@ -23,7 +23,6 @@ import { Faq } from './components/Faq'
 import { FinalCta } from './components/FinalCta'
 import { Footer } from './components/Footer'
 import { DemoModal } from './components/DemoModal'
-import { joinWaitlist } from '../api/waitlist'
 
 export function LandingPage() {
   useEffect(() => {
@@ -199,7 +198,9 @@ export function LandingPage() {
     // Header nav active state: highlight link for section in view
     const SECTION_NAV = {
       solution: 'nav-features',
+      results: 'nav-how',
       pricing: 'nav-pricing',
+      'social-proof': 'nav-reviews',
       faq: 'nav-faq',
     }
     const sectionIds = Object.keys(SECTION_NAV)
@@ -282,36 +283,6 @@ export function LandingPage() {
     const handleEscape = (e) => { if (e.key === 'Escape') closeMobile() }
     document.addEventListener('keydown', handleEscape)
 
-    const waitlistForm = document.getElementById('landing-waitlist-form')
-    const waitlistMsg = document.getElementById('landing-waitlist-msg')
-    const waitlistSubmit = document.getElementById('landing-waitlist-submit')
-    const waitlistLabel = waitlistSubmit?.querySelector('.lin-waitlist-btn-label')
-
-    async function onWaitlistSubmit(e) {
-      e.preventDefault()
-      if (!waitlistForm || !waitlistMsg) return
-      const fd = new FormData(waitlistForm)
-      const email = (fd.get('email') || '').toString().trim()
-      const honeypot = (fd.get('honeypot') || '').toString().trim()
-      if (!email) return
-      waitlistMsg.textContent = ''
-      waitlistMsg.classList.remove('lin-waitlist-msg--err')
-      if (waitlistSubmit) waitlistSubmit.disabled = true
-      if (waitlistLabel) waitlistLabel.textContent = 'Sending…'
-      try {
-        const data = await joinWaitlist(email, honeypot)
-        waitlistMsg.textContent = data.message || "You're on the list."
-        waitlistForm.reset()
-      } catch (err) {
-        waitlistMsg.classList.add('lin-waitlist-msg--err')
-        waitlistMsg.textContent = err.message || 'Something went wrong. Try again later.'
-      } finally {
-        if (waitlistSubmit) waitlistSubmit.disabled = false
-        if (waitlistLabel) waitlistLabel.textContent = 'Notify me'
-      }
-    }
-    waitlistForm?.addEventListener('submit', onWaitlistSubmit)
-
     return () => {
       if (navObserver) navObserver.disconnect()
       navLinks.forEach((link) => link.removeEventListener('click', handleNavClick))
@@ -320,7 +291,6 @@ export function LandingPage() {
       window.removeEventListener('scroll', updateHeaderScroll)
       openDemoButtons.forEach((btn) => btn.removeEventListener('click', openDemo))
       closeDemoButtons.forEach((btn) => btn.removeEventListener('click', closeDemo))
-      waitlistForm?.removeEventListener('submit', onWaitlistSubmit)
     }
   }, [])
 

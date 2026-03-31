@@ -65,7 +65,17 @@ function postedDaysAgo(iso) {
 }
 
 export function Optimize({ onLogout }) {
-  const { user, logout, changePassword, deleteData, deleteAccount, getValidAccessToken, isLoading: authLoading, clearError } = useAuthStore()
+  const {
+    user,
+    logout,
+    changePassword,
+    deleteData,
+    deleteAccount,
+    getValidAccessToken,
+    allowsPasswordlessAccountDelete,
+    isLoading: authLoading,
+    clearError,
+  } = useAuthStore()
   const {
     preferredLanguage,
     niche,
@@ -89,7 +99,11 @@ export function Optimize({ onLogout }) {
     setUseFirstPerson,
     clearLocalData,
     syncChannelToBackend,
+    syncToBackend,
+    bootstrapYouTube,
   } = useOnboardingStore()
+
+  const queryClient = useQueryClient()
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsSection, setSettingsSection] = useState('account')
@@ -162,19 +176,20 @@ export function Optimize({ onLogout }) {
   const videosError = videosQuery.isError ? (videosQuery.error?.message || 'Failed to load videos') : null
   const totalPages = videosQuery.data?.total_pages ?? 1
 
-  const queryClient = useQueryClient()
   const prefetchVideoOptimization = (videoId) => {
     if (!videoId) return
     if (!youtube?.connected) return
-    queryClient.prefetchQuery({
-      queryKey: queryKeys.youtube.videoOptimization(videoId),
-      queryFn: async () => {
-        const token = await getAccessTokenOrNull()
-        if (!token) return null
-        return youtubeApi.optimizeVideo(token, videoId)
-      },
-      staleTime: queryFreshness.short,
-    })
+    queryClient
+      .prefetchQuery({
+        queryKey: queryKeys.youtube.videoOptimization(videoId),
+        queryFn: async () => {
+          const token = await getAccessTokenOrNull()
+          if (!token) return null
+          return youtubeApi.optimizeVideo(token, videoId)
+        },
+        staleTime: queryFreshness.short,
+      })
+      .catch(() => {})
   }
 
   const openSettings = (section) => {
@@ -214,17 +229,20 @@ export function Optimize({ onLogout }) {
   }, [])
 
   useEffect(() => {
+    let cancelled = false
     getValidAccessToken().then(async (token) => {
-      if (token) {
-        try {
-          const list = await youtubeApi.listChannels(token)
-          setYoutubeChannels(list.channels || [])
-        } catch (_) {
-          setYoutubeChannels([])
-        }
+      if (!token || cancelled) return
+      try {
+        const bootstrap = await bootstrapYouTube(token)
+        if (!cancelled) setYoutubeChannels(bootstrap.channels || [])
+      } catch (_) {
+        if (!cancelled) setYoutubeChannels([])
       }
     })
-  }, [])
+    return () => {
+      cancelled = true
+    }
+  }, [bootstrapYouTube, getValidAccessToken])
 
   useEffect(() => {
     // When filters change, show the first page of the new result set.
@@ -262,6 +280,8 @@ export function Optimize({ onLogout }) {
       await youtubeApi.disconnectChannel(token, channelId)
       setYouTube(false, {})
       setYoutubeChannels((prev) => prev.filter((c) => c.channel_id !== channelId))
+      await syncToBackend(token)
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.preferences })
     } catch (e) {
       setYoutubeOAuthError(e?.message || 'Could not disconnect.')
     }
@@ -284,6 +304,8 @@ export function Optimize({ onLogout }) {
       })
       setYoutubeChannels(await youtubeApi.listChannels(token).then((r) => r.channels || []))
       await syncChannelToBackend(token, channelId, info)
+      await syncToBackend(token)
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.preferences })
     } catch (_) {}
     setYoutubeLoading(false)
   }
@@ -551,6 +573,7 @@ export function Optimize({ onLogout }) {
             initialSection={settingsSection}
             onClose={() => setSettingsOpen(false)}
             user={user}
+            accountDeletePasswordOptional={typeof allowsPasswordlessAccountDelete === 'function' && allowsPasswordlessAccountDelete()}
             authLoading={authLoading}
             changePassword={changePassword}
             deleteData={deleteData}

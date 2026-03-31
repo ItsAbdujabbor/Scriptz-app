@@ -3,15 +3,10 @@
  * Uses same base URL as auth (Vite proxy in dev).
  */
 
-const getBaseUrl = () => {
-  const env = typeof import.meta !== 'undefined' && import.meta.env
-  if (env?.DEV) return ''
-  const explicit = env?.VITE_API_BASE_URL
-  return (explicit && String(explicit).trim() !== '') ? String(explicit).trim() : 'http://localhost:8000'
-}
+import { getApiBaseUrl } from '../lib/env.js'
 
 function request(method, path, accessToken, body = null, headers = {}) {
-  const url = getBaseUrl() + path
+  const url = getApiBaseUrl() + path
   const h = { 'Content-Type': 'application/json', ...headers }
   if (accessToken) h['Authorization'] = `Bearer ${accessToken}`
   const opts = { method, headers: h }
