@@ -10,12 +10,7 @@ function extractBase64FromDataUrl(dataUrl) {
   return i >= 0 ? dataUrl.slice(i + 8) : null
 }
 
-
-export function EditThumbnailDialog({
-  imageUrl,
-  onClose,
-  onApply,
-}) {
+export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
   const [editPrompt, setEditPrompt] = useState('')
   const [tool, setTool] = useState('brush') // 'brush' | 'eraser' | 'rect'
   const [brushSize, setBrushSize] = useState(24)
@@ -52,7 +47,6 @@ export function EditThumbnailDialog({
     return { w, h, rect, dpr }
   }, [])
 
-
   useEffect(() => {
     resizeCanvases()
     const ro = new ResizeObserver(() => resizeCanvases())
@@ -72,7 +66,6 @@ export function EditThumbnailDialog({
       document.body.style.overflow = prev
     }
   }, [onClose])
-
 
   const getPos = (e) => {
     const rect = drawCanvasRef.current?.getBoundingClientRect()
@@ -221,7 +214,6 @@ export function EditThumbnailDialog({
     const draw = drawCanvasRef.current
     const mask = maskCanvasRef.current
     if (!draw || !mask) return
-    const rect = draw.getBoundingClientRect()
     draw.getContext('2d').clearRect(0, 0, draw.width, draw.height)
     const mc = mask.getContext('2d')
     mc.fillStyle = '#000'
@@ -280,27 +272,56 @@ export function EditThumbnailDialog({
   }
 
   const dialogContent = (
-    <div className="edit-thumb-dialog-overlay" onClick={(e) => e.target === e.currentTarget && onClose?.()}>
-      <div className="edit-thumb-dialog" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="edit-thumb-title">
+    <div
+      className="edit-thumb-dialog-overlay"
+      onClick={(e) => e.target === e.currentTarget && onClose?.()}
+    >
+      <div
+        className="edit-thumb-dialog"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-thumb-title"
+      >
         <header className="edit-thumb-dialog-header">
-          <h2 id="edit-thumb-title" className="edit-thumb-dialog-title">AI Edit – Select Region</h2>
-          <button type="button" className="edit-thumb-dialog-close" onClick={onClose} aria-label="Close">
+          <h2 id="edit-thumb-title" className="edit-thumb-dialog-title">
+            AI Edit – Select Region
+          </h2>
+          <button
+            type="button"
+            className="edit-thumb-dialog-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
             ×
           </button>
         </header>
         <p className="edit-thumb-dialog-hint">
-          Select the area: use <strong>rectangle</strong> to select regions or <strong>brush</strong> to draw freehand. Describe what to change and AI will edit only that part.
+          Select the area: use <strong>rectangle</strong> to select regions or{' '}
+          <strong>brush</strong> to draw freehand. Describe what to change and AI will edit only
+          that part.
         </p>
         <div className="edit-thumb-dialog-body">
           <div className="edit-thumb-canvas-wrap" ref={containerRef}>
-            <img src={imageUrl} alt="Thumbnail" className="edit-thumb-img" crossOrigin="anonymous" />
+            <img
+              src={imageUrl}
+              alt="Thumbnail"
+              className="edit-thumb-img"
+              crossOrigin="anonymous"
+            />
             <canvas
               ref={drawCanvasRef}
               className="edit-thumb-canvas edit-thumb-canvas-draw"
               aria-hidden
-              style={{ cursor: ['brush', 'eraser', 'rect'].includes(tool) ? 'crosshair' : 'default' }}
+              style={{
+                cursor: ['brush', 'eraser', 'rect'].includes(tool) ? 'crosshair' : 'default',
+              }}
             />
-            <canvas ref={maskCanvasRef} className="edit-thumb-canvas edit-thumb-canvas-mask" aria-hidden />
+            <canvas
+              ref={maskCanvasRef}
+              className="edit-thumb-canvas edit-thumb-canvas-mask"
+              aria-hidden
+            />
           </div>
           <div className="edit-thumb-toolbar">
             <div className="edit-thumb-tools">
@@ -328,7 +349,12 @@ export function EditThumbnailDialog({
               >
                 ◻ Eraser
               </button>
-              <button type="button" className="edit-thumb-tool-btn" onClick={handleClear} title="Clear selection">
+              <button
+                type="button"
+                className="edit-thumb-tool-btn"
+                onClick={handleClear}
+                title="Clear selection"
+              >
                 Clear
               </button>
             </div>

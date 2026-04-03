@@ -1,25 +1,42 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import './Sidebar.css'
 import { useSidebarStore } from '../stores/sidebarStore'
 import {
+  prefetchCoachConversation,
   useCoachConversationsQuery,
   useDeleteCoachConversationMutation,
   useUpdateCoachConversationMutation,
 } from '../queries/coach/coachQueries'
 import {
+  prefetchScriptConversation,
   useScriptConversationsQuery,
   useDeleteScriptConversationMutation,
   useUpdateScriptConversationMutation,
 } from '../queries/scripts/scriptQueries'
 import {
+  prefetchThumbnailConversationCache,
   useThumbnailConversationsQuery,
   useDeleteThumbnailConversationMutation,
   useUpdateThumbnailConversationMutation,
 } from '../queries/thumbnails/thumbnailQueries'
-import { appendPrefillToHash, coachPrefill, optimizePrefill } from '../lib/dashboardActionPayload'
+import {
+  coachPrefill,
+  hashWithPrefill,
+  scriptPrefill,
+  thumbPrefill,
+} from '../lib/dashboardActionPayload'
 
 const IconDashboard = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <rect x="3" y="3" width="7" height="7" rx="1.5" />
     <rect x="14" y="3" width="7" height="7" rx="1.5" />
     <rect x="3" y="14" width="7" height="7" rx="1.5" />
@@ -27,12 +44,26 @@ const IconDashboard = () => (
   </svg>
 )
 const IconPlus = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M12 5v14M5 12h14" />
   </svg>
 )
 const IconWrench = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
   </svg>
 )
@@ -73,7 +104,14 @@ const IconChevronDown = () => (
   </svg>
 )
 const IconMessage = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
   </svg>
 )
@@ -85,13 +123,27 @@ const IconDots = () => (
   </svg>
 )
 const IconEdit = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M12 20h9" />
     <path d="m16.5 3.5 4 4L7 21l-4 1 1-4L16.5 3.5Z" />
   </svg>
 )
 const IconTrash = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M3 6h18" />
     <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
     <path d="m19 6-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
@@ -99,12 +151,26 @@ const IconTrash = () => (
   </svg>
 )
 const IconCheck = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="m5 13 4 4L19 7" />
   </svg>
 )
 const IconX = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="m18 6-12 12" />
     <path d="m6 6 12 12" />
   </svg>
@@ -113,7 +179,14 @@ const IconX = () => (
 const ScriptzMark = () => (
   <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
     <defs>
-      <linearGradient id="scriptzMarkGradient" x1="6" y1="5" x2="26" y2="27" gradientUnits="userSpaceOnUse">
+      <linearGradient
+        id="scriptzMarkGradient"
+        x1="6"
+        y1="5"
+        x2="26"
+        y2="27"
+        gradientUnits="userSpaceOnUse"
+      >
         <stop stopColor="#c4b5fd" />
         <stop offset="0.55" stopColor="#8b5cf6" />
         <stop offset="1" stopColor="#6366f1" />
@@ -182,36 +255,34 @@ const TOOLKIT_ITEMS = [
   { label: 'Thumbnail Generator', id: 'thumbnail-generator' },
   { label: 'Rate Thumbnails', id: 'thumbnail-rate' },
   { label: 'Title Generator', id: 'title-generator' },
-  { label: 'Keyword Search', id: 'keyword-search' },
-  { label: 'Niche Competitor Analyzer', id: 'niche-analyzer' },
 ]
 
 function getToolkitHash(toolId) {
   switch (toolId) {
     case 'script-generator':
-      return '#coach/scripts'
+      return `#${hashWithPrefill('coach/scripts', scriptPrefill({ concept: null, pillar: 'Next video', score: null }))}`
     case 'thumbnail-generator':
-      return '#coach/thumbnails'
+      return `#${hashWithPrefill('coach/thumbnails', thumbPrefill({ pillar: 'CTR', score: null, videoTitle: null }))}`
     case 'thumbnail-rate':
       return '#coach/thumbnails?view=analyze'
     case 'title-generator':
-      return appendPrefillToHash(
-        '#coach',
-        coachPrefill('Titles', null, 'Generate 10 YouTube title ideas I can test. Mix curiosity, specificity, and clear benefits; add a one-line rationale per title.'),
-      )
-    case 'keyword-search':
-      return appendPrefillToHash(
-        '#optimize',
-        `${optimizePrefill('SEO / keywords', null)} Suggest search terms and tags to prioritize and where to use them in titles and descriptions.`,
-      )
-    case 'niche-analyzer':
-      return appendPrefillToHash(
-        '#coach',
-        coachPrefill('Competition', null, 'Walk me through niche competitor analysis: which channels to study, what metrics matter, and 5 concrete ways to differentiate my content.'),
-      )
+      return `#${hashWithPrefill(
+        'coach',
+        coachPrefill(
+          'Titles',
+          null,
+          'Generate 10 YouTube title ideas I can test. Mix curiosity, specificity, and clear benefits; add a one-line rationale per title.'
+        )
+      )}`
     default:
       return '#dashboard'
   }
+}
+
+function navigateToHashHref(href) {
+  const raw = String(href || '').replace(/^#/, '')
+  if (!raw) return
+  window.location.hash = raw
 }
 
 function getCoachConversationIdFromHash() {
@@ -233,11 +304,20 @@ function goToScriptConversation(conversationId = null) {
 }
 
 function goToThumbnailConversation(conversationId = null) {
-  window.location.hash = conversationId ? `#coach/thumbnails?id=${conversationId}` : '#coach/thumbnails'
+  window.location.hash = conversationId
+    ? `#coach/thumbnails?id=${conversationId}`
+    : '#coach/thumbnails'
 }
 
 const IconScript = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
     <polyline points="14 2 14 8 20 8" />
     <path d="M16 13H8" />
@@ -247,7 +327,14 @@ const IconScript = () => (
 )
 
 const IconThumbnail = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <rect x="3" y="3" width="18" height="18" rx="2" />
     <circle cx="9" cy="9" r="2" />
     <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
@@ -267,6 +354,15 @@ const HistoryItem = memo(function HistoryItem({
   closeMobile,
   openHistoryMenu,
 }) {
+  const queryClient = useQueryClient()
+  const conversationId = conversation?.id
+  const prefetchThread = useCallback(() => {
+    if (conversationId == null) return
+    if (type === 'thumbnail') void prefetchThumbnailConversationCache(queryClient, conversationId)
+    else if (type === 'script') void prefetchScriptConversation(queryClient, conversationId)
+    else void prefetchCoachConversation(queryClient, conversationId)
+  }, [queryClient, conversationId, type])
+
   if (isEditing) {
     return (
       <div className={`sidebar-history-item ${isActive ? 'active' : ''}`} role="listitem">
@@ -315,6 +411,8 @@ const HistoryItem = memo(function HistoryItem({
       <button
         type="button"
         className="sidebar-history-item-main"
+        onPointerEnter={prefetchThread}
+        onFocus={prefetchThread}
         onClick={() => {
           closeMobile()
           if (isThumbnail) goToThumbnailConversation(conversation.id)
@@ -322,11 +420,14 @@ const HistoryItem = memo(function HistoryItem({
           else goToCoachConversation(conversation.id)
         }}
       >
-        <span className={`sidebar-history-item-icon ${isThumbnail ? 'icon-thumbnail' : isScript ? 'icon-script' : 'icon-coach'}`}>
+        <span
+          className={`sidebar-history-item-icon ${isThumbnail ? 'icon-thumbnail' : isScript ? 'icon-script' : 'icon-coach'}`}
+        >
           {isThumbnail ? <IconThumbnail /> : isScript ? <IconScript /> : <IconMessage />}
         </span>
         <span className="sidebar-history-item-title">
-          {conversation.title || (isThumbnail ? 'Untitled thumbnails' : isScript ? 'Untitled script' : 'Untitled chat')}
+          {conversation.title ||
+            (isThumbnail ? 'Untitled thumbnails' : isScript ? 'Untitled script' : 'Untitled chat')}
         </span>
       </button>
       <button
@@ -374,8 +475,14 @@ export function Sidebar({
   const [deleteChatDialogOpen, setDeleteChatDialogOpen] = useState(false)
   const [deleteChatConversationId, setDeleteChatConversationId] = useState(null)
   const [deleteChatConversationType, setDeleteChatConversationType] = useState(null)
+  const [toolkitFlyoutOpen, setToolkitFlyoutOpen] = useState(false)
+  const [narrowNavLayout, setNarrowNavLayout] = useState(false)
+  const toolkitTriggerRef = useRef(null)
+  const toolkitFlyoutRef = useRef(null)
+  const [toolkitFlyoutPos, setToolkitFlyoutPos] = useState({ top: 0, left: 0 })
 
-  const coachConversationsQuery = useCoachConversationsQuery({ limit: 50, isActive: true })
+  /* Omit is_active filter so history matches Script/Thumbnail lists (show all conversations). */
+  const coachConversationsQuery = useCoachConversationsQuery({ limit: 50 })
   const scriptConversationsQuery = useScriptConversationsQuery({ limit: 50 })
   const thumbnailConversationsQuery = useThumbnailConversationsQuery({ limit: 50 })
   const updateCoachMutation = useUpdateCoachConversationMutation()
@@ -387,9 +494,18 @@ export function Sidebar({
 
   const isScriptsTab = currentScreen === 'coach' && activeTab === 'scripts'
   const isThumbnailsTab = currentScreen === 'coach' && activeTab === 'thumbnails'
-  const coachItems = useMemo(() => coachConversationsQuery.data?.items || [], [coachConversationsQuery.data])
-  const scriptItems = useMemo(() => scriptConversationsQuery.data?.items || [], [scriptConversationsQuery.data])
-  const thumbnailItems = useMemo(() => thumbnailConversationsQuery.data?.items || [], [thumbnailConversationsQuery.data])
+  const coachItems = useMemo(
+    () => coachConversationsQuery.data?.items || [],
+    [coachConversationsQuery.data]
+  )
+  const scriptItems = useMemo(
+    () => scriptConversationsQuery.data?.items || [],
+    [scriptConversationsQuery.data]
+  )
+  const thumbnailItems = useMemo(
+    () => thumbnailConversationsQuery.data?.items || [],
+    [thumbnailConversationsQuery.data]
+  )
 
   const mergedHistoryItems = useMemo(() => {
     const dateCache = new Map()
@@ -403,33 +519,47 @@ export function Sidebar({
       return v
     }
     const withType = [
-      ...coachItems.map((c) => ({ ...c, _type: 'coach', _sortTs: parseDate(c.last_message_at || c.created_at) })),
-      ...scriptItems.map((c) => ({ ...c, _type: 'script', _sortTs: parseDate(c.last_message_at || c.created_at) })),
-      ...thumbnailItems.map((c) => ({ ...c, _type: 'thumbnail', _sortTs: parseDate(c.last_message_at || c.created_at) })),
+      ...coachItems.map((c) => ({
+        ...c,
+        _type: 'coach',
+        _sortTs: parseDate(c.last_message_at || c.created_at),
+      })),
+      ...scriptItems.map((c) => ({
+        ...c,
+        _type: 'script',
+        _sortTs: parseDate(c.last_message_at || c.created_at),
+      })),
+      ...thumbnailItems.map((c) => ({
+        ...c,
+        _type: 'thumbnail',
+        _sortTs: parseDate(c.last_message_at || c.created_at),
+      })),
     ]
     withType.sort((a, b) => b._sortTs - a._sortTs)
     return withType
   }, [coachItems, scriptItems, thumbnailItems])
 
-  const selectedConversationId = isThumbnailsTab
-    ? (activeThumbnailConversationId ?? null)
-    : isScriptsTab
-    ? (activeScriptConversationId ?? null)
-    : (activeConversationId ?? getCoachConversationIdFromHash())
+  const allHistoryFetched =
+    coachConversationsQuery.isFetched &&
+    scriptConversationsQuery.isFetched &&
+    thumbnailConversationsQuery.isFetched
 
-  // Show the merged list as soon as any list returns; don't block on the slowest API.
-  const isHistoryLoading =
-    coachConversationsQuery.isPending &&
-    scriptConversationsQuery.isPending &&
-    thumbnailConversationsQuery.isPending
+  /** Empty + still waiting on at least one list — show skeleton. As soon as we have rows, show them (partial OK). */
+  const isHistoryLoading = mergedHistoryItems.length === 0 && !allHistoryFetched
+
+  const isNewChatActive =
+    currentScreen === 'coach' &&
+    ((activeTab === 'coach' && !(activeConversationId ?? getCoachConversationIdFromHash())) ||
+      (activeTab === 'scripts' &&
+        (activeScriptConversationId == null || activeScriptConversationId === '')) ||
+      (activeTab === 'thumbnails' &&
+        (activeThumbnailConversationId == null || activeThumbnailConversationId === '')))
 
   useEffect(() => {
     if (!accountDialogOpen) return
     const handleClickOutside = (e) => {
-      if (
-        accountDialogRef.current?.contains(e.target) ||
-        userBlockRef.current?.contains(e.target)
-      ) return
+      if (accountDialogRef.current?.contains(e.target) || userBlockRef.current?.contains(e.target))
+        return
       setAccountDialogOpen(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -505,7 +635,12 @@ export function Sidebar({
     const nextTitle = editingTitle.trim()
     if (!nextTitle) return
     const type = editingConversationType
-    const mutation = type === 'thumbnail' ? updateThumbnailMutation : type === 'script' ? updateScriptMutation : updateCoachMutation
+    const mutation =
+      type === 'thumbnail'
+        ? updateThumbnailMutation
+        : type === 'script'
+          ? updateScriptMutation
+          : updateCoachMutation
     try {
       await mutation.mutateAsync({
         conversationId,
@@ -544,12 +679,21 @@ export function Sidebar({
     const type = deleteChatConversationType
     if (!conversationId) return
     closeDeleteChatDialog()
-    const mutation = type === 'thumbnail' ? deleteThumbnailMutation : type === 'script' ? deleteScriptMutation : deleteCoachMutation
+    const mutation =
+      type === 'thumbnail'
+        ? deleteThumbnailMutation
+        : type === 'script'
+          ? deleteScriptMutation
+          : deleteCoachMutation
     try {
       await mutation.mutateAsync(conversationId)
-      const isSelected = (type === 'thumbnail' && Number(activeThumbnailConversationId) === Number(conversationId)) ||
+      const isSelected =
+        (type === 'thumbnail' &&
+          Number(activeThumbnailConversationId) === Number(conversationId)) ||
         (type === 'script' && Number(activeScriptConversationId) === Number(conversationId)) ||
-        (type === 'coach' && Number(activeConversationId ?? getCoachConversationIdFromHash()) === Number(conversationId))
+        (type === 'coach' &&
+          Number(activeConversationId ?? getCoachConversationIdFromHash()) ===
+            Number(conversationId))
       if (isSelected) handleNewChat()
     } catch (error) {
       console.error('Failed to delete conversation', error)
@@ -557,6 +701,114 @@ export function Sidebar({
   }
 
   const userInitial = (user?.email?.[0] || 'U').toUpperCase()
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1024px)')
+    const update = () => setNarrowNavLayout(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
+  const toolkitRailCollapsed = collapsed && !narrowNavLayout
+  const toolkitMenuOpen = toolsExpanded || (toolkitRailCollapsed && toolkitFlyoutOpen)
+
+  useLayoutEffect(() => {
+    if (!toolkitFlyoutOpen || !toolkitRailCollapsed) return
+    const measure = () => {
+      const el = toolkitTriggerRef.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      const gap = 10
+      const flyoutW = 248
+      const flyoutMaxH = 340
+      let left = r.right + gap
+      if (left + flyoutW > window.innerWidth - 8) {
+        left = Math.max(8, r.left - flyoutW - gap)
+      }
+      const top = Math.min(Math.max(8, r.top - 4), Math.max(8, window.innerHeight - flyoutMaxH - 8))
+      setToolkitFlyoutPos({ top, left })
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [toolkitFlyoutOpen, toolkitRailCollapsed])
+
+  useEffect(() => {
+    if (!toolkitRailCollapsed) setToolkitFlyoutOpen(false)
+  }, [toolkitRailCollapsed])
+
+  useEffect(() => {
+    if (narrowNavLayout) setToolkitFlyoutOpen(false)
+  }, [narrowNavLayout])
+
+  useEffect(() => {
+    if (!toolkitFlyoutOpen) return
+    const onDoc = (e) => {
+      if (
+        toolkitTriggerRef.current?.contains(e.target) ||
+        toolkitFlyoutRef.current?.contains(e.target)
+      )
+        return
+      setToolkitFlyoutOpen(false)
+    }
+    const onKey = (e) => {
+      if (e.key === 'Escape') setToolkitFlyoutOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [toolkitFlyoutOpen])
+
+  const handleToolkitTriggerClick = () => {
+    if (toolkitRailCollapsed) {
+      setToolkitFlyoutOpen((o) => !o)
+    } else {
+      toggleToolsExpanded()
+    }
+  }
+
+  const onToolkitItemNavigate = (href) => {
+    closeMobile()
+    setToolkitFlyoutOpen(false)
+    navigateToHashHref(href)
+  }
+
+  const toolkitFlyoutPortal =
+    toolkitRailCollapsed && toolkitFlyoutOpen && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            ref={toolkitFlyoutRef}
+            id="sidebar-toolkit-flyout-menu"
+            className="sidebar-toolkit-flyout"
+            role="menu"
+            aria-label="Toolkit"
+            style={{ top: toolkitFlyoutPos.top, left: toolkitFlyoutPos.left }}
+          >
+            {TOOLKIT_ITEMS.map(({ id, label }) => {
+              const href = getToolkitHash(id)
+              return (
+                <a
+                  key={id}
+                  href={href}
+                  className="sidebar-toolkit-flyout-link"
+                  role="menuitem"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    onToolkitItemNavigate(href)
+                  }}
+                >
+                  {label}
+                </a>
+              )
+            })}
+          </div>,
+          document.body
+        )
+      : null
 
   return (
     <>
@@ -587,7 +839,10 @@ export function Sidebar({
             <button
               type="button"
               className="sidebar-logo-avatar-btn"
-              onClick={() => { setCollapsed(false); closeMobile() }}
+              onClick={() => {
+                setCollapsed(false)
+                closeMobile()
+              }}
               aria-label="Expand sidebar"
               title="Expand sidebar"
             >
@@ -601,7 +856,15 @@ export function Sidebar({
                 <IconChevronRight />
               </span>
             </button>
-            <a href="#dashboard" className="sidebar-brand" onClick={(e) => { e.preventDefault(); closeMobile() }} aria-label="Scriptz AI Home">
+            <a
+              href="#dashboard"
+              className="sidebar-brand"
+              onClick={(e) => {
+                e.preventDefault()
+                closeMobile()
+              }}
+              aria-label="Scriptz AI Home"
+            >
               Scriptz AI
             </a>
             <button
@@ -624,31 +887,53 @@ export function Sidebar({
           <a
             href="#dashboard"
             className={`sidebar-link ${currentScreen === 'dashboard' ? 'active' : ''}`}
-            onClick={(e) => { e.preventDefault(); closeMobile(); window.location.hash = 'dashboard' }}
+            onClick={(e) => {
+              e.preventDefault()
+              closeMobile()
+              window.location.hash = 'dashboard'
+            }}
           >
-            <span className="sidebar-icon"><IconDashboard /></span>
+            <span className="sidebar-icon">
+              <IconDashboard />
+            </span>
             <span className="sidebar-label">Dashboard</span>
           </a>
 
           <a
             href="#coach"
-            className={`sidebar-link ${currentScreen === 'coach' && !selectedConversationId ? 'active' : ''}`}
-            onClick={(e) => { e.preventDefault(); handleNewChat() }}
+            className={`sidebar-link ${isNewChatActive ? 'active' : ''}`}
+            onClick={(e) => {
+              e.preventDefault()
+              handleNewChat()
+            }}
             aria-label="New chat"
           >
-            <span className="sidebar-icon"><IconPlus /></span>
+            <span className="sidebar-icon">
+              <IconPlus />
+            </span>
             <span className="sidebar-label">New Chat</span>
           </a>
 
-          <div className={`sidebar-dropdown ${toolsExpanded ? 'expanded' : ''}`} role="group" aria-label="Toolkit">
+          <div
+            className={`sidebar-dropdown ${toolkitMenuOpen ? 'expanded' : ''}`}
+            role="group"
+            aria-label="Toolkit"
+          >
             <button
+              ref={toolkitTriggerRef}
               type="button"
               className="sidebar-dropdown-trigger"
-              onClick={toggleToolsExpanded}
-              aria-expanded={toolsExpanded}
-              aria-controls="sidebar-tools-content"
+              onClick={handleToolkitTriggerClick}
+              aria-expanded={toolkitMenuOpen}
+              aria-controls={
+                toolkitRailCollapsed && toolkitFlyoutOpen
+                  ? 'sidebar-toolkit-flyout-menu'
+                  : 'sidebar-tools-content'
+              }
             >
-              <span className="sidebar-icon"><IconWrench /></span>
+              <span className="sidebar-icon">
+                <IconWrench />
+              </span>
               <span className="sidebar-label">Toolkit</span>
               <span className="sidebar-dropdown-chevron" aria-hidden>
                 <IconChevronDown />
@@ -665,8 +950,7 @@ export function Sidebar({
                     role="menuitem"
                     onClick={(e) => {
                       e.preventDefault()
-                      closeMobile()
-                      window.location.hash = href.replace(/^#/, '')
+                      onToolkitItemNavigate(href)
                     }}
                   >
                     {label}
@@ -679,29 +963,46 @@ export function Sidebar({
           <a
             href="#optimize"
             className={`sidebar-link ${currentScreen === 'optimize' ? 'active' : ''}`}
-            onClick={(e) => { e.preventDefault(); closeMobile(); window.location.hash = 'optimize' }}
+            onClick={(e) => {
+              e.preventDefault()
+              closeMobile()
+              window.location.hash = 'optimize'
+            }}
           >
-            <span className="sidebar-icon"><IconChart /></span>
+            <span className="sidebar-icon">
+              <IconChart />
+            </span>
             <span className="sidebar-label">Optimize</span>
           </a>
 
           <a
-            href="#library"
-            className={`sidebar-link ${currentScreen === 'library' ? 'active' : ''}`}
-            onClick={(e) => { e.preventDefault(); closeMobile(); window.location.hash = 'library' }}
+            href="#templates"
+            className={`sidebar-link ${currentScreen === 'templates' ? 'active' : ''}`}
+            onClick={(e) => {
+              e.preventDefault()
+              closeMobile()
+              window.location.hash = 'templates'
+            }}
           >
-            <span className="sidebar-icon"><IconFolder /></span>
-            <span className="sidebar-label">Library</span>
+            <span className="sidebar-icon">
+              <IconFolder />
+            </span>
+            <span className="sidebar-label">Templates</span>
           </a>
 
           <button
             type="button"
             className={`sidebar-upgrade-pro ${currentScreen === 'pro' ? 'active' : ''}`}
-            onClick={() => { closeMobile(); window.location.hash = 'pro' }}
+            onClick={() => {
+              closeMobile()
+              window.location.hash = 'pro'
+            }}
             title="Go Pro"
             aria-label="Go Pro"
           >
-            <span className="sidebar-upgrade-pro-icon" aria-hidden><IconPro /></span>
+            <span className="sidebar-upgrade-pro-icon" aria-hidden>
+              <IconPro />
+            </span>
             <span className="sidebar-upgrade-pro-label">Go Pro</span>
           </button>
 
@@ -721,8 +1022,12 @@ export function Sidebar({
               <>
                 {mergedHistoryItems.length === 0 ? (
                   <div className="sidebar-history-empty">
-                    <span className="sidebar-history-empty-icon" aria-hidden><IconFolder /></span>
-                    <span className="sidebar-history-empty-text">No chats yet. Start in AI Coach, Script Generator, or Thumbnail Generator.</span>
+                    <span className="sidebar-history-empty-icon" aria-hidden>
+                      <IconFolder />
+                    </span>
+                    <span className="sidebar-history-empty-text">
+                      No chats yet. Start in AI Coach, Script Generator, or Thumbnail Generator.
+                    </span>
                   </div>
                 ) : (
                   mergedHistoryItems.map((conversation) => {
@@ -730,12 +1035,24 @@ export function Sidebar({
                     const isThumbnail = conversation._type === 'thumbnail'
                     const type = isThumbnail ? 'thumbnail' : isScript ? 'script' : 'coach'
                     const isActive = isThumbnail
-                      ? (currentScreen === 'coach' && activeTab === 'thumbnails' && Number(activeThumbnailConversationId) === Number(conversation.id))
+                      ? currentScreen === 'coach' &&
+                        activeTab === 'thumbnails' &&
+                        Number(activeThumbnailConversationId) === Number(conversation.id)
                       : isScript
-                        ? (currentScreen === 'coach' && Number(activeScriptConversationId) === Number(conversation.id))
-                        : (currentScreen === 'coach' && Number(activeConversationId ?? getCoachConversationIdFromHash()) === Number(conversation.id))
-                    const isEditing = editingConversationId === conversation.id && editingConversationType === type
-                    const updateMutation = isThumbnail ? updateThumbnailMutation : isScript ? updateScriptMutation : updateCoachMutation
+                        ? currentScreen === 'coach' &&
+                          activeTab === 'scripts' &&
+                          Number(activeScriptConversationId) === Number(conversation.id)
+                        : currentScreen === 'coach' &&
+                          activeTab === 'coach' &&
+                          Number(activeConversationId ?? getCoachConversationIdFromHash()) ===
+                            Number(conversation.id)
+                    const isEditing =
+                      editingConversationId === conversation.id && editingConversationType === type
+                    const updateMutation = isThumbnail
+                      ? updateThumbnailMutation
+                      : isScript
+                        ? updateScriptMutation
+                        : updateCoachMutation
                     return (
                       <HistoryItem
                         key={`${type}-${conversation.id}`}
@@ -769,26 +1086,61 @@ export function Sidebar({
           >
             {onOpenSettings ? (
               <>
-                <button type="button" className="dialog-item" role="menuitem" onClick={() => openSettingsTo('account')}>
-                  <span className="dialog-item-icon"><IconSettings /></span>
+                <button
+                  type="button"
+                  className="dialog-item"
+                  role="menuitem"
+                  onClick={() => openSettingsTo('account')}
+                >
+                  <span className="dialog-item-icon">
+                    <IconSettings />
+                  </span>
                   Settings
                 </button>
-                <button type="button" className="dialog-item" role="menuitem" onClick={() => openSettingsTo('personalization')}>
-                  <span className="dialog-item-icon"><IconPersonalization /></span>
+                <button
+                  type="button"
+                  className="dialog-item"
+                  role="menuitem"
+                  onClick={() => openSettingsTo('personalization')}
+                >
+                  <span className="dialog-item-icon">
+                    <IconPersonalization />
+                  </span>
                   Personalization
                 </button>
                 {onOpenPersonas ? (
-                  <button type="button" className="dialog-item" role="menuitem" onClick={handleOpenPersonas}>
-                    <span className="dialog-item-icon"><IconPersonalization /></span>
+                  <button
+                    type="button"
+                    className="dialog-item"
+                    role="menuitem"
+                    onClick={handleOpenPersonas}
+                  >
+                    <span className="dialog-item-icon">
+                      <IconPersonalization />
+                    </span>
                     Personas
                   </button>
                 ) : null}
-                <button type="button" className="dialog-item" role="menuitem" onClick={() => openSettingsTo('billing')}>
-                  <span className="dialog-item-icon"><IconUser /></span>
+                <button
+                  type="button"
+                  className="dialog-item"
+                  role="menuitem"
+                  onClick={() => openSettingsTo('billing')}
+                >
+                  <span className="dialog-item-icon">
+                    <IconUser />
+                  </span>
                   Billing
                 </button>
-                <button type="button" className="dialog-item" role="menuitem" onClick={() => openSettingsTo('help')}>
-                  <span className="dialog-item-icon"><IconHelp /></span>
+                <button
+                  type="button"
+                  className="dialog-item"
+                  role="menuitem"
+                  onClick={() => openSettingsTo('help')}
+                >
+                  <span className="dialog-item-icon">
+                    <IconHelp />
+                  </span>
                   Help
                 </button>
                 <div className="dialog-divider" />
@@ -796,7 +1148,9 @@ export function Sidebar({
             ) : null}
             {onLogout && (
               <button type="button" className="dialog-item logout" onClick={handleLogoutClick}>
-                <span className="dialog-item-icon"><IconLogout /></span>
+                <span className="dialog-item-icon">
+                  <IconLogout />
+                </span>
                 Log out
               </button>
             )}
@@ -819,6 +1173,8 @@ export function Sidebar({
         </div>
       </aside>
 
+      {toolkitFlyoutPortal}
+
       <div
         ref={historyMenuRef}
         className={`sidebar-portal-menu ${historyMenu.conversationId ? 'visible' : ''}`}
@@ -831,7 +1187,12 @@ export function Sidebar({
             <button
               type="button"
               onClick={() => {
-                const items = historyMenu.type === 'thumbnail' ? thumbnailItems : historyMenu.type === 'script' ? scriptItems : coachItems
+                const items =
+                  historyMenu.type === 'thumbnail'
+                    ? thumbnailItems
+                    : historyMenu.type === 'script'
+                      ? scriptItems
+                      : coachItems
                 const conversation = items.find((item) => item.id === historyMenu.conversationId)
                 if (conversation) startRenamingConversation(conversation, historyMenu.type)
               }}
@@ -889,7 +1250,6 @@ export function Sidebar({
           </div>
         </div>
       )}
-
     </>
   )
 }

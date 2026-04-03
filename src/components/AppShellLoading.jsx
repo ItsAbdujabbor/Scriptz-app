@@ -4,7 +4,7 @@ import { Sidebar } from '../app/Sidebar'
 import '../app/Sidebar.css'
 import '../app/Dashboard.css'
 import '../app/CoachChat.css'
-import '../app/Library.css'
+import '../app/Templates.css'
 import './AppShellLoading.css'
 
 function RouteSpinner({ label = 'Loading…' }) {
@@ -36,13 +36,23 @@ export function AppShellLoading({ view, onLogout }) {
     window.location.hash = 'coach'
   }
 
-  if (view === 'library') {
+  if (view === 'templates') {
     return (
-      <div className="library-layout">
-        <Sidebar user={user} currentScreen="library" onLogout={onLogout} onOpenSettings={noop} onOpenPersonas={noop} />
-        <main className="library-main library-main--route-loading">
-          <RouteSpinner label="Loading library" />
-        </main>
+      <div className="dashboard-page">
+        <div className="dashboard-app-shell">
+          <Sidebar
+            user={user}
+            currentScreen="templates"
+            onLogout={onLogout}
+            onOpenSettings={noop}
+            onOpenPersonas={noop}
+          />
+          <main className="dashboard-main-wrap dashboard-main-wrap--route-loading">
+            <div className="templates-shell templates-main--route-loading">
+              <RouteSpinner label="Loading templates" />
+            </div>
+          </main>
+        </div>
       </div>
     )
   }
@@ -71,7 +81,14 @@ export function AppShellLoading({ view, onLogout }) {
     )
   }
 
-  const currentScreen = view === 'dashboard' ? 'dashboard' : view === 'optimize' ? 'optimize' : view === 'pro' ? 'pro' : 'dashboard'
+  const currentScreen =
+    view === 'dashboard'
+      ? 'dashboard'
+      : view === 'optimize'
+        ? 'optimize'
+        : view === 'pro'
+          ? 'pro'
+          : 'dashboard'
 
   return (
     <div className="dashboard-page">

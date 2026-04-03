@@ -72,7 +72,9 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   overflow: hidden;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 .optimize-search-wrap:focus-within {
@@ -106,7 +108,9 @@
   background: linear-gradient(125deg, #a78bfa 0%, #818cf8 50%, #6366f1 100%);
   border: none;
   cursor: pointer;
-  transition: filter 0.2s, opacity 0.2s;
+  transition:
+    filter 0.2s,
+    opacity 0.2s;
 }
 
 .optimize-search-btn:hover:not(:disabled) {
@@ -167,7 +171,8 @@
   right: 0;
   bottom: 0;
   height: 1px;
-  background: linear-gradient(90deg,
+  background: linear-gradient(
+    90deg,
     transparent 0%,
     rgba(129, 140, 248, 0.2) 30%,
     rgba(196, 181, 253, 0.4) 50%,
@@ -197,7 +202,9 @@
   font-family: inherit;
   white-space: nowrap;
   margin-bottom: -1px;
-  transition: color 0.2s ease, border-color 0.2s ease;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .optimize-tab:hover {
@@ -228,7 +235,9 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='%23c4b5fd'%3E%3Cpath d='M2.5 4.5L6 8l3.5-3.5' stroke='currentColor' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease;
 }
 
 .optimize-sort-dropdown:hover {
@@ -266,7 +275,9 @@
 }
 
 @keyframes optimize-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .optimize-state p {
@@ -330,13 +341,6 @@
   line-height: 1.5;
 }
 
-.optimize-empty-hint {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #6b7280;
-  line-height: 1.4;
-}
-
 .optimize-empty-action {
   margin-top: 0.25rem;
   padding: 0.5rem 1.25rem;
@@ -375,7 +379,9 @@
   border-radius: 14px;
   overflow: hidden;
   cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
   text-align: left;
 }
 
@@ -467,7 +473,9 @@
   cursor: pointer;
   width: fit-content;
   align-self: flex-start;
-  transition: opacity 0.2s ease, filter 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    filter 0.2s ease;
   line-height: 1.2;
 }
 
@@ -512,7 +520,9 @@
   border: 1px solid rgba(129, 140, 248, 0.3);
   border-radius: 10px;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
 }
 
 .optimize-page-btn:hover:not(:disabled) {

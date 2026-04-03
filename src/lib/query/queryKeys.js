@@ -19,7 +19,12 @@ export const queryKeys = {
       videoType,
     ],
     videoOptimization: (videoId) => ['youtube', 'videoOptimization', videoId],
-    titleRecommendations: (videoId, idea) => ['youtube', 'titleRecommendations', videoId, idea ?? ''],
+    titleRecommendations: (videoId, idea) => [
+      'youtube',
+      'titleRecommendations',
+      videoId,
+      idea ?? '',
+    ],
     refinedDescription: (videoId, instruction, description) => [
       'youtube',
       'refinedDescription',
@@ -40,7 +45,12 @@ export const queryKeys = {
     audit: (channelId) => ['dashboard', 'audit', channelId],
     growth: (channelId) => ['dashboard', 'growth', channelId],
     snapshot: (channelId, from, to) => ['dashboard', 'snapshot', channelId, from, to],
-    bestTime: (channelId, utcOffsetMinutes) => ['dashboard', 'bestTime', channelId, utcOffsetMinutes],
+    bestTime: (channelId, utcOffsetMinutes) => [
+      'dashboard',
+      'bestTime',
+      channelId,
+      utcOffsetMinutes,
+    ],
   },
   coach: {
     conversations: (params = {}) => [
@@ -62,7 +72,6 @@ export const queryKeys = {
     detail: (id) => ['styles', 'detail', id ?? ''],
   },
   thumbnails: {
-    list: (params = {}) => ['thumbnails', 'list', params.limit ?? 20, params.offset ?? 0],
     conversations: (params = {}) => [
       'thumbnails',
       'conversations',
@@ -82,5 +91,15 @@ export const queryKeys = {
     ],
     conversation: (conversationId) => ['scripts', 'conversation', conversationId ?? 'new'],
   },
+  thumbnailTemplates: {
+    categories: () => ['thumbnailTemplates', 'categories'],
+    list: (params) => [
+      'thumbnailTemplates',
+      'list',
+      params.limit ?? 30,
+      params.offset ?? 0,
+      params.category ?? '',
+      params.q ?? '',
+    ],
+  },
 }
-

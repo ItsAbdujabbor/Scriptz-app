@@ -2,7 +2,7 @@ import { Dashboard } from './app/Dashboard'
 import { CoachChat } from './app/CoachChat'
 import { Optimize } from './app/Optimize'
 import { Pro } from './app/Pro'
-import { Library } from './app/Library'
+import { Templates } from './app/Templates'
 
 /**
  * All primary app shells in one chunk so moving between them does not remount Suspense
@@ -18,8 +18,8 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
       return <Optimize onLogout={onLogout} />
     case 'pro':
       return <Pro onLogout={onLogout} />
-    case 'library':
-      return <Library onLogout={onLogout} />
+    case 'templates':
+      return <Templates onLogout={onLogout} />
     default:
       return null
   }

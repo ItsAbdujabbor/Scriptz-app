@@ -59,7 +59,7 @@ function postedDaysAgo(iso) {
     if (days < 30) return days + ' days ago'
     if (days < 365) return Math.floor(days / 30) + ' mo ago'
     return Math.floor(days / 365) + ' yr ago'
-  } catch (e) {
+  } catch (_e) {
     return iso
   }
 }
@@ -132,7 +132,13 @@ export function Optimize({ onLogout }) {
     if (prefs.videoFormat != null) setVideoFormat(prefs.videoFormat)
     if (prefs.uploadFrequency != null) setUploadFrequency(prefs.uploadFrequency)
     prefsHydratedRef.current = true
-  }, [userPreferencesQuery.data, setNiche, setPreferredLanguage, setUploadFrequency, setVideoFormat])
+  }, [
+    userPreferencesQuery.data,
+    setNiche,
+    setPreferredLanguage,
+    setUploadFrequency,
+    setVideoFormat,
+  ])
 
   useEffect(() => {
     if (profileHydratedRef.current) return
@@ -173,7 +179,9 @@ export function Optimize({ onLogout }) {
 
   const videos = videosQuery.data?.items ?? []
   const videosLoading = videosQuery.isPending
-  const videosError = videosQuery.isError ? (videosQuery.error?.message || 'Failed to load videos') : null
+  const videosError = videosQuery.isError
+    ? videosQuery.error?.message || 'Failed to load videos'
+    : null
   const totalPages = videosQuery.data?.total_pages ?? 1
 
   const prefetchVideoOptimization = (videoId) => {
@@ -410,13 +418,22 @@ export function Optimize({ onLogout }) {
               <div className="optimize-state optimize-state-empty">
                 <div className="optimize-empty-card">
                   <span className="optimize-empty-icon" aria-hidden>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
                       <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
                       <circle cx="12" cy="12" r="3" />
                     </svg>
                   </span>
                   <h3 className="optimize-empty-title">Connect YouTube</h3>
-                  <p className="optimize-empty-desc">Connect your channel to see and optimize your videos here.</p>
+                  <p className="optimize-empty-desc">
+                    Connect your channel to see and optimize your videos here.
+                  </p>
                 </div>
               </div>
             )}
@@ -440,17 +457,32 @@ export function Optimize({ onLogout }) {
                   {emptyFromSearch ? (
                     <>
                       <span className="optimize-empty-icon" aria-hidden>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
                           <circle cx="11" cy="11" r="8" />
                           <path d="m21 21-4.35-4.35" />
                         </svg>
                       </span>
-                      <h3 className="optimize-empty-title">No results for “{searchQuery.trim()}”</h3>
-                      <p className="optimize-empty-desc">Try a different search term or clear the search to see all your {videoType === 'shorts' ? 'Shorts' : 'videos'}.</p>
+                      <h3 className="optimize-empty-title">
+                        No results for “{searchQuery.trim()}”
+                      </h3>
+                      <p className="optimize-empty-desc">
+                        Try a different search term or clear the search to see all your{' '}
+                        {videoType === 'shorts' ? 'Shorts' : 'videos'}.
+                      </p>
                       <button
                         type="button"
                         className="optimize-empty-action"
-                        onClick={() => { setSearchInput(''); setSearchQuery(''); }}
+                        onClick={() => {
+                          setSearchInput('')
+                          setSearchQuery('')
+                        }}
                       >
                         Clear search
                       </button>
@@ -458,7 +490,14 @@ export function Optimize({ onLogout }) {
                   ) : (
                     <>
                       <span className="optimize-empty-icon" aria-hidden>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
                           <path d="m22 8-6 4 6 4V8Z" />
                           <rect width="14" height="12" x="2" y="6" rx="2" ry="2" />
                         </svg>
@@ -471,9 +510,6 @@ export function Optimize({ onLogout }) {
                           ? 'You don’t have any Shorts on this channel. Create Shorts in YouTube Studio to optimize them here.'
                           : 'Upload videos to your channel to see and optimize them here.'}
                       </p>
-                      {videoType === 'shorts' && (
-                        <p className="optimize-empty-hint">Switch to Videos to optimize your long-form content.</p>
-                      )}
                     </>
                   )}
                 </div>
@@ -504,16 +540,24 @@ export function Optimize({ onLogout }) {
                       <div className="optimize-card-thumb-wrap">
                         <img
                           className="optimize-card-thumb"
-                          src={v.thumbnail_url || `https://img.youtube.com/vi/${v.id}/mqdefault.jpg`}
+                          src={
+                            v.thumbnail_url || `https://img.youtube.com/vi/${v.id}/mqdefault.jpg`
+                          }
                           alt=""
                           loading="lazy"
                         />
                       </div>
                       <div className="optimize-card-body">
-                        <h3 className="optimize-card-title">{(v.title || 'Untitled').substring(0, 80)}</h3>
+                        <h3 className="optimize-card-title">
+                          {(v.title || 'Untitled').substring(0, 80)}
+                        </h3>
                         <div className="optimize-card-meta-row">
-                          <span className="optimize-card-meta-pill">{formatCount(v.view_count)} views</span>
-                          <span className="optimize-card-meta-pill">{postedDaysAgo(v.published_at)}</span>
+                          <span className="optimize-card-meta-pill">
+                            {formatCount(v.view_count)} views
+                          </span>
+                          <span className="optimize-card-meta-pill">
+                            {postedDaysAgo(v.published_at)}
+                          </span>
                           {formatEngagement(v.engagement_rate) != null && (
                             <span className="optimize-card-meta-pill optimize-card-meta-pill--engagement">
                               {formatEngagement(v.engagement_rate)} engagement
@@ -532,7 +576,15 @@ export function Optimize({ onLogout }) {
                         >
                           Optimize
                           <span className="optimize-card-cta-icon" aria-hidden>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.25"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden
+                            >
                               <path d="M5 12h14M12 5l7 7-7 7" />
                             </svg>
                           </span>
@@ -573,7 +625,10 @@ export function Optimize({ onLogout }) {
             initialSection={settingsSection}
             onClose={() => setSettingsOpen(false)}
             user={user}
-            accountDeletePasswordOptional={typeof allowsPasswordlessAccountDelete === 'function' && allowsPasswordlessAccountDelete()}
+            accountDeletePasswordOptional={
+              typeof allowsPasswordlessAccountDelete === 'function' &&
+              allowsPasswordlessAccountDelete()
+            }
             authLoading={authLoading}
             changePassword={changePassword}
             deleteData={deleteData}

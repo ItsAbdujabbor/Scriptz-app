@@ -12,6 +12,8 @@ import { queryKeys } from './queryKeys'
 export const chatThreadQueryOptions = {
   staleTime: queryFreshness.chatThread,
   gcTime: queryFreshness.chatThreadGc,
+  /** Threads are merged explicitly; avoid refetch flicker when returning to the tab. */
+  refetchOnWindowFocus: false,
 }
 
 function mergeDetailIntoListPatch(detail) {
@@ -117,7 +119,10 @@ export async function refreshThumbnailConversationCache(queryClient, conversatio
 export async function prefetchTopCoachConversationDetails(queryClient, items, maxPrefetch = 6) {
   const token = await getAccessTokenOrNull()
   if (!token || !items?.length) return
-  const ids = items.slice(0, maxPrefetch).map((c) => c.id).filter((id) => id != null)
+  const ids = items
+    .slice(0, maxPrefetch)
+    .map((c) => c.id)
+    .filter((id) => id != null)
   await Promise.all(
     ids.map((id) =>
       queryClient.prefetchQuery({
@@ -132,7 +137,10 @@ export async function prefetchTopCoachConversationDetails(queryClient, items, ma
 export async function prefetchTopScriptConversationDetails(queryClient, items, maxPrefetch = 6) {
   const token = await getAccessTokenOrNull()
   if (!token || !items?.length) return
-  const ids = items.slice(0, maxPrefetch).map((c) => c.id).filter((id) => id != null)
+  const ids = items
+    .slice(0, maxPrefetch)
+    .map((c) => c.id)
+    .filter((id) => id != null)
   await Promise.all(
     ids.map((id) =>
       queryClient.prefetchQuery({
@@ -147,7 +155,10 @@ export async function prefetchTopScriptConversationDetails(queryClient, items, m
 export async function prefetchTopThumbnailConversationDetails(queryClient, items, maxPrefetch = 6) {
   const token = await getAccessTokenOrNull()
   if (!token || !items?.length) return
-  const ids = items.slice(0, maxPrefetch).map((c) => c.id).filter((id) => id != null)
+  const ids = items
+    .slice(0, maxPrefetch)
+    .map((c) => c.id)
+    .filter((id) => id != null)
   await Promise.all(
     ids.map((id) =>
       queryClient.prefetchQuery({

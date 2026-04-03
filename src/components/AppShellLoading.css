@@ -26,7 +26,8 @@
 }
 
 .dashboard-main-wrap--route-loading,
-.library-main--route-loading {
+.templates-main--route-loading,
+.templates-shell.templates-main--route-loading {
   display: flex;
   flex-direction: column;
   min-height: 0;

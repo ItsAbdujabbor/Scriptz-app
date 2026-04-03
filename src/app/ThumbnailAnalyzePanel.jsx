@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { thumbnailsApi } from '../api/thumbnails'
-import { useSaveThumbnailVariantMutation } from '../queries/thumbnails/thumbnailQueries'
 import './ThumbnailRater.css'
 
 const YOUTUBE_URL_RE = /https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[a-zA-Z0-9_-]+/
@@ -37,7 +36,15 @@ function scoreTierClass(score) {
 
 function IconSparkle() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
       <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
     </svg>
   )
@@ -45,20 +52,18 @@ function IconSparkle() {
 
 function IconUpload() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="17 8 12 3 7 8" />
       <line x1="12" y1="3" x2="12" y2="15" />
-    </svg>
-  )
-}
-
-function IconSave() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-      <polyline points="17 21 17 13 7 13 7 21" />
-      <polyline points="7 3 7 8 15 8" />
     </svg>
   )
 }
@@ -79,7 +84,6 @@ export function ThumbnailAnalyzePanel() {
   const [improving, setImproving] = useState(false)
   const [improvedUrl, setImprovedUrl] = useState(null)
   const fileInputRef = useRef(null)
-  const saveMutation = useSaveThumbnailVariantMutation()
 
   const clearImage = useCallback(() => {
     setPreview(null)
@@ -193,20 +197,6 @@ export function ThumbnailAnalyzePanel() {
     }
   }, [ratingId])
 
-  const handleSaveImproved = async () => {
-    if (!improvedUrl) return
-    try {
-      await saveMutation.mutateAsync({
-        image_url: improvedUrl,
-        user_request: 'AI improvement from Analyze',
-        concept_title: 'Improved',
-        psychology: '',
-      })
-    } catch {
-      /* ignore */
-    }
-  }
-
   const sub = rating?.subscores
   const analysisLines = Array.isArray(rating?.analysis) ? rating.analysis.filter(Boolean) : []
 
@@ -215,7 +205,8 @@ export function ThumbnailAnalyzePanel() {
       <div className="thumb-rater-hero">
         <h2 className="thumb-rater-title">Analyze</h2>
         <p className="thumb-rater-sub">
-          Upload a thumbnail or fetch one from YouTube. You get scores, rubric breakdown, strengths and weaknesses, and step-by-step recommendations to improve CTR.
+          Upload a thumbnail or fetch one from YouTube. You get scores, rubric breakdown, strengths
+          and weaknesses, and step-by-step recommendations to improve CTR.
         </p>
       </div>
 
@@ -233,7 +224,11 @@ export function ThumbnailAnalyzePanel() {
             onChange={(e) => applyFile(e.target.files?.[0])}
           />
           {!preview ? (
-            <button type="button" className="thumb-rater-drop-inner" onClick={() => fileInputRef.current?.click()}>
+            <button
+              type="button"
+              className="thumb-rater-drop-inner"
+              onClick={() => fileInputRef.current?.click()}
+            >
               <span className="thumb-rater-drop-icon">
                 <IconUpload />
               </span>
@@ -242,12 +237,20 @@ export function ThumbnailAnalyzePanel() {
             </button>
           ) : (
             <div className="thumb-rater-preview-wrap">
-              <img src={preview.src} alt="Thumbnail to analyze" className="thumb-rater-preview-img" />
+              <img
+                src={preview.src}
+                alt="Thumbnail to analyze"
+                className="thumb-rater-preview-img"
+              />
               <div className="thumb-rater-preview-actions">
                 <button type="button" className="thumb-rater-text-btn" onClick={clearImage}>
                   Remove
                 </button>
-                <button type="button" className="thumb-rater-text-btn" onClick={() => fileInputRef.current?.click()}>
+                <button
+                  type="button"
+                  className="thumb-rater-text-btn"
+                  onClick={() => fileInputRef.current?.click()}
+                >
                   Replace
                 </button>
               </div>
@@ -318,7 +321,9 @@ export function ThumbnailAnalyzePanel() {
         <div className="thumb-rater-results thumb-analyze-results">
           <div className={`thumb-rater-score-card ${scoreTierClass(rating.overall_score)}`}>
             <div className="thumb-rater-score-main">
-              <span className="thumb-rater-score-value">{Math.round(Number(rating.overall_score) || 0)}</span>
+              <span className="thumb-rater-score-value">
+                {Math.round(Number(rating.overall_score) || 0)}
+              </span>
               <span className="thumb-rater-score-label">Overall quality</span>
             </div>
             {rating.tier && <span className="thumb-rater-tier-badge">{rating.tier}</span>}
@@ -327,29 +332,41 @@ export function ThumbnailAnalyzePanel() {
           <div className="thumb-rater-metrics">
             <div className="thumb-rater-metric">
               <span className="thumb-rater-metric-label">CTR potential</span>
-              <span className="thumb-rater-metric-val">{Math.round(Number(rating.ctr_potential_score) || 0)}</span>
+              <span className="thumb-rater-metric-val">
+                {Math.round(Number(rating.ctr_potential_score) || 0)}
+              </span>
             </div>
             <div className="thumb-rater-metric">
               <span className="thumb-rater-metric-label">Visual appeal</span>
-              <span className="thumb-rater-metric-val">{Math.round(Number(rating.visual_appeal_score) || 0)}</span>
+              <span className="thumb-rater-metric-val">
+                {Math.round(Number(rating.visual_appeal_score) || 0)}
+              </span>
             </div>
             <div className="thumb-rater-metric">
               <span className="thumb-rater-metric-label">Composition</span>
-              <span className="thumb-rater-metric-val">{Math.round(Number(rating.composition_score) || 0)}</span>
+              <span className="thumb-rater-metric-val">
+                {Math.round(Number(rating.composition_score) || 0)}
+              </span>
             </div>
             <div className="thumb-rater-metric">
               <span className="thumb-rater-metric-label">Contrast</span>
-              <span className="thumb-rater-metric-val">{Math.round(Number(rating.color_contrast_score) || 0)}</span>
+              <span className="thumb-rater-metric-val">
+                {Math.round(Number(rating.color_contrast_score) || 0)}
+              </span>
             </div>
             {rating.text_readability_score != null && (
               <div className="thumb-rater-metric">
                 <span className="thumb-rater-metric-label">Text readability</span>
-                <span className="thumb-rater-metric-val">{Math.round(Number(rating.text_readability_score) || 0)}</span>
+                <span className="thumb-rater-metric-val">
+                  {Math.round(Number(rating.text_readability_score) || 0)}
+                </span>
               </div>
             )}
             <div className="thumb-rater-metric">
               <span className="thumb-rater-metric-label">Emotional appeal</span>
-              <span className="thumb-rater-metric-val">{Math.round(Number(rating.emotional_appeal_score) || 0)}</span>
+              <span className="thumb-rater-metric-val">
+                {Math.round(Number(rating.emotional_appeal_score) || 0)}
+              </span>
             </div>
           </div>
 
@@ -357,11 +374,26 @@ export function ThumbnailAnalyzePanel() {
             <div className="thumb-rater-subscores">
               <span className="thumb-rater-section-title">Mobile-first rubric (raw)</span>
               <ul className="thumb-rater-sub-list">
-                <li>Clarity / readability <strong>{sub.clarity != null ? Math.round(sub.clarity) : '—'}</strong> / 25</li>
-                <li>Contrast <strong>{sub.contrast != null ? Math.round(sub.contrast) : '—'}</strong> / 20</li>
-                <li>Hook <strong>{sub.hook != null ? Math.round(sub.hook) : '—'}</strong> / 25</li>
-                <li>Hierarchy <strong>{sub.hierarchy != null ? Math.round(sub.hierarchy) : '—'}</strong> / 20</li>
-                <li>Composition <strong>{sub.composition != null ? Math.round(sub.composition) : '—'}</strong> / 10</li>
+                <li>
+                  Clarity / readability{' '}
+                  <strong>{sub.clarity != null ? Math.round(sub.clarity) : '—'}</strong> / 25
+                </li>
+                <li>
+                  Contrast <strong>{sub.contrast != null ? Math.round(sub.contrast) : '—'}</strong>{' '}
+                  / 20
+                </li>
+                <li>
+                  Hook <strong>{sub.hook != null ? Math.round(sub.hook) : '—'}</strong> / 25
+                </li>
+                <li>
+                  Hierarchy{' '}
+                  <strong>{sub.hierarchy != null ? Math.round(sub.hierarchy) : '—'}</strong> / 20
+                </li>
+                <li>
+                  Composition{' '}
+                  <strong>{sub.composition != null ? Math.round(sub.composition) : '—'}</strong> /
+                  10
+                </li>
               </ul>
             </div>
           )}
@@ -435,24 +467,21 @@ export function ThumbnailAnalyzePanel() {
           {improvedUrl && (
             <div className="thumb-rater-improved">
               <span className="thumb-rater-section-title">Improved version</span>
-              <img src={improvedUrl} alt="AI-improved thumbnail" className="thumb-rater-improved-img" />
+              <img
+                src={improvedUrl}
+                alt="AI-improved thumbnail"
+                className="thumb-rater-improved-img"
+              />
               <div className="thumb-rater-improved-actions">
-                <a className="thumb-rater-btn thumb-rater-btn--secondary" href={improvedUrl} download target="_blank" rel="noopener noreferrer">
+                <a
+                  className="thumb-rater-btn thumb-rater-btn--primary"
+                  href={improvedUrl}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   Download
                 </a>
-                <button
-                  type="button"
-                  className="thumb-rater-btn thumb-rater-btn--primary"
-                  onClick={handleSaveImproved}
-                  disabled={saveMutation.isPending}
-                >
-                  {saveMutation.isPending ? 'Saving…' : (
-                    <>
-                      <IconSave />
-                      Save to library
-                    </>
-                  )}
-                </button>
               </div>
             </div>
           )}

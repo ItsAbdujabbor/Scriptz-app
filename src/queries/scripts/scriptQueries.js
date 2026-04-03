@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { scriptsApi } from '../../api/scripts'
 import {
+  chatThreadQueryOptions,
   mergeScriptConversationsListCache,
   removeScriptConversationFromListCaches,
 } from '../../lib/query/chatCacheUtils'
@@ -9,12 +10,34 @@ import { queryFreshness } from '../../lib/query/queryConfig'
 import { queryKeys } from '../../lib/query/queryKeys'
 import { getAccessTokenOrNull } from '../../lib/query/authToken'
 
+export async function prefetchScriptConversation(queryClient, conversationId) {
+  if (conversationId == null) return
+  const token = await getAccessTokenOrNull()
+  if (!token) return
+  try {
+    await queryClient.prefetchQuery({
+      queryKey: queryKeys.scripts.conversation(conversationId),
+      queryFn: () => scriptsApi.getConversation(token, conversationId),
+      ...chatThreadQueryOptions,
+    })
+  } catch {
+    /* Active view will refetch */
+  }
+}
+
 export function useScriptConversationsQuery(params = {}) {
   return useQuery({
     queryKey: queryKeys.scripts.conversations(params),
     queryFn: async () => {
       const token = await getAccessTokenOrNull()
-      if (!token) return { items: [], total: 0, has_more: false, limit: params.limit ?? 50, offset: params.offset ?? 0 }
+      if (!token)
+        return {
+          items: [],
+          total: 0,
+          has_more: false,
+          limit: params.limit ?? 50,
+          offset: params.offset ?? 0,
+        }
       return scriptsApi.listConversations(token, params)
     },
     staleTime: queryFreshness.long,
@@ -46,8 +69,7 @@ export function useScriptConversationQuery(conversationId) {
       if (!token) throw new Error('Not authenticated')
       return scriptsApi.getConversation(token, conversationId)
     },
-    staleTime: queryFreshness.chatThread,
-    gcTime: queryFreshness.chatThreadGc,
+    ...chatThreadQueryOptions,
     placeholderData: (prev) => prev,
   })
 }

@@ -4,7 +4,12 @@
   width: 100%;
   background: transparent;
   color: #e5e5e7;
-  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family:
+    'Poppins',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: contain;
 }
@@ -26,36 +31,85 @@
   overflow-x: hidden;
   overscroll-behavior-y: contain;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Header with fade + shadow — gradient from top, soft shadow below */
-/* Header fade — smooth gradient from page background to transparent */
-.coach-header {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 5rem;
-  z-index: 2;
+.coach-main-body {
+  flex: 1;
+  min-height: 0;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Tool switcher — light glass, soft transparent shadow; compact default TabBar top-right */
+.coach-header {
+  position: relative;
+  flex-shrink: 0;
+  z-index: 8;
+  display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding: 0 1.5rem;
+  padding: 0.35rem 0.65rem 0.42rem;
   box-sizing: border-box;
   background: linear-gradient(
     180deg,
-    rgba(15, 15, 16, 0.94) 0%,
-    rgba(15, 15, 16, 0.78) 22%,
-    rgba(15, 15, 16, 0.45) 48%,
-    rgba(15, 15, 16, 0.18) 72%,
-    rgba(15, 15, 16, 0) 100%
+    rgba(14, 14, 16, 0.58) 0%,
+    rgba(14, 14, 16, 0.32) 52%,
+    rgba(14, 14, 16, 0) 100%
   );
+  backdrop-filter: blur(18px) saturate(145%);
+  -webkit-backdrop-filter: blur(18px) saturate(145%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
 }
 
-/* TabBar (via TabBar.css) — .coach-tabbar used as className on TabBar for layout */
-.coach-header .tabbar {
-  align-items: flex-end;
+/* Classic TabBar (default): sliding underline + compact strip, top-right */
+.coach-header .tabbar.default.coach-tabbar--header-trailing {
+  width: auto;
+  max-width: min(100%, calc(100vw - 1rem));
+  margin: 0;
+  margin-left: auto;
+  flex-shrink: 1;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0;
+  padding: 0 2px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+}
+
+.coach-header .tabbar.default.coach-tabbar--header-trailing .tabbar-tab {
+  padding: 7px 12px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.015em;
+  color: rgba(229, 229, 231, 0.5);
+}
+
+.coach-header .tabbar.default.coach-tabbar--header-trailing .tabbar-tab:hover {
+  color: rgba(245, 243, 255, 0.9);
+}
+
+.coach-header .tabbar.default.coach-tabbar--header-trailing .tabbar-tab.is-active {
+  color: #d8ccff;
+}
+
+.coach-header .tabbar.default.coach-tabbar--header-trailing .tabbar-indicator {
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+}
+
+@media (max-width: 520px) {
+  .coach-header .tabbar.default.coach-tabbar--header-trailing .tabbar-tab {
+    padding: 6px 9px;
+    font-size: 0.68rem;
+  }
 }
 
 /* Coming Soon placeholder screens */
@@ -138,7 +192,7 @@
 .coach-main {
   width: 100%;
   margin: 0 auto;
-  padding: 1rem 0 0.5rem;
+  padding: 0.5rem 0 0.5rem;
   box-sizing: border-box;
   height: 100%;
   min-height: 0;
@@ -148,6 +202,8 @@
 
 .coach-chat-shell {
   --coach-content-width: min(720px, calc(100% - 2rem));
+  /* Set by JS from measured composer footer height so scroll-to-bottom stays above the input bar */
+  --coach-composer-stack-px: 132px;
   position: relative;
   min-height: 0;
   height: 100%;
@@ -192,7 +248,7 @@
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0.2rem 0 5.5rem;
+  padding: 1.25rem 0 6.25rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -204,6 +260,72 @@
   direction: ltr;
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.5) transparent;
+}
+
+/* Virtuoso: outer thread is a flex shell; inner scroller owns overflow */
+.coach-thread--virtualized {
+  overflow: hidden;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+}
+
+.coach-thread-virtuoso {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.coach-virtuoso-list {
+  /* Items are absolutely positioned; gap does not apply — use padding on items */
+  /* Bottom: measured composer stack + breathing room so last rows clear the input bar */
+  padding: 1.1rem 0 calc(var(--coach-composer-stack-px, 132px) + 2.25rem);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.coach-virtuoso-item {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  box-sizing: border-box;
+  /* Spacing between rows must be inside measured height (Virtuoso positions items absolutely) */
+  padding-bottom: 1.35rem;
+}
+
+[data-coach-virtuoso-scroller] {
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  touch-action: pan-y;
+  direction: ltr;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.5) transparent;
+}
+
+[data-coach-virtuoso-scroller]::-webkit-scrollbar {
+  width: 8px;
+}
+
+[data-coach-virtuoso-scroller]::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+[data-coach-virtuoso-scroller]::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+[data-coach-virtuoso-scroller]::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.65);
+  background-clip: padding-box;
+}
+
+[data-coach-virtuoso-scroller]::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .coach-thread::-webkit-scrollbar {
@@ -238,19 +360,37 @@
   padding-bottom: 6rem;
 }
 
-/* Opening a thread from sidebar — centered, matches empty-state + assistant loader */
+/* Full-panel centered history load */
+.coach-thread--history-loading {
+  justify-content: center;
+  align-items: center;
+  padding-top: clamp(2rem, 8vh, 4rem);
+  padding-bottom: clamp(2rem, 8vh, 4rem);
+  gap: 0;
+}
+
+.coach-thread--history-loading.coach-thread--virtualized {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* Opening a thread from sidebar — centered glass card */
 .coach-history-loading {
   margin: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.85rem;
+  gap: 1rem;
   text-align: center;
   width: var(--coach-content-width);
   max-width: 100%;
   box-sizing: border-box;
   padding: 0.5rem 1rem 1rem;
+}
+
+.coach-history-loading--panel {
+  width: min(380px, 100%);
 }
 
 .coach-history-loading__kicker {
@@ -272,42 +412,151 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.1rem;
+  gap: 1.25rem;
   width: 100%;
-  max-width: 320px;
-  padding: 1.75rem 1.5rem 1.5rem;
-  border-radius: 20px;
-  background: linear-gradient(165deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 48%, rgba(139, 92, 246, 0.06) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  max-width: 340px;
+  padding: 2rem 1.75rem 1.65rem;
+  border-radius: 22px;
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.03) 45%,
+    rgba(139, 92, 246, 0.09) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow:
-    0 0 0 1px rgba(139, 92, 246, 0.08),
-    0 20px 48px rgba(0, 0, 0, 0.35);
+    0 0 0 1px rgba(139, 92, 246, 0.1),
+    0 24px 56px rgba(0, 0, 0, 0.45),
+    0 0 80px rgba(139, 92, 246, 0.06);
 }
 
-.coach-history-loading__loader.coach-assistant-loader {
+.coach-history-loading__orbit {
+  position: relative;
+  width: 4.5rem;
+  height: 4.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.coach-history-loading__orbit-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    #a78bfa 18%,
+    #6366f1 42%,
+    transparent 58%,
+    transparent 100%
+  );
+  animation: coach-history-orbit-spin 1.15s linear infinite;
+  mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+}
+
+.coach-history-loading__orbit-glow {
+  position: absolute;
+  inset: 10%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.35) 0%, transparent 70%);
+  animation: coach-history-orbit-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.coach-history-loading__orbit-core {
+  position: relative;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #c4b5fd, #8b5cf6);
+  box-shadow:
+    0 0 20px rgba(167, 139, 250, 0.55),
+    0 0 0 2px rgba(255, 255, 255, 0.12) inset;
+}
+
+@keyframes coach-history-orbit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes coach-history-orbit-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.05);
+  }
+}
+
+.coach-history-loading__copy {
+  display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  min-width: 0;
+  gap: 0.35rem;
   width: 100%;
-}
-
-.coach-history-loading__loader .coach-assistant-loader-orb {
-  width: 0.85rem;
-  height: 0.85rem;
-}
-
-.coach-history-loading__loader .coach-assistant-loader-lines {
-  width: 100%;
-  align-items: center;
 }
 
 .coach-history-loading__label {
   margin: 0;
-  font-size: 0.8125rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: rgba(229, 229, 231, 0.95);
+  letter-spacing: -0.01em;
+}
+
+.coach-history-loading__subtitle {
+  margin: 0;
+  font-size: 0.75rem;
   font-weight: 500;
-  color: rgba(180, 187, 199, 0.95);
-  letter-spacing: 0.01em;
+  line-height: 1.45;
+  color: rgba(156, 163, 175, 0.95);
+}
+
+.coach-history-loading__shimmer {
+  display: flex;
+  gap: 0.4rem;
+  width: 100%;
+  justify-content: center;
+  opacity: 0.65;
+}
+
+.coach-history-loading__shimmer span {
+  height: 4px;
+  width: 100%;
+  max-width: 4.5rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(167, 139, 250, 0.15),
+    rgba(167, 139, 250, 0.55),
+    rgba(167, 139, 250, 0.15)
+  );
+  background-size: 200% 100%;
+  animation: coach-history-shimmer 1.4s ease-in-out infinite;
+}
+
+.coach-history-loading__shimmer span:nth-child(2) {
+  animation-delay: 0.15s;
+  max-width: 3.25rem;
+}
+
+.coach-history-loading__shimmer span:nth-child(3) {
+  animation-delay: 0.3s;
+  max-width: 2.5rem;
+}
+
+@keyframes coach-history-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
 }
 
 .coach-thread-state {
@@ -390,7 +639,9 @@
   text-align: left;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  transition: background 0.14s ease, border-color 0.14s ease;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease;
 }
 
 .coach-empty-action:hover {
@@ -651,7 +902,9 @@
   opacity: 0;
   transform: translateY(4px);
   pointer-events: none;
-  transition: opacity 0.16s ease, transform 0.16s ease;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
 }
 
 .coach-message--user:hover .coach-message-actions--user,
@@ -676,7 +929,10 @@
   font: inherit;
   font-size: 0;
   cursor: pointer;
-  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
 }
 
 .coach-message-action svg {
@@ -840,7 +1096,11 @@
   font-size: 0.76rem;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease, opacity 0.18s ease;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    opacity 0.18s ease;
 }
 
 .coach-retry-option + .coach-retry-option,
@@ -977,7 +1237,13 @@
   height: 0.7rem;
   flex-shrink: 0;
   border-radius: 999px;
-  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #ddd6fe 24%, #8b5cf6 62%, rgba(139, 92, 246, 0.14) 100%);
+  background: radial-gradient(
+    circle at 35% 35%,
+    #ffffff 0%,
+    #ddd6fe 24%,
+    #8b5cf6 62%,
+    rgba(139, 92, 246, 0.14) 100%
+  );
   box-shadow:
     0 0 0 0 rgba(139, 92, 246, 0.24),
     0 0 14px rgba(139, 92, 246, 0.2);
@@ -985,7 +1251,13 @@
 }
 
 .coach-assistant-loader.is-deep .coach-assistant-loader-orb {
-  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #fde68a 22%, #f59e0b 58%, rgba(245, 158, 11, 0.16) 100%);
+  background: radial-gradient(
+    circle at 35% 35%,
+    #ffffff 0%,
+    #fde68a 22%,
+    #f59e0b 58%,
+    rgba(245, 158, 11, 0.16) 100%
+  );
   box-shadow:
     0 0 0 0 rgba(245, 158, 11, 0.22),
     0 0 14px rgba(245, 158, 11, 0.2);
@@ -1051,7 +1323,8 @@
 }
 
 @keyframes coachLoaderPulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(0.94);
     opacity: 0.88;
   }
@@ -1079,7 +1352,9 @@
 }
 
 @keyframes coachTyping {
-  0%, 80%, 100% {
+  0%,
+  80%,
+  100% {
     transform: translateY(0);
     opacity: 0.35;
   }
@@ -1089,18 +1364,18 @@
   }
 }
 
-/* Scroll to bottom button — entirely above input bar, smooth appear/disappear */
+/* Scroll to bottom — bottom offset tracks measured composer stack (JS --coach-composer-stack-px) */
 .coach-scroll-to-bottom {
   position: absolute;
   left: 50%;
-  /* Composer ~8rem + gap 0.5rem + button 2.5rem = 11rem from bottom */
-  bottom: calc(11rem + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--coach-composer-stack-px, 132px) + 0.75rem);
   transform: translateX(-50%) translateY(8px);
   z-index: 4;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
   transition:
+    bottom 0.22s cubic-bezier(0.4, 0, 0.2, 1),
     opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
     visibility 0.28s;
@@ -1130,7 +1405,10 @@
   box-shadow:
     0 6px 20px rgba(0, 0, 0, 0.25),
     0 1px 0 rgba(255, 255, 255, 0.08) inset;
-  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .coach-scroll-to-bottom-btn:hover {
@@ -1165,7 +1443,12 @@
   width: min(calc(var(--coach-content-width) + 5rem), calc(100% - 1.25rem));
   height: 4rem;
   border-radius: 999px;
-  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.34) 0%, rgba(0, 0, 0, 0.16) 42%, rgba(0, 0, 0, 0) 78%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0.34) 0%,
+    rgba(0, 0, 0, 0.16) 42%,
+    rgba(0, 0, 0, 0) 78%
+  );
   filter: blur(18px);
   opacity: 0.9;
   pointer-events: none;
@@ -1234,15 +1517,18 @@
 
 .coach-composer-input-wrap {
   position: relative;
-  flex: 1;
+  /* Do not flex-grow: filling leftover column space kept the bar “expanded” after the textarea shrank. */
+  flex: 0 1 auto;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
 }
 .coach-composer-input {
   width: 100%;
-  min-height: 65px;
-  max-height: 140px;
+  min-height: 0;
+  max-height: 240px;
   resize: none;
   border: none;
   outline: none;
@@ -1254,6 +1540,7 @@
   padding: 0.05rem 0;
   box-sizing: border-box;
   overflow-y: auto;
+  transition: height 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.5) transparent;
 }
@@ -1325,7 +1612,9 @@
   transform-origin: center;
   transform: scaleY(var(--wave-scale, 0.2));
   opacity: 0.95;
-  transition: transform 0.12s ease, opacity 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    opacity 0.12s ease;
 }
 
 .coach-composer-recording.is-transcribing .coach-composer-waveform-bar {
@@ -1374,7 +1663,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.12s ease, opacity 0.12s ease;
+  transition:
+    background 0.12s ease,
+    opacity 0.12s ease;
 }
 
 .coach-composer-preview-remove:hover {
@@ -1414,7 +1705,11 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease, opacity 0.12s ease, color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    opacity 0.12s ease,
+    color 0.12s ease;
 }
 
 .coach-composer-attachment-remove {
@@ -1476,7 +1771,9 @@
   justify-content: center;
   cursor: pointer;
   font: inherit;
-  transition: filter 0.14s ease, opacity 0.14s ease;
+  transition:
+    filter 0.14s ease,
+    opacity 0.14s ease;
 }
 
 .coach-composer-primary-action {
@@ -1574,7 +1871,8 @@
 }
 
 @keyframes coachMicPulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.18);
   }
   50% {
@@ -1583,7 +1881,8 @@
 }
 
 @keyframes coachWaveIdle {
-  0%, 100% {
+  0%,
+  100% {
     transform: scaleY(0.28);
     opacity: 0.56;
   }
@@ -1649,6 +1948,10 @@
     padding: 0.2rem 0 4.5rem;
   }
 
+  .coach-virtuoso-list {
+    padding-bottom: 4.5rem;
+  }
+
   .coach-thread--empty {
     padding-bottom: 5.2rem;
   }
@@ -1688,11 +1991,6 @@
     max-width: 88%;
   }
 
-  .coach-scroll-to-bottom {
-    /* Mobile: composer ~7.5rem + gap + button */
-    bottom: calc(10.5rem + env(safe-area-inset-bottom, 0px));
-  }
-
   .coach-composer-wrap {
     margin-top: -3.6rem;
     padding: 0.2rem 0 calc(0.3rem + env(safe-area-inset-bottom, 0px));
@@ -1713,7 +2011,7 @@
   }
 
   .coach-composer-input {
-    min-height: 52px;
+    min-height: 0;
     font-size: 0.95rem;
     padding: 0.4rem 0;
     line-height: 1.5;
@@ -1800,6 +2098,10 @@
     padding-bottom: 4rem;
   }
 
+  .coach-virtuoso-list {
+    padding-bottom: 4rem;
+  }
+
   .coach-thread--empty {
     padding-bottom: 4.6rem;
   }
@@ -1880,11 +2182,6 @@
     width: min(58%, 6rem);
   }
 
-  .coach-scroll-to-bottom {
-    /* Small mobile: composer ~7rem + gap + button */
-    bottom: calc(10rem + env(safe-area-inset-bottom, 0px));
-  }
-
   .coach-composer-wrap {
     margin-top: -3.2rem;
     padding: 0.15rem 0 calc(0.25rem + env(safe-area-inset-bottom, 0px));
@@ -1901,7 +2198,7 @@
   }
 
   .coach-composer-input {
-    min-height: 50px;
+    min-height: 0;
     font-size: 0.92rem;
     padding: 0.35rem 0;
   }

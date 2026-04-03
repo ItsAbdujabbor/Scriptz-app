@@ -31,7 +31,14 @@ export function useThumbnailConversationsQuery(params = {}) {
     queryKey: queryKeys.thumbnails.conversations(params),
     queryFn: async () => {
       const token = await getAccessTokenOrNull()
-      if (!token) return { items: [], total: 0, has_more: false, limit: params.limit ?? 50, offset: params.offset ?? 0 }
+      if (!token)
+        return {
+          items: [],
+          total: 0,
+          has_more: false,
+          limit: params.limit ?? 50,
+          offset: params.offset ?? 0,
+        }
       return thumbnailsApi.listConversations(token, params)
     },
     staleTime: queryFreshness.long,
@@ -49,8 +56,7 @@ export function useThumbnailConversationQuery(conversationId) {
       if (!token) throw new Error('Not authenticated')
       return thumbnailsApi.getConversation(token, conversationId)
     },
-    staleTime: queryFreshness.chatThread,
-    gcTime: queryFreshness.chatThreadGc,
+    ...chatThreadQueryOptions,
     placeholderData: (prev) => prev,
   })
 }
@@ -110,50 +116,6 @@ export function useDeleteThumbnailConversationMutation() {
         removeThumbnailConversationFromListCaches(queryClient, conversationId)
         queryClient.removeQueries({ queryKey: queryKeys.thumbnails.conversation(conversationId) })
       }
-    },
-  })
-}
-
-export function useThumbnailsQuery(params = {}) {
-  return useQuery({
-    queryKey: queryKeys.thumbnails.list(params),
-    queryFn: async () => {
-      const token = await getAccessTokenOrNull()
-      if (!token) return { items: [], total: 0 }
-      return thumbnailsApi.list(token, params)
-    },
-    staleTime: queryFreshness.short,
-    gcTime: queryFreshness.medium,
-  })
-}
-
-export function useSaveThumbnailVariantMutation() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (payload) => {
-      const token = await getAccessTokenOrNull()
-      if (!token) throw new Error('Not authenticated')
-      return thumbnailsApi.saveVariant(token, payload)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['thumbnails'] })
-    },
-  })
-}
-
-export function useDeleteThumbnailMutation() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (thumbnailId) => {
-      const token = await getAccessTokenOrNull()
-      if (!token) throw new Error('Not authenticated')
-      await thumbnailsApi.delete(token, thumbnailId)
-      return thumbnailId
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['thumbnails'] })
     },
   })
 }

@@ -1,4 +1,4 @@
-/** Thumbnail generation and listing API. */
+/** Thumbnail generation and chat API. */
 import { getApiBaseUrl } from '../lib/env.js'
 
 function request(method, path, accessToken, body = null, headers = {}, fetchInit = {}) {
@@ -14,7 +14,7 @@ function request(method, path, accessToken, body = null, headers = {}, fetchInit
     const isJson = contentType.includes('application/json')
     const data = isJson ? await res.json().catch(() => ({})) : {}
     if (!res.ok) {
-      const msg = (data?.detail || data?.message) || res.statusText
+      const msg = data?.detail || data?.message || res.statusText
       const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
       err.status = res.status
       throw err
@@ -57,27 +57,17 @@ export const thumbnailsApi = {
   generateSync(accessToken, payload) {
     return request('POST', '/api/thumbnails/generate-sync', accessToken, payload)
   },
-  list(accessToken, params = {}) {
-    const search = new URLSearchParams()
-    Object.entries(params).forEach(([k, v]) => {
-      if (v != null && v !== '') search.set(k, String(v))
-    })
-    const qs = search.toString()
-    return request('GET', qs ? `/api/thumbnails?${qs}` : '/api/thumbnails', accessToken)
-  },
-  saveVariant(accessToken, payload) {
-    return request('POST', '/api/thumbnails/save-variant', accessToken, payload)
-  },
-  delete(accessToken, thumbnailId) {
-    return request('DELETE', `/api/thumbnails/${thumbnailId}`, accessToken)
-  },
   listConversations(accessToken, params = {}) {
     const search = new URLSearchParams()
     Object.entries(params).forEach(([k, v]) => {
       if (v != null && v !== '') search.set(k, String(v))
     })
     const qs = search.toString()
-    return request('GET', qs ? `/api/thumbnails/conversations?${qs}` : '/api/thumbnails/conversations', accessToken)
+    return request(
+      'GET',
+      qs ? `/api/thumbnails/conversations?${qs}` : '/api/thumbnails/conversations',
+      accessToken
+    )
   },
   getConversation(accessToken, conversationId, params = {}) {
     const search = new URLSearchParams()
@@ -85,7 +75,13 @@ export const thumbnailsApi = {
       if (v != null && v !== '') search.set(k, String(v))
     })
     const qs = search.toString()
-    return request('GET', qs ? `/api/thumbnails/conversations/${conversationId}?${qs}` : `/api/thumbnails/conversations/${conversationId}`, accessToken)
+    return request(
+      'GET',
+      qs
+        ? `/api/thumbnails/conversations/${conversationId}?${qs}`
+        : `/api/thumbnails/conversations/${conversationId}`,
+      accessToken
+    )
   },
   chat(accessToken, payload, fetchInit = {}) {
     return request('POST', '/api/thumbnails/chat', accessToken, payload, {}, fetchInit)

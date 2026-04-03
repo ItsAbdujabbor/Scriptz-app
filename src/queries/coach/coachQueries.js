@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { coachApi } from '../../api/coach'
 import {
+  chatThreadQueryOptions,
   mergeCoachConversationsListCache,
   refreshCoachConversationCache,
   removeCoachConversationFromListCaches,
@@ -10,12 +11,35 @@ import { queryFreshness } from '../../lib/query/queryConfig'
 import { queryKeys } from '../../lib/query/queryKeys'
 import { getAccessTokenOrNull } from '../../lib/query/authToken'
 
+/** Warm cache on sidebar hover so opening a thread feels instant when possible. */
+export async function prefetchCoachConversation(queryClient, conversationId) {
+  if (conversationId == null) return
+  const token = await getAccessTokenOrNull()
+  if (!token) return
+  try {
+    await queryClient.prefetchQuery({
+      queryKey: queryKeys.coach.conversation(conversationId),
+      queryFn: () => coachApi.getConversation(token, conversationId),
+      ...chatThreadQueryOptions,
+    })
+  } catch {
+    /* Active view will refetch */
+  }
+}
+
 export function useCoachConversationsQuery(params = {}) {
   return useQuery({
     queryKey: queryKeys.coach.conversations(params),
     queryFn: async () => {
       const token = await getAccessTokenOrNull()
-      if (!token) return { items: [], total: 0, has_more: false, limit: params.limit ?? 50, offset: params.offset ?? 0 }
+      if (!token)
+        return {
+          items: [],
+          total: 0,
+          has_more: false,
+          limit: params.limit ?? 50,
+          offset: params.offset ?? 0,
+        }
       return coachApi.listConversations(token, params)
     },
     staleTime: queryFreshness.long,
@@ -33,8 +57,7 @@ export function useCoachConversationQuery(conversationId) {
       if (!token) throw new Error('Not authenticated')
       return coachApi.getConversation(token, conversationId)
     },
-    staleTime: queryFreshness.chatThread,
-    gcTime: queryFreshness.chatThreadGc,
+    ...chatThreadQueryOptions,
     placeholderData: (prev) => prev,
   })
 }

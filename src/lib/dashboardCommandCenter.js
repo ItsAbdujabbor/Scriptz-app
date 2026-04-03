@@ -9,7 +9,9 @@
 export function normalizeNextBestVideo(idea) {
   if (!idea || typeof idea !== 'object') return null
   const title = String(idea.idea_title ?? idea.title ?? '').trim() || 'Your next video'
-  const hook = String(idea.hook_concept ?? idea.short_script ?? idea.script ?? idea.description ?? '').trim()
+  const hook = String(
+    idea.hook_concept ?? idea.short_script ?? idea.script ?? idea.description ?? ''
+  ).trim()
   const angle = String(idea.angle ?? '').trim()
   const targetEmotion = String(idea.target_emotion ?? '').trim()
   const audience = String(idea.expected_audience ?? '').trim()
@@ -23,7 +25,11 @@ export function normalizeNextBestVideo(idea) {
 
 function scoreByName(scores, needle) {
   const n = needle.toLowerCase()
-  const row = (scores || []).find((s) => String(s?.name ?? s?.label ?? '').toLowerCase().includes(n))
+  const row = (scores || []).find((s) =>
+    String(s?.name ?? s?.label ?? '')
+      .toLowerCase()
+      .includes(n)
+  )
   return row != null ? Number(row.score) : null
 }
 
@@ -32,14 +38,13 @@ function scoreByName(scores, needle) {
  */
 export function computePrePublishScore(audit) {
   const overall = Number(audit?.overall_score ?? 0)
-  const tier =
-    overall >= 72 ? 'strong' : overall >= 48 ? 'mixed' : 'risky'
+  const tier = overall >= 72 ? 'strong' : overall >= 48 ? 'mixed' : 'risky'
   const label =
     tier === 'strong'
-      ? 'Ready to ship with minor polish'
+      ? 'Ready with minor polish'
       : tier === 'mixed'
-        ? 'Solid base — tighten hook + thumbnail before upload'
-        : 'Fix packaging or cadence before your next upload'
+        ? 'Solid base — tighten hook + thumbnail'
+        : 'Fix packaging or cadence first'
 
   return {
     score: Math.min(100, Math.max(0, Math.round(overall))),
@@ -63,19 +68,22 @@ export function computeScriptPerformanceEstimate(audit) {
   const overall = Math.round((retentionScore + hookStrength + consistency) / 3)
 
   const dims = [
-    { key: 'Retention signal', value: retentionScore },
-    { key: 'Hook & title (CTR + SEO proxy)', value: hookStrength },
-    { key: 'Posting rhythm', value: Math.round(consistency) },
+    { key: 'Retention', value: retentionScore },
+    { key: 'Hook + title', value: hookStrength },
+    { key: 'Cadence', value: Math.round(consistency) },
   ]
   const sorted = [...dims].sort((a, b) => a.value - b.value)
-  const weakPoints = sorted.slice(0, 2).map((d) => `${d.key} (${d.value}/100)`)
+  const weakPoints = sorted.slice(0, 2).map((d) => ({
+    label: d.key,
+    score: d.value,
+  }))
 
   return {
     overall,
     retention: retentionScore,
     hookStrength,
     weakPoints,
-    disclaimer: 'Based on your channel audit. Paste a full script in Script Generator for line-level rewrites.',
+    disclaimer: 'Estimated from your channel audit (not a full script read).',
   }
 }
 
@@ -95,11 +103,11 @@ export function computeGrowthBottleneck(audit, growth) {
   const v30 = growth?.views_velocity_30d != null ? Number(growth.views_velocity_30d) : null
   let reason = ''
   if (weakest && Number(weakest.score) < 45) {
-    reason = `${weakest.name} is the lowest pillar (${Math.round(weakest.score)}/100) — fixing this moves growth more than tweaking everything at once.`
+    reason = `${weakest.name} is lowest (${Math.round(weakest.score)}/100) — fix this before the rest.`
   } else if (v30 != null && v30 < 2 && Number(audit?.overall_score ?? 0) < 60) {
-    reason = 'View velocity is flat and channel health is mid — packaging + cadence compound faster than new topics alone.'
+    reason = 'View velocity is flat — packaging + cadence will move more than new topics alone.'
   } else if (weakest) {
-    reason = `${weakest.name} is your current focus area — small wins here stack with your next uploads.`
+    reason = `${weakest.name} is the current drag — small wins here should stack fastest.`
   } else {
     reason = 'Keep measuring after each upload — bottleneck detection needs a bit more signal.'
   }
@@ -122,7 +130,7 @@ export function buildContentStrategyRoadmap(ideas, limit = 3) {
     return {
       episode: i + 1,
       title,
-      beat: beat || 'Build on the previous episode’s CTA and story.',
+      beat: beat || 'Carry the same promise into the next upload.',
     }
   })
 }

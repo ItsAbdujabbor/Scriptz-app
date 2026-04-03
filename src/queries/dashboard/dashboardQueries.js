@@ -5,16 +5,37 @@ import { queryKeys } from '../../lib/query/queryKeys'
 import { getAccessTokenOrNull } from '../../lib/query/authToken'
 
 export function useDashboardInsights(channelId) {
-  return useQuery({
-    queryKey: queryKeys.dashboard.insights(channelId),
+  const queryClient = useQueryClient()
+  const key = queryKeys.dashboard.insights(channelId)
+
+  const query = useQuery({
+    queryKey: key,
     queryFn: async () => {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Not authenticated')
       if (channelId) return dashboardApi.getInsights(token, channelId, false)
-      return dashboardApi.getOnboardingInsights(token)
+      return dashboardApi.getOnboardingInsights(token, false)
     },
     staleTime: queryFreshness.medium,
   })
+
+  const regenerateMutation = useMutation({
+    mutationFn: async () => {
+      const token = await getAccessTokenOrNull()
+      if (!token) throw new Error('Not authenticated')
+      if (channelId) return dashboardApi.getInsights(token, channelId, true)
+      return dashboardApi.getOnboardingInsights(token, true)
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(key, data)
+    },
+  })
+
+  return {
+    ...query,
+    regenerateInsights: regenerateMutation.mutateAsync,
+    isRegenerating: regenerateMutation.isPending,
+  }
 }
 
 export function useDashboardAudit(channelId) {
@@ -114,4 +135,3 @@ export function useIdeaFeedbackMutation({ channelId }) {
     },
   })
 }
-

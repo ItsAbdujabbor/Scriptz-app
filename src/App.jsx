@@ -20,18 +20,28 @@ function normalizeHashRoute(hashValue) {
     .trim()
 }
 
-const LandingPage = lazy(() => import('./landing/LandingPage').then((m) => ({ default: m.LandingPage })))
+const LandingPage = lazy(() =>
+  import('./landing/LandingPage').then((m) => ({ default: m.LandingPage }))
+)
 const Login = lazy(() => import('./auth/Login').then((m) => ({ default: m.Login })))
 const Signup = lazy(() => import('./auth/Signup').then((m) => ({ default: m.Signup })))
-const ForgotPassword = lazy(() => import('./auth/ForgotPassword').then((m) => ({ default: m.ForgotPassword })))
-const ResetPassword = lazy(() => import('./auth/ResetPassword').then((m) => ({ default: m.ResetPassword })))
+const ForgotPassword = lazy(() =>
+  import('./auth/ForgotPassword').then((m) => ({ default: m.ForgotPassword }))
+)
+const ResetPassword = lazy(() =>
+  import('./auth/ResetPassword').then((m) => ({ default: m.ResetPassword }))
+)
 const Terms = lazy(() => import('./legal/Terms').then((m) => ({ default: m.Terms })))
-const PrivacyPolicy = lazy(() => import('./legal/PrivacyPolicy').then((m) => ({ default: m.PrivacyPolicy })))
+const PrivacyPolicy = lazy(() =>
+  import('./legal/PrivacyPolicy').then((m) => ({ default: m.PrivacyPolicy }))
+)
 const Onboarding = lazy(() => import('./app/Onboarding').then((m) => ({ default: m.Onboarding })))
 const Optimizing = lazy(() => import('./app/Optimizing').then((m) => ({ default: m.Optimizing })))
-const PostSignupSplash = lazy(() => import('./app/PostSignupSplash').then((m) => ({ default: m.PostSignupSplash })))
+const PostSignupSplash = lazy(() =>
+  import('./app/PostSignupSplash').then((m) => ({ default: m.PostSignupSplash }))
+)
 
-/** Dashboard, Coach, Optimize, Pro, Library — one lazy chunk; in-app navigation does not flash full-screen. */
+/** Dashboard, Coach, Optimize, Pro, Templates — one lazy chunk; in-app navigation does not flash full-screen. */
 const AuthenticatedRoutes = lazy(() => import('./AuthenticatedRoutes.jsx'))
 
 const LoadingFallback = () => (
@@ -87,7 +97,8 @@ function getView() {
   if (h === 'coach' || h.startsWith('coach/')) return 'coach'
   if (h === 'optimize') return 'optimize'
   if (h === 'pro') return 'pro'
-  if (h === 'library') return 'library'
+  if (h === 'library') return 'templates'
+  if (h === 'templates') return 'templates'
   if (h === 'app-youtube') return 'dashboard'
   return 'landing'
 }
@@ -113,16 +124,19 @@ function App() {
 
   useEffect(() => {
     loadOnboarding()
-    useAuthStore.getState().ensureSession().then(() => {
-      setSessionChecked(true)
-      const token = useAuthStore.getState().accessToken
-      const completed = useOnboardingStore.getState().onboardingCompleted
-      const hash = normalizeHashRoute(window.location.hash || '')
-      if (token && !hash) {
-        window.location.hash = completed ? 'dashboard' : 'onboarding'
-        setView(completed ? 'dashboard' : 'onboarding')
-      }
-    })
+    useAuthStore
+      .getState()
+      .ensureSession()
+      .then(() => {
+        setSessionChecked(true)
+        const token = useAuthStore.getState().accessToken
+        const completed = useOnboardingStore.getState().onboardingCompleted
+        const hash = normalizeHashRoute(window.location.hash || '')
+        if (token && !hash) {
+          window.location.hash = completed ? 'dashboard' : 'onboarding'
+          setView(completed ? 'dashboard' : 'onboarding')
+        }
+      })
   }, [loadOnboarding])
 
   useEffect(() => {
@@ -171,7 +185,15 @@ function App() {
 
   useEffect(() => {
     if (!sessionChecked) return
-    const appViews = ['onboarding', 'optimizing', 'dashboard', 'coach', 'optimize', 'pro', 'library']
+    const appViews = [
+      'onboarding',
+      'optimizing',
+      'dashboard',
+      'coach',
+      'optimize',
+      'pro',
+      'templates',
+    ]
     if (appViews.includes(view) && !accessToken) {
       window.location.hash = 'login'
       setView('login')
@@ -187,10 +209,18 @@ function App() {
     }
   }, [sessionChecked, accessToken, view])
 
-  const appViews = ['onboarding', 'optimizing', 'dashboard', 'coach', 'optimize', 'pro', 'library']
+  const appViews = [
+    'onboarding',
+    'optimizing',
+    'dashboard',
+    'coach',
+    'optimize',
+    'pro',
+    'templates',
+  ]
   const needsSessionBeforeRender = appViews.includes(view)
   if (needsSessionBeforeRender && !sessionChecked) {
-    if (['dashboard', 'coach', 'optimize', 'pro', 'library'].includes(view)) {
+    if (['dashboard', 'coach', 'optimize', 'pro', 'templates'].includes(view)) {
       return <AppShellLoading view={view} onLogout={onLogout} />
     }
     return <LoadingFallback />
@@ -211,13 +241,7 @@ function App() {
           />
         )
       case 'signup':
-        return (
-          <Signup
-            onBack={goBack}
-            onGoToLogin={goToLogin}
-            onSuccess={goToSplashAfterSignup}
-          />
-        )
+        return <Signup onBack={goBack} onGoToLogin={goToLogin} onSuccess={goToSplashAfterSignup} />
       case 'splash-signup':
         return (
           <PostSignupSplash
@@ -261,8 +285,8 @@ function App() {
         return <AuthenticatedRouteBoundary view="optimize" onLogout={onLogout} />
       case 'pro':
         return <AuthenticatedRouteBoundary view="pro" onLogout={onLogout} />
-      case 'library':
-        return <AuthenticatedRouteBoundary view="library" onLogout={onLogout} />
+      case 'templates':
+        return <AuthenticatedRouteBoundary view="templates" onLogout={onLogout} />
       default:
         return <LandingPage />
     }

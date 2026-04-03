@@ -18,7 +18,7 @@ function request(method, path, accessToken, body = null, headers = {}, channelId
     const isJson = contentType.indexOf('application/json') !== -1
     const data = isJson ? await res.json().catch(() => ({})) : {}
     if (!res.ok) {
-      const msg = (data?.detail || data?.message) || res.statusText
+      const msg = data?.detail || data?.message || res.statusText
       const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
       err.status = res.status
       throw err
@@ -39,8 +39,9 @@ export const dashboardApi = {
   },
 
   /** GET /api/dashboard/insights/onboarding — Script suggestions without channel */
-  getOnboardingInsights(accessToken) {
-    return request('GET', '/api/dashboard/insights/onboarding', accessToken)
+  getOnboardingInsights(accessToken, regenerate = false) {
+    const qs = regenerate ? '?regenerate=true' : ''
+    return request('GET', '/api/dashboard/insights/onboarding' + qs, accessToken)
   },
 
   /** POST /api/dashboard/idea-feedback — Submit interested / not interested for a script idea */
@@ -66,7 +67,14 @@ export const dashboardApi = {
 
   /** GET /api/dashboard/best-time — Best time to post (slots, heatmap, bar chart). utc_offset_minutes optional. */
   getBestTime(accessToken, channelId, utcOffsetMinutes = 0) {
-    return request('GET', `/api/dashboard/best-time?utc_offset_minutes=${utcOffsetMinutes}`, accessToken, null, {}, channelId)
+    return request(
+      'GET',
+      `/api/dashboard/best-time?utc_offset_minutes=${utcOffsetMinutes}`,
+      accessToken,
+      null,
+      {},
+      channelId
+    )
   },
 
   /** GET /api/dashboard/snapshot — KPI snapshot for date range (from, to required) */

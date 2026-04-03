@@ -11,6 +11,14 @@ export function appendPrefillToHash(hashPath, prompt) {
   return `${hashPath}${sep}prefill=${enc}`
 }
 
+/** Route path without leading `#`; returns fragment without `#` (for `location.hash` or `#${…}` hrefs). */
+export function hashWithPrefill(baseHash, prefill) {
+  if (!baseHash) return ''
+  const path = String(baseHash).replace(/^#/, '')
+  if (!prefill) return path
+  return appendPrefillToHash(path, prefill)
+}
+
 /** Remove `prefill` from the current hash (one-shot deep links). Keeps other query params. */
 export function stripPrefillFromHash() {
   stripHashQueryParams(['prefill'])
@@ -34,7 +42,11 @@ export function stripHashQueryParams(keys) {
     }
     if (!changed) return
     const next = params.toString() ? `${path}?${params.toString()}` : path
-    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${next}`)
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${window.location.search}#${next}`
+    )
   } catch {
     /* ignore */
   }
@@ -74,20 +86,35 @@ export function prefillForDashboardHashHref(href) {
   const base = path.replace(/^\/+/, '')
   const params = new URLSearchParams(qs)
   if (base === 'optimize') return optimizePrefill('titles & thumbnails', null)
-  if (base === 'coach/thumbnails') return thumbPrefill({ pillar: 'CTR / packaging', score: null, videoTitle: null })
+  if (base === 'coach/thumbnails')
+    return thumbPrefill({ pillar: 'CTR / packaging', score: null, videoTitle: null })
   if (base === 'coach/scripts') {
     const focus = params.get('focus')
     if (focus === 'pacing' || focus === 'hook') {
-      return scriptPrefill({ concept: null, pillar: focus === 'hook' ? 'Hook' : 'Pacing / retention', score: null })
+      return scriptPrefill({
+        concept: null,
+        pillar: focus === 'hook' ? 'Hook' : 'Pacing / retention',
+        score: null,
+      })
     }
     return scriptPrefill({ concept: null, pillar: 'Next video', score: null })
   }
   if (base === 'coach') {
     const topic = params.get('topic') || ''
     const t = topic.toLowerCase()
-    if (t.includes('cta')) return coachPrefill('Retention', null, 'Stronger subscribe CTA placement — mid-video after value, not only at the end.')
-    if (t.includes('schedule')) return coachPrefill('Consistency', null, 'Realistic weekly upload rhythm I can sustain.')
-    return coachPrefill('Channel', null, 'What should I prioritize this week based on my dashboard?')
+    if (t.includes('cta'))
+      return coachPrefill(
+        'Retention',
+        null,
+        'Stronger subscribe CTA placement — mid-video after value, not only at the end.'
+      )
+    if (t.includes('schedule'))
+      return coachPrefill('Consistency', null, 'Realistic weekly upload rhythm I can sustain.')
+    return coachPrefill(
+      'Channel',
+      null,
+      'What should I prioritize this week based on my dashboard?'
+    )
   }
   return null
 }
@@ -100,7 +127,11 @@ export function getAreaPrefill(areaName, score) {
     return thumbPrefill({ pillar: 'CTR / thumbnails', score: s, videoTitle: null })
   }
   if (a.includes('consistency')) {
-    return coachPrefill('Consistency', s, 'Minimal viable weekly plan I can keep — days, times, 2 video ideas.')
+    return coachPrefill(
+      'Consistency',
+      s,
+      'Minimal viable weekly plan I can keep — days, times, 2 video ideas.'
+    )
   }
   if (a.includes('seo')) {
     return optimizePrefill('SEO / titles', s)
