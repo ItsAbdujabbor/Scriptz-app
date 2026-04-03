@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { BannedScreen } from './BannedScreen'
 import { useAuthStore } from '../stores/authStore'
 import { isLocalApiAuthMode } from '../lib/authMode'
 import './auth.css'
@@ -75,6 +76,7 @@ export function Login({ onBack, onGoToSignup, onGoToForgotPassword, onSuccess })
     clearError,
   } = useAuthStore()
   const [showResendConfirmation, setShowResendConfirmation] = useState(false)
+  const [bannedInfo, setBannedInfo] = useState(null)
   const [resendBusy, setResendBusy] = useState(false)
 
   useEffect(() => {
@@ -99,7 +101,9 @@ export function Login({ onBack, onGoToSignup, onGoToForgotPassword, onSuccess })
     clearError()
     setShowResendConfirmation(false)
     const result = await login(email.trim(), password)
-    if (result?.ok) {
+    if (result?.isBanned) {
+      setBannedInfo(result.banInfo)
+    } else if (result?.ok) {
       onSuccess?.()
     } else if (result?.needsEmailConfirmation) {
       setShowResendConfirmation(true)
@@ -119,6 +123,15 @@ export function Login({ onBack, onGoToSignup, onGoToForgotPassword, onSuccess })
     clearError()
     await resendSignupEmail(em)
     setResendBusy(false)
+  }
+
+  if (bannedInfo) {
+    return <BannedScreen
+      email={email}
+      banDate={bannedInfo.ban_date}
+      reason={bannedInfo.ban_reason}
+      onLogout={onBack}
+    />
   }
 
   return (

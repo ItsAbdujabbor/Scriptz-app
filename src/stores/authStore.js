@@ -330,6 +330,14 @@ export const useAuthStore = create((set, get) => ({
         return { ok: true }
       } catch (err) {
         const message = err?.message || 'Invalid email or password'
+        
+        // Check if account is banned (403 response with ACCOUNT_BANNED code)
+        if (err?.status === 403 && err?.body?.code === 'ACCOUNT_BANNED') {
+          const banInfo = err.body.extra || { is_banned: true, ban_reason: 'Violation of terms of service' }
+          set({ error: 'Your account has been suspended', isLoading: false })
+          return { ok: false, error: 'Account suspended', isBanned: true, banInfo: banInfo }
+        }
+        
         set({ error: message })
         return { ok: false, error: message }
       } finally {
@@ -346,8 +354,15 @@ export const useAuthStore = create((set, get) => ({
       if (error) {
         const msg =
           error.message === 'Email not confirmed'
-            ? 'Please confirm your email first. Check your inbox or use “Resend confirmation”.'
+            ? 'Please confirm your email first. Check your inbox or use "Resend confirmation".'
             : error.message
+        
+        // Check if user is banned
+        if (error.message.toLowerCase().includes('banned') || error.message.toLowerCase().includes('suspended')) {
+          set({ error: 'Your account has been suspended', isLoading: false })
+          return { ok: false, error: 'Account suspended', isBanned: true, banInfo: { is_banned: true, ban_reason: 'Violation of terms of service' } }
+        }
+        
         set({ error: msg })
         return { ok: false, error: msg, needsEmailConfirmation: error.message === 'Email not confirmed' }
       }
