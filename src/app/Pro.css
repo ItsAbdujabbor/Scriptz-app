@@ -1,22 +1,46 @@
-/* Pro page — full-screen pricing, same layout as Dashboard/Optimize */
+/* Pro page — same canvas as Dashboard (#121212 via .dashboard-main-wrap), scroll in .dashboard-main-scroll */
 
+/* Width + horizontal inset from .dashboard-content-shell */
 .pro-page {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 1.25rem 1.5rem 2rem;
+  width: 100%;
+  margin: 0;
+  padding: 0 0 clamp(1.25rem, 3vw, 2rem);
   background: transparent;
+  color: #f5f5f6;
 }
 
-.pro-page .pri-section {
-  padding: 2rem 0 3rem;
-  background: transparent;
+/* Embedded pricing: match dashboard surfaces + readable text */
+.pro-page .pri-section,
+.pro-plan-section {
+  padding: 1rem 0 2rem;
+  background: transparent !important;
+  color: #f5f5f6;
+  --pri-bg: transparent;
+  --pri-card: #1a1a1a;
+  --pri-card-pop: #1a1a1a;
+  --pri-t1: #f5f5f6;
+  --pri-t2: rgba(255, 255, 255, 0.64);
+  --pri-t3: rgba(255, 255, 255, 0.42);
+  --pri-bd: rgba(255, 255, 255, 0.08);
+  --pri-bd-h: rgba(255, 255, 255, 0.12);
 }
 
 .pro-page .pri-inner {
   padding: 0;
+  max-width: 1200px;
 }
 
-/* Remove fades/gradients from background */
+.pro-page .pri-header {
+  margin-bottom: 2.25rem;
+}
+
+.pro-page .pri-lead {
+  max-width: 36rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Remove landing-only background wash */
 .pro-page .pri-section::before {
   display: none;
 }
@@ -31,4 +55,142 @@
 
 .pro-page .pri-card--pop::before {
   display: none;
+}
+
+/* ─── Primary CTA: match landing header `.header-trial` (gradient, shine, hover) ─── */
+.pro-page .pri-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.46rem 1.3rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  color: #fff !important;
+  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 55%, #5b21b6 100%) !important;
+  border: none !important;
+  border-radius: 9999px !important;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.42);
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    filter 0.22s ease;
+}
+
+.pro-page .pri-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.14) 50%,
+    transparent 100%
+  );
+  transform: translateX(-110%);
+  transition: transform 0.55s ease;
+  pointer-events: none;
+}
+
+.pro-page .pri-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 28px rgba(124, 58, 237, 0.56);
+  filter: brightness(1.07);
+}
+
+.pro-page .pri-btn:hover::before {
+  transform: translateX(110%);
+}
+
+.pro-page .pri-btn:active {
+  transform: translateY(0);
+  filter: brightness(1.02);
+}
+
+.pro-page .pri-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgba(167, 139, 250, 0.45),
+    0 4px 20px rgba(124, 58, 237, 0.42);
+}
+
+/* Popular card: same gradient + slightly richer shadow (still header-trial family) */
+.pro-page .pri-btn--pop {
+  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 55%, #5b21b6 100%) !important;
+  border: none !important;
+  box-shadow: 0 4px 24px rgba(124, 58, 237, 0.48);
+}
+
+.pro-page .pri-btn--pop:hover {
+  box-shadow: 0 8px 32px rgba(124, 58, 237, 0.58);
+  filter: brightness(1.07);
+}
+
+/* Secondary line CTA: pairs with header — glass pill like `.header-login` */
+.pro-page .pri-trial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 0.65rem;
+  padding: 0.42rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  color: rgba(255, 255, 255, 0.72) !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 9999px !important;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.pro-page .pri-trial:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.13) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  transform: translateY(-1px);
+}
+
+.pro-page .pri-trial--pop {
+  color: rgba(255, 255, 255, 0.78) !important;
+  border-color: rgba(167, 139, 250, 0.22) !important;
+  background: rgba(139, 92, 246, 0.12) !important;
+}
+
+.pro-page .pri-trial--pop:hover {
+  color: #fff !important;
+  border-color: rgba(167, 139, 250, 0.35) !important;
+  background: rgba(139, 92, 246, 0.2) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pro-page .pri-btn,
+  .pro-page .pri-btn::before,
+  .pro-page .pri-trial {
+    transition: none;
+  }
+
+  .pro-page .pri-btn:hover,
+  .pro-page .pri-trial:hover {
+    transform: none;
+  }
+
+  .pro-page .pri-btn:hover::before {
+    transform: translateX(-110%);
+  }
 }

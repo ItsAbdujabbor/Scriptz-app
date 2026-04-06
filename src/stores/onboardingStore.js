@@ -22,7 +22,6 @@ function saveStored(data) {
 }
 
 const defaultProfile = {
-  onboardingCompleted: false,
   preferredLanguage: 'en', // en | es | pt | de | fr
   niche: '',
   videoFormat: '', // 'shorts' | 'longform' | 'both'
@@ -53,7 +52,18 @@ function mergeStored() {
   }
 }
 
-const PERSIST_KEYS = ['onboardingCompleted', 'preferredLanguage', 'niche', 'videoFormat', 'uploadFrequency', 'preferredTone', 'speakingStyle', 'preferredCtaStyle', 'includePersonalStories', 'useFirstPerson', 'youtube']
+const PERSIST_KEYS = [
+  'preferredLanguage',
+  'niche',
+  'videoFormat',
+  'uploadFrequency',
+  'preferredTone',
+  'speakingStyle',
+  'preferredCtaStyle',
+  'includePersonalStories',
+  'useFirstPerson',
+  'youtube',
+]
 
 const YOUTUBE_BOOTSTRAP_TTL_MS = 60 * 1000
 let youtubeBootstrapCache = null
@@ -62,7 +72,9 @@ let youtubeBootstrapInFlight = null
 function persist(getState) {
   const state = getState()
   const s = {}
-  PERSIST_KEYS.forEach((k) => { s[k] = state[k] })
+  PERSIST_KEYS.forEach((k) => {
+    s[k] = state[k]
+  })
   saveStored(s)
 }
 
@@ -136,7 +148,9 @@ export const useOnboardingStore = create((set, get) => ({
   },
 
   setYouTube(connected, data = {}) {
-    const youtube = connected ? toYouTubeState(data) : { ...defaultProfile.youtube, connected: false }
+    const youtube = connected
+      ? toYouTubeState(data)
+      : { ...defaultProfile.youtube, connected: false }
     set({ youtube })
     persist(get)
   },
@@ -148,7 +162,11 @@ export const useOnboardingStore = create((set, get) => ({
     }
 
     const now = Date.now()
-    if (!force && youtubeBootstrapCache?.accessToken === accessToken && youtubeBootstrapCache.expiresAt > now) {
+    if (
+      !force &&
+      youtubeBootstrapCache?.accessToken === accessToken &&
+      youtubeBootstrapCache.expiresAt > now
+    ) {
       const cached = youtubeBootstrapCache.result
       if (cached?.info) get().setYouTube(true, cached.info)
       return cached
@@ -173,7 +191,9 @@ export const useOnboardingStore = create((set, get) => ({
       }
 
       const activeChannelId = list.active_channel_id || channels[0]?.channel_id
-      const info = activeChannelId ? await youtubeApi.getChannelInfo(accessToken, activeChannelId) : null
+      const info = activeChannelId
+        ? await youtubeApi.getChannelInfo(accessToken, activeChannelId)
+        : null
       if (info) get().setYouTube(true, info)
 
       const result = buildBootstrapResult(list, info)
@@ -198,10 +218,7 @@ export const useOnboardingStore = create((set, get) => ({
     if (!accessToken || !channelId) return
     const data = get().youtube
     const channelName =
-      channelData.channelName ??
-      channelData.channel_title ??
-      data?.channelName ??
-      null
+      channelData.channelName ?? channelData.channel_title ?? data?.channelName ?? null
     const payload = {
       channel_id: channelId,
       channel_name: channelName || null,
@@ -211,12 +228,7 @@ export const useOnboardingStore = create((set, get) => ({
     } catch (_) {}
   },
 
-  completeOnboarding() {
-    set({ onboardingCompleted: true })
-    persist(get)
-  },
-
-  /** Clear all local onboarding/preferences data (e.g. after "delete my data"). */
+  /** Clear all local preferences data (e.g. after "delete my data"). */
   clearLocalData() {
     set({ ...defaultProfile })
     saveStored(null)
@@ -312,7 +324,8 @@ export const useOnboardingStore = create((set, get) => ({
               ...yt,
               channelName: channel.channel_title ?? channel.channel_name ?? yt.channelName,
               avatar: channel.profile_image ?? channel.avatar ?? yt.avatar,
-              subscriberCount: channel.subscriber_count ?? channel.subscriberCount ?? yt.subscriberCount,
+              subscriberCount:
+                channel.subscriber_count ?? channel.subscriberCount ?? yt.subscriberCount,
               viewCount: channel.view_count ?? channel.viewCount ?? yt.viewCount,
               videoCount: channel.video_count ?? channel.videoCount ?? yt.videoCount,
             },

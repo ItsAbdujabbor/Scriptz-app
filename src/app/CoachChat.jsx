@@ -24,14 +24,16 @@ import { StylesModal } from './StylesModal'
 import { useCoachConversationQuery } from '../queries/coach/coachQueries'
 import { useUserPreferencesQuery } from '../queries/user/preferencesQueries'
 import { useUserProfileQuery } from '../queries/user/profileQueries'
-import './Sidebar.css'
-import './SettingsModal.css'
+/* Sidebar.css, SettingsModal.css, Dashboard.css imported by AuthenticatedRoutes */
 import './CoachChat.css'
 import { TabBar } from '../components/TabBar'
+import { AppShellLayout } from '../components/AppShellLayout'
 import { ChatHistoryLoading } from '../components/ChatHistoryLoading'
 import { stripPrefillFromHash } from '../lib/dashboardActionPayload'
 import { getCoachHashState } from '../lib/coachHashRoute'
+import { onShellEvent } from '../lib/shellEvents'
 import { ScriptGenerator } from './ScriptGenerator'
+import { ScriptStudio } from './ScriptStudio/ScriptStudio'
 import { ThumbnailGenerator } from './ThumbnailGenerator'
 import {
   CoachChatVirtuosoItem,
@@ -40,9 +42,20 @@ import {
 } from './coach/CoachChatVirtuosoShell.jsx'
 
 const COACH_TABS = [
-  { id: 'coach', label: 'AI Coach', hash: 'coach' },
-  { id: 'scripts', label: 'Script Generator', hash: 'coach/scripts' },
-  { id: 'thumbnails', label: 'Thumbnail Generator', hash: 'coach/thumbnails' },
+  { id: 'coach', label: 'Coach', hash: 'coach' },
+  { id: 'scripts', label: 'Scripts', hash: 'coach/scripts' },
+  { id: 'thumbnails', label: 'Thumbnails', hash: 'coach/thumbnails' },
+]
+
+const COMPOSER_HINTS = [
+  'Ask me anything about YouTube...',
+  'Need help writing a video script?',
+  'Want ideas for your next video?',
+  'Ask me to review your thumbnail...',
+  'How can I grow my channel faster?',
+  "Paste a title and I'll improve it...",
+  "Struggling with hooks? Let's fix that...",
+  'What topic should you post about next?',
 ]
 
 function setCoachTabHash(tabId, conversationId = null) {
@@ -57,10 +70,6 @@ function setCoachHash(conversationId = null) {
   window.location.hash = conversationId ? `#coach?id=${conversationId}` : '#coach'
 }
 
-function setScriptConversationHash(conversationId = null) {
-  window.location.hash = conversationId ? `#coach/scripts?id=${conversationId}` : '#coach/scripts'
-}
-
 function setThumbnailConversationHash(conversationId = null) {
   window.location.hash = conversationId
     ? `#coach/thumbnails?id=${conversationId}`
@@ -72,6 +81,30 @@ function normalizeMessageText(text) {
     .replace(/\r\n/g, '\n')
     .replace(/\\n/g, '\n')
     .trim()
+}
+
+/**
+ * Extracts follow-up questions from the <<<FOLLOWUP>>>...<<<END>>> block.
+ * Returns { cleanText, followUps: string[] }.
+ */
+function parseFollowUps(text) {
+  const raw = String(text || '')
+  const startTag = '<<<FOLLOWUP>>>'
+  const endTag = '<<<END>>>'
+  const startIndex = raw.indexOf(startTag)
+  if (startIndex === -1) return { cleanText: raw, followUps: [] }
+
+  const afterStart = startIndex + startTag.length
+  const endIndex = raw.indexOf(endTag, afterStart)
+  const block = endIndex !== -1 ? raw.slice(afterStart, endIndex) : raw.slice(afterStart)
+
+  const followUps = block
+    .split('\n')
+    .map((line) => line.replace(/^[-•*]\s*/, '').trim())
+    .filter((line) => line.length > 0 && line.length < 120)
+
+  const cleanText = raw.slice(0, startIndex).trimEnd()
+  return { cleanText, followUps }
 }
 
 const CUSTOM_RETRY_MARKER = '\n\nExtra direction for this retry: '
@@ -291,7 +324,7 @@ function parseTableRow(line) {
     .map((cell) => cell.trim())
 }
 
-function renderMessageContent(text, keyPrefix) {
+function renderMessageContent(text, keyPrefix, streaming = false) {
   const normalized = normalizeMessageText(text)
   if (!normalized) return null
 
@@ -413,23 +446,18 @@ function renderMessageContent(text, keyPrefix) {
 
   return blocks.map((block, blockIndex) => {
     const key = `${keyPrefix}-block-${blockIndex}`
+    let element = null
 
     if (block.type === 'heading') {
       const Tag = `h${block.level}`
-      return <Tag key={key}>{renderInlineText(block.content, `${key}-inline`)}</Tag>
-    }
-
-    if (block.type === 'paragraph') {
-      return <p key={key}>{renderParagraphLines(block.content, key)}</p>
-    }
-
-    if (block.type === 'rule') {
-      return <hr key={key} />
-    }
-
-    if (block.type === 'list') {
+      element = <Tag key={key}>{renderInlineText(block.content, `${key}-inline`)}</Tag>
+    } else if (block.type === 'paragraph') {
+      element = <p key={key}>{renderParagraphLines(block.content, key)}</p>
+    } else if (block.type === 'rule') {
+      element = <hr key={key} />
+    } else if (block.type === 'list') {
       const ListTag = block.ordered ? 'ol' : 'ul'
-      return (
+      element = (
         <ListTag key={key}>
           {block.items.map((item, itemIndex) => (
             <li key={`${key}-item-${itemIndex}`}>
@@ -438,19 +466,15 @@ function renderMessageContent(text, keyPrefix) {
           ))}
         </ListTag>
       )
-    }
-
-    if (block.type === 'code') {
-      return (
+    } else if (block.type === 'code') {
+      element = (
         <pre key={key} className="coach-code-block">
           {block.language ? <span className="coach-code-language">{block.language}</span> : null}
           <code>{block.content}</code>
         </pre>
       )
-    }
-
-    if (block.type === 'table') {
-      return (
+    } else if (block.type === 'table') {
+      element = (
         <div key={key} className="coach-table-wrap">
           <table className="coach-table">
             <thead>
@@ -478,7 +502,15 @@ function renderMessageContent(text, keyPrefix) {
       )
     }
 
-    return null
+    if (!element) return null
+    if (streaming) {
+      return (
+        <div key={key} className="coach-stream-block">
+          {element}
+        </div>
+      )
+    }
+    return element
   })
 }
 
@@ -561,6 +593,21 @@ function IconCopy() {
     >
       <rect x="9" y="9" width="11" height="11" rx="2" />
       <path d="M5 15V6a2 2 0 0 1 2-2h9" />
+    </svg>
+  )
+}
+
+function IconCheck() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="20 6 9 17 4 12" />
     </svg>
   )
 }
@@ -659,7 +706,7 @@ function IconStop() {
   )
 }
 
-export function CoachChat({ onLogout }) {
+export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
   const queryClient = useQueryClient()
   const user = useAuthStore((state) => state.user)
   const {
@@ -720,6 +767,7 @@ export function CoachChat({ onLogout }) {
     Array.from({ length: 16 }, () => 0.18)
   )
   const [copiedMessageKey, setCopiedMessageKey] = useState('')
+  const [generationStopped, setGenerationStopped] = useState(false)
   const [retryMenuKey, setRetryMenuKey] = useState('')
   const [customRetryPrompt, setCustomRetryPrompt] = useState('')
   const [imageViewer, setImageViewer] = useState(null)
@@ -727,6 +775,10 @@ export function CoachChat({ onLogout }) {
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
   const [showPersonasModal, setShowPersonasModal] = useState(false)
   const [showStylesModal, setShowStylesModal] = useState(false)
+  const [hintIndex, setHintIndex] = useState(() =>
+    Math.floor(Math.random() * COMPOSER_HINTS.length)
+  )
+  const [hintPhase, setHintPhase] = useState('visible') // 'visible' | 'exiting' | 'entering'
   const threadRef = useRef(null)
   const virtuosoRef = useRef(null)
   const coachChatShellRef = useRef(null)
@@ -899,6 +951,22 @@ export function CoachChat({ onLogout }) {
     transcribeAbortRef.current = null
   }
 
+  const handleStopGeneration = () => {
+    cancelActiveRequests()
+    clearAssistantTimers()
+    if (streamCommitRafRef.current) cancelAnimationFrame(streamCommitRafRef.current)
+    streamCommitRafRef.current = null
+    // Flush any buffered text so the partial reply is complete
+    const finalText = streamTextRef.current
+    if (finalText) setStreamingReply(finalText)
+    streamTextRef.current = ''
+    // Keep pendingUserMessage and streamingReply visible — just stop the animation
+    setPendingAssistant(false)
+    setAssistantLoadingPhase(0)
+    setAssistantDeepThinkingMode(false)
+    setGenerationStopped(true)
+  }
+
   const resetPendingExchange = () => {
     clearAssistantTimers()
     if (streamCommitRafRef.current) cancelAnimationFrame(streamCommitRafRef.current)
@@ -911,6 +979,7 @@ export function CoachChat({ onLogout }) {
     setStreamingReply('')
     setAssistantLoadingPhase(0)
     setAssistantDeepThinkingMode(false)
+    setGenerationStopped(false)
   }
 
   const canEditUserMessage = (messageId) =>
@@ -1261,7 +1330,7 @@ export function CoachChat({ onLogout }) {
     }
   }, [])
 
-  const handleNewChat = () => {
+  const handleNewChat = useCallback(() => {
     cancelActiveRequests()
     cleanupRecordingResources()
     setRecorderState('idle')
@@ -1272,7 +1341,12 @@ export function CoachChat({ onLogout }) {
     setAttachedImages([])
     setDeepThinking(false)
     setCoachHash(null)
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!shellManaged) return
+    return onShellEvent('newChat', handleNewChat)
+  }, [shellManaged, handleNewChat])
 
   const handleAttachClick = () => {
     fileInputRef.current?.click()
@@ -1422,7 +1496,7 @@ export function CoachChat({ onLogout }) {
       setCopiedMessageKey(messageKey)
       window.setTimeout(() => {
         setCopiedMessageKey((current) => (current === messageKey ? '' : current))
-      }, 1800)
+      }, 4500)
     } catch (_error) {
       setSendError('Could not copy that message.')
     }
@@ -1516,11 +1590,12 @@ export function CoachChat({ onLogout }) {
   }
 
   const handleQuickAction = (prompt) => {
+    if (pendingAssistant) return
     setDraft(prompt)
     requestAnimationFrame(() => {
       textareaRef.current?.focus()
-      const length = textareaRef.current?.value?.length || 0
-      textareaRef.current?.setSelectionRange?.(length, length)
+      const len = textareaRef.current?.value?.length || 0
+      textareaRef.current?.setSelectionRange?.(len, len)
     })
   }
 
@@ -1554,6 +1629,10 @@ export function CoachChat({ onLogout }) {
     streamAbortRef.current = controller
 
     setSendError('')
+    if (generationStopped) {
+      setGenerationStopped(false)
+      setStreamingReply('')
+    }
     const displayMessage =
       typeof visibleUserMessage === 'string' ? visibleUserMessage : trimmedMessage
     setPendingUserMessage(displayMessage)
@@ -1676,7 +1755,13 @@ export function CoachChat({ onLogout }) {
         streamAbortRef.current = null
       }
       if (activeRequestIdRef.current === requestId) {
-        resetPendingExchange()
+        // Delay one frame so React Query cache data renders before we
+        // clear the streaming overlay — prevents a brief content flash.
+        requestAnimationFrame(() => {
+          if (activeRequestIdRef.current === requestId) {
+            resetPendingExchange()
+          }
+        })
       }
     }
   }
@@ -1753,15 +1838,16 @@ export function CoachChat({ onLogout }) {
 
     if (message.role === 'user') {
       if (!normalizeMessageText(message.content)) return null
+      const isCopied = copiedMessageKey === messageKey
       return (
         <div className="coach-message-actions coach-message-actions--user">
           <button
             type="button"
-            className="coach-message-action"
+            className={`coach-message-action ${isCopied ? 'is-copied' : ''}`}
             onClick={() => handleCopyMessage(messageKey, message.content)}
-            aria-label={copiedMessageKey === messageKey ? 'Copied' : 'Copy'}
+            aria-label={isCopied ? 'Copied' : 'Copy'}
           >
-            <IconCopy />
+            {isCopied ? <IconCheck /> : <IconCopy />}
           </button>
           {canEditUserMessage(message.id) ? (
             <button
@@ -1780,15 +1866,16 @@ export function CoachChat({ onLogout }) {
     const isRetryMenuOpen = retryMenuKey === messageKey
     const isLatestAssistant = message.id === lastAssistantMessageId
 
+    const isCopied = copiedMessageKey === messageKey
     return (
       <div className="coach-message-actions" data-retry-root="true">
         <button
           type="button"
-          className="coach-message-action"
+          className={`coach-message-action ${isCopied ? 'is-copied' : ''}`}
           onClick={() => handleCopyMessage(messageKey, message.content)}
-          aria-label={copiedMessageKey === messageKey ? 'Copied' : 'Copy'}
+          aria-label={isCopied ? 'Copied' : 'Copy'}
         >
-          <IconCopy />
+          {isCopied ? <IconCheck /> : <IconCopy />}
         </button>
         <button
           type="button"
@@ -1895,6 +1982,11 @@ export function CoachChat({ onLogout }) {
 
   /* Row/footer render closes over in-component render helpers; deps list tracks reactive state only */
   /* eslint-disable react-hooks/exhaustive-deps */
+  const handleFollowUpClick = (prompt) => {
+    if (pendingAssistant) return
+    sendCoachMessage({ message: prompt, clearComposer: true })
+  }
+
   const coachHistoryItemContent = useCallback(
     (messageIndex, message) => {
       const userPresentation =
@@ -1902,6 +1994,16 @@ export function CoachChat({ onLogout }) {
       const visibleMessage = userPresentation
         ? { ...message, content: userPresentation.content }
         : message
+
+      const isAssistant = message.role !== 'user'
+      const isLastAssistant = isAssistant && message.id === lastAssistantMessageId
+      let assistantCleanText = ''
+      let assistantFollowUps = []
+      if (isAssistant) {
+        const parsed = parseFollowUps(visibleMessage.content)
+        assistantCleanText = parsed.cleanText
+        assistantFollowUps = parsed.followUps
+      }
 
       return (
         <article
@@ -1932,10 +2034,37 @@ export function CoachChat({ onLogout }) {
             })
           ) : (
             <div className="coach-message-bubble">
-              {renderMessageContent(visibleMessage.content, `message-${message.id}`)}
+              {renderMessageContent(assistantCleanText, `message-${message.id}`)}
             </div>
           )}
           {renderMessageActions(visibleMessage)}
+          {isLastAssistant && assistantFollowUps.length > 0 && !pendingAssistant ? (
+            <div className="coach-followup-actions">
+              {assistantFollowUps.map((text, i) => (
+                <button
+                  key={`followup-${message.id}-${i}`}
+                  type="button"
+                  className="coach-followup-btn"
+                  onClick={() => handleFollowUpClick(text)}
+                >
+                  <span className="coach-followup-btn-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M5 11l3-3-3-3" />
+                      <path d="M9 11l3-3-3-3" />
+                    </svg>
+                  </span>
+                  <span className="coach-followup-btn-label">{text}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </article>
       )
     },
@@ -1946,16 +2075,17 @@ export function CoachChat({ onLogout }) {
       customRetryPrompt,
       lastAssistantMessageId,
       lastUserMessageId,
+      pendingAssistant,
     ]
   )
 
   const coachVirtuosoFooter = useCallback(
     () => (
-      <>
+      <div className="coach-virtuoso-footer">
         {pendingUserMessage || pendingUserImages.length > 0 ? (
           <article
             ref={pendingUserRef}
-            className="coach-message coach-message--user"
+            className="coach-message coach-message--user coach-message--enter"
             onContextMenu={(event) => {
               event.preventDefault()
               openUserActionDialog({ id: 'pending-user', content: pendingUserMessage || '' })
@@ -1982,12 +2112,16 @@ export function CoachChat({ onLogout }) {
         ) : null}
 
         {pendingAssistant ? (
-          <article className="coach-message coach-message--assistant">
+          <article className="coach-message coach-message--assistant coach-message--enter">
             <div
-              className={`coach-message-bubble ${streamingReply ? '' : 'coach-message-bubble--loading'}`}
+              className={`coach-message-bubble ${streamingReply ? 'coach-message-bubble--streaming' : 'coach-message-bubble--loading'}`}
             >
               {streamingReply ? (
-                renderMessageContent(streamingReply, 'streaming-reply')
+                renderMessageContent(
+                  parseFollowUps(streamingReply).cleanText,
+                  'streaming-reply',
+                  true
+                )
               ) : (
                 <div
                   className={`coach-assistant-loader ${assistantDeepThinkingMode ? 'is-deep' : ''}`}
@@ -2005,6 +2139,23 @@ export function CoachChat({ onLogout }) {
                 </div>
               )}
             </div>
+            <button
+              type="button"
+              className="coach-stop-gen-btn"
+              onClick={handleStopGeneration}
+              aria-label="Stop generating"
+            >
+              <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                <rect x="3" y="3" width="10" height="10" rx="2" />
+              </svg>
+              <span>Stop</span>
+            </button>
+          </article>
+        ) : !pendingAssistant && generationStopped && streamingReply ? (
+          <article className="coach-message coach-message--assistant">
+            <div className="coach-message-bubble">
+              {renderMessageContent(parseFollowUps(streamingReply).cleanText, 'stopped-reply')}
+            </div>
           </article>
         ) : null}
 
@@ -2015,7 +2166,7 @@ export function CoachChat({ onLogout }) {
         ) : null}
 
         <div ref={messagesEndRef} />
-      </>
+      </div>
     ),
     [
       pendingUserMessage,
@@ -2024,6 +2175,7 @@ export function CoachChat({ onLogout }) {
       pendingAssistant,
       streamingReply,
       assistantDeepThinkingMode,
+      generationStopped,
       conversationQuery.isError,
       conversationQuery.error,
     ]
@@ -2066,317 +2218,710 @@ export function CoachChat({ onLogout }) {
     }
   }, [activeTab])
 
-  return (
-    <div className="coach-page">
-      <div className="coach-app-shell">
-        <Sidebar
-          user={user}
-          onOpenSettings={openSettings}
-          onOpenPersonas={() => setShowPersonasModal(true)}
-          onLogout={handleLogout}
-          currentScreen="coach"
-          activeTab={activeTab}
-          activeConversationId={selectedConversationId}
-          activeScriptConversationId={selectedScriptConversationId}
-          activeThumbnailConversationId={selectedThumbnailConversationId}
-          onNewChat={handleNewChat}
+  // Rotate composer placeholder hints every 4s
+  useEffect(() => {
+    if (draft) return
+    const id = setInterval(() => {
+      setHintPhase('exiting')
+      setTimeout(() => {
+        setHintIndex((prev) => (prev + 1) % COMPOSER_HINTS.length)
+        setHintPhase('entering')
+        requestAnimationFrame(() => setHintPhase('visible'))
+      }, 400)
+    }, 4000)
+    return () => clearInterval(id)
+  }, [draft])
+
+  if (shellManaged) {
+    return (
+      <>
+        <div className="coach-header-shade" aria-hidden="true" />
+        <TabBar
+          tabs={COACH_TABS.map((t) => ({ id: t.id, label: t.label }))}
+          value={activeTab}
+          onChange={handleTabClick}
+          ariaLabel="Tool switcher"
+          variant="segmented"
+          className="coach-tabbar coach-tabbar--floating"
         />
-
-        <main className="coach-main-wrap">
-          <header className="coach-header">
-            <TabBar
-              tabs={COACH_TABS.map((t) => ({ id: t.id, label: t.label }))}
-              value={activeTab}
-              onChange={handleTabClick}
-              ariaLabel="Tool switcher"
-              variant="default"
-              showIndicator
-              className="coach-tabbar coach-tabbar--header-trailing"
+        <div className="coach-main-body">
+          {activeTab === 'scripts' ? (
+            <ScriptStudio channelId={channelId} />
+          ) : activeTab === 'thumbnails' ? (
+            <ThumbnailGenerator
+              channelId={channelId}
+              onOpenPersonas={() => onOpenPersonas?.()}
+              onOpenStyles={() => setShowStylesModal(true)}
+              conversationId={selectedThumbnailConversationId}
+              onConversationCreated={setThumbnailConversationHash}
             />
-          </header>
-          <div className="coach-main-body">
-            {activeTab === 'scripts' ? (
-              <ScriptGenerator
-                channelId={channelId}
-                youtube={youtube}
-                conversationId={selectedScriptConversationId}
-                onNavigateToConversation={setScriptConversationHash}
-              />
-            ) : activeTab === 'thumbnails' ? (
-              <ThumbnailGenerator
-                channelId={channelId}
-                onOpenPersonas={() => setShowPersonasModal(true)}
-                onOpenStyles={() => setShowStylesModal(true)}
-                conversationId={selectedThumbnailConversationId}
-                onConversationCreated={setThumbnailConversationHash}
-              />
-            ) : (
-              <div
-                id="coach-panel-coach"
-                className={`coach-main ${coachLayoutCentered ? 'coach-main--empty' : ''}`}
-                role="tabpanel"
-                aria-labelledby="coach-tab-coach"
+          ) : (
+            <div
+              id="coach-panel-coach"
+              className={`coach-main ${coachLayoutCentered ? 'coach-main--empty' : ''}`}
+              role="tabpanel"
+              aria-labelledby="coach-tab-coach"
+            >
+              <section
+                ref={coachChatShellRef}
+                className={`coach-chat-shell ${coachLayoutCentered ? 'coach-chat-shell--empty' : ''}`}
               >
-                <section
-                  ref={coachChatShellRef}
-                  className={`coach-chat-shell ${coachLayoutCentered ? 'coach-chat-shell--empty' : ''}`}
+                <div
+                  ref={(el) => {
+                    if (!showCoachVirtuoso) threadRef.current = el
+                  }}
+                  className={`coach-thread ${coachLayoutCentered ? 'coach-thread--empty' : ''} ${showCoachVirtuoso ? 'coach-thread--virtualized' : ''} ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
                 >
-                  <div
-                    ref={(el) => {
-                      if (!showCoachVirtuoso) threadRef.current = el
-                    }}
-                    className={`coach-thread ${coachLayoutCentered ? 'coach-thread--empty' : ''} ${showCoachVirtuoso ? 'coach-thread--virtualized' : ''} ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
-                  >
-                    {isHistoryLoading ? (
-                      <ChatHistoryLoading
-                        kicker="AI Coach"
-                        label="Loading your conversation…"
-                        subtitle="Syncing messages and channel context."
-                      />
-                    ) : null}
+                  {isHistoryLoading ? (
+                    <ChatHistoryLoading
+                      kicker="AI Coach"
+                      label="Loading your conversation…"
+                      subtitle="Syncing messages and channel context."
+                    />
+                  ) : null}
 
-                    {isEmptyScreen ? (
-                      <div className="coach-empty-state">
-                        <span className="coach-empty-state-kicker">Scriptz AI Coach</span>
-                        <h1>{emptyGreeting}</h1>
-                        <div
-                          className="coach-empty-actions"
-                          role="group"
-                          aria-label="Quick actions"
-                        >
-                          {EMPTY_QUICK_ACTIONS.map((action) => {
-                            const Icon = action.Icon
-                            return (
-                              <button
-                                key={action.id}
-                                type="button"
-                                className={`coach-empty-action coach-empty-action--${action.id}`}
-                                onClick={() => handleQuickAction(action.prompt)}
-                              >
-                                <span className="coach-empty-action-icon-wrap" aria-hidden>
-                                  {Icon ? <Icon /> : null}
-                                </span>
-                                <span className="coach-empty-action-label">{action.text}</span>
-                              </button>
-                            )
-                          })}
-                        </div>
+                  {isEmptyScreen ? (
+                    <div className="coach-empty-state">
+                      <span className="coach-empty-state-kicker">Scriptz AI Coach</span>
+                      <h1>{emptyGreeting}</h1>
+                      <div className="coach-empty-actions" role="group" aria-label="Quick actions">
+                        {EMPTY_QUICK_ACTIONS.map((action) => {
+                          const Icon = action.Icon
+                          return (
+                            <button
+                              key={action.id}
+                              type="button"
+                              className={`coach-empty-action coach-empty-action--${action.id}`}
+                              onClick={() => handleQuickAction(action.prompt)}
+                            >
+                              <span className="coach-empty-action-icon-wrap" aria-hidden>
+                                {Icon ? <Icon /> : null}
+                              </span>
+                              <span className="coach-empty-action-label">{action.text}</span>
+                            </button>
+                          )
+                        })}
                       </div>
-                    ) : null}
+                    </div>
+                  ) : null}
 
-                    {showCoachVirtuoso ? (
-                      <Virtuoso
-                        key={
-                          selectedConversationId != null
-                            ? String(selectedConversationId)
-                            : 'coach-new'
+                  {showCoachVirtuoso ? (
+                    <Virtuoso
+                      key={
+                        selectedConversationId != null
+                          ? String(selectedConversationId)
+                          : 'coach-new'
+                      }
+                      ref={virtuosoRef}
+                      className="coach-thread-virtuoso"
+                      data={messages}
+                      scrollerRef={(el) => {
+                        if (showCoachVirtuoso) threadRef.current = el
+                      }}
+                      computeItemKey={(_, item) => item.id}
+                      increaseViewportBy={{ top: 320, bottom: 420 }}
+                      initialTopMostItemIndex={messages.length > 0 ? messages.length - 1 : 0}
+                      skipAnimationFrameInResizeObserver
+                      itemContent={coachHistoryItemContent}
+                      components={virtuosoComponents}
+                      atBottomStateChange={(atBottom) => {
+                        if (atBottom) {
+                          setShowScrollToBottom(false)
+                          scrollingToBottomRef.current = false
+                        } else if (!scrollingToBottomRef.current) {
+                          const el = threadRef.current
+                          if (el && el.scrollHeight > el.clientHeight + 1)
+                            setShowScrollToBottom(true)
                         }
-                        ref={virtuosoRef}
-                        className="coach-thread-virtuoso"
-                        data={messages}
-                        alignToBottom
-                        scrollerRef={(el) => {
-                          if (showCoachVirtuoso) threadRef.current = el
-                        }}
-                        computeItemKey={(_, item) => item.id}
-                        increaseViewportBy={{ top: 320, bottom: 420 }}
-                        initialTopMostItemIndex={messages.length > 0 ? messages.length - 1 : 0}
-                        skipAnimationFrameInResizeObserver
-                        itemContent={coachHistoryItemContent}
-                        components={virtuosoComponents}
-                        atBottomStateChange={(atBottom) => {
-                          if (atBottom) {
-                            setShowScrollToBottom(false)
-                            scrollingToBottomRef.current = false
-                          } else if (!scrollingToBottomRef.current) {
-                            const el = threadRef.current
-                            if (el && el.scrollHeight > el.clientHeight + 1)
-                              setShowScrollToBottom(true)
-                          }
-                        }}
-                        followOutput={(isAtBottom) => (isAtBottom ? 'auto' : false)}
-                      />
-                    ) : null}
+                      }}
+                      followOutput={(isAtBottom) => (isAtBottom ? 'auto' : false)}
+                    />
+                  ) : null}
 
-                    {!showCoachVirtuoso && !isHistoryLoading && conversationQuery.isError ? (
-                      <div className="coach-thread-state coach-thread-state--error">
-                        {conversationQuery.error?.message || 'Could not load this chat.'}
+                  {!showCoachVirtuoso && !isHistoryLoading && conversationQuery.isError ? (
+                    <div className="coach-thread-state coach-thread-state--error">
+                      {conversationQuery.error?.message || 'Could not load this chat.'}
+                    </div>
+                  ) : null}
+
+                  {!showCoachVirtuoso ? <div ref={messagesEndRef} /> : null}
+                </div>
+
+                <div
+                  className={`coach-scroll-to-bottom ${showScrollToBottom && !isEmptyScreen ? 'coach-scroll-to-bottom--visible' : ''}`}
+                  aria-hidden={!showScrollToBottom || isEmptyScreen}
+                >
+                  <button
+                    type="button"
+                    className="coach-scroll-to-bottom-btn"
+                    onClick={scrollToBottom}
+                    aria-label="Scroll to bottom"
+                    title="Scroll to bottom"
+                  >
+                    <IconChevronDown />
+                  </button>
+                </div>
+
+                <footer
+                  ref={composerWrapRef}
+                  className={`coach-composer-wrap ${isEmptyScreen ? 'coach-composer-wrap--empty' : ''}`}
+                >
+                  {sendError ? <div className="coach-compose-error">{sendError}</div> : null}
+                  <form
+                    className={`coach-composer ${isVoiceMode ? 'is-recording' : ''}`}
+                    onSubmit={handleSubmit}
+                    aria-busy={isTranscribing}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="coach-file-input"
+                      onChange={handleFileChange}
+                    />
+                    {attachedImages.length > 0 ? (
+                      <div className="coach-composer-previews">
+                        {attachedImages.map((img, index) => (
+                          <div key={index} className="coach-composer-preview-wrap">
+                            <img src={img.dataUrl} alt="" className="coach-composer-preview-img" />
+                            <button
+                              type="button"
+                              className="coach-composer-preview-remove"
+                              onClick={() => removeAttachedImage(index)}
+                              aria-label="Remove attached image"
+                            >
+                              <IconClose />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     ) : null}
-
-                    {!showCoachVirtuoso ? <div ref={messagesEndRef} /> : null}
-                  </div>
-
-                  <div
-                    className={`coach-scroll-to-bottom ${showScrollToBottom && !isEmptyScreen ? 'coach-scroll-to-bottom--visible' : ''}`}
-                    aria-hidden={!showScrollToBottom || isEmptyScreen}
-                  >
-                    <button
-                      type="button"
-                      className="coach-scroll-to-bottom-btn"
-                      onClick={scrollToBottom}
-                      aria-label="Scroll to bottom"
-                      title="Scroll to bottom"
-                    >
-                      <IconChevronDown />
-                    </button>
-                  </div>
-
-                  <footer
-                    ref={composerWrapRef}
-                    className={`coach-composer-wrap ${isEmptyScreen ? 'coach-composer-wrap--empty' : ''}`}
-                  >
-                    {sendError ? <div className="coach-compose-error">{sendError}</div> : null}
-                    <form
-                      className={`coach-composer ${isVoiceMode ? 'is-recording' : ''}`}
-                      onSubmit={handleSubmit}
-                      aria-busy={isTranscribing}
-                    >
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        className="coach-file-input"
-                        onChange={handleFileChange}
-                      />
-                      {attachedImages.length > 0 ? (
-                        <div className="coach-composer-previews">
-                          {attachedImages.map((img, index) => (
-                            <div key={index} className="coach-composer-preview-wrap">
-                              <img
-                                src={img.dataUrl}
-                                alt=""
-                                className="coach-composer-preview-img"
-                              />
-                              <button
-                                type="button"
-                                className="coach-composer-preview-remove"
-                                onClick={() => removeAttachedImage(index)}
-                                aria-label="Remove attached image"
-                              >
-                                <IconClose />
-                              </button>
-                            </div>
+                    {isVoiceMode ? (
+                      <div
+                        className={`coach-composer-recording ${isTranscribing ? 'is-transcribing' : ''}`}
+                        aria-live="polite"
+                      >
+                        <div className="coach-composer-recording-copy">
+                          <span className="coach-composer-recording-label">
+                            {isTranscribing ? 'Transcribing with Gemini...' : 'Recording...'}
+                          </span>
+                          <span className="coach-composer-recording-hint">
+                            {isTranscribing
+                              ? 'Turning your speech into text in the input bar.'
+                              : 'Speak naturally, then press stop.'}
+                          </span>
+                        </div>
+                        <div className="coach-composer-waveform" aria-hidden="true">
+                          {recordingLevels.map((level, index) => (
+                            <span
+                              key={`wave-${index}`}
+                              className="coach-composer-waveform-bar"
+                              style={{ '--wave-scale': String(level) }}
+                            />
                           ))}
                         </div>
-                      ) : null}
-                      {isVoiceMode ? (
-                        <div
-                          className={`coach-composer-recording ${isTranscribing ? 'is-transcribing' : ''}`}
-                          aria-live="polite"
-                        >
-                          <div className="coach-composer-recording-copy">
-                            <span className="coach-composer-recording-label">
-                              {isTranscribing ? 'Transcribing with Gemini...' : 'Recording...'}
-                            </span>
-                            <span className="coach-composer-recording-hint">
-                              {isTranscribing
-                                ? 'Turning your speech into text in the input bar.'
-                                : 'Speak naturally, then press stop.'}
-                            </span>
-                          </div>
-                          <div className="coach-composer-waveform" aria-hidden="true">
-                            {recordingLevels.map((level, index) => (
-                              <span
-                                key={`wave-${index}`}
-                                className="coach-composer-waveform-bar"
-                                style={{ '--wave-scale': String(level) }}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="coach-composer-input-wrap">
-                          <textarea
-                            ref={textareaRef}
-                            value={draft}
-                            onChange={(e) =>
-                              setDraft(String(e.target.value).slice(0, COACH_COMPOSER_MAX_CHARS))
-                            }
-                            placeholder="Message your AI coach..."
-                            rows={1}
-                            className="coach-composer-input"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault()
-                                handleSubmit(e)
-                              }
-                            }}
-                          />
-                        </div>
-                      )}
-                      <div className="coach-composer-actions">
-                        <div className="coach-composer-actions-left">
-                          <button
-                            type="button"
-                            className="coach-composer-tool coach-composer-tool--circle"
-                            onClick={handleAttachClick}
-                            disabled={attachedImages.length >= 2 || isVoiceMode}
-                            aria-label="Attach image"
-                            title={attachedImages.length >= 2 ? 'Max 2 images' : 'Attach image'}
-                          >
-                            <IconPaperclip />
-                          </button>
-                          <button
-                            type="button"
-                            className={`coach-composer-tool coach-composer-tool--pill coach-composer-deep-thinking ${deepThinking ? 'is-active' : ''}`}
-                            onClick={() => setDeepThinking((prev) => !prev)}
-                            disabled={isVoiceMode}
-                            aria-pressed={deepThinking}
-                            title="Deep thinking"
-                            aria-label="Deep thinking"
-                          >
-                            <IconBrain />
-                            <span className="coach-composer-pill-label">Deep thinking</span>
-                          </button>
-                        </div>
-                        {isRecording ? (
-                          <button
-                            type="button"
-                            className="coach-composer-send coach-composer-primary-action coach-composer-stop"
-                            onClick={stopVoiceRecording}
-                            aria-label="Stop recording"
-                            title="Stop recording"
-                          >
-                            <IconStop />
-                          </button>
-                        ) : hasComposerContent ? (
-                          <button
-                            type="submit"
-                            className="coach-composer-send coach-composer-primary-action is-send"
-                            disabled={
-                              (!draft.trim() && attachedImages.length === 0) ||
-                              pendingAssistant ||
-                              isTranscribing
-                            }
-                            aria-label="Send message"
-                          >
-                            <IconArrowUp />
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className={`coach-composer-send coach-composer-primary-action coach-composer-mic ${isVoiceMode ? 'is-listening' : ''}`}
-                            onClick={startVoiceRecording}
-                            disabled={!sttSupported || pendingAssistant || isTranscribing}
-                            aria-label={
-                              sttSupported ? 'Start voice input' : 'Voice input not supported'
-                            }
-                            title={sttSupported ? 'Start voice input' : 'Voice input not supported'}
-                          >
-                            <IconMic />
-                          </button>
-                        )}
                       </div>
-                    </form>
-                  </footer>
-                </section>
-              </div>
-            )}
+                    ) : (
+                      <div className="coach-composer-input-wrap">
+                        <textarea
+                          ref={textareaRef}
+                          value={draft}
+                          onChange={(e) =>
+                            setDraft(String(e.target.value).slice(0, COACH_COMPOSER_MAX_CHARS))
+                          }
+                          rows={1}
+                          className="coach-composer-input"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault()
+                              handleSubmit(e)
+                            }
+                          }}
+                        />
+                        {!draft ? (
+                          <span className="coach-composer-placeholder" aria-hidden="true">
+                            <span
+                              className={`coach-composer-placeholder-text${
+                                hintPhase === 'exiting'
+                                  ? ' is-exiting'
+                                  : hintPhase === 'entering'
+                                    ? ' is-entering'
+                                    : ''
+                              }`}
+                            >
+                              {COMPOSER_HINTS[hintIndex]}
+                            </span>
+                          </span>
+                        ) : null}
+                      </div>
+                    )}
+                    <div className="coach-composer-actions">
+                      <div className="coach-composer-actions-left">
+                        <button
+                          type="button"
+                          className="coach-composer-tool coach-composer-tool--circle"
+                          onClick={handleAttachClick}
+                          disabled={attachedImages.length >= 2 || isVoiceMode}
+                          aria-label="Attach image"
+                          title={attachedImages.length >= 2 ? 'Max 2 images' : 'Attach image'}
+                        >
+                          <IconPaperclip />
+                        </button>
+                        <button
+                          type="button"
+                          className={`coach-composer-tool coach-composer-tool--pill coach-composer-deep-thinking ${deepThinking ? 'is-active' : ''}`}
+                          onClick={() => setDeepThinking((prev) => !prev)}
+                          disabled={isVoiceMode}
+                          aria-pressed={deepThinking}
+                          title="Deep thinking"
+                          aria-label="Deep thinking"
+                        >
+                          <IconBrain />
+                          <span className="coach-composer-pill-label">Deep thinking</span>
+                        </button>
+                      </div>
+                      {isRecording ? (
+                        <button
+                          type="button"
+                          className="coach-composer-send coach-composer-primary-action coach-composer-stop"
+                          onClick={stopVoiceRecording}
+                          aria-label="Stop recording"
+                          title="Stop recording"
+                        >
+                          <IconStop />
+                        </button>
+                      ) : pendingAssistant ? (
+                        <button
+                          type="button"
+                          className="coach-composer-send coach-composer-primary-action coach-composer-stop"
+                          onClick={handleStopGeneration}
+                          aria-label="Stop generating"
+                          title="Stop generating"
+                        >
+                          <IconStop />
+                        </button>
+                      ) : hasComposerContent ? (
+                        <button
+                          type="submit"
+                          className="coach-composer-send coach-composer-primary-action is-send"
+                          disabled={
+                            (!draft.trim() && attachedImages.length === 0) || isTranscribing
+                          }
+                          aria-label="Send message"
+                        >
+                          <IconArrowUp />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className={`coach-composer-send coach-composer-primary-action coach-composer-mic ${isVoiceMode ? 'is-listening' : ''}`}
+                          onClick={startVoiceRecording}
+                          disabled={!sttSupported || pendingAssistant || isTranscribing}
+                          aria-label={
+                            sttSupported ? 'Start voice input' : 'Voice input not supported'
+                          }
+                          title={sttSupported ? 'Start voice input' : 'Voice input not supported'}
+                        >
+                          <IconMic />
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                </footer>
+              </section>
+            </div>
+          )}
+        </div>
+
+        {imageViewer ? (
+          <div
+            className="coach-image-viewer-backdrop"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setImageViewer(null)}
+          >
+            <div className="coach-image-viewer" onClick={(event) => event.stopPropagation()}>
+              <button
+                type="button"
+                className="coach-image-viewer-close"
+                onClick={() => setImageViewer(null)}
+                aria-label="Close image viewer"
+              >
+                <IconClose />
+              </button>
+              <img src={imageViewer.src} alt="" className="coach-image-viewer-img" />
+            </div>
           </div>
-        </main>
-      </div>
+        ) : null}
+
+        {showStylesModal && <StylesModal onClose={() => setShowStylesModal(false)} />}
+
+        {userActionDialog ? (
+          <div
+            className="coach-user-dialog-backdrop"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setUserActionDialog(null)}
+          >
+            <div className="coach-user-dialog" onClick={(event) => event.stopPropagation()}>
+              <button
+                type="button"
+                className="coach-user-dialog-action"
+                onClick={() => {
+                  handleCopyMessage(`message-${userActionDialog.id}`, userActionDialog.content)
+                  setUserActionDialog(null)
+                }}
+              >
+                <IconCopy />
+                <span>Copy</span>
+              </button>
+              {userActionDialog.canEdit ? (
+                <button
+                  type="button"
+                  className="coach-user-dialog-action"
+                  onClick={() => {
+                    handleEditMessage(userActionDialog.content)
+                    setUserActionDialog(null)
+                  }}
+                >
+                  <IconEdit />
+                  <span>Edit</span>
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="coach-user-dialog-dismiss"
+                onClick={() => setUserActionDialog(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </>
+    )
+  }
+
+  return (
+    <div className="coach-page">
+      <AppShellLayout
+        shellOnly
+        mainClassName="coach-main-wrap"
+        sidebar={
+          <Sidebar
+            user={user}
+            onOpenSettings={openSettings}
+            onOpenPersonas={() => setShowPersonasModal(true)}
+            onLogout={handleLogout}
+            currentScreen="coach"
+            activeTab={activeTab}
+            activeConversationId={selectedConversationId}
+            activeScriptConversationId={selectedScriptConversationId}
+            activeThumbnailConversationId={selectedThumbnailConversationId}
+            onNewChat={handleNewChat}
+          />
+        }
+      >
+        <div className="coach-header-shade" aria-hidden="true" />
+        <TabBar
+          tabs={COACH_TABS.map((t) => ({ id: t.id, label: t.label }))}
+          value={activeTab}
+          onChange={handleTabClick}
+          ariaLabel="Tool switcher"
+          variant="segmented"
+          className="coach-tabbar coach-tabbar--floating"
+        />
+        <div className="coach-main-body">
+          {activeTab === 'scripts' ? (
+            <ScriptStudio channelId={channelId} />
+          ) : activeTab === 'thumbnails' ? (
+            <ThumbnailGenerator
+              channelId={channelId}
+              onOpenPersonas={() => setShowPersonasModal(true)}
+              onOpenStyles={() => setShowStylesModal(true)}
+              conversationId={selectedThumbnailConversationId}
+              onConversationCreated={setThumbnailConversationHash}
+            />
+          ) : (
+            <div
+              id="coach-panel-coach"
+              className={`coach-main ${coachLayoutCentered ? 'coach-main--empty' : ''}`}
+              role="tabpanel"
+              aria-labelledby="coach-tab-coach"
+            >
+              <section
+                ref={coachChatShellRef}
+                className={`coach-chat-shell ${coachLayoutCentered ? 'coach-chat-shell--empty' : ''}`}
+              >
+                <div
+                  ref={(el) => {
+                    if (!showCoachVirtuoso) threadRef.current = el
+                  }}
+                  className={`coach-thread ${coachLayoutCentered ? 'coach-thread--empty' : ''} ${showCoachVirtuoso ? 'coach-thread--virtualized' : ''} ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
+                >
+                  {isHistoryLoading ? (
+                    <ChatHistoryLoading
+                      kicker="AI Coach"
+                      label="Loading your conversation…"
+                      subtitle="Syncing messages and channel context."
+                    />
+                  ) : null}
+
+                  {isEmptyScreen ? (
+                    <div className="coach-empty-state">
+                      <span className="coach-empty-state-kicker">Scriptz AI Coach</span>
+                      <h1>{emptyGreeting}</h1>
+                      <div className="coach-empty-actions" role="group" aria-label="Quick actions">
+                        {EMPTY_QUICK_ACTIONS.map((action) => {
+                          const Icon = action.Icon
+                          return (
+                            <button
+                              key={action.id}
+                              type="button"
+                              className={`coach-empty-action coach-empty-action--${action.id}`}
+                              onClick={() => handleQuickAction(action.prompt)}
+                            >
+                              <span className="coach-empty-action-icon-wrap" aria-hidden>
+                                {Icon ? <Icon /> : null}
+                              </span>
+                              <span className="coach-empty-action-label">{action.text}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {showCoachVirtuoso ? (
+                    <Virtuoso
+                      key={
+                        selectedConversationId != null
+                          ? String(selectedConversationId)
+                          : 'coach-new'
+                      }
+                      ref={virtuosoRef}
+                      className="coach-thread-virtuoso"
+                      data={messages}
+                      scrollerRef={(el) => {
+                        if (showCoachVirtuoso) threadRef.current = el
+                      }}
+                      computeItemKey={(_, item) => item.id}
+                      increaseViewportBy={{ top: 320, bottom: 420 }}
+                      initialTopMostItemIndex={messages.length > 0 ? messages.length - 1 : 0}
+                      skipAnimationFrameInResizeObserver
+                      itemContent={coachHistoryItemContent}
+                      components={virtuosoComponents}
+                      atBottomStateChange={(atBottom) => {
+                        if (atBottom) {
+                          setShowScrollToBottom(false)
+                          scrollingToBottomRef.current = false
+                        } else if (!scrollingToBottomRef.current) {
+                          const el = threadRef.current
+                          if (el && el.scrollHeight > el.clientHeight + 1)
+                            setShowScrollToBottom(true)
+                        }
+                      }}
+                      followOutput={(isAtBottom) => (isAtBottom ? 'auto' : false)}
+                    />
+                  ) : null}
+
+                  {!showCoachVirtuoso && !isHistoryLoading && conversationQuery.isError ? (
+                    <div className="coach-thread-state coach-thread-state--error">
+                      {conversationQuery.error?.message || 'Could not load this chat.'}
+                    </div>
+                  ) : null}
+
+                  {!showCoachVirtuoso ? <div ref={messagesEndRef} /> : null}
+                </div>
+
+                <div
+                  className={`coach-scroll-to-bottom ${showScrollToBottom && !isEmptyScreen ? 'coach-scroll-to-bottom--visible' : ''}`}
+                  aria-hidden={!showScrollToBottom || isEmptyScreen}
+                >
+                  <button
+                    type="button"
+                    className="coach-scroll-to-bottom-btn"
+                    onClick={scrollToBottom}
+                    aria-label="Scroll to bottom"
+                    title="Scroll to bottom"
+                  >
+                    <IconChevronDown />
+                  </button>
+                </div>
+
+                <footer
+                  ref={composerWrapRef}
+                  className={`coach-composer-wrap ${isEmptyScreen ? 'coach-composer-wrap--empty' : ''}`}
+                >
+                  {sendError ? <div className="coach-compose-error">{sendError}</div> : null}
+                  <form
+                    className={`coach-composer ${isVoiceMode ? 'is-recording' : ''}`}
+                    onSubmit={handleSubmit}
+                    aria-busy={isTranscribing}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="coach-file-input"
+                      onChange={handleFileChange}
+                    />
+                    {attachedImages.length > 0 ? (
+                      <div className="coach-composer-previews">
+                        {attachedImages.map((img, index) => (
+                          <div key={index} className="coach-composer-preview-wrap">
+                            <img src={img.dataUrl} alt="" className="coach-composer-preview-img" />
+                            <button
+                              type="button"
+                              className="coach-composer-preview-remove"
+                              onClick={() => removeAttachedImage(index)}
+                              aria-label="Remove attached image"
+                            >
+                              <IconClose />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    {isVoiceMode ? (
+                      <div
+                        className={`coach-composer-recording ${isTranscribing ? 'is-transcribing' : ''}`}
+                        aria-live="polite"
+                      >
+                        <div className="coach-composer-recording-copy">
+                          <span className="coach-composer-recording-label">
+                            {isTranscribing ? 'Transcribing with Gemini...' : 'Recording...'}
+                          </span>
+                          <span className="coach-composer-recording-hint">
+                            {isTranscribing
+                              ? 'Turning your speech into text in the input bar.'
+                              : 'Speak naturally, then press stop.'}
+                          </span>
+                        </div>
+                        <div className="coach-composer-waveform" aria-hidden="true">
+                          {recordingLevels.map((level, index) => (
+                            <span
+                              key={`wave-${index}`}
+                              className="coach-composer-waveform-bar"
+                              style={{ '--wave-scale': String(level) }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="coach-composer-input-wrap">
+                        <textarea
+                          ref={textareaRef}
+                          value={draft}
+                          onChange={(e) =>
+                            setDraft(String(e.target.value).slice(0, COACH_COMPOSER_MAX_CHARS))
+                          }
+                          rows={1}
+                          className="coach-composer-input"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault()
+                              handleSubmit(e)
+                            }
+                          }}
+                        />
+                        {!draft ? (
+                          <span className="coach-composer-placeholder" aria-hidden="true">
+                            <span
+                              className={`coach-composer-placeholder-text${
+                                hintPhase === 'exiting'
+                                  ? ' is-exiting'
+                                  : hintPhase === 'entering'
+                                    ? ' is-entering'
+                                    : ''
+                              }`}
+                            >
+                              {COMPOSER_HINTS[hintIndex]}
+                            </span>
+                          </span>
+                        ) : null}
+                      </div>
+                    )}
+                    <div className="coach-composer-actions">
+                      <div className="coach-composer-actions-left">
+                        <button
+                          type="button"
+                          className="coach-composer-tool coach-composer-tool--circle"
+                          onClick={handleAttachClick}
+                          disabled={attachedImages.length >= 2 || isVoiceMode}
+                          aria-label="Attach image"
+                          title={attachedImages.length >= 2 ? 'Max 2 images' : 'Attach image'}
+                        >
+                          <IconPaperclip />
+                        </button>
+                        <button
+                          type="button"
+                          className={`coach-composer-tool coach-composer-tool--pill coach-composer-deep-thinking ${deepThinking ? 'is-active' : ''}`}
+                          onClick={() => setDeepThinking((prev) => !prev)}
+                          disabled={isVoiceMode}
+                          aria-pressed={deepThinking}
+                          title="Deep thinking"
+                          aria-label="Deep thinking"
+                        >
+                          <IconBrain />
+                          <span className="coach-composer-pill-label">Deep thinking</span>
+                        </button>
+                      </div>
+                      {isRecording ? (
+                        <button
+                          type="button"
+                          className="coach-composer-send coach-composer-primary-action coach-composer-stop"
+                          onClick={stopVoiceRecording}
+                          aria-label="Stop recording"
+                          title="Stop recording"
+                        >
+                          <IconStop />
+                        </button>
+                      ) : pendingAssistant ? (
+                        <button
+                          type="button"
+                          className="coach-composer-send coach-composer-primary-action coach-composer-stop"
+                          onClick={handleStopGeneration}
+                          aria-label="Stop generating"
+                          title="Stop generating"
+                        >
+                          <IconStop />
+                        </button>
+                      ) : hasComposerContent ? (
+                        <button
+                          type="submit"
+                          className="coach-composer-send coach-composer-primary-action is-send"
+                          disabled={
+                            (!draft.trim() && attachedImages.length === 0) || isTranscribing
+                          }
+                          aria-label="Send message"
+                        >
+                          <IconArrowUp />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className={`coach-composer-send coach-composer-primary-action coach-composer-mic ${isVoiceMode ? 'is-listening' : ''}`}
+                          onClick={startVoiceRecording}
+                          disabled={!sttSupported || pendingAssistant || isTranscribing}
+                          aria-label={
+                            sttSupported ? 'Start voice input' : 'Voice input not supported'
+                          }
+                          title={sttSupported ? 'Start voice input' : 'Voice input not supported'}
+                        >
+                          <IconMic />
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                </footer>
+              </section>
+            </div>
+          )}
+        </div>
+      </AppShellLayout>
 
       {imageViewer ? (
         <div

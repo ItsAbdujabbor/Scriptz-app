@@ -1,8 +1,16 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import './Sidebar.css'
+import '../components/ui/ui.css'
 import { useSidebarStore } from '../stores/sidebarStore'
+import { useShallow } from 'zustand/react/shallow'
+import {
+  SidebarButton,
+  SidebarDropdown,
+  ConfirmDialog,
+  FloatingMenu,
+  LiquidGlass,
+} from '../components/ui'
 import {
   prefetchCoachConversation,
   useCoachConversationsQuery,
@@ -27,6 +35,7 @@ import {
   scriptPrefill,
   thumbPrefill,
 } from '../lib/dashboardActionPayload'
+import logoSrc from '../assets/logo.jpg'
 
 const IconDashboard = () => (
   <svg
@@ -88,19 +97,47 @@ const IconPro = () => (
     <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
   </svg>
 )
-const IconChevronLeft = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M15 18l-6-6 6-6" />
-  </svg>
-)
-const IconChevronRight = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M9 18l6-6-6-6" />
-  </svg>
-)
 const IconChevronDown = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M6 9l6 6 6-6" />
+  </svg>
+)
+
+/** Hide sidebar — panel + inward chevron (common in ChatGPT-style shells) */
+const IconPanelCollapse = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.85"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="4" y="5" width="16" height="14" rx="2.25" />
+    <line x1="9.5" y1="5" x2="9.5" y2="19" />
+    <path d="M15.5 10l-3 2 3 2" />
+  </svg>
+)
+
+/** Show sidebar — mirror of collapse for the collapsed rail */
+const IconPanelExpand = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.85"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="4" y="5" width="16" height="14" rx="2.25" />
+    <line x1="14.5" y1="5" x2="14.5" y2="19" />
+    <path d="M8.5 10l3 2-3 2" />
+  </svg>
+)
+
+const IconCloseMenu = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
   </svg>
 )
 const IconMessage = () => (
@@ -454,19 +491,29 @@ export function Sidebar({
   activeThumbnailConversationId = null,
   onNewChat,
 }) {
-  const collapsed = useSidebarStore((state) => state.collapsed)
-  const mobileOpen = useSidebarStore((state) => state.mobileOpen)
-  const toolsExpanded = useSidebarStore((state) => state.toolsExpanded)
-  const accountDialogOpen = useSidebarStore((state) => state.accountDialogOpen)
-  const setCollapsed = useSidebarStore((state) => state.setCollapsed)
-  const toggleCollapsed = useSidebarStore((state) => state.toggleCollapsed)
-  const setMobileOpen = useSidebarStore((state) => state.setMobileOpen)
-  const closeMobile = useSidebarStore((state) => state.closeMobile)
-  const toggleToolsExpanded = useSidebarStore((state) => state.toggleToolsExpanded)
-  const toggleAccountDialog = useSidebarStore((state) => state.toggleAccountDialog)
-  const setAccountDialogOpen = useSidebarStore((state) => state.setAccountDialogOpen)
-  const accountDialogRef = useRef(null)
+  const { collapsed, mobileOpen, toolsExpanded, accountDialogOpen } = useSidebarStore(
+    useShallow((state) => ({
+      collapsed: state.collapsed,
+      mobileOpen: state.mobileOpen,
+      toolsExpanded: state.toolsExpanded,
+      accountDialogOpen: state.accountDialogOpen,
+    }))
+  )
+  // Store actions are stable refs — read once from getState() to avoid extra subscriptions
+  const [
+    {
+      setCollapsed,
+      toggleCollapsed,
+      setMobileOpen,
+      closeMobile,
+      toggleToolsExpanded,
+      toggleAccountDialog,
+      setAccountDialogOpen,
+    },
+  ] = useState(() => useSidebarStore.getState())
+  const accountMenuPortalRef = useRef(null)
   const userBlockRef = useRef(null)
+  const [accountFlyoutPos, setAccountFlyoutPos] = useState({ top: 0, left: 0, width: 260 })
   const historyMenuRef = useRef(null)
   const [historyMenu, setHistoryMenu] = useState({ conversationId: null, type: null, x: 0, y: 0 })
   const [editingConversationId, setEditingConversationId] = useState(null)
@@ -480,6 +527,28 @@ export function Sidebar({
   const toolkitTriggerRef = useRef(null)
   const toolkitFlyoutRef = useRef(null)
   const [toolkitFlyoutPos, setToolkitFlyoutPos] = useState({ top: 0, left: 0 })
+  const prevCollapsedRef = useRef(collapsed)
+  const [railExpandFade, setRailExpandFade] = useState(false)
+  const [railCollapseSettle, setRailCollapseSettle] = useState(false)
+
+  useEffect(() => {
+    const wasCollapsed = prevCollapsedRef.current
+    prevCollapsedRef.current = collapsed
+
+    if (collapsed && !wasCollapsed) {
+      setRailCollapseSettle(true)
+      setRailExpandFade(false)
+      const id = window.setTimeout(() => setRailCollapseSettle(false), 420)
+      return () => window.clearTimeout(id)
+    }
+
+    if (!collapsed && wasCollapsed) {
+      setRailCollapseSettle(false)
+      setRailExpandFade(true)
+      const id = window.setTimeout(() => setRailExpandFade(false), 420)
+      return () => window.clearTimeout(id)
+    }
+  }, [collapsed])
 
   /* Omit is_active filter so history matches Script/Thumbnail lists (show all conversations). */
   const coachConversationsQuery = useCoachConversationsQuery({ limit: 50 })
@@ -555,16 +624,43 @@ export function Sidebar({
       (activeTab === 'thumbnails' &&
         (activeThumbnailConversationId == null || activeThumbnailConversationId === '')))
 
+  /* Outside-click and Escape for account menu are handled by FloatingMenu component */
+
+  // Close toolkit flyout when account dialog opens (avoids two menus open)
   useEffect(() => {
+    if (accountDialogOpen) setToolkitFlyoutOpen(false) // eslint-disable-line react-hooks/set-state-in-effect -- intentional
+  }, [accountDialogOpen])
+
+  useLayoutEffect(() => {
     if (!accountDialogOpen) return
-    const handleClickOutside = (e) => {
-      if (accountDialogRef.current?.contains(e.target) || userBlockRef.current?.contains(e.target))
-        return
-      setAccountDialogOpen(false)
+    const measure = () => {
+      const trigger = userBlockRef.current
+      const menu = accountMenuPortalRef.current
+      if (!trigger || !menu) return
+      const tr = trigger.getBoundingClientRect()
+      const mw = Math.min(260, window.innerWidth - 16)
+      const mh = menu.offsetHeight
+      let left = tr.left
+      if (left + mw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - mw - 8)
+      else left = Math.max(8, left)
+      let top = tr.top - mh - 10
+      if (top < 8) top = tr.bottom + 10
+      if (top + mh > window.innerHeight - 8) top = Math.max(8, window.innerHeight - mh - 8)
+      setAccountFlyoutPos({ top, left, width: mw })
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [accountDialogOpen, setAccountDialogOpen])
+    measure()
+    const raf = requestAnimationFrame(measure)
+    const ro = new ResizeObserver(() => measure())
+    if (accountMenuPortalRef.current) ro.observe(accountMenuPortalRef.current)
+    window.addEventListener('resize', measure, { passive: true })
+    window.addEventListener('scroll', measure, { passive: true, capture: true })
+    return () => {
+      cancelAnimationFrame(raf)
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('scroll', measure, true)
+    }
+  }, [accountDialogOpen, collapsed, user?.email])
 
   useEffect(() => {
     if (!historyMenu.conversationId) return
@@ -665,14 +761,7 @@ export function Sidebar({
     setDeleteChatConversationType(null)
   }, [])
 
-  useEffect(() => {
-    if (!deleteChatDialogOpen) return
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') closeDeleteChatDialog()
-    }
-    document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
-  }, [deleteChatDialogOpen, closeDeleteChatDialog])
+  /* Escape key for delete dialog is handled by ConfirmDialog component */
 
   const confirmDeleteConversation = async () => {
     const conversationId = deleteChatConversationId
@@ -730,40 +819,22 @@ export function Sidebar({
       setToolkitFlyoutPos({ top, left })
     }
     measure()
-    window.addEventListener('resize', measure)
+    window.addEventListener('resize', measure, { passive: true })
     return () => window.removeEventListener('resize', measure)
   }, [toolkitFlyoutOpen, toolkitRailCollapsed])
 
+  // Close toolkit flyout when rail expands or layout narrows
   useEffect(() => {
-    if (!toolkitRailCollapsed) setToolkitFlyoutOpen(false)
+    if (!toolkitRailCollapsed) setToolkitFlyoutOpen(false) // eslint-disable-line react-hooks/set-state-in-effect -- intentional
   }, [toolkitRailCollapsed])
-
   useEffect(() => {
-    if (narrowNavLayout) setToolkitFlyoutOpen(false)
+    if (narrowNavLayout) setToolkitFlyoutOpen(false) // eslint-disable-line react-hooks/set-state-in-effect -- intentional
   }, [narrowNavLayout])
 
-  useEffect(() => {
-    if (!toolkitFlyoutOpen) return
-    const onDoc = (e) => {
-      if (
-        toolkitTriggerRef.current?.contains(e.target) ||
-        toolkitFlyoutRef.current?.contains(e.target)
-      )
-        return
-      setToolkitFlyoutOpen(false)
-    }
-    const onKey = (e) => {
-      if (e.key === 'Escape') setToolkitFlyoutOpen(false)
-    }
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [toolkitFlyoutOpen])
+  /* Outside-click and Escape for toolkit flyout are handled by FloatingMenu component */
 
   const handleToolkitTriggerClick = () => {
+    setAccountDialogOpen(false)
     if (toolkitRailCollapsed) {
       setToolkitFlyoutOpen((o) => !o)
     } else {
@@ -777,38 +848,120 @@ export function Sidebar({
     navigateToHashHref(href)
   }
 
-  const toolkitFlyoutPortal =
-    toolkitRailCollapsed && toolkitFlyoutOpen && typeof document !== 'undefined'
-      ? createPortal(
-          <div
-            ref={toolkitFlyoutRef}
-            id="sidebar-toolkit-flyout-menu"
-            className="sidebar-toolkit-flyout"
-            role="menu"
-            aria-label="Toolkit"
-            style={{ top: toolkitFlyoutPos.top, left: toolkitFlyoutPos.left }}
+  const toolkitFlyoutPortal = (
+    <FloatingMenu
+      ref={toolkitFlyoutRef}
+      open={toolkitRailCollapsed && toolkitFlyoutOpen}
+      style={{ top: toolkitFlyoutPos.top, left: toolkitFlyoutPos.left }}
+      triggerRef={toolkitTriggerRef}
+      onClose={() => setToolkitFlyoutOpen(false)}
+      aria-label="Toolkit"
+    >
+      {TOOLKIT_ITEMS.map(({ id, label }) => {
+        const href = getToolkitHash(id)
+        return (
+          <a
+            key={id}
+            href={href}
+            className="floating-menu__item"
+            role="menuitem"
+            onClick={(e) => {
+              e.preventDefault()
+              onToolkitItemNavigate(href)
+            }}
           >
-            {TOOLKIT_ITEMS.map(({ id, label }) => {
-              const href = getToolkitHash(id)
-              return (
-                <a
-                  key={id}
-                  href={href}
-                  className="sidebar-toolkit-flyout-link"
-                  role="menuitem"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    onToolkitItemNavigate(href)
-                  }}
-                >
-                  {label}
-                </a>
-              )
-            })}
-          </div>,
-          document.body
+            {label}
+          </a>
         )
-      : null
+      })}
+    </FloatingMenu>
+  )
+
+  const accountMenuPortal = (
+    <FloatingMenu
+      ref={accountMenuPortalRef}
+      open={accountDialogOpen}
+      style={{
+        top: accountFlyoutPos.top,
+        left: accountFlyoutPos.left,
+        width: accountFlyoutPos.width,
+      }}
+      triggerRef={userBlockRef}
+      onClose={() => setAccountDialogOpen(false)}
+      aria-label="Account menu"
+    >
+      <button
+        type="button"
+        className="floating-menu__item"
+        role="menuitem"
+        onClick={() => openSettingsTo('account')}
+      >
+        <span className="floating-menu__icon">
+          <IconSettings />
+        </span>
+        Settings
+      </button>
+      <button
+        type="button"
+        className="floating-menu__item"
+        role="menuitem"
+        onClick={() => openSettingsTo('personalization')}
+      >
+        <span className="floating-menu__icon">
+          <IconPersonalization />
+        </span>
+        Personalization
+      </button>
+      <button
+        type="button"
+        className="floating-menu__item"
+        role="menuitem"
+        onClick={handleOpenPersonas}
+      >
+        <span className="floating-menu__icon">
+          <IconPersonalization />
+        </span>
+        Personas
+      </button>
+      <button
+        type="button"
+        className="floating-menu__item"
+        role="menuitem"
+        onClick={() => openSettingsTo('billing')}
+      >
+        <span className="floating-menu__icon">
+          <IconUser />
+        </span>
+        Billing
+      </button>
+      <button
+        type="button"
+        className="floating-menu__item"
+        role="menuitem"
+        onClick={() => openSettingsTo('help')}
+      >
+        <span className="floating-menu__icon">
+          <IconHelp />
+        </span>
+        Help
+      </button>
+      <div className="floating-menu__divider" />
+      <button
+        type="button"
+        className="floating-menu__item floating-menu__item--danger"
+        onClick={handleLogoutClick}
+      >
+        <span className="floating-menu__icon">
+          <IconLogout />
+        </span>
+        Log out
+      </button>
+      <div className="floating-menu__footer">
+        <span className="floating-menu__footer-text">{user?.email || 'User'}</span>
+        <span className="floating-menu__footer-sub">Free</span>
+      </div>
+    </FloatingMenu>
+  )
 
   return (
     <>
@@ -834,346 +987,265 @@ export function Sidebar({
         className={`app-sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}
         role="navigation"
       >
-        <header className="sidebar-header" role="region" aria-label="Sidebar header">
-          <div className="sidebar-header-inner">
-            <button
-              type="button"
-              className="sidebar-logo-avatar-btn"
-              onClick={() => {
-                setCollapsed(false)
-                closeMobile()
-              }}
-              aria-label="Expand sidebar"
-              title="Expand sidebar"
-            >
-              <span className="sidebar-logo-avatar" aria-hidden>
-                <span className="sidebar-logo-glyph">
-                  <ScriptzMark />
-                </span>
-                <span className="sidebar-logo-placeholder">S</span>
-              </span>
-              <span className="sidebar-expand-icon" aria-hidden>
-                <IconChevronRight />
-              </span>
-            </button>
-            <a
-              href="#dashboard"
-              className="sidebar-brand"
-              onClick={(e) => {
-                e.preventDefault()
-                closeMobile()
-              }}
-              aria-label="Scriptz AI Home"
-            >
-              Scriptz AI
-            </a>
-            <button
-              type="button"
-              className="sidebar-toggle"
-              onClick={toggleCollapsed}
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              aria-expanded={!collapsed}
-            >
-              <span className="sidebar-toggle-icon" aria-hidden>
-                <IconChevronLeft />
-              </span>
-            </button>
-          </div>
-        </header>
-
-        <nav className="sidebar-nav">
-          <span className="sidebar-section-label">Main</span>
-
-          <a
-            href="#dashboard"
-            className={`sidebar-link ${currentScreen === 'dashboard' ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault()
-              closeMobile()
-              window.location.hash = 'dashboard'
-            }}
-          >
-            <span className="sidebar-icon">
-              <IconDashboard />
-            </span>
-            <span className="sidebar-label">Dashboard</span>
-          </a>
-
-          <a
-            href="#coach"
-            className={`sidebar-link ${isNewChatActive ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault()
-              handleNewChat()
-            }}
-            aria-label="New chat"
-          >
-            <span className="sidebar-icon">
-              <IconPlus />
-            </span>
-            <span className="sidebar-label">New Chat</span>
-          </a>
-
-          <div
-            className={`sidebar-dropdown ${toolkitMenuOpen ? 'expanded' : ''}`}
-            role="group"
-            aria-label="Toolkit"
-          >
-            <button
-              ref={toolkitTriggerRef}
-              type="button"
-              className="sidebar-dropdown-trigger"
-              onClick={handleToolkitTriggerClick}
-              aria-expanded={toolkitMenuOpen}
-              aria-controls={
-                toolkitRailCollapsed && toolkitFlyoutOpen
-                  ? 'sidebar-toolkit-flyout-menu'
-                  : 'sidebar-tools-content'
-              }
-            >
-              <span className="sidebar-icon">
-                <IconWrench />
-              </span>
-              <span className="sidebar-label">Toolkit</span>
-              <span className="sidebar-dropdown-chevron" aria-hidden>
-                <IconChevronDown />
-              </span>
-            </button>
-            <div className="sidebar-dropdown-content" id="sidebar-tools-content" role="menu">
-              {TOOLKIT_ITEMS.map(({ id, label }) => {
-                const href = getToolkitHash(id)
-                return (
-                  <a
-                    key={id}
-                    href={href}
-                    className="sidebar-sub-link"
-                    role="menuitem"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      onToolkitItemNavigate(href)
-                    }}
-                  >
-                    {label}
-                  </a>
-                )
-              })}
-            </div>
-          </div>
-
-          <a
-            href="#optimize"
-            className={`sidebar-link ${currentScreen === 'optimize' ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault()
-              closeMobile()
-              window.location.hash = 'optimize'
-            }}
-          >
-            <span className="sidebar-icon">
-              <IconChart />
-            </span>
-            <span className="sidebar-label">Optimize</span>
-          </a>
-
-          <a
-            href="#templates"
-            className={`sidebar-link ${currentScreen === 'templates' ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault()
-              closeMobile()
-              window.location.hash = 'templates'
-            }}
-          >
-            <span className="sidebar-icon">
-              <IconFolder />
-            </span>
-            <span className="sidebar-label">Templates</span>
-          </a>
-
-          <button
-            type="button"
-            className={`sidebar-upgrade-pro ${currentScreen === 'pro' ? 'active' : ''}`}
-            onClick={() => {
-              closeMobile()
-              window.location.hash = 'pro'
-            }}
-            title="Go Pro"
-            aria-label="Go Pro"
-          >
-            <span className="sidebar-upgrade-pro-icon" aria-hidden>
-              <IconPro />
-            </span>
-            <span className="sidebar-upgrade-pro-label">Go Pro</span>
-          </button>
-
-          <div className="sidebar-divider" aria-hidden />
-
-          <div className="sidebar-history-header">
-            <span className="sidebar-section-label">History</span>
-          </div>
-          <div className="sidebar-history-list" role="list">
-            {isHistoryLoading && (
-              <div className="sidebar-history-empty">
-                <span className="sidebar-history-empty-text">Loading…</span>
+        <div
+          className={`sidebar-rail-stack${railExpandFade ? ' sidebar-rail-stack--expand-fade' : ''}${railCollapseSettle ? ' sidebar-rail-stack--collapse-settle' : ''}`}
+        >
+          <div className="sidebar-rail-card sidebar-rail-card--top">
+            <header className="sidebar-header" role="region" aria-label="Sidebar header">
+              <div className="sidebar-header-inner">
+                <button
+                  type="button"
+                  className="sidebar-logo-avatar-btn"
+                  onClick={() => {
+                    setCollapsed(false)
+                    closeMobile()
+                  }}
+                  aria-label="Expand sidebar"
+                  title="Expand sidebar"
+                >
+                  <span className="sidebar-logo-avatar" aria-hidden>
+                    <img src={logoSrc} alt="" className="sidebar-logo-img" />
+                  </span>
+                  <span className="sidebar-expand-icon" aria-hidden>
+                    <IconPanelExpand />
+                  </span>
+                </button>
+                <a
+                  href="#dashboard"
+                  className="sidebar-brand"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    closeMobile()
+                  }}
+                  aria-label="Scriptz AI Home"
+                >
+                  Scriptz AI
+                </a>
+                <button
+                  type="button"
+                  className="sidebar-toggle"
+                  onClick={toggleCollapsed}
+                  aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                  aria-expanded={!collapsed}
+                >
+                  <span className="sidebar-toggle-icon" aria-hidden>
+                    <IconPanelCollapse />
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="sidebar-mobile-close-btn"
+                  onClick={closeMobile}
+                  aria-label="Close menu"
+                >
+                  <IconCloseMenu />
+                </button>
               </div>
-            )}
+            </header>
 
-            {!isHistoryLoading && (
-              <>
-                {mergedHistoryItems.length === 0 ? (
-                  <div className="sidebar-history-empty">
-                    <span className="sidebar-history-empty-icon" aria-hidden>
-                      <IconFolder />
-                    </span>
-                    <span className="sidebar-history-empty-text">
-                      No chats yet. Start in AI Coach, Script Generator, or Thumbnail Generator.
-                    </span>
-                  </div>
-                ) : (
-                  mergedHistoryItems.map((conversation) => {
-                    const isScript = conversation._type === 'script'
-                    const isThumbnail = conversation._type === 'thumbnail'
-                    const type = isThumbnail ? 'thumbnail' : isScript ? 'script' : 'coach'
-                    const isActive = isThumbnail
-                      ? currentScreen === 'coach' &&
-                        activeTab === 'thumbnails' &&
-                        Number(activeThumbnailConversationId) === Number(conversation.id)
-                      : isScript
-                        ? currentScreen === 'coach' &&
-                          activeTab === 'scripts' &&
-                          Number(activeScriptConversationId) === Number(conversation.id)
-                        : currentScreen === 'coach' &&
-                          activeTab === 'coach' &&
-                          Number(activeConversationId ?? getCoachConversationIdFromHash()) ===
-                            Number(conversation.id)
-                    const isEditing =
-                      editingConversationId === conversation.id && editingConversationType === type
-                    const updateMutation = isThumbnail
-                      ? updateThumbnailMutation
-                      : isScript
-                        ? updateScriptMutation
-                        : updateCoachMutation
-                    return (
-                      <HistoryItem
-                        key={`${type}-${conversation.id}`}
-                        conversation={conversation}
-                        type={type}
-                        isActive={isActive}
-                        isEditing={isEditing}
-                        editingTitle={editingTitle}
-                        setEditingTitle={setEditingTitle}
-                        submitConversationRename={submitConversationRename}
-                        cancelRenamingConversation={cancelRenamingConversation}
-                        updateMutation={updateMutation}
-                        closeMobile={closeMobile}
-                        openHistoryMenu={openHistoryMenu}
-                      />
-                    )
-                  })
-                )}
-              </>
-            )}
-          </div>
-        </nav>
+            <nav className="sidebar-nav sidebar-nav--primary" aria-label="Main navigation">
+              <span className="sidebar-section-label">Main</span>
 
-        <div className="sidebar-footer">
-          <div
-            ref={accountDialogRef}
-            className={`sidebar-account-dialog sidebar-account-dialog--inside ${accountDialogOpen ? 'visible' : ''} ${collapsed ? 'collapsed' : ''}`}
-            role="menu"
-            aria-label="Account menu"
-            aria-hidden={!accountDialogOpen}
-          >
-            {onOpenSettings ? (
-              <>
-                <button
-                  type="button"
-                  className="dialog-item"
-                  role="menuitem"
-                  onClick={() => openSettingsTo('account')}
-                >
-                  <span className="dialog-item-icon">
-                    <IconSettings />
-                  </span>
-                  Settings
-                </button>
-                <button
-                  type="button"
-                  className="dialog-item"
-                  role="menuitem"
-                  onClick={() => openSettingsTo('personalization')}
-                >
-                  <span className="dialog-item-icon">
-                    <IconPersonalization />
-                  </span>
-                  Personalization
-                </button>
-                {onOpenPersonas ? (
-                  <button
-                    type="button"
-                    className="dialog-item"
-                    role="menuitem"
-                    onClick={handleOpenPersonas}
-                  >
-                    <span className="dialog-item-icon">
-                      <IconPersonalization />
-                    </span>
-                    Personas
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  className="dialog-item"
-                  role="menuitem"
-                  onClick={() => openSettingsTo('billing')}
-                >
-                  <span className="dialog-item-icon">
-                    <IconUser />
-                  </span>
-                  Billing
-                </button>
-                <button
-                  type="button"
-                  className="dialog-item"
-                  role="menuitem"
-                  onClick={() => openSettingsTo('help')}
-                >
-                  <span className="dialog-item-icon">
-                    <IconHelp />
-                  </span>
-                  Help
-                </button>
-                <div className="dialog-divider" />
-              </>
-            ) : null}
-            {onLogout && (
-              <button type="button" className="dialog-item logout" onClick={handleLogoutClick}>
-                <span className="dialog-item-icon">
-                  <IconLogout />
+              <SidebarButton
+                href="#dashboard"
+                icon={<IconDashboard />}
+                label="Dashboard"
+                active={currentScreen === 'dashboard'}
+                collapsed={collapsed}
+                onClick={(e) => {
+                  e.preventDefault()
+                  closeMobile()
+                  window.location.hash = 'dashboard'
+                }}
+              />
+
+              <SidebarButton
+                href="#coach"
+                icon={<IconPlus />}
+                label="New Chat"
+                active={isNewChatActive}
+                collapsed={collapsed}
+                aria-label="New chat"
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleNewChat()
+                }}
+              />
+
+              <SidebarDropdown
+                ref={toolkitTriggerRef}
+                icon={<IconWrench />}
+                label="Toolkit"
+                expanded={toolkitMenuOpen}
+                collapsed={collapsed && !narrowNavLayout}
+                onToggle={handleToolkitTriggerClick}
+                ariaControls={
+                  toolkitRailCollapsed && toolkitFlyoutOpen
+                    ? 'sidebar-toolkit-flyout-menu'
+                    : 'sidebar-tools-content'
+                }
+                aria-label="Toolkit"
+              >
+                {TOOLKIT_ITEMS.map(({ id, label }) => {
+                  const href = getToolkitHash(id)
+                  return (
+                    <a
+                      key={id}
+                      href={href}
+                      className="sb-dropdown__link"
+                      role="menuitem"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        onToolkitItemNavigate(href)
+                      }}
+                    >
+                      {label}
+                    </a>
+                  )
+                })}
+              </SidebarDropdown>
+
+              <SidebarButton
+                href="#optimize"
+                icon={<IconChart />}
+                label="Optimize"
+                active={currentScreen === 'optimize'}
+                collapsed={collapsed}
+                onClick={(e) => {
+                  e.preventDefault()
+                  closeMobile()
+                  window.location.hash = 'optimize'
+                }}
+              />
+
+              <SidebarButton
+                href="#templates"
+                icon={<IconFolder />}
+                label="Templates"
+                active={currentScreen === 'templates'}
+                collapsed={collapsed}
+                onClick={(e) => {
+                  e.preventDefault()
+                  closeMobile()
+                  window.location.hash = 'templates'
+                }}
+              />
+
+              <button
+                type="button"
+                className={`sidebar-upgrade-pro ${currentScreen === 'pro' ? 'active' : ''} ${collapsed ? 'sidebar-upgrade-pro--collapsed' : ''}`}
+                onClick={() => {
+                  closeMobile()
+                  window.location.hash = 'pro'
+                }}
+                title="Go Pro"
+                aria-label="Go Pro"
+              >
+                <span className="sidebar-upgrade-pro-icon" aria-hidden>
+                  <IconPro />
                 </span>
-                Log out
+                <span className="sidebar-upgrade-pro-label">Go Pro</span>
               </button>
-            )}
+            </nav>
           </div>
-          <button
-            ref={userBlockRef}
-            type="button"
-            className="sidebar-user-block"
-            onClick={toggleAccountDialog}
-            aria-label="Account menu"
-            aria-haspopup="true"
-            aria-expanded={accountDialogOpen}
-          >
-            <span className="sidebar-user-avatar-placeholder">{userInitial}</span>
-            <span className="sidebar-user-info">
-              <span className="sidebar-user-email">{user?.email || 'User'}</span>
-              <span className="sidebar-user-plan">Free</span>
-            </span>
-          </button>
+
+          <div className="sidebar-rail-card sidebar-rail-card--bottom">
+            <nav className="sidebar-nav sidebar-nav--history" aria-label="Chat history">
+              <div className="sidebar-divider" aria-hidden />
+
+              <div className="sidebar-history-header">
+                <span className="sidebar-section-label">History</span>
+              </div>
+              <div className="sidebar-history-list" role="list">
+                {isHistoryLoading && (
+                  <div className="sidebar-history-empty">
+                    <span className="sidebar-history-empty-text">Loading…</span>
+                  </div>
+                )}
+
+                {!isHistoryLoading && (
+                  <>
+                    {mergedHistoryItems.length === 0 ? (
+                      <div className="sidebar-history-empty">
+                        <span className="sidebar-history-empty-icon" aria-hidden>
+                          <IconFolder />
+                        </span>
+                        <span className="sidebar-history-empty-text">
+                          No chats yet. Start in AI Coach, Script Generator, or Thumbnail Generator.
+                        </span>
+                      </div>
+                    ) : (
+                      mergedHistoryItems.map((conversation) => {
+                        const isScript = conversation._type === 'script'
+                        const isThumbnail = conversation._type === 'thumbnail'
+                        const type = isThumbnail ? 'thumbnail' : isScript ? 'script' : 'coach'
+                        const isActive = isThumbnail
+                          ? currentScreen === 'coach' &&
+                            activeTab === 'thumbnails' &&
+                            Number(activeThumbnailConversationId) === Number(conversation.id)
+                          : isScript
+                            ? currentScreen === 'coach' &&
+                              activeTab === 'scripts' &&
+                              Number(activeScriptConversationId) === Number(conversation.id)
+                            : currentScreen === 'coach' &&
+                              activeTab === 'coach' &&
+                              Number(activeConversationId ?? getCoachConversationIdFromHash()) ===
+                                Number(conversation.id)
+                        const isEditing =
+                          editingConversationId === conversation.id &&
+                          editingConversationType === type
+                        const updateMutation = isThumbnail
+                          ? updateThumbnailMutation
+                          : isScript
+                            ? updateScriptMutation
+                            : updateCoachMutation
+                        return (
+                          <HistoryItem
+                            key={`${type}-${conversation.id}`}
+                            conversation={conversation}
+                            type={type}
+                            isActive={isActive}
+                            isEditing={isEditing}
+                            editingTitle={editingTitle}
+                            setEditingTitle={setEditingTitle}
+                            submitConversationRename={submitConversationRename}
+                            cancelRenamingConversation={cancelRenamingConversation}
+                            updateMutation={updateMutation}
+                            closeMobile={closeMobile}
+                            openHistoryMenu={openHistoryMenu}
+                          />
+                        )
+                      })
+                    )}
+                  </>
+                )}
+              </div>
+            </nav>
+
+            <LiquidGlass className="sidebar-footer">
+              <button
+                ref={userBlockRef}
+                type="button"
+                className="sidebar-user-block"
+                onClick={toggleAccountDialog}
+                aria-label="Account menu"
+                aria-haspopup="true"
+                aria-expanded={accountDialogOpen}
+                title={collapsed && user?.email ? user.email : undefined}
+              >
+                <span className="sidebar-user-avatar-placeholder">{userInitial}</span>
+                <span className="sidebar-user-info">
+                  <span className="sidebar-user-email">{user?.email || 'User'}</span>
+                  <span className="sidebar-user-plan">Free</span>
+                </span>
+              </button>
+            </LiquidGlass>
+          </div>
         </div>
       </aside>
 
       {toolkitFlyoutPortal}
+      {accountMenuPortal}
 
       <div
         ref={historyMenuRef}
@@ -1186,6 +1258,7 @@ export function Sidebar({
           <>
             <button
               type="button"
+              className="floating-menu__item"
               onClick={() => {
                 const items =
                   historyMenu.type === 'thumbnail'
@@ -1197,59 +1270,35 @@ export function Sidebar({
                 if (conversation) startRenamingConversation(conversation, historyMenu.type)
               }}
             >
-              <IconEdit />
+              <span className="floating-menu__icon">
+                <IconEdit />
+              </span>
               Rename
             </button>
             <button
               type="button"
-              className="danger"
+              className="floating-menu__item floating-menu__item--danger"
               onClick={() => openDeleteChatDialog(historyMenu.conversationId, historyMenu.type)}
             >
-              <IconTrash />
+              <span className="floating-menu__icon">
+                <IconTrash />
+              </span>
               Delete
             </button>
           </>
         ) : null}
       </div>
 
-      {deleteChatDialogOpen && (
-        <div
-          className="sidebar-delete-dialog-backdrop"
-          onClick={closeDeleteChatDialog}
-          role="presentation"
-        >
-          <div
-            className="sidebar-delete-dialog"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="sidebar-delete-dialog-title"
-          >
-            <h3 id="sidebar-delete-dialog-title" className="sidebar-delete-dialog-title">
-              Delete chat
-            </h3>
-            <p className="sidebar-delete-dialog-desc">
-              Delete this chat permanently? This cannot be undone.
-            </p>
-            <div className="sidebar-delete-dialog-actions">
-              <button
-                type="button"
-                className="sidebar-delete-dialog-btn sidebar-delete-dialog-btn--cancel"
-                onClick={closeDeleteChatDialog}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="sidebar-delete-dialog-btn sidebar-delete-dialog-btn--danger"
-                onClick={confirmDeleteConversation}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={deleteChatDialogOpen}
+        title="Delete chat"
+        description="Delete this chat permanently? This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        danger
+        onConfirm={confirmDeleteConversation}
+        onCancel={closeDeleteChatDialog}
+      />
     </>
   )
 }

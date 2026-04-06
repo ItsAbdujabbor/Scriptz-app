@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getFrequencyLabel } from '../i18n/onboarding'
+import { getFrequencyLabel } from '../i18n/labels'
 import './SettingsModal.css'
 import { useSaveUserPreferencesMutation } from '../queries/user/preferencesQueries'
 import { useUpdateUserProfileMutation } from '../queries/user/profileQueries'

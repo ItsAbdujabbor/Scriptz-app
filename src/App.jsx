@@ -1,6 +1,7 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, useLayoutEffect, lazy, Suspense } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from './stores/authStore'
+import { BannedScreen } from './auth/BannedScreen'
 import { prefetchHistoryConversations } from './lib/query/prefetchHistoryConversations'
 import { AppShellLoading } from './components/AppShellLoading'
 import { useOnboardingStore } from './stores/onboardingStore'
@@ -34,11 +35,6 @@ const ResetPassword = lazy(() =>
 const Terms = lazy(() => import('./legal/Terms').then((m) => ({ default: m.Terms })))
 const PrivacyPolicy = lazy(() =>
   import('./legal/PrivacyPolicy').then((m) => ({ default: m.PrivacyPolicy }))
-)
-const Onboarding = lazy(() => import('./app/Onboarding').then((m) => ({ default: m.Onboarding })))
-const Optimizing = lazy(() => import('./app/Optimizing').then((m) => ({ default: m.Optimizing })))
-const PostSignupSplash = lazy(() =>
-  import('./app/PostSignupSplash').then((m) => ({ default: m.PostSignupSplash }))
 )
 
 /** Dashboard, Coach, Optimize, Pro, Templates — one lazy chunk; in-app navigation does not flash full-screen. */
@@ -85,14 +81,15 @@ function getView() {
   if (hashIndicatesPasswordRecovery()) return 'reset-password'
   const hash = (typeof window !== 'undefined' && window.location.hash) || ''
   const h = normalizeHashRoute(hash)
+  if (h === 'banned') return 'banned'
   if (h === 'login') return 'login'
   if (h === 'register' || h === 'signup') return 'signup'
   if (h === 'forgot-password') return 'forgot-password'
   if (h === 'reset-password') return 'reset-password'
   if (h === 'terms') return 'terms'
   if (h === 'privacy') return 'privacy'
-  if (h === 'onboarding') return 'onboarding'
-  if (h === 'optimizing') return 'optimizing'
+  if (h === 'onboarding') return 'dashboard'
+  if (h === 'optimizing') return 'dashboard'
   if (h === 'dashboard') return 'dashboard'
   if (h === 'coach' || h.startsWith('coach/')) return 'coach'
   if (h === 'optimize') return 'optimize'
@@ -115,7 +112,8 @@ function App() {
   const [view, setView] = useState(getView)
   const [sessionChecked, setSessionChecked] = useState(false)
   const accessToken = useAuthStore((s) => s.accessToken)
-  const loadOnboarding = useOnboardingStore((s) => s.load)
+  const user = useAuthStore((s) => s.user)
+  const logout = useAuthStore((s) => s.logout)
   const queryClient = useQueryClient()
 
   useEffect(() => {
@@ -123,21 +121,28 @@ function App() {
   }, [])
 
   useEffect(() => {
-    loadOnboarding()
+    useOnboardingStore.getState().load()
     useAuthStore
       .getState()
       .ensureSession()
       .then(() => {
         setSessionChecked(true)
-        const token = useAuthStore.getState().accessToken
-        const completed = useOnboardingStore.getState().onboardingCompleted
+        const st = useAuthStore.getState()
+        const token = st.accessToken
         const hash = normalizeHashRoute(window.location.hash || '')
+        if (token && st.user?.role === 'banned') {
+          if (hash !== 'banned') {
+            window.location.hash = 'banned'
+          }
+          setView('banned')
+          return
+        }
         if (token && !hash) {
-          window.location.hash = completed ? 'dashboard' : 'onboarding'
-          setView(completed ? 'dashboard' : 'onboarding')
+          window.location.hash = 'dashboard'
+          setView('dashboard')
         }
       })
-  }, [loadOnboarding])
+  }, [])
 
   useEffect(() => {
     const onHashChange = () => setView(getView())
@@ -147,11 +152,37 @@ function App() {
 
   useEffect(() => {
     if (!sessionChecked || !accessToken) return
+    if (useAuthStore.getState().user?.role === 'banned') return
     const t = window.setTimeout(() => {
       prefetchHistoryConversations(queryClient).catch(() => {})
     }, 0)
     return () => window.clearTimeout(t)
   }, [sessionChecked, accessToken, queryClient])
+
+  useEffect(() => {
+    if (!sessionChecked) return
+    if (view === 'banned' && !accessToken) {
+      window.location.hash = 'login'
+      setView('login')
+    }
+  }, [sessionChecked, view, accessToken])
+
+  useEffect(() => {
+    if (!sessionChecked || !accessToken || user?.role !== 'banned') return
+    const allowed = [
+      'banned',
+      'login',
+      'signup',
+      'forgot-password',
+      'reset-password',
+      'terms',
+      'privacy',
+    ]
+    if (!allowed.includes(view)) {
+      window.location.hash = 'banned'
+      setView('banned')
+    }
+  }, [sessionChecked, accessToken, user?.role, view])
 
   const goBack = () => {
     window.history.replaceState(null, '', window.location.pathname + window.location.search)
@@ -165,18 +196,23 @@ function App() {
     window.location.hash = 'register'
     setView('signup')
   }
-  const goToSplashAfterSignup = () => {
-    setView('splash-signup')
+  const goToDashboardAfterSignup = () => {
+    window.location.hash = 'dashboard'
+    setView('dashboard')
   }
   const goToForgotPassword = () => {
     window.location.hash = 'forgot-password'
     setView('forgot-password')
   }
   const onAuthSuccess = () => {
+    if (useAuthStore.getState().user?.role === 'banned') {
+      window.location.hash = 'banned'
+      setView('banned')
+      return
+    }
     useOnboardingStore.getState().load()
-    const completed = useOnboardingStore.getState().onboardingCompleted
-    window.location.hash = completed ? 'dashboard' : 'onboarding'
-    setView(getView())
+    window.location.hash = 'dashboard'
+    setView('dashboard')
   }
   const onLogout = () => {
     window.location.hash = ''
@@ -185,15 +221,7 @@ function App() {
 
   useEffect(() => {
     if (!sessionChecked) return
-    const appViews = [
-      'onboarding',
-      'optimizing',
-      'dashboard',
-      'coach',
-      'optimize',
-      'pro',
-      'templates',
-    ]
+    const appViews = ['dashboard', 'coach', 'optimize', 'pro', 'templates']
     if (appViews.includes(view) && !accessToken) {
       window.location.hash = 'login'
       setView('login')
@@ -202,22 +230,39 @@ function App() {
 
   useEffect(() => {
     if (!sessionChecked || !accessToken) return
+    if (useAuthStore.getState().user?.role === 'banned') return
     if (['login', 'signup', 'forgot-password'].includes(view)) {
-      const completed = useOnboardingStore.getState().onboardingCompleted
-      window.location.hash = completed ? 'dashboard' : 'onboarding'
-      setView(getView())
+      window.location.hash = 'dashboard'
+      setView('dashboard')
     }
   }, [sessionChecked, accessToken, view])
 
-  const appViews = [
-    'onboarding',
-    'optimizing',
-    'dashboard',
-    'coach',
-    'optimize',
-    'pro',
-    'templates',
-  ]
+  useLayoutEffect(() => {
+    if (!accessToken || user?.role !== 'banned') return
+    if (normalizeHashRoute(window.location.hash || '') !== 'banned') {
+      window.location.hash = 'banned'
+    }
+  }, [accessToken, user?.role])
+
+  /** Never mount dashboard / coach / etc. while banned (avoids shell flash). */
+  const isBannedUser = Boolean(accessToken && user?.role === 'banned')
+  if (isBannedUser) {
+    return (
+      <Suspense fallback={<LoadingFallback />}>
+        <BannedScreen
+          email={user?.email}
+          banDate={user?.ban_date}
+          reason={user?.ban_reason}
+          onLogout={async () => {
+            await logout()
+            onLogout()
+          }}
+        />
+      </Suspense>
+    )
+  }
+
+  const appViews = ['dashboard', 'coach', 'optimize', 'pro', 'templates']
   const needsSessionBeforeRender = appViews.includes(view)
   if (needsSessionBeforeRender && !sessionChecked) {
     if (['dashboard', 'coach', 'optimize', 'pro', 'templates'].includes(view)) {
@@ -231,6 +276,18 @@ function App() {
 
   const content = (() => {
     switch (view) {
+      case 'banned':
+        return (
+          <BannedScreen
+            email={user?.email}
+            banDate={user?.ban_date}
+            reason={user?.ban_reason}
+            onLogout={async () => {
+              await logout()
+              onLogout()
+            }}
+          />
+        )
       case 'login':
         return (
           <Login
@@ -241,15 +298,8 @@ function App() {
           />
         )
       case 'signup':
-        return <Signup onBack={goBack} onGoToLogin={goToLogin} onSuccess={goToSplashAfterSignup} />
-      case 'splash-signup':
         return (
-          <PostSignupSplash
-            onComplete={() => {
-              window.location.hash = 'onboarding'
-              setView('onboarding')
-            }}
-          />
+          <Signup onBack={goBack} onGoToLogin={goToLogin} onSuccess={goToDashboardAfterSignup} />
         )
       case 'forgot-password':
         return <ForgotPassword onBack={goToLogin} onGoToLogin={goToLogin} />
@@ -259,24 +309,6 @@ function App() {
         return <Terms onBack={goBack} />
       case 'privacy':
         return <PrivacyPolicy onBack={goBack} />
-      case 'onboarding':
-        return (
-          <Onboarding
-            onComplete={() => {
-              window.location.hash = 'optimizing'
-              setView('optimizing')
-            }}
-          />
-        )
-      case 'optimizing':
-        return (
-          <Optimizing
-            onComplete={() => {
-              window.location.hash = 'dashboard'
-              setView('dashboard')
-            }}
-          />
-        )
       case 'dashboard':
         return <AuthenticatedRouteBoundary view="dashboard" onLogout={onLogout} />
       case 'coach':

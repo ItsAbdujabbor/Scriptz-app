@@ -13,9 +13,8 @@ import { queryKeys } from '../lib/query/queryKeys'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { queryFreshness } from '../lib/query/queryConfig'
 import { stripPrefillFromHash } from '../lib/dashboardActionPayload'
-import './Sidebar.css'
-import './SettingsModal.css'
-import './Dashboard.css'
+import { AppShellLayout } from '../components/AppShellLayout'
+/* Sidebar.css, SettingsModal.css, Dashboard.css imported by AuthenticatedRoutes */
 import './Optimize.css'
 
 const PER_PAGE = 15
@@ -64,7 +63,7 @@ function postedDaysAgo(iso) {
   }
 }
 
-export function Optimize({ onLogout }) {
+export function Optimize({ onLogout, shellManaged }) {
   const {
     user,
     logout,
@@ -329,353 +328,367 @@ export function Optimize({ onLogout }) {
   const showError = youtube?.connected && !videosLoading && videosError
   const showLoading = youtube?.connected && videosLoading && videos.length === 0
 
+  const innerContent = (
+    <>
+      <div className="dashboard-main-scroll">
+        <div className="dashboard-main dashboard-main--subpage">
+          <div className="dashboard-content-shell dashboard-content-shell--page">
+            <div className="optimize-page">
+              <div className="optimize-top-bar">
+                <h1 className="optimize-heading">Optimize</h1>
+                <div className="optimize-search-wrap">
+                  <input
+                    type="search"
+                    className="optimize-search-input"
+                    placeholder="Search videos…"
+                    aria-label="Search videos"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  />
+                  <button
+                    type="button"
+                    className="optimize-search-btn"
+                    onClick={handleSearch}
+                    disabled={videosLoading}
+                    aria-label="Search"
+                  >
+                    Search
+                  </button>
+                </div>
+              </div>
+
+              {dashPrefillBanner && (
+                <div className="optimize-dash-prefill" role="status">
+                  <p className="optimize-dash-prefill-text">{dashPrefillBanner}</p>
+                  <button
+                    type="button"
+                    className="optimize-dash-prefill-dismiss"
+                    onClick={() => setDashPrefillBanner(null)}
+                    aria-label="Dismiss"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+
+              <div className="optimize-divider" aria-hidden />
+
+              <div className="optimize-filters-bar">
+                <div className="optimize-tabrow">
+                  <nav className="optimize-tabs" aria-label="Filter by type">
+                    {VIDEO_TYPE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        className={`optimize-tab ${videoType === opt.value ? 'optimize-tab--active' : ''}`}
+                        onClick={() => setVideoType(opt.value)}
+                        aria-selected={videoType === opt.value}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </nav>
+                </div>
+                <div className="optimize-filters-right">
+                  <select
+                    className="optimize-sort-dropdown"
+                    value={sort}
+                    onChange={(e) => setSort(e.target.value)}
+                    aria-label="Sort by"
+                  >
+                    {SORT_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="optimize-divider optimize-divider--below-filters" aria-hidden />
+
+              {!youtube?.connected && (
+                <div className="optimize-state optimize-state-empty">
+                  <div className="optimize-empty-card">
+                    <span className="optimize-empty-icon" aria-hidden>
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    </span>
+                    <h3 className="optimize-empty-title">Connect YouTube</h3>
+                    <p className="optimize-empty-desc">
+                      Connect your channel to see and optimize your videos here.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {showLoading && (
+                <div className="optimize-state optimize-state-loading">
+                  <div className="optimize-spinner" aria-hidden />
+                  <p>Loading your videos…</p>
+                </div>
+              )}
+
+              {showError && (
+                <div className="optimize-state optimize-state-error">
+                  <p>{videosError}</p>
+                </div>
+              )}
+
+              {showEmpty && (
+                <div className="optimize-state optimize-state-empty">
+                  <div className="optimize-empty-card">
+                    {emptyFromSearch ? (
+                      <>
+                        <span className="optimize-empty-icon" aria-hidden>
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <circle cx="11" cy="11" r="8" />
+                            <path d="m21 21-4.35-4.35" />
+                          </svg>
+                        </span>
+                        <h3 className="optimize-empty-title">
+                          No results for “{searchQuery.trim()}”
+                        </h3>
+                        <p className="optimize-empty-desc">
+                          Try a different search term or clear the search to see all your{' '}
+                          {videoType === 'shorts' ? 'Shorts' : 'videos'}.
+                        </p>
+                        <button
+                          type="button"
+                          className="optimize-empty-action"
+                          onClick={() => {
+                            setSearchInput('')
+                            setSearchQuery('')
+                          }}
+                        >
+                          Clear search
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="optimize-empty-icon" aria-hidden>
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="m22 8-6 4 6 4V8Z" />
+                            <rect width="14" height="12" x="2" y="6" rx="2" ry="2" />
+                          </svg>
+                        </span>
+                        <h3 className="optimize-empty-title">
+                          No {videoType === 'shorts' ? 'Shorts' : 'videos'} yet
+                        </h3>
+                        <p className="optimize-empty-desc">
+                          {videoType === 'shorts'
+                            ? 'You don’t have any Shorts on this channel. Create Shorts in YouTube Studio to optimize them here.'
+                            : 'Upload videos to your channel to see and optimize them here.'}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {showGrid && (
+                <div className="optimize-grid-container">
+                  <div className="optimize-video-grid">
+                    {videos.map((v) => (
+                      <article
+                        key={v.id}
+                        className="optimize-video-card"
+                        onClick={() => {
+                          prefetchVideoOptimization(v.id)
+                          setSelectedVideo(v)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            prefetchVideoOptimization(v.id)
+                            setSelectedVideo(v)
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <div className="optimize-card-thumb-wrap">
+                          <img
+                            className="optimize-card-thumb"
+                            src={
+                              v.thumbnail_url || `https://img.youtube.com/vi/${v.id}/mqdefault.jpg`
+                            }
+                            alt=""
+                            loading="lazy"
+                          />
+                        </div>
+                        <div className="optimize-card-body">
+                          <h3 className="optimize-card-title">
+                            {(v.title || 'Untitled').substring(0, 80)}
+                          </h3>
+                          <div className="optimize-card-meta-row">
+                            <span className="optimize-card-meta-pill">
+                              {formatCount(v.view_count)} views
+                            </span>
+                            <span className="optimize-card-meta-pill">
+                              {postedDaysAgo(v.published_at)}
+                            </span>
+                            {formatEngagement(v.engagement_rate) != null && (
+                              <span className="optimize-card-meta-pill optimize-card-meta-pill--engagement">
+                                {formatEngagement(v.engagement_rate)} engagement
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            className="optimize-card-cta"
+                            onMouseEnter={() => prefetchVideoOptimization(v.id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              prefetchVideoOptimization(v.id)
+                              setSelectedVideo(v)
+                            }}
+                          >
+                            Optimize
+                            <span className="optimize-card-cta-icon" aria-hidden>
+                              <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.25"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden
+                              >
+                                <path d="M5 12h14M12 5l7 7-7 7" />
+                              </svg>
+                            </span>
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                  {totalPages > 1 && (
+                    <div className="optimize-pagination">
+                      <button
+                        type="button"
+                        className="optimize-page-btn"
+                        disabled={page <= 1 || videosLoading}
+                        onClick={() => setPage(page - 1)}
+                      >
+                        Previous
+                      </button>
+                      <span className="optimize-page-info">
+                        Page {page} of {totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        className="optimize-page-btn"
+                        disabled={page >= totalPages || videosLoading}
+                        onClick={() => setPage(page + 1)}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {selectedVideo && (
+        <VideoOptimizeModal
+          open={!!selectedVideo}
+          onClose={() => setSelectedVideo(null)}
+          video={selectedVideo}
+          getValidAccessToken={getValidAccessToken}
+          channelId={channelId}
+          channelTitle={youtube?.channel_title}
+        />
+      )}
+    </>
+  )
+
+  if (shellManaged) return innerContent
+
   return (
-    <div className="dashboard-page">
-      <div className="dashboard-app-shell">
+    <AppShellLayout
+      pageClassName="dashboard-page"
+      mainClassName="dashboard-main-wrap"
+      sidebar={
         <Sidebar
           user={user}
           onOpenSettings={openSettings}
           onLogout={handleLogout}
           currentScreen="optimize"
         />
-        <main className="dashboard-main-wrap">
-          <div className="dashboard-main optimize-page">
-            <div className="optimize-top-bar">
-              <h1 className="optimize-heading">Optimize</h1>
-              <div className="optimize-search-wrap">
-                <input
-                  type="search"
-                  className="optimize-search-input"
-                  placeholder="Search videos…"
-                  aria-label="Search videos"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                />
-                <button
-                  type="button"
-                  className="optimize-search-btn"
-                  onClick={handleSearch}
-                  disabled={videosLoading}
-                  aria-label="Search"
-                >
-                  Search
-                </button>
-              </div>
-            </div>
+      }
+    >
+      {innerContent}
 
-            {dashPrefillBanner && (
-              <div className="optimize-dash-prefill" role="status">
-                <p className="optimize-dash-prefill-text">{dashPrefillBanner}</p>
-                <button
-                  type="button"
-                  className="optimize-dash-prefill-dismiss"
-                  onClick={() => setDashPrefillBanner(null)}
-                  aria-label="Dismiss"
-                >
-                  ×
-                </button>
-              </div>
-            )}
-
-            <div className="optimize-divider" aria-hidden />
-
-            <div className="optimize-filters-bar">
-              <div className="optimize-tabrow">
-                <nav className="optimize-tabs" aria-label="Filter by type">
-                  {VIDEO_TYPE_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      className={`optimize-tab ${videoType === opt.value ? 'optimize-tab--active' : ''}`}
-                      onClick={() => setVideoType(opt.value)}
-                      aria-selected={videoType === opt.value}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </nav>
-              </div>
-              <div className="optimize-filters-right">
-                <select
-                  className="optimize-sort-dropdown"
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value)}
-                  aria-label="Sort by"
-                >
-                  {SORT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="optimize-divider optimize-divider--below-filters" aria-hidden />
-
-            {!youtube?.connected && (
-              <div className="optimize-state optimize-state-empty">
-                <div className="optimize-empty-card">
-                  <span className="optimize-empty-icon" aria-hidden>
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  </span>
-                  <h3 className="optimize-empty-title">Connect YouTube</h3>
-                  <p className="optimize-empty-desc">
-                    Connect your channel to see and optimize your videos here.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {showLoading && (
-              <div className="optimize-state optimize-state-loading">
-                <div className="optimize-spinner" aria-hidden />
-                <p>Loading your videos…</p>
-              </div>
-            )}
-
-            {showError && (
-              <div className="optimize-state optimize-state-error">
-                <p>{videosError}</p>
-              </div>
-            )}
-
-            {showEmpty && (
-              <div className="optimize-state optimize-state-empty">
-                <div className="optimize-empty-card">
-                  {emptyFromSearch ? (
-                    <>
-                      <span className="optimize-empty-icon" aria-hidden>
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <circle cx="11" cy="11" r="8" />
-                          <path d="m21 21-4.35-4.35" />
-                        </svg>
-                      </span>
-                      <h3 className="optimize-empty-title">
-                        No results for “{searchQuery.trim()}”
-                      </h3>
-                      <p className="optimize-empty-desc">
-                        Try a different search term or clear the search to see all your{' '}
-                        {videoType === 'shorts' ? 'Shorts' : 'videos'}.
-                      </p>
-                      <button
-                        type="button"
-                        className="optimize-empty-action"
-                        onClick={() => {
-                          setSearchInput('')
-                          setSearchQuery('')
-                        }}
-                      >
-                        Clear search
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="optimize-empty-icon" aria-hidden>
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="m22 8-6 4 6 4V8Z" />
-                          <rect width="14" height="12" x="2" y="6" rx="2" ry="2" />
-                        </svg>
-                      </span>
-                      <h3 className="optimize-empty-title">
-                        No {videoType === 'shorts' ? 'Shorts' : 'videos'} yet
-                      </h3>
-                      <p className="optimize-empty-desc">
-                        {videoType === 'shorts'
-                          ? 'You don’t have any Shorts on this channel. Create Shorts in YouTube Studio to optimize them here.'
-                          : 'Upload videos to your channel to see and optimize them here.'}
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {showGrid && (
-              <div className="optimize-grid-container">
-                <div className="optimize-video-grid">
-                  {videos.map((v) => (
-                    <article
-                      key={v.id}
-                      className="optimize-video-card"
-                      onClick={() => {
-                        prefetchVideoOptimization(v.id)
-                        setSelectedVideo(v)
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          prefetchVideoOptimization(v.id)
-                          setSelectedVideo(v)
-                        }
-                      }}
-                      role="button"
-                      tabIndex={0}
-                    >
-                      <div className="optimize-card-thumb-wrap">
-                        <img
-                          className="optimize-card-thumb"
-                          src={
-                            v.thumbnail_url || `https://img.youtube.com/vi/${v.id}/mqdefault.jpg`
-                          }
-                          alt=""
-                          loading="lazy"
-                        />
-                      </div>
-                      <div className="optimize-card-body">
-                        <h3 className="optimize-card-title">
-                          {(v.title || 'Untitled').substring(0, 80)}
-                        </h3>
-                        <div className="optimize-card-meta-row">
-                          <span className="optimize-card-meta-pill">
-                            {formatCount(v.view_count)} views
-                          </span>
-                          <span className="optimize-card-meta-pill">
-                            {postedDaysAgo(v.published_at)}
-                          </span>
-                          {formatEngagement(v.engagement_rate) != null && (
-                            <span className="optimize-card-meta-pill optimize-card-meta-pill--engagement">
-                              {formatEngagement(v.engagement_rate)} engagement
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          className="optimize-card-cta"
-                          onMouseEnter={() => prefetchVideoOptimization(v.id)}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            prefetchVideoOptimization(v.id)
-                            setSelectedVideo(v)
-                          }}
-                        >
-                          Optimize
-                          <span className="optimize-card-cta-icon" aria-hidden>
-                            <svg
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2.25"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              aria-hidden
-                            >
-                              <path d="M5 12h14M12 5l7 7-7 7" />
-                            </svg>
-                          </span>
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-                {totalPages > 1 && (
-                  <div className="optimize-pagination">
-                    <button
-                      type="button"
-                      className="optimize-page-btn"
-                      disabled={page <= 1 || videosLoading}
-                      onClick={() => setPage(page - 1)}
-                    >
-                      Previous
-                    </button>
-                    <span className="optimize-page-info">
-                      Page {page} of {totalPages}
-                    </span>
-                    <button
-                      type="button"
-                      className="optimize-page-btn"
-                      disabled={page >= totalPages || videosLoading}
-                      onClick={() => setPage(page + 1)}
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <SettingsModal
-            open={settingsOpen}
-            initialSection={settingsSection}
-            onClose={() => setSettingsOpen(false)}
-            user={user}
-            accountDeletePasswordOptional={
-              typeof allowsPasswordlessAccountDelete === 'function' &&
-              allowsPasswordlessAccountDelete()
-            }
-            authLoading={authLoading}
-            changePassword={changePassword}
-            deleteData={deleteData}
-            deleteAccount={deleteAccount}
-            clearLocalData={clearLocalData}
-            youtube={youtube}
-            youtubeChannels={youtubeChannels}
-            youtubeLoading={youtubeLoading}
-            youtubeOAuthError={youtubeOAuthError}
-            setYoutubeOAuthError={setYoutubeOAuthError}
-            onConnectYouTube={handleConnectYouTube}
-            onDisconnectYouTube={handleDisconnectYouTube}
-            onSwitchChannel={handleSwitchChannel}
-            niche={niche}
-            videoFormat={videoFormat}
-            uploadFrequency={uploadFrequency}
-            preferredLanguage={preferredLanguage}
-            setPreferredLanguage={setPreferredLanguage}
-            getValidAccessToken={getValidAccessToken}
-            setNiche={setNiche}
-            setVideoFormat={setVideoFormat}
-            setUploadFrequency={setUploadFrequency}
-            preferredTone={preferredTone}
-            speakingStyle={speakingStyle}
-            preferredCtaStyle={preferredCtaStyle}
-            includePersonalStories={includePersonalStories}
-            useFirstPerson={useFirstPerson}
-            setPreferredTone={setPreferredTone}
-            setSpeakingStyle={setSpeakingStyle}
-            setPreferredCtaStyle={setPreferredCtaStyle}
-            setIncludePersonalStories={setIncludePersonalStories}
-            setUseFirstPerson={setUseFirstPerson}
-            onLogout={onLogout}
-          />
-
-          {selectedVideo && (
-            <VideoOptimizeModal
-              open={!!selectedVideo}
-              onClose={() => setSelectedVideo(null)}
-              video={selectedVideo}
-              getValidAccessToken={getValidAccessToken}
-              channelId={channelId}
-              channelTitle={youtube?.channel_title}
-            />
-          )}
-        </main>
-      </div>
-    </div>
+      <SettingsModal
+        open={settingsOpen}
+        initialSection={settingsSection}
+        onClose={() => setSettingsOpen(false)}
+        user={user}
+        accountDeletePasswordOptional={
+          typeof allowsPasswordlessAccountDelete === 'function' && allowsPasswordlessAccountDelete()
+        }
+        authLoading={authLoading}
+        changePassword={changePassword}
+        deleteData={deleteData}
+        deleteAccount={deleteAccount}
+        clearLocalData={clearLocalData}
+        youtube={youtube}
+        youtubeChannels={youtubeChannels}
+        youtubeLoading={youtubeLoading}
+        youtubeOAuthError={youtubeOAuthError}
+        setYoutubeOAuthError={setYoutubeOAuthError}
+        onConnectYouTube={handleConnectYouTube}
+        onDisconnectYouTube={handleDisconnectYouTube}
+        onSwitchChannel={handleSwitchChannel}
+        niche={niche}
+        videoFormat={videoFormat}
+        uploadFrequency={uploadFrequency}
+        preferredLanguage={preferredLanguage}
+        setPreferredLanguage={setPreferredLanguage}
+        getValidAccessToken={getValidAccessToken}
+        setNiche={setNiche}
+        setVideoFormat={setVideoFormat}
+        setUploadFrequency={setUploadFrequency}
+        preferredTone={preferredTone}
+        speakingStyle={speakingStyle}
+        preferredCtaStyle={preferredCtaStyle}
+        includePersonalStories={includePersonalStories}
+        useFirstPerson={useFirstPerson}
+        setPreferredTone={setPreferredTone}
+        setSpeakingStyle={setSpeakingStyle}
+        setPreferredCtaStyle={setPreferredCtaStyle}
+        setIncludePersonalStories={setIncludePersonalStories}
+        setUseFirstPerson={setUseFirstPerson}
+        onLogout={onLogout}
+      />
+    </AppShellLayout>
   )
 }

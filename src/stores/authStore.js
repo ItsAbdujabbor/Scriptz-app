@@ -21,9 +21,13 @@ function mapUser(u) {
 
 function mapApiUser(u) {
   if (!u) return null
+  const role = u.role || 'user'
   return {
     id: String(u.id),
     email: u.email,
+    role,
+    ban_reason: u.ban_reason,
+    ban_date: u.ban_date,
     user_metadata: {},
     app_metadata: {},
   }
@@ -176,7 +180,12 @@ export const useAuthStore = create((set, get) => ({
     if (isLocalApiAuthMode()) {
       const s = loadApiAuthFromStorage()
       if (s?.accessToken) {
-        get()._applyApiSession(s.accessToken, s.refreshToken, Math.max(60, Math.round((s.expiresAt - Date.now()) / 1000)), s.user)
+        get()._applyApiSession(
+          s.accessToken,
+          s.refreshToken,
+          Math.max(60, Math.round((s.expiresAt - Date.now()) / 1000)),
+          s.user
+        )
       } else {
         set({ user: null, accessToken: null, refreshToken: null, expiresAt: null })
       }
@@ -251,7 +260,10 @@ export const useAuthStore = create((set, get) => ({
     bindSupabaseAuthListener()
     if (ensureSessionInFlight) return ensureSessionInFlight
     ensureSessionInFlight = (async () => {
-      const { data: { session }, error } = await supabase.auth.getSession()
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession()
       if (error) {
         get().clearSession()
         return
@@ -277,7 +289,12 @@ export const useAuthStore = create((set, get) => ({
         try {
           if (!mem || !expiresAt || Date.now() >= expiresAt - 60000) {
             const data = await authApi.refresh(refreshToken)
-            get()._applyApiSession(data.access_token, data.refresh_token, data.expires_in, data.user)
+            get()._applyApiSession(
+              data.access_token,
+              data.refresh_token,
+              data.expires_in,
+              data.user
+            )
             return data.access_token
           }
           return mem
@@ -301,7 +318,9 @@ export const useAuthStore = create((set, get) => ({
     }
     if (accessTokenInFlight) return accessTokenInFlight
     accessTokenInFlight = (async () => {
-      const { data: { session } } = await supabase.auth.getSession()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
       if (!session) return null
       const exp = session.expires_at ? session.expires_at * 1000 : 0
       if (exp && Date.now() > exp - 60000) {
@@ -327,17 +346,28 @@ export const useAuthStore = create((set, get) => ({
       try {
         const data = await authApi.login(email.trim(), password)
         get()._applyApiSession(data.access_token, data.refresh_token, data.expires_in, data.user)
+        if (data.user?.role === 'banned') {
+          return {
+            ok: true,
+            isBanned: true,
+            banInfo: {
+              ban_date: data.user.ban_date,
+              ban_reason: data.user.ban_reason,
+            },
+          }
+        }
         return { ok: true }
       } catch (err) {
         const message = err?.message || 'Invalid email or password'
-        
-        // Check if account is banned (403 response with ACCOUNT_BANNED code)
-        if (err?.status === 403 && err?.body?.code === 'ACCOUNT_BANNED') {
-          const banInfo = err.body.extra || { is_banned: true, ban_reason: 'Violation of terms of service' }
+
+        const apiCode = err?.code || err?.body?.error?.code
+        const extra = err?.extra || err?.body?.error?.extra
+        if (err?.status === 403 && apiCode === 'ACCOUNT_BANNED') {
+          const banInfo = extra || { is_banned: true, ban_reason: 'Violation of terms of service' }
           set({ error: 'Your account has been suspended', isLoading: false })
-          return { ok: false, error: 'Account suspended', isBanned: true, banInfo: banInfo }
+          return { ok: false, error: 'Account suspended', isBanned: true, banInfo }
         }
-        
+
         set({ error: message })
         return { ok: false, error: message }
       } finally {
@@ -345,26 +375,44 @@ export const useAuthStore = create((set, get) => ({
       }
     }
     if (!supabase) {
-      set({ error: 'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, or use local API auth (dev default).' })
+      set({
+        error:
+          'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, or use local API auth (dev default).',
+      })
       return { ok: false, error: get().error }
     }
     set({ isLoading: true, error: null })
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
       if (error) {
         const msg =
           error.message === 'Email not confirmed'
             ? 'Please confirm your email first. Check your inbox or use "Resend confirmation".'
             : error.message
-        
+
         // Check if user is banned
-        if (error.message.toLowerCase().includes('banned') || error.message.toLowerCase().includes('suspended')) {
+        if (
+          error.message.toLowerCase().includes('banned') ||
+          error.message.toLowerCase().includes('suspended')
+        ) {
           set({ error: 'Your account has been suspended', isLoading: false })
-          return { ok: false, error: 'Account suspended', isBanned: true, banInfo: { is_banned: true, ban_reason: 'Violation of terms of service' } }
+          return {
+            ok: false,
+            error: 'Account suspended',
+            isBanned: true,
+            banInfo: { is_banned: true, ban_reason: 'Violation of terms of service' },
+          }
         }
-        
+
         set({ error: msg })
-        return { ok: false, error: msg, needsEmailConfirmation: error.message === 'Email not confirmed' }
+        return {
+          ok: false,
+          error: msg,
+          needsEmailConfirmation: error.message === 'Email not confirmed',
+        }
       }
       get()._applySession(data.session)
       return { ok: true }
@@ -379,7 +427,10 @@ export const useAuthStore = create((set, get) => ({
 
   signInWithGoogle: async () => {
     if (isLocalApiAuthMode()) {
-      set({ error: 'Google sign-in uses Supabase. Set VITE_USE_LOCAL_API_AUTH=false and configure Supabase, or sign in with email.' })
+      set({
+        error:
+          'Google sign-in uses Supabase. Set VITE_USE_LOCAL_API_AUTH=false and configure Supabase, or sign in with email.',
+      })
       return { ok: false, error: get().error }
     }
     if (!supabase) {
@@ -597,7 +648,9 @@ export const useAuthStore = create((set, get) => ({
     if (!supabase) return { ok: false, error: 'Not configured' }
     set({ isLoading: true, error: null })
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       if (!user?.email) {
         set({ error: 'Not signed in.' })
         return { ok: false, error: 'Not signed in.' }
@@ -677,3 +730,12 @@ export const useAuthStore = create((set, get) => ({
     if (!error && data.session) get()._applySession(data.session)
   },
 }))
+
+// Restore local API session before first paint so banned users never flash dashboard/shell loading.
+if (typeof window !== 'undefined' && isLocalApiAuthMode()) {
+  try {
+    useAuthStore.getState().loadSession()
+  } catch {
+    /* ignore */
+  }
+}

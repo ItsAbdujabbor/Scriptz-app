@@ -1,5 +1,6 @@
 import { useAuthStore } from '../stores/authStore'
 import { getCoachHashState } from '../lib/coachHashRoute'
+import { AppShellLayout } from './AppShellLayout'
 import { Sidebar } from '../app/Sidebar'
 import '../app/Sidebar.css'
 import '../app/Dashboard.css'
@@ -39,20 +40,29 @@ export function AppShellLoading({ view, onLogout }) {
   if (view === 'templates') {
     return (
       <div className="dashboard-page">
-        <div className="dashboard-app-shell">
-          <Sidebar
-            user={user}
-            currentScreen="templates"
-            onLogout={onLogout}
-            onOpenSettings={noop}
-            onOpenPersonas={noop}
-          />
-          <main className="dashboard-main-wrap dashboard-main-wrap--route-loading">
-            <div className="templates-shell templates-main--route-loading">
-              <RouteSpinner label="Loading templates" />
+        <AppShellLayout
+          shellOnly
+          mainClassName="dashboard-main-wrap dashboard-main-wrap--route-loading"
+          sidebar={
+            <Sidebar
+              user={user}
+              currentScreen="templates"
+              onLogout={onLogout}
+              onOpenSettings={noop}
+              onOpenPersonas={noop}
+            />
+          }
+        >
+          <div className="dashboard-main-scroll">
+            <div className="dashboard-main dashboard-main--subpage">
+              <div className="dashboard-content-shell dashboard-content-shell--page">
+                <div className="templates-shell templates-main--route-loading">
+                  <RouteSpinner label="Loading templates" />
+                </div>
+              </div>
             </div>
-          </main>
-        </div>
+          </div>
+        </AppShellLayout>
       </div>
     )
   }
@@ -60,23 +70,26 @@ export function AppShellLoading({ view, onLogout }) {
   if (view === 'coach') {
     return (
       <div className="coach-page">
-        <div className="coach-app-shell">
-          <Sidebar
-            user={user}
-            onOpenSettings={noop}
-            onOpenPersonas={noop}
-            onLogout={onLogout}
-            currentScreen="coach"
-            activeTab={sidebarCoach.activeTab}
-            activeConversationId={sidebarCoach.coachConversationId}
-            activeScriptConversationId={sidebarCoach.scriptConversationId}
-            activeThumbnailConversationId={sidebarCoach.thumbnailConversationId}
-            onNewChat={handleNewChat}
-          />
-          <main className="coach-main-wrap coach-main-wrap--route-loading">
-            <RouteSpinner label="Loading workspace" />
-          </main>
-        </div>
+        <AppShellLayout
+          shellOnly
+          mainClassName="coach-main-wrap coach-main-wrap--route-loading"
+          sidebar={
+            <Sidebar
+              user={user}
+              onOpenSettings={noop}
+              onOpenPersonas={noop}
+              onLogout={onLogout}
+              currentScreen="coach"
+              activeTab={sidebarCoach.activeTab}
+              activeConversationId={sidebarCoach.coachConversationId}
+              activeScriptConversationId={sidebarCoach.scriptConversationId}
+              activeThumbnailConversationId={sidebarCoach.thumbnailConversationId}
+              onNewChat={handleNewChat}
+            />
+          }
+        >
+          <RouteSpinner label="Loading workspace" />
+        </AppShellLayout>
       </div>
     )
   }
@@ -92,18 +105,27 @@ export function AppShellLoading({ view, onLogout }) {
 
   return (
     <div className="dashboard-page">
-      <div className="dashboard-app-shell">
-        <Sidebar
-          user={user}
-          onOpenSettings={noop}
-          onOpenPersonas={noop}
-          onLogout={onLogout}
-          currentScreen={currentScreen}
-        />
-        <main className="dashboard-main-wrap dashboard-main-wrap--route-loading">
-          <RouteSpinner label="Loading page" />
-        </main>
-      </div>
+      <AppShellLayout
+        shellOnly
+        mainClassName="dashboard-main-wrap dashboard-main-wrap--route-loading"
+        sidebar={
+          <Sidebar
+            user={user}
+            onOpenSettings={noop}
+            onOpenPersonas={noop}
+            onLogout={onLogout}
+            currentScreen={currentScreen}
+          />
+        }
+      >
+        <div className="dashboard-main-scroll">
+          <div className="dashboard-main dashboard-main--subpage">
+            <div className="dashboard-content-shell dashboard-content-shell--page">
+              <RouteSpinner label="Loading page" />
+            </div>
+          </div>
+        </div>
+      </AppShellLayout>
     </div>
   )
 }

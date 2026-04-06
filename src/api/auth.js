@@ -17,12 +17,16 @@ function request(method, path, body, useAuth = false, token = null) {
     const isJson = contentType.indexOf('application/json') !== -1
     const data = isJson ? await res.json().catch(() => ({})) : {}
     if (!res.ok) {
-      let msg = (data && (data.detail || data.message)) || res.statusText
+      const apiErr = data && data.error
+      let msg =
+        (apiErr && apiErr.message) || (data && (data.detail || data.message)) || res.statusText
       if (Array.isArray(msg) && msg[0] && typeof msg[0].msg === 'string') msg = msg[0].msg
       else if (typeof msg !== 'string') msg = JSON.stringify(msg)
       const err = new Error(msg)
       err.status = res.status
       err.body = data
+      if (apiErr?.code) err.code = apiErr.code
+      if (apiErr?.extra) err.extra = apiErr.extra
       throw err
     }
     return data
@@ -49,7 +53,13 @@ export const authApi = {
     return request('POST', '/api/auth/reset-password', { token, new_password: newPassword }, false)
   },
   changePassword(currentPassword, newPassword, accessToken) {
-    return request('POST', '/api/auth/change-password', { current_password: currentPassword, new_password: newPassword }, true, accessToken)
+    return request(
+      'POST',
+      '/api/auth/change-password',
+      { current_password: currentPassword, new_password: newPassword },
+      true,
+      accessToken
+    )
   },
   /** Permanently delete account. Password optional for Supabase-linked accounts (session proves identity). */
   deleteAccount(password, accessToken) {

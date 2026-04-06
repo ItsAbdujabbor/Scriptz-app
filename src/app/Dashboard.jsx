@@ -4,17 +4,17 @@ import { useAuthStore } from '../stores/authStore'
 import { useOnboardingStore } from '../stores/onboardingStore'
 import { useSidebarStore } from '../stores/sidebarStore'
 import { youtubeApi } from '../api/youtube'
+import { AppShellLayout } from '../components/AppShellLayout'
 import { Sidebar } from './Sidebar'
 import { SettingsModal } from './SettingsModal'
-import './Sidebar.css'
-import './SettingsModal.css'
-import './Dashboard.css'
+import { DashButton } from '../components/DashButton'
+import { DashSection } from '../components/DashSection'
+/* Sidebar.css, SettingsModal.css, Dashboard.css imported by AuthenticatedRoutes */
 import { queryKeys } from '../lib/query/queryKeys'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { queryFreshness } from '../lib/query/queryConfig'
 import {
   useDashboardAudit,
-  useDashboardBestTime,
   useDashboardGrowth,
   useDashboardInsights,
   useDashboardSnapshot,
@@ -23,7 +23,6 @@ import {
 import { useUserPreferencesQuery } from '../queries/user/preferencesQueries'
 import { useUserProfileQuery } from '../queries/user/profileQueries'
 import {
-  countBestTimeUploads,
   getAreaAction,
   getAuditAreaGuidance,
   getGrowthScenarioMessage,
@@ -46,29 +45,6 @@ import {
   readMilestoneVisitSnapshot,
   writeMilestoneVisitSnapshot,
 } from '../lib/milestoneVisitStorage'
-import { Activity, BarChart3, HeartPulse, Lightbulb, ListChecks, Zap } from 'lucide-react'
-
-const SECTION_ICONS = {
-  pulse: Activity,
-  quick: Zap,
-  ideas: Lightbulb,
-  health: HeartPulse,
-  reco: ListChecks,
-  performance: BarChart3,
-}
-
-function DashboardSectionGlyph({ name, className = '' }) {
-  const Icon = SECTION_ICONS[name] ?? Activity
-  return (
-    <span
-      className={`dashboard-section-glyph-wrap dashboard-section-glyph-wrap--${name}${className ? ` ${className}` : ''}`.trim()}
-      aria-hidden
-    >
-      <Icon className="dashboard-section-glyph" size={20} strokeWidth={2} />
-    </span>
-  )
-}
-
 function toYYYYMMDD(d) {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
@@ -340,8 +316,8 @@ function auditTierLabel(tier) {
 }
 
 const MILESTONE_METRIC_COPY = {
-  subs: { unit: 'subscribers', progressLine: 'on the path to your first subscriber milestone' },
-  views: { unit: 'lifetime views', progressLine: 'on the path to your first view milestone' },
+  subs: { unit: 'subscribers' },
+  views: { unit: 'lifetime views' },
 }
 
 function DashboardMilestoneStrip({
@@ -442,7 +418,6 @@ function DashboardMilestoneStrip({
               {nowLabel}
             </span>
             <span className="dashboard-milestone-card-desc">{metric.unit}</span>
-            <span className="dashboard-milestone-card-hint">{metric.progressLine}</span>
           </div>
         )}
         <div className="dashboard-milestone-card dashboard-milestone-card--next">
@@ -485,7 +460,7 @@ function DashboardMilestoneStrip({
   )
 }
 
-export function Dashboard({ onLogout }) {
+export function Dashboard({ onLogout, shellManaged }) {
   const {
     user,
     logout,
@@ -596,9 +571,6 @@ export function Dashboard({ onLogout }) {
             setYoutubeChannels(list.channels || [])
           } catch (_) {}
           queryClient.invalidateQueries({ queryKey: queryKeys.user.preferences })
-          if (!useOnboardingStore.getState().onboardingCompleted) {
-            useOnboardingStore.getState().completeOnboarding()
-          }
         } catch (_) {
           setYoutubeOAuthError('Connected but could not load channel details.')
           setYoutubeConnectionSuccess(false)
@@ -624,7 +596,6 @@ export function Dashboard({ onLogout }) {
   const channelId = youtube?.channelId || youtube?.channel_id || null
   const hasChannelData = Boolean(youtube?.connected && channelId)
 
-  const utcOffsetMinutes = useMemo(() => -new Date().getTimezoneOffset(), [])
   const snapshotRange = useMemo(() => {
     const to = toYYYYMMDD(new Date())
     const from = fromDaysAgo(30)
@@ -635,7 +606,6 @@ export function Dashboard({ onLogout }) {
   const auditQuery = useDashboardAudit(channelId)
   const growthQuery = useDashboardGrowth(channelId)
   const snapshotQuery = useDashboardSnapshot(channelId, snapshotRange.from, snapshotRange.to)
-  const bestTimeQuery = useDashboardBestTime(channelId, utcOffsetMinutes)
 
   const insights = insightsQuery.data
   const insightsLoading = insightsQuery.isPending
@@ -661,31 +631,6 @@ export function Dashboard({ onLogout }) {
   )
 
   const snapshot = snapshotQuery.data
-  const snapshotLoading = snapshotQuery.isPending
-
-  const bestTime = bestTimeQuery.data
-  const bestTimeLoading = bestTimeQuery.isPending
-
-  const performanceSnapshotHasKpis = useMemo(() => {
-    const p = snapshot?.current_period
-    if (!p) return false
-    return (
-      p.views != null ||
-      p.watch_time_hours != null ||
-      p.video_count != null ||
-      p.views_per_video != null
-    )
-  }, [snapshot])
-
-  const performanceGrowthHasKpis = useMemo(() => {
-    if (!growth) return false
-    return (
-      growth.subs_current != null ||
-      growth.views_velocity_7d != null ||
-      growth.views_velocity_30d != null ||
-      growth.projected_views_30d != null
-    )
-  }, [growth])
 
   const optimizeAuditHash = useMemo(
     () =>
@@ -712,6 +657,24 @@ export function Dashboard({ onLogout }) {
   }, [audit])
 
   const growthScenario = useMemo(() => (growth ? getGrowthScenarioMessage(growth) : null), [growth])
+
+  /** Thumbnail audit data for the workshop section */
+  const thumbnailAuditScore = useMemo(() => {
+    if (!Array.isArray(audit?.scores)) return null
+    const thumb = audit.scores.find((s) => s.name === 'Thumbnails' || s.name === 'CTR')
+    return thumb ? Number(thumb.score ?? 0) : null
+  }, [audit])
+
+  const thumbnailAuditTips = useMemo(() => {
+    if (!Array.isArray(audit?.scores)) return []
+    const tips = []
+    for (const s of audit.scores) {
+      if (s.name === 'Thumbnails' || s.name === 'CTR') {
+        if (Array.isArray(s.fixes)) tips.push(...s.fixes)
+      }
+    }
+    return tips.filter((t) => t && typeof t === 'string' && t.trim()).slice(0, 4)
+  }, [audit])
 
   /** Big numbers + bar lengths for forecast panel (velocity comparison). */
   const forecastMetrics = useMemo(() => {
@@ -743,11 +706,6 @@ export function Dashboard({ onLogout }) {
       v30Pct: v30 != null && Number.isFinite(v30) ? Math.min(100, (v30 / maxV) * 100) : 0,
     }
   }, [growth])
-
-  const bestTimeUploadTotal = useMemo(
-    () => countBestTimeUploads(bestTime?.bar_chart_data),
-    [bestTime?.bar_chart_data]
-  )
 
   const ideaFeedbackMutation = useIdeaFeedbackMutation({ channelId })
   const dashboardName = getDashboardName(user)
@@ -960,7 +918,6 @@ export function Dashboard({ onLogout }) {
       auditQuery.refetch()
       growthQuery.refetch()
       snapshotQuery.refetch()
-      bestTimeQuery.refetch()
     }
     setRefreshing(false)
   }
@@ -1112,1693 +1069,1404 @@ export function Dashboard({ onLogout }) {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [channelMenuOpen])
 
+  const dashboardContent = (
+    <>
+      {/* Floating channel pill — top center */}
+      <div
+        className={`dashboard-channel-pill-wrap ${channelMenuOpen ? 'dashboard-channel-pill-wrap--open' : ''}`}
+        ref={channelPillRef}
+        style={{ left: pillLeft }}
+      >
+        {youtube?.connected ? (
+          <div className="dashboard-channel-pill dashboard-channel-pill--connected">
+            <button
+              type="button"
+              className="dashboard-channel-pill-trigger"
+              onClick={() => setChannelMenuOpen((o) => !o)}
+              aria-expanded={channelMenuOpen}
+              aria-haspopup="true"
+              aria-label="Channel menu"
+            >
+              {youtube.profile_image || youtube.avatar ? (
+                <img
+                  src={youtube.profile_image || youtube.avatar}
+                  alt=""
+                  className="dashboard-channel-pill-avatar"
+                />
+              ) : (
+                <span className="dashboard-channel-pill-avatar dashboard-channel-pill-avatar--fallback">
+                  {(youtube.channel_title || youtube.channelName || 'Y')[0]}
+                </span>
+              )}
+              <span className="dashboard-channel-pill-name">
+                {youtube.channel_title || youtube.channelName || 'My Channel'}
+              </span>
+              <span className="dashboard-channel-pill-chevron" aria-hidden>
+                <IconChevronDown />
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`dashboard-channel-pill-refresh ${refreshing ? 'dashboard-channel-pill-refresh--spin' : ''}`}
+              onClick={handleRefreshDashboard}
+              disabled={refreshing}
+              aria-label="Refresh dashboard data"
+              title="Refresh"
+            >
+              <IconRefresh />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="dashboard-channel-pill"
+            onClick={handleConnectYouTube}
+            disabled={youtubeLoading}
+            aria-label="Connect YouTube"
+          >
+            <span className="dashboard-channel-pill-icon" aria-hidden>
+              <IconPlus />
+            </span>
+            <span className="dashboard-channel-pill-label">Connect YouTube</span>
+          </button>
+        )}
+
+        {channelMenuOpen && youtube?.connected && (
+          <div className="dashboard-channel-pill-menu" role="menu" aria-label="Channel options">
+            <button
+              type="button"
+              className="dashboard-channel-pill-menu-item dashboard-channel-pill-menu-item--add"
+              role="menuitem"
+              onClick={() => {
+                setChannelMenuOpen(false)
+                handleConnectYouTube()
+              }}
+              disabled={youtubeLoading}
+            >
+              <span className="dashboard-channel-pill-menu-icon">
+                <IconPlus />
+              </span>
+              Add another channel
+            </button>
+            {youtubeChannels?.length > 0 && (
+              <>
+                <div className="dashboard-channel-pill-menu-divider" />
+                <div className="dashboard-channel-pill-menu-channels">
+                  {youtubeChannels.map((c) => {
+                    const isActive =
+                      (c.channel_id || c.channelId) === (youtube?.channelId || youtube?.channel_id)
+                    return (
+                      <button
+                        key={c.channel_id || c.channelId}
+                        type="button"
+                        className={`dashboard-channel-pill-menu-item ${isActive ? 'dashboard-channel-pill-menu-item--active' : ''}`}
+                        role="menuitemradio"
+                        aria-checked={isActive}
+                        onClick={() => {
+                          if (isActive) {
+                            setChannelMenuOpen(false)
+                            return
+                          }
+                          handleSwitchChannel(c.channel_id || c.channelId)
+                          setChannelMenuOpen(false)
+                        }}
+                        disabled={youtubeLoading}
+                      >
+                        {c.profile_image || c.avatar ? (
+                          <img
+                            src={c.profile_image || c.avatar}
+                            alt=""
+                            className="dashboard-channel-pill-menu-avatar"
+                          />
+                        ) : (
+                          <span className="dashboard-channel-pill-menu-avatar dashboard-channel-pill-menu-avatar--fallback">
+                            {(c.channel_title || c.channelName || '?')[0]}
+                          </span>
+                        )}
+                        <span className="dashboard-channel-pill-menu-name">
+                          {c.channel_title || c.channelName || c.channel_id}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+            <div className="dashboard-channel-pill-menu-divider" />
+            <button
+              type="button"
+              className="dashboard-channel-pill-menu-item dashboard-channel-pill-menu-item--danger"
+              role="menuitem"
+              onClick={() => {
+                setChannelMenuOpen(false)
+                handleDisconnectYouTube()
+              }}
+              disabled={youtubeLoading}
+            >
+              Disconnect channel
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="dashboard-main-scroll">
+        <div className="dashboard-main">
+          <div className="dashboard-content-shell">
+            {youtubeConnectionSuccess && (
+              <div className="dashboard-message dashboard-message--success" role="status">
+                <span className="dashboard-message-icon" aria-hidden>
+                  ✓
+                </span>
+                <span>YouTube connected successfully.</span>
+                <button
+                  type="button"
+                  className="dashboard-message-dismiss"
+                  onClick={() => setYoutubeConnectionSuccess(false)}
+                  aria-label="Dismiss"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            {youtubeOAuthError && (
+              <div className="dashboard-message dashboard-message--error" role="alert">
+                <span className="dashboard-message-icon">⚠️</span>
+                <span>{youtubeOAuthError}</span>
+                <button
+                  type="button"
+                  className="dashboard-message-dismiss"
+                  onClick={() => setYoutubeOAuthError(null)}
+                  aria-label="Dismiss"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+
+            {!shellManaged && (
+              <SettingsModal
+                open={settingsOpen}
+                initialSection={settingsSection}
+                onClose={() => setSettingsOpen(false)}
+                user={user}
+                accountDeletePasswordOptional={
+                  typeof allowsPasswordlessAccountDelete === 'function' &&
+                  allowsPasswordlessAccountDelete()
+                }
+                authLoading={authLoading}
+                changePassword={changePassword}
+                deleteData={deleteData}
+                deleteAccount={deleteAccount}
+                clearLocalData={clearLocalData}
+                youtube={youtube}
+                youtubeChannels={youtubeChannels}
+                youtubeLoading={youtubeLoading}
+                youtubeOAuthError={youtubeOAuthError}
+                setYoutubeOAuthError={setYoutubeOAuthError}
+                onConnectYouTube={handleConnectYouTube}
+                onDisconnectYouTube={handleDisconnectYouTube}
+                onSwitchChannel={handleSwitchChannel}
+                niche={niche}
+                videoFormat={videoFormat}
+                uploadFrequency={uploadFrequency}
+                preferredLanguage={preferredLanguage}
+                setPreferredLanguage={setPreferredLanguage}
+                getValidAccessToken={getValidAccessToken}
+                syncToBackend={syncToBackend}
+                setNiche={setNiche}
+                setVideoFormat={setVideoFormat}
+                setUploadFrequency={setUploadFrequency}
+                preferredTone={preferredTone}
+                speakingStyle={speakingStyle}
+                preferredCtaStyle={preferredCtaStyle}
+                includePersonalStories={includePersonalStories}
+                useFirstPerson={useFirstPerson}
+                setPreferredTone={setPreferredTone}
+                setSpeakingStyle={setSpeakingStyle}
+                setPreferredCtaStyle={setPreferredCtaStyle}
+                setIncludePersonalStories={setIncludePersonalStories}
+                setUseFirstPerson={setUseFirstPerson}
+                onLogout={onLogout}
+              />
+            )}
+
+            {ideaDismissIdea && (
+              <div
+                className="dashboard-idea-modal-backdrop"
+                role="presentation"
+                onClick={closeIdeaDismissDialog}
+              >
+                <div
+                  className="dashboard-idea-modal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="dashboard-idea-dismiss-title"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="dashboard-idea-modal-accent" aria-hidden />
+                  <div className="dashboard-idea-modal-head">
+                    <div className="dashboard-idea-modal-head-text">
+                      <span className="dashboard-idea-modal-kicker">Pass on this idea</span>
+                      <h3 id="dashboard-idea-dismiss-title">Help us show better suggestions</h3>
+                    </div>
+                    <button
+                      type="button"
+                      className="dashboard-idea-modal-close"
+                      aria-label="Close"
+                      onClick={closeIdeaDismissDialog}
+                    >
+                      <span aria-hidden>×</span>
+                    </button>
+                  </div>
+                  <div className="dashboard-idea-modal-preview">
+                    <span className="dashboard-idea-modal-preview-label">Video title</span>
+                    <p className="dashboard-idea-modal-preview-title">
+                      {ideaDismissIdea?.idea_title || ideaDismissIdea?.title || 'Untitled idea'}
+                    </p>
+                  </div>
+                  <form className="dashboard-idea-modal-form" onSubmit={handleDismissSubmit}>
+                    <p
+                      className="dashboard-idea-modal-section-label"
+                      id="idea-dismiss-reasons-label"
+                    >
+                      Why are you passing?
+                    </p>
+                    <div
+                      className="dashboard-idea-modal-options"
+                      role="radiogroup"
+                      aria-labelledby="idea-dismiss-reasons-label"
+                    >
+                      {IDEA_FEEDBACK_REASONS.map((option) => (
+                        <label
+                          key={option.value}
+                          className={`dashboard-idea-modal-option ${ideaDismissReason === option.value ? 'is-selected' : ''}`}
+                        >
+                          <input
+                            type="radio"
+                            name="idea-dismiss-reason"
+                            value={option.value}
+                            checked={ideaDismissReason === option.value}
+                            onChange={() => {
+                              setIdeaDismissReason(option.value)
+                              setIdeaDismissError('')
+                            }}
+                          />
+                          <span className="dashboard-idea-modal-option-body">
+                            <span className="dashboard-idea-modal-option-title">
+                              {option.label}
+                            </span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    <label className="dashboard-idea-modal-field">
+                      <span className="dashboard-idea-modal-field-label">
+                        Note{' '}
+                        {ideaDismissReason === 'other' ? <em>(required)</em> : <em>(optional)</em>}
+                      </span>
+                      <textarea
+                        value={ideaDismissDetails}
+                        onChange={(e) => {
+                          setIdeaDismissDetails(e.target.value)
+                          setIdeaDismissError('')
+                        }}
+                        placeholder="Anything specific helps — we read these to improve the model."
+                        rows={3}
+                      />
+                    </label>
+                    {ideaDismissError && (
+                      <div className="dashboard-idea-modal-error" role="alert">
+                        {ideaDismissError}
+                      </div>
+                    )}
+                    <div className="dashboard-idea-modal-actions">
+                      <button
+                        type="button"
+                        className="dashboard-idea-modal-btn dashboard-idea-modal-btn--ghost"
+                        onClick={closeIdeaDismissDialog}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="dashboard-idea-modal-btn dashboard-idea-modal-btn--primary"
+                        disabled={
+                          ideaFeedbackSending ===
+                          `${ideaDismissIdea?.idea_title || ideaDismissIdea?.title || ''}-false`
+                        }
+                      >
+                        {ideaFeedbackSending ===
+                        `${ideaDismissIdea?.idea_title || ideaDismissIdea?.title || ''}-false` ? (
+                          <>
+                            <span className="dashboard-idea-modal-btn-spinner" aria-hidden />
+                            Removing…
+                          </>
+                        ) : (
+                          'Remove from my list'
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Compact YouTube connect promo — when not connected */}
+            {!youtube?.connected && (
+              <section className="dashboard-yt-connect-banner" aria-label="Connect YouTube">
+                <div className="dashboard-yt-connect-banner-body">
+                  <div className="dashboard-yt-connect-banner-head">
+                    <span className="dashboard-yt-connect-banner-badge" aria-hidden>
+                      <IconYoutubeMark />
+                    </span>
+                    <div className="dashboard-yt-connect-banner-titles">
+                      <h2 className="dashboard-yt-connect-banner-greeting">
+                        {getGreetingText()},{' '}
+                        <span className="dashboard-yt-connect-banner-name">{dashboardName}</span>
+                      </h2>
+                    </div>
+                  </div>
+                  <ul className="dashboard-yt-connect-banner-grid">
+                    <li>
+                      <span className="dashboard-yt-connect-banner-cell-icon" aria-hidden>
+                        <IconSpark />
+                      </span>
+                      <div>
+                        <strong>AI insights</strong>
+                      </div>
+                    </li>
+                    <li>
+                      <span className="dashboard-yt-connect-banner-cell-icon" aria-hidden>
+                        <IconTileGauge />
+                      </span>
+                      <div>
+                        <strong>Channel audit</strong>
+                      </div>
+                    </li>
+                    <li>
+                      <span className="dashboard-yt-connect-banner-cell-icon" aria-hidden>
+                        <IconChartUp />
+                      </span>
+                      <div>
+                        <strong>Growth analytics</strong>
+                      </div>
+                    </li>
+                    <li>
+                      <span className="dashboard-yt-connect-banner-cell-icon" aria-hidden>
+                        <IconOptimize />
+                      </span>
+                      <div>
+                        <strong>Quick actions</strong>
+                      </div>
+                    </li>
+                  </ul>
+                  <div className="dashboard-yt-connect-banner-cta-wrap">
+                    <button
+                      type="button"
+                      className="dashboard-yt-connect-banner-cta"
+                      onClick={handleConnectYouTube}
+                      disabled={youtubeLoading}
+                    >
+                      {youtubeLoading ? (
+                        <>
+                          <span className="dashboard-yt-connect-banner-cta-spinner" aria-hidden />
+                          Connecting…
+                        </>
+                      ) : (
+                        <>
+                          <span className="dashboard-yt-connect-banner-cta-yt" aria-hidden>
+                            <IconYoutubeMark />
+                          </span>
+                          Connect YouTube
+                          <span className="dashboard-yt-connect-banner-cta-arrow" aria-hidden>
+                            <IconArrowRight />
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* Channel Overview — linked channel with ID only */}
+            {hasChannelData && (
+              <section className="dashboard-section dashboard-channel-overview">
+                <div className="dashboard-overview-intro">
+                  <h2 className="dashboard-overview-greeting">
+                    {getGreetingText()},{' '}
+                    <span className="dashboard-overview-greeting-accent">{dashboardName}</span>
+                  </h2>
+                </div>
+                <div className="dashboard-overview-card dashboard-overview-card--compact">
+                  <div className="dashboard-overview-stats">
+                    {overviewCards.map((card) => {
+                      const growthValue = Number.isFinite(card.growth) ? card.growth : null
+                      const growthText = formatGrowthPercent(growthValue)
+                      const growthClass =
+                        growthValue != null && growthValue > 0
+                          ? 'is-positive'
+                          : growthValue != null && growthValue < 0
+                            ? 'is-negative'
+                            : 'is-neutral'
+
+                      return (
+                        <article
+                          key={card.key}
+                          className={`dashboard-overview-stat ${card.className}`}
+                        >
+                          <div className="dashboard-overview-stat-head">
+                            <span className="dashboard-overview-stat-icon" aria-hidden>
+                              {card.icon}
+                            </span>
+                            {growthText != null ? (
+                              <span className={`dashboard-overview-stat-growth ${growthClass}`}>
+                                {growthText}
+                              </span>
+                            ) : (
+                              <span
+                                className="dashboard-overview-stat-growth dashboard-overview-stat-growth--na"
+                                title="No period comparison yet"
+                              >
+                                —
+                              </span>
+                            )}
+                          </div>
+                          <span className="dashboard-overview-stat-value">{card.value}</span>
+                          <div className="dashboard-overview-stat-meta">
+                            <span className="dashboard-overview-stat-label">{card.label}</span>
+                          </div>
+                        </article>
+                      )
+                    })}
+                  </div>
+                  <div className="dashboard-milestones-wrap dashboard-milestones-wrap--compact">
+                    <div className="dashboard-milestones-head">
+                      <h3 className="dashboard-milestones-heading">Milestones</h3>
+                    </div>
+                    <div className="dashboard-milestones-grid dashboard-milestones-grid--pair">
+                      <DashboardMilestoneStrip
+                        key={
+                          subsMilestoneFrom != null
+                            ? `ms-aud-${channelId}-${subsMilestoneFrom}`
+                            : `ms-aud-${channelId}`
+                        }
+                        title="Audience"
+                        metricKind="subs"
+                        steps={SUBS_STEPS}
+                        current={subsCount}
+                        animateFrom={subsMilestoneFrom}
+                      />
+                      <DashboardMilestoneStrip
+                        key={
+                          viewsMilestoneFrom != null
+                            ? `ms-vw-${channelId}-${viewsMilestoneFrom}`
+                            : `ms-vw-${channelId}`
+                        }
+                        title="Views"
+                        metricKind="views"
+                        steps={VIEWS_STEPS}
+                        current={viewsCount}
+                        animateFrom={viewsMilestoneFrom}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {youtube?.connected && !channelId && (
+              <section
+                className="dashboard-section dashboard-channel-pending-section"
+                aria-label="Finish channel setup"
+              >
+                <div className="dashboard-command-channel-pending" role="status">
+                  <div className="dashboard-command-channel-pending-text">
+                    <strong>Pick your channel.</strong> Open Account settings and choose which
+                    YouTube channel to analyze—then audits, forecasts, and ranked ideas load here.
+                  </div>
+                  <DashButton variant="primary" onClick={() => openSettings('account')}>
+                    Open account settings
+                  </DashButton>
+                </div>
+              </section>
+            )}
+
+            {hasChannelData && (
+              <DashSection
+                icon="pulse"
+                title="Channel pulse"
+                className="dashboard-command-center"
+                meta={
+                  <>
+                    <span className="dashboard-command-status dashboard-command-status--live">
+                      YouTube linked
+                    </span>
+                    {auditLoading ? (
+                      <span className="dashboard-command-status dashboard-command-status--pending">
+                        Scoring channel…
+                      </span>
+                    ) : audit?.overall_score != null ? (
+                      <span className="dashboard-command-status">
+                        Health {audit.overall_score}/100
+                      </span>
+                    ) : (
+                      <span className="dashboard-command-status dashboard-command-status--pending">
+                        Audit pending
+                      </span>
+                    )}
+                  </>
+                }
+              >
+                <div className="dashboard-command-summary-grid" aria-label="Channel pulse overview">
+                  <aside className="dashboard-command-side-card dashboard-command-side-card--forecast">
+                    <div className="dashboard-command-side-head">
+                      <span className="dashboard-command-side-eyebrow">Forecast</span>
+                      <h3 className="dashboard-command-side-title">30-day view outlook</h3>
+                    </div>
+                    {growthLoading && (
+                      <div className="dashboard-forecast-skeleton" aria-busy="true">
+                        <span className="dashboard-skeleton-line" />
+                        <span className="dashboard-skeleton-line dashboard-skeleton-line--short" />
+                      </div>
+                    )}
+                    {!growthLoading && forecastMetrics && (
+                      <>
+                        {forecastMetrics.projected != null ? (
+                          <div
+                            className="dashboard-command-outlook-hero"
+                            title={
+                              forecastMetrics.projectedIsEstimated
+                                ? 'From 30-day daily pace'
+                                : '30-day view projection'
+                            }
+                          >
+                            <div className="dashboard-command-outlook-row">
+                              <span className="dashboard-command-outlook-value">
+                                {formatCount(forecastMetrics.projected)}
+                              </span>
+                              <span className="dashboard-command-outlook-unit">views</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="dashboard-shell-empty" aria-hidden>
+                            —
+                          </div>
+                        )}
+                        <div className="dashboard-command-mini-stats">
+                          <div className="dashboard-command-mini-stat">
+                            <span className="dashboard-command-mini-stat-label">7-day pace</span>
+                            <strong className="dashboard-command-mini-stat-value">
+                              {forecastMetrics.v7 != null
+                                ? `${forecastMetrics.v7.toFixed(1)} views/day`
+                                : 'No data'}
+                            </strong>
+                          </div>
+                          <div className="dashboard-command-mini-stat">
+                            <span className="dashboard-command-mini-stat-label">30-day pace</span>
+                            <strong className="dashboard-command-mini-stat-value">
+                              {forecastMetrics.v30 != null
+                                ? `${forecastMetrics.v30.toFixed(1)} views/day`
+                                : 'No data'}
+                            </strong>
+                          </div>
+                          {growth?.projected_subs_90d != null && (
+                            <div className="dashboard-command-mini-stat">
+                              <span className="dashboard-command-mini-stat-label">
+                                Sub forecast (90d)
+                              </span>
+                              <strong className="dashboard-command-mini-stat-value">
+                                {formatCount(growth.projected_subs_90d)} subs
+                              </strong>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                    {!growthLoading && growthScenario?.opportunity && (
+                      <div className="dashboard-command-target">
+                        <span className="dashboard-command-target-label">Upside range</span>
+                        <strong className="dashboard-command-target-value">
+                          {growthScenario.opportunity}
+                        </strong>
+                      </div>
+                    )}
+                    {!growthLoading && !forecastMetrics && (
+                      <div className="dashboard-shell-empty" aria-hidden>
+                        —
+                      </div>
+                    )}
+                  </aside>
+
+                  <article className="dashboard-command-side-card dashboard-command-side-card--packaging">
+                    <div className="dashboard-command-side-head">
+                      <span className="dashboard-command-side-eyebrow">Readiness</span>
+                      <h3 className="dashboard-command-side-title">Pre-publish check</h3>
+                    </div>
+                    {auditLoading && (
+                      <div className="dashboard-command-side-body" aria-busy="true">
+                        <div className="dashboard-command-metrics dashboard-command-metrics--loading">
+                          <span className="dashboard-skeleton-pill" />
+                          <span className="dashboard-skeleton-pill" />
+                          <span className="dashboard-skeleton-pill" />
+                        </div>
+                        <div className="dashboard-tile-score-skeleton">
+                          <span className="dashboard-skeleton-ring" />
+                        </div>
+                      </div>
+                    )}
+                    {!auditLoading && scriptPerformanceEstimate && prePublishScore && (
+                      <div className="dashboard-command-side-body">
+                        <div className="dashboard-command-check-top">
+                          <div className="dashboard-command-check-score">
+                            <div className="dashboard-command-check-score-row-main">
+                              <span className="dashboard-command-check-score-num">
+                                {prePublishScore.score}
+                              </span>
+                              <span className="dashboard-command-check-score-max">/100</span>
+                            </div>
+                          </div>
+                          <span
+                            className={`dashboard-command-readiness-pill dashboard-command-readiness-pill--${prePublishScore.tier}`}
+                          >
+                            {prePublishScore.tier === 'strong'
+                              ? 'Ship-ready'
+                              : prePublishScore.tier === 'mixed'
+                                ? 'Polish first'
+                                : 'Needs work'}
+                          </span>
+                        </div>
+
+                        <div className="dashboard-command-score-list">
+                          <div className="dashboard-command-score-row">
+                            <span className="dashboard-command-score-key">Packaging blend</span>
+                            <span className="dashboard-command-score-val">
+                              {scriptPerformanceEstimate.overall}
+                              <span className="dashboard-command-score-val-max">/100</span>
+                            </span>
+                          </div>
+                          <div className="dashboard-command-score-row">
+                            <span className="dashboard-command-score-key">Retention signal</span>
+                            <span className="dashboard-command-score-val">
+                              {scriptPerformanceEstimate.retention}
+                              <span className="dashboard-command-score-val-max">/100</span>
+                            </span>
+                          </div>
+                          <div className="dashboard-command-score-row">
+                            <span className="dashboard-command-score-key">Hook &amp; title</span>
+                            <span className="dashboard-command-score-val">
+                              {scriptPerformanceEstimate.hookStrength}
+                              <span className="dashboard-command-score-val-max">/100</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        {scriptPerformanceEstimate.weakPoints?.length > 0 && (
+                          <div className="dashboard-command-fix-row">
+                            <span className="dashboard-command-primary-label">
+                              Weakest areas first
+                            </span>
+                            <div className="dashboard-command-fix-pills">
+                              {scriptPerformanceEstimate.weakPoints
+                                .slice(0, 2)
+                                .map((point, wpIdx) => (
+                                  <span
+                                    key={`${wpIdx}-${point.label}`}
+                                    className="dashboard-command-mini-pill"
+                                  >
+                                    {point.label} · {point.score}/100
+                                  </span>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <DashButton
+                          asLink
+                          variant="secondary"
+                          className="dashboard-command-side-cta"
+                          href={`#${hashWithPrefill('optimize', optimizePrefill('titles & thumbnails', prePublishScore?.score ?? audit?.overall_score ?? null))}`}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            window.location.hash = hashWithPrefill(
+                              'optimize',
+                              optimizePrefill(
+                                'titles & thumbnails',
+                                prePublishScore?.score ?? audit?.overall_score ?? null
+                              )
+                            )
+                          }}
+                        >
+                          Improve in Optimize
+                          <span className="dashboard-next-action-cta-arrow" aria-hidden>
+                            <IconArrowRight />
+                          </span>
+                        </DashButton>
+                      </div>
+                    )}
+                    {!auditLoading && (!scriptPerformanceEstimate || !prePublishScore) && (
+                      <div className="dashboard-command-side-body">
+                        <div className="dashboard-shell-empty" aria-hidden>
+                          —
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                </div>
+              </DashSection>
+            )}
+
+            {/* Quick actions — only after YouTube is connected (use sidebar tools otherwise) */}
+            {youtube?.connected && (
+              <DashSection icon="quick" title="Quick actions" className="dashboard-quick-actions">
+                <div className="dashboard-quick-actions-grid">
+                  <a
+                    href={`#${hashWithPrefill('coach/scripts', scriptPrefill({ concept: null, pillar: 'Next video', score: null }))}`}
+                    className="dashboard-quick-action-card"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      window.location.hash = hashWithPrefill(
+                        'coach/scripts',
+                        scriptPrefill({ concept: null, pillar: 'Next video', score: null })
+                      )
+                    }}
+                  >
+                    <span
+                      className="dashboard-quick-action-icon dashboard-quick-action-icon--script"
+                      aria-hidden
+                    >
+                      <IconScript />
+                    </span>
+                    <span className="dashboard-quick-action-label">Script Generator</span>
+                    <span className="dashboard-quick-action-arrow" aria-hidden>
+                      <IconArrowRight />
+                    </span>
+                  </a>
+                  <a
+                    href={`#${hashWithPrefill('coach/thumbnails', thumbPrefill({ pillar: 'CTR', score: null, videoTitle: null }))}`}
+                    className="dashboard-quick-action-card"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      window.location.hash = hashWithPrefill(
+                        'coach/thumbnails',
+                        thumbPrefill({ pillar: 'CTR', score: null, videoTitle: null })
+                      )
+                    }}
+                  >
+                    <span
+                      className="dashboard-quick-action-icon dashboard-quick-action-icon--thumbnail"
+                      aria-hidden
+                    >
+                      <IconThumbnail />
+                    </span>
+                    <span className="dashboard-quick-action-label">Thumbnail Generator</span>
+                    <span className="dashboard-quick-action-arrow" aria-hidden>
+                      <IconArrowRight />
+                    </span>
+                  </a>
+                  <a
+                    href={`#${hashWithPrefill('coach', coachPrefill('Channel', null, 'Top 3 priorities for my channel this week.'))}`}
+                    className="dashboard-quick-action-card"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      window.location.hash = hashWithPrefill(
+                        'coach',
+                        coachPrefill('Channel', null, 'Top 3 priorities for my channel this week.')
+                      )
+                    }}
+                  >
+                    <span
+                      className="dashboard-quick-action-icon dashboard-quick-action-icon--coach"
+                      aria-hidden
+                    >
+                      <IconMessage />
+                    </span>
+                    <span className="dashboard-quick-action-label">AI Coach</span>
+                    <span className="dashboard-quick-action-arrow" aria-hidden>
+                      <IconArrowRight />
+                    </span>
+                  </a>
+                  <a
+                    href={`#${hashWithPrefill('optimize', optimizePrefill('titles & thumbnails', null))}`}
+                    className="dashboard-quick-action-card"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      window.location.hash = hashWithPrefill(
+                        'optimize',
+                        optimizePrefill('titles & thumbnails', null)
+                      )
+                    }}
+                  >
+                    <span
+                      className="dashboard-quick-action-icon dashboard-quick-action-icon--optimize"
+                      aria-hidden
+                    >
+                      <IconOptimize />
+                    </span>
+                    <span className="dashboard-quick-action-label">Optimize</span>
+                    <span className="dashboard-quick-action-arrow" aria-hidden>
+                      <IconArrowRight />
+                    </span>
+                  </a>
+                </div>
+              </DashSection>
+            )}
+
+            {/* AI Insights — script ideas */}
+            <DashSection
+              icon="ideas"
+              title="AI video ideas"
+              id="dashboard-video-ideas"
+              className="dashboard-insights-section"
+              meta={
+                <button
+                  type="button"
+                  className={`dashboard-script-ideas-regenerate${insightsBusy ? ' dashboard-script-ideas-regenerate--busy' : ''}`}
+                  onClick={() => {
+                    void insightsQuery.regenerateInsights().catch(() => {})
+                  }}
+                  disabled={insightsBusy}
+                  aria-busy={insightsRegenerating || insightsLoading}
+                  title="Regenerate ideas"
+                >
+                  {insightsRegenerating ? (
+                    <>
+                      <span className="dashboard-script-ideas-regenerate-btn-spinner" aria-hidden />
+                      <span>Regenerating…</span>
+                    </>
+                  ) : (
+                    <>
+                      <IconRefresh />
+                      <span>{insightsLoading ? 'Loading…' : 'Regenerate'}</span>
+                    </>
+                  )}
+                </button>
+              }
+            >
+              {insightsLoading && (
+                <div className="dashboard-script-ideas-loading">
+                  <span className="dashboard-loading-spinner" />
+                  <span>Generating ideas…</span>
+                </div>
+              )}
+              {insightsError && (
+                <div className="dashboard-script-ideas-error">
+                  <p>{insightsError}</p>
+                  <DashButton
+                    variant="primary"
+                    onClick={() => insightsQuery.refetch()}
+                    disabled={insightsQuery.isFetching}
+                  >
+                    Try again
+                  </DashButton>
+                </div>
+              )}
+              {!insightsLoading && !insightsError && insights && visibleScriptIdeas.length > 0 && (
+                <>
+                  {ideaFeedbackNotice && (
+                    <div
+                      className={`dashboard-inline-notice dashboard-inline-notice--${ideaFeedbackNotice.tone}`}
+                      role="status"
+                    >
+                      {ideaFeedbackNotice.text}
+                    </div>
+                  )}
+                  <div
+                    className={`dashboard-script-ideas-grid${insightsRegenerating ? ' dashboard-script-ideas-grid--refreshing' : ''}`}
+                  >
+                    {visibleScriptIdeas.map((idea, i) => {
+                      const title = idea?.idea_title ?? idea?.title ?? 'Idea'
+                      const script = idea?.short_script ?? idea?.script ?? idea?.description
+                      const key = `${title}-${i}`
+                      const sending =
+                        ideaFeedbackSending === `${title}-true` ||
+                        ideaFeedbackSending === `${title}-false`
+                      const tags = [
+                        idea?.hook_concept,
+                        idea?.angle,
+                        idea?.target_emotion,
+                        idea?.expected_audience,
+                      ].filter(Boolean)
+                      const num = i + 1
+                      return (
+                        <article key={key} className="dashboard-script-idea-card">
+                          <div className="dashboard-script-idea-card-top">
+                            <span className="dashboard-script-idea-num" aria-hidden>
+                              {num}
+                            </span>
+                            <div className="dashboard-script-idea-card-intro">
+                              <span className="dashboard-script-idea-field-label">Video title</span>
+                              <h3 className="dashboard-script-idea-card-title">{title}</h3>
+                              {script && (
+                                <>
+                                  <span className="dashboard-script-idea-field-label">
+                                    How the video goes
+                                  </span>
+                                  <p className="dashboard-script-idea-card-desc">{script}</p>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          {tags.length > 0 && (
+                            <div className="dashboard-script-idea-signals-slot">
+                              <div className="dashboard-script-idea-signals">
+                                <div className="dashboard-script-idea-signals-head">
+                                  <span className="dashboard-script-idea-signals-kicker">
+                                    Signals
+                                  </span>
+                                  <p className="dashboard-script-idea-signals-sub">
+                                    Why this could work
+                                  </p>
+                                </div>
+                                <div
+                                  className="dashboard-script-idea-signals-divider"
+                                  aria-hidden
+                                />
+                                <div className="dashboard-script-idea-signals-chips">
+                                  {tags.map((tag) => (
+                                    <span key={tag} className="dashboard-script-idea-signals-chip">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          <div className="dashboard-script-idea-card-actions">
+                            <div className="dashboard-script-idea-card-ctas">
+                              <a
+                                href={`#${hashWithPrefill('coach/scripts', scriptPrefill({ concept: title, pillar: 'Next video', score: null }))}`}
+                                className="dashboard-script-idea-card-btn dashboard-script-idea-card-btn--primary"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  window.location.hash = hashWithPrefill(
+                                    'coach/scripts',
+                                    scriptPrefill({
+                                      concept: title,
+                                      pillar: 'Next video',
+                                      score: null,
+                                    })
+                                  )
+                                }}
+                              >
+                                Write script
+                              </a>
+                              <a
+                                href={`#${hashWithPrefill(
+                                  thumbnailBattleHref(title),
+                                  thumbPrefill({
+                                    pillar: 'CTR / thumbnails',
+                                    score: null,
+                                    videoTitle: title,
+                                  })
+                                )}`}
+                                className="dashboard-script-idea-card-btn dashboard-script-idea-card-btn--secondary"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  window.location.hash = hashWithPrefill(
+                                    thumbnailBattleHref(title),
+                                    thumbPrefill({
+                                      pillar: 'CTR / thumbnails',
+                                      score: null,
+                                      videoTitle: title,
+                                    })
+                                  )
+                                }}
+                              >
+                                Thumbnail
+                              </a>
+                            </div>
+                            <div
+                              className="dashboard-script-idea-card-feedback"
+                              role="group"
+                              aria-label="Idea feedback"
+                            >
+                              <button
+                                type="button"
+                                className="dashboard-script-idea-feedback-pill dashboard-script-idea-feedback-pill--yes"
+                                title="Keep — we will favor ideas like this"
+                                aria-label="Keep this idea"
+                                disabled={sending}
+                                onClick={() => handleIdeaFeedback(idea, true)}
+                              >
+                                {sending ? (
+                                  <span
+                                    className="dashboard-script-idea-feedback-pill-dots"
+                                    aria-hidden
+                                  >
+                                    …
+                                  </span>
+                                ) : (
+                                  <>
+                                    <span
+                                      className="dashboard-script-idea-feedback-pill-glyph"
+                                      aria-hidden
+                                    >
+                                      ✓
+                                    </span>
+                                    <span className="dashboard-script-idea-feedback-pill-text">
+                                      Keep
+                                    </span>
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                className="dashboard-script-idea-feedback-pill dashboard-script-idea-feedback-pill--pass"
+                                title="Pass — tell us why this idea is not a fit"
+                                aria-label="Pass on this idea"
+                                disabled={sending}
+                                onClick={() => handleIdeaFeedback(idea, false)}
+                              >
+                                <span
+                                  className="dashboard-script-idea-feedback-pill-glyph dashboard-script-idea-feedback-pill-glyph--pass"
+                                  aria-hidden
+                                >
+                                  ↪
+                                </span>
+                                <span className="dashboard-script-idea-feedback-pill-text">
+                                  Pass
+                                </span>
+                              </button>
+                            </div>
+                          </div>
+                        </article>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+              {!insightsLoading &&
+                !insightsError &&
+                insights &&
+                visibleScriptIdeas.length === 0 && (
+                  <div className="dashboard-script-ideas-empty">
+                    <p>No ideas yet.</p>
+                    <a
+                      href="#coach/scripts"
+                      className="dashboard-script-ideas-empty-link"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        window.location.hash = 'coach/scripts'
+                      }}
+                    >
+                      Script Generator <IconArrowRight />
+                    </a>
+                  </div>
+                )}
+            </DashSection>
+
+            {/* Channel Audit (channel required) */}
+            {channelId && (
+              <DashSection
+                icon="health"
+                title="Channel health & audit"
+                id="dashboard-audit-heading"
+                className="dashboard-audit-open-section"
+              >
+                {auditLoading && (
+                  <div className="dashboard-loading">
+                    <span className="dashboard-loading-spinner" /> Loading audit…
+                  </div>
+                )}
+                {!auditLoading && audit && (
+                  <div className="dashboard-audit-layout dashboard-audit-layout--stack">
+                    <div className="dashboard-ai-card dashboard-audit-card dashboard-audit-card--hero dashboard-audit-card--hero-full">
+                      <div className="dashboard-audit-hero">
+                        <div className="dashboard-audit-hero-top">
+                          <div className="dashboard-audit-hero-main">
+                            <span className="dashboard-audit-overall-label">Overall score</span>
+                            <div className="dashboard-audit-overall-row">
+                              <span className="dashboard-audit-overall-value">
+                                {audit.overall_score ?? 0}
+                                <span className="dashboard-audit-overall-max">/100</span>
+                              </span>
+                              <span
+                                className={`dashboard-audit-overall-badge dashboard-audit-overall-badge--${getAuditScoreTier(audit.overall_score ?? 0)}`}
+                              >
+                                {auditTierLabel(getAuditScoreTier(audit.overall_score ?? 0))}
+                              </span>
+                            </div>
+                          </div>
+                          {auditBreakdownStats && (
+                            <ul className="dashboard-audit-hero-quick" aria-label="Score summary">
+                              <li>
+                                <span className="dashboard-audit-hero-quick-label">Avg</span>
+                                <span className="dashboard-audit-hero-quick-value">
+                                  {auditBreakdownStats.avg}
+                                </span>
+                              </li>
+                              <li>
+                                <span className="dashboard-audit-hero-quick-label">Strong</span>
+                                <span className="dashboard-audit-hero-quick-value">
+                                  {auditBreakdownStats.strongCount}
+                                </span>
+                              </li>
+                              <li>
+                                <span className="dashboard-audit-hero-quick-label">To improve</span>
+                                <span className="dashboard-audit-hero-quick-value">
+                                  {auditBreakdownStats.focusCount}
+                                </span>
+                              </li>
+                            </ul>
+                          )}
+                        </div>
+                        <div
+                          className="dashboard-audit-overall-bar"
+                          role="progressbar"
+                          aria-valuenow={audit.overall_score ?? 0}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                        >
+                          <div
+                            className={`dashboard-audit-overall-bar-fill dashboard-audit-overall-bar-fill--${getAuditScoreTier(audit.overall_score ?? 0)}`}
+                            style={{
+                              width: `${Math.min(100, Math.max(0, audit.overall_score ?? 0))}%`,
+                            }}
+                          />
+                        </div>
+                        {auditBreakdownStats && (
+                          <div className="dashboard-audit-hero-foot">
+                            <div className="dashboard-audit-hero-focus-card">
+                              <p className="dashboard-audit-hero-focus">
+                                <span className="dashboard-audit-hero-focus-label">
+                                  Lowest area
+                                </span>
+                                <span className="dashboard-audit-hero-focus-value">
+                                  {auditBreakdownStats.weakest.name} ·{' '}
+                                  {auditBreakdownStats.weakest.score}/100
+                                </span>
+                              </p>
+                            </div>
+                            <DashButton
+                              asLink
+                              variant="secondary"
+                              className="dashboard-audit-hero-cta"
+                              href={`#${optimizeAuditHash}`}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                window.location.hash = optimizeAuditHash
+                              }}
+                            >
+                              Improve in Optimize
+                              <span className="dashboard-audit-hero-cta-arrow" aria-hidden>
+                                <IconArrowRight />
+                              </span>
+                            </DashButton>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {Array.isArray(audit.scores) && audit.scores.length > 0 && (
+                      <div className="dashboard-audit-breakdown-card dashboard-audit-breakdown-card--full">
+                        <div className="dashboard-audit-scores-head">
+                          <div className="dashboard-audit-scores-head-text">
+                            <span className="dashboard-audit-scores-title">Score breakdown</span>
+                          </div>
+                        </div>
+                        <div className="dashboard-audit-scores">
+                          {audit.scores.map((s, i) => {
+                            const score = Number(s.score ?? 0)
+                            const pct = Math.min(100, Math.max(0, score))
+                            const tier = getAuditScoreTier(score)
+                            const nm = String(s.name ?? s.label ?? '')
+                            const guidance = getAuditAreaGuidance(
+                              nm,
+                              score,
+                              s.label ? String(s.label) : null
+                            )
+                            const areaAct = guidance.href
+                              ? { label: 'Fix now', hash: guidance.href }
+                              : getAreaAction(nm)
+                            const areaNavHash = hashWithPrefill(
+                              areaAct.hash,
+                              getAreaPrefill(nm, score)
+                            )
+                            return (
+                              <a
+                                key={i}
+                                href={`#${areaNavHash}`}
+                                className={`dashboard-audit-score-item dashboard-audit-score-item--${tier}`}
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  window.location.hash = areaNavHash
+                                }}
+                              >
+                                <div className="dashboard-audit-score-head">
+                                  <span className="dashboard-audit-score-name">
+                                    {s.name ?? s.label}
+                                  </span>
+                                  <div className="dashboard-audit-score-right">
+                                    <span
+                                      className={`dashboard-audit-score-value dashboard-audit-score-value--${tier}`}
+                                    >
+                                      {score}
+                                      <span className="dashboard-audit-score-max">/100</span>
+                                    </span>
+                                  </div>
+                                </div>
+                                <div
+                                  className="dashboard-audit-score-bar"
+                                  role="progressbar"
+                                  aria-valuenow={score}
+                                  aria-valuemin={0}
+                                  aria-valuemax={100}
+                                >
+                                  <div
+                                    className={`dashboard-audit-score-bar-fill dashboard-audit-score-bar-fill--${tier}`}
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                                <div className="dashboard-audit-score-footer">
+                                  <span
+                                    className={`dashboard-audit-score-tier dashboard-audit-score-tier--${tier}`}
+                                  >
+                                    {auditTierLabel(tier)}
+                                  </span>
+                                  <span className="dashboard-audit-score-action">
+                                    {tier === 'high' ? 'View details' : areaAct.label}
+                                    <IconArrowRight />
+                                  </span>
+                                </div>
+                              </a>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </DashSection>
+            )}
+
+            {/* Thumbnail workshop — CTR improvement tools */}
+            {channelId && (
+              <DashSection
+                icon="quick"
+                title="Thumbnail workshop"
+                className="dashboard-thumb-workshop"
+              >
+                <div className="dashboard-thumb-workshop-grid">
+                  <a
+                    href={`#${hashWithPrefill('coach/thumbnails', thumbPrefill({ pillar: 'CTR', score: thumbnailAuditScore, videoTitle: null }))}`}
+                    className="dashboard-thumb-workshop-card"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      window.location.hash = hashWithPrefill(
+                        'coach/thumbnails',
+                        thumbPrefill({
+                          pillar: 'CTR',
+                          score: thumbnailAuditScore,
+                          videoTitle: null,
+                        })
+                      )
+                    }}
+                  >
+                    <span className="dashboard-thumb-workshop-card-icon" aria-hidden>
+                      <IconThumbnail />
+                    </span>
+                    <div className="dashboard-thumb-workshop-card-text">
+                      <span className="dashboard-thumb-workshop-card-title">
+                        Generate thumbnails
+                      </span>
+                      <span className="dashboard-thumb-workshop-card-desc">
+                        AI creates 4 contrasting thumbnail directions for your next video
+                      </span>
+                    </div>
+                    <span className="dashboard-thumb-workshop-card-arrow" aria-hidden>
+                      <IconArrowRight />
+                    </span>
+                  </a>
+                  <a
+                    href={`#${thumbnailBattleHref(null)}`}
+                    className="dashboard-thumb-workshop-card"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      window.location.hash = thumbnailBattleHref(null)
+                    }}
+                  >
+                    <span
+                      className="dashboard-thumb-workshop-card-icon dashboard-thumb-workshop-card-icon--battle"
+                      aria-hidden
+                    >
+                      <IconChartUp />
+                    </span>
+                    <div className="dashboard-thumb-workshop-card-text">
+                      <span className="dashboard-thumb-workshop-card-title">Thumbnail battle</span>
+                      <span className="dashboard-thumb-workshop-card-desc">
+                        Compare two thumbnail options and get AI feedback on which drives more
+                        clicks
+                      </span>
+                    </div>
+                    <span className="dashboard-thumb-workshop-card-arrow" aria-hidden>
+                      <IconArrowRight />
+                    </span>
+                  </a>
+                  <a
+                    href={`#${hashWithPrefill('optimize', optimizePrefill('titles & thumbnails', thumbnailAuditScore))}`}
+                    className="dashboard-thumb-workshop-card"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      window.location.hash = hashWithPrefill(
+                        'optimize',
+                        optimizePrefill('titles & thumbnails', thumbnailAuditScore)
+                      )
+                    }}
+                  >
+                    <span
+                      className="dashboard-thumb-workshop-card-icon dashboard-thumb-workshop-card-icon--optimize"
+                      aria-hidden
+                    >
+                      <IconOptimize />
+                    </span>
+                    <div className="dashboard-thumb-workshop-card-text">
+                      <span className="dashboard-thumb-workshop-card-title">Optimize existing</span>
+                      <span className="dashboard-thumb-workshop-card-desc">
+                        Review your published thumbnails and get suggestions to improve CTR
+                      </span>
+                    </div>
+                    <span className="dashboard-thumb-workshop-card-arrow" aria-hidden>
+                      <IconArrowRight />
+                    </span>
+                  </a>
+                </div>
+                {thumbnailAuditTips.length > 0 && (
+                  <div className="dashboard-thumb-workshop-tips">
+                    <span className="dashboard-thumb-workshop-tips-label">
+                      Quick tips from your audit
+                    </span>
+                    <ul className="dashboard-thumb-workshop-tips-list">
+                      {thumbnailAuditTips.map((tip, i) => (
+                        <li key={i}>{tip}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </DashSection>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  )
+
+  if (shellManaged) return dashboardContent
+
   return (
-    <div className="dashboard-page">
-      <div className="dashboard-app-shell">
+    <AppShellLayout
+      pageClassName="dashboard-page"
+      mainClassName="dashboard-main-wrap"
+      sidebar={
         <Sidebar
           user={user}
           onOpenSettings={openSettings}
           onLogout={handleLogout}
           currentScreen="dashboard"
         />
-        <main className="dashboard-main-wrap">
-          {/* Floating channel pill — top center */}
-          <div
-            className={`dashboard-channel-pill-wrap ${channelMenuOpen ? 'dashboard-channel-pill-wrap--open' : ''}`}
-            ref={channelPillRef}
-            style={{ left: pillLeft }}
-          >
-            {youtube?.connected ? (
-              <div className="dashboard-channel-pill dashboard-channel-pill--connected">
-                <button
-                  type="button"
-                  className="dashboard-channel-pill-trigger"
-                  onClick={() => setChannelMenuOpen((o) => !o)}
-                  aria-expanded={channelMenuOpen}
-                  aria-haspopup="true"
-                  aria-label="Channel menu"
-                >
-                  {youtube.profile_image || youtube.avatar ? (
-                    <img
-                      src={youtube.profile_image || youtube.avatar}
-                      alt=""
-                      className="dashboard-channel-pill-avatar"
-                    />
-                  ) : (
-                    <span className="dashboard-channel-pill-avatar dashboard-channel-pill-avatar--fallback">
-                      {(youtube.channel_title || youtube.channelName || 'Y')[0]}
-                    </span>
-                  )}
-                  <span className="dashboard-channel-pill-name">
-                    {youtube.channel_title || youtube.channelName || 'My Channel'}
-                  </span>
-                  <span className="dashboard-channel-pill-chevron" aria-hidden>
-                    <IconChevronDown />
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className={`dashboard-channel-pill-refresh ${refreshing ? 'dashboard-channel-pill-refresh--spin' : ''}`}
-                  onClick={handleRefreshDashboard}
-                  disabled={refreshing}
-                  aria-label="Refresh dashboard data"
-                  title="Refresh"
-                >
-                  <IconRefresh />
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="dashboard-channel-pill"
-                onClick={handleConnectYouTube}
-                disabled={youtubeLoading}
-                aria-label="Connect YouTube"
-              >
-                <span className="dashboard-channel-pill-icon" aria-hidden>
-                  <IconPlus />
-                </span>
-                <span className="dashboard-channel-pill-label">Connect YouTube</span>
-              </button>
-            )}
-
-            {channelMenuOpen && youtube?.connected && (
-              <div className="dashboard-channel-pill-menu" role="menu" aria-label="Channel options">
-                <button
-                  type="button"
-                  className="dashboard-channel-pill-menu-item dashboard-channel-pill-menu-item--add"
-                  role="menuitem"
-                  onClick={() => {
-                    setChannelMenuOpen(false)
-                    handleConnectYouTube()
-                  }}
-                  disabled={youtubeLoading}
-                >
-                  <span className="dashboard-channel-pill-menu-icon">
-                    <IconPlus />
-                  </span>
-                  Add another channel
-                </button>
-                {youtubeChannels?.length > 0 && (
-                  <>
-                    <div className="dashboard-channel-pill-menu-divider" />
-                    <div className="dashboard-channel-pill-menu-channels">
-                      {youtubeChannels.map((c) => {
-                        const isActive =
-                          (c.channel_id || c.channelId) ===
-                          (youtube?.channelId || youtube?.channel_id)
-                        return (
-                          <button
-                            key={c.channel_id || c.channelId}
-                            type="button"
-                            className={`dashboard-channel-pill-menu-item ${isActive ? 'dashboard-channel-pill-menu-item--active' : ''}`}
-                            role="menuitemradio"
-                            aria-checked={isActive}
-                            onClick={() => {
-                              if (isActive) {
-                                setChannelMenuOpen(false)
-                                return
-                              }
-                              handleSwitchChannel(c.channel_id || c.channelId)
-                              setChannelMenuOpen(false)
-                            }}
-                            disabled={youtubeLoading}
-                          >
-                            {c.profile_image || c.avatar ? (
-                              <img
-                                src={c.profile_image || c.avatar}
-                                alt=""
-                                className="dashboard-channel-pill-menu-avatar"
-                              />
-                            ) : (
-                              <span className="dashboard-channel-pill-menu-avatar dashboard-channel-pill-menu-avatar--fallback">
-                                {(c.channel_title || c.channelName || '?')[0]}
-                              </span>
-                            )}
-                            <span className="dashboard-channel-pill-menu-name">
-                              {c.channel_title || c.channelName || c.channel_id}
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </>
-                )}
-                <div className="dashboard-channel-pill-menu-divider" />
-                <button
-                  type="button"
-                  className="dashboard-channel-pill-menu-item dashboard-channel-pill-menu-item--danger"
-                  role="menuitem"
-                  onClick={() => {
-                    setChannelMenuOpen(false)
-                    handleDisconnectYouTube()
-                  }}
-                  disabled={youtubeLoading}
-                >
-                  Disconnect channel
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="dashboard-main-scroll">
-            <div className="dashboard-main">
-              <div className="dashboard-content-shell">
-                {youtubeConnectionSuccess && (
-                  <div className="dashboard-message dashboard-message--success" role="status">
-                    <span className="dashboard-message-icon" aria-hidden>
-                      ✓
-                    </span>
-                    <span>YouTube connected successfully.</span>
-                    <button
-                      type="button"
-                      className="dashboard-message-dismiss"
-                      onClick={() => setYoutubeConnectionSuccess(false)}
-                      aria-label="Dismiss"
-                    >
-                      ×
-                    </button>
-                  </div>
-                )}
-                {youtubeOAuthError && (
-                  <div className="dashboard-message dashboard-message--error" role="alert">
-                    <span className="dashboard-message-icon">⚠️</span>
-                    <span>{youtubeOAuthError}</span>
-                    <button
-                      type="button"
-                      className="dashboard-message-dismiss"
-                      onClick={() => setYoutubeOAuthError(null)}
-                      aria-label="Dismiss"
-                    >
-                      ×
-                    </button>
-                  </div>
-                )}
-
-                <SettingsModal
-                  open={settingsOpen}
-                  initialSection={settingsSection}
-                  onClose={() => setSettingsOpen(false)}
-                  user={user}
-                  accountDeletePasswordOptional={
-                    typeof allowsPasswordlessAccountDelete === 'function' &&
-                    allowsPasswordlessAccountDelete()
-                  }
-                  authLoading={authLoading}
-                  changePassword={changePassword}
-                  deleteData={deleteData}
-                  deleteAccount={deleteAccount}
-                  clearLocalData={clearLocalData}
-                  youtube={youtube}
-                  youtubeChannels={youtubeChannels}
-                  youtubeLoading={youtubeLoading}
-                  youtubeOAuthError={youtubeOAuthError}
-                  setYoutubeOAuthError={setYoutubeOAuthError}
-                  onConnectYouTube={handleConnectYouTube}
-                  onDisconnectYouTube={handleDisconnectYouTube}
-                  onSwitchChannel={handleSwitchChannel}
-                  niche={niche}
-                  videoFormat={videoFormat}
-                  uploadFrequency={uploadFrequency}
-                  preferredLanguage={preferredLanguage}
-                  setPreferredLanguage={setPreferredLanguage}
-                  getValidAccessToken={getValidAccessToken}
-                  syncToBackend={syncToBackend}
-                  setNiche={setNiche}
-                  setVideoFormat={setVideoFormat}
-                  setUploadFrequency={setUploadFrequency}
-                  preferredTone={preferredTone}
-                  speakingStyle={speakingStyle}
-                  preferredCtaStyle={preferredCtaStyle}
-                  includePersonalStories={includePersonalStories}
-                  useFirstPerson={useFirstPerson}
-                  setPreferredTone={setPreferredTone}
-                  setSpeakingStyle={setSpeakingStyle}
-                  setPreferredCtaStyle={setPreferredCtaStyle}
-                  setIncludePersonalStories={setIncludePersonalStories}
-                  setUseFirstPerson={setUseFirstPerson}
-                  onLogout={onLogout}
-                />
-
-                {ideaDismissIdea && (
-                  <div
-                    className="dashboard-idea-modal-backdrop"
-                    role="presentation"
-                    onClick={closeIdeaDismissDialog}
-                  >
-                    <div
-                      className="dashboard-idea-modal"
-                      role="dialog"
-                      aria-modal="true"
-                      aria-labelledby="dashboard-idea-dismiss-title"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="dashboard-idea-modal-accent" aria-hidden />
-                      <div className="dashboard-idea-modal-head">
-                        <div className="dashboard-idea-modal-head-text">
-                          <span className="dashboard-idea-modal-kicker">Pass on this idea</span>
-                          <h3 id="dashboard-idea-dismiss-title">Help us show better suggestions</h3>
-                        </div>
-                        <button
-                          type="button"
-                          className="dashboard-idea-modal-close"
-                          aria-label="Close"
-                          onClick={closeIdeaDismissDialog}
-                        >
-                          <span aria-hidden>×</span>
-                        </button>
-                      </div>
-                      <div className="dashboard-idea-modal-preview">
-                        <span className="dashboard-idea-modal-preview-label">Video title</span>
-                        <p className="dashboard-idea-modal-preview-title">
-                          {ideaDismissIdea?.idea_title || ideaDismissIdea?.title || 'Untitled idea'}
-                        </p>
-                      </div>
-                      <form className="dashboard-idea-modal-form" onSubmit={handleDismissSubmit}>
-                        <p
-                          className="dashboard-idea-modal-section-label"
-                          id="idea-dismiss-reasons-label"
-                        >
-                          Why are you passing?
-                        </p>
-                        <div
-                          className="dashboard-idea-modal-options"
-                          role="radiogroup"
-                          aria-labelledby="idea-dismiss-reasons-label"
-                        >
-                          {IDEA_FEEDBACK_REASONS.map((option) => (
-                            <label
-                              key={option.value}
-                              className={`dashboard-idea-modal-option ${ideaDismissReason === option.value ? 'is-selected' : ''}`}
-                            >
-                              <input
-                                type="radio"
-                                name="idea-dismiss-reason"
-                                value={option.value}
-                                checked={ideaDismissReason === option.value}
-                                onChange={() => {
-                                  setIdeaDismissReason(option.value)
-                                  setIdeaDismissError('')
-                                }}
-                              />
-                              <span className="dashboard-idea-modal-option-body">
-                                <span className="dashboard-idea-modal-option-title">
-                                  {option.label}
-                                </span>
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                        <label className="dashboard-idea-modal-field">
-                          <span className="dashboard-idea-modal-field-label">
-                            Note{' '}
-                            {ideaDismissReason === 'other' ? (
-                              <em>(required)</em>
-                            ) : (
-                              <em>(optional)</em>
-                            )}
-                          </span>
-                          <textarea
-                            value={ideaDismissDetails}
-                            onChange={(e) => {
-                              setIdeaDismissDetails(e.target.value)
-                              setIdeaDismissError('')
-                            }}
-                            placeholder="Anything specific helps — we read these to improve the model."
-                            rows={3}
-                          />
-                        </label>
-                        {ideaDismissError && (
-                          <div className="dashboard-idea-modal-error" role="alert">
-                            {ideaDismissError}
-                          </div>
-                        )}
-                        <div className="dashboard-idea-modal-actions">
-                          <button
-                            type="button"
-                            className="dashboard-idea-modal-btn dashboard-idea-modal-btn--ghost"
-                            onClick={closeIdeaDismissDialog}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="submit"
-                            className="dashboard-idea-modal-btn dashboard-idea-modal-btn--primary"
-                            disabled={
-                              ideaFeedbackSending ===
-                              `${ideaDismissIdea?.idea_title || ideaDismissIdea?.title || ''}-false`
-                            }
-                          >
-                            {ideaFeedbackSending ===
-                            `${ideaDismissIdea?.idea_title || ideaDismissIdea?.title || ''}-false` ? (
-                              <>
-                                <span className="dashboard-idea-modal-btn-spinner" aria-hidden />
-                                Removing…
-                              </>
-                            ) : (
-                              'Remove from my list'
-                            )}
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-                  </div>
-                )}
-
-                {/* Compact YouTube connect promo — when not connected */}
-                {!youtube?.connected && (
-                  <section className="dashboard-yt-connect-banner" aria-label="Connect YouTube">
-                    <div className="dashboard-yt-connect-banner-body">
-                      <div className="dashboard-yt-connect-banner-head">
-                        <span className="dashboard-yt-connect-banner-badge" aria-hidden>
-                          <IconYoutubeMark />
-                        </span>
-                        <div className="dashboard-yt-connect-banner-titles">
-                          <h2 className="dashboard-yt-connect-banner-greeting">
-                            {getGreetingText()},{' '}
-                            <span className="dashboard-yt-connect-banner-name">
-                              {dashboardName}
-                            </span>
-                          </h2>
-                        </div>
-                      </div>
-                      <ul className="dashboard-yt-connect-banner-grid">
-                        <li>
-                          <span className="dashboard-yt-connect-banner-cell-icon" aria-hidden>
-                            <IconSpark />
-                          </span>
-                          <div>
-                            <strong>AI insights</strong>
-                          </div>
-                        </li>
-                        <li>
-                          <span className="dashboard-yt-connect-banner-cell-icon" aria-hidden>
-                            <IconTileGauge />
-                          </span>
-                          <div>
-                            <strong>Channel audit</strong>
-                          </div>
-                        </li>
-                        <li>
-                          <span className="dashboard-yt-connect-banner-cell-icon" aria-hidden>
-                            <IconChartUp />
-                          </span>
-                          <div>
-                            <strong>Growth analytics</strong>
-                          </div>
-                        </li>
-                        <li>
-                          <span className="dashboard-yt-connect-banner-cell-icon" aria-hidden>
-                            <IconOptimize />
-                          </span>
-                          <div>
-                            <strong>Quick actions</strong>
-                          </div>
-                        </li>
-                      </ul>
-                      <div className="dashboard-yt-connect-banner-cta-wrap">
-                        <button
-                          type="button"
-                          className="dashboard-yt-connect-banner-cta"
-                          onClick={handleConnectYouTube}
-                          disabled={youtubeLoading}
-                        >
-                          {youtubeLoading ? (
-                            <>
-                              <span
-                                className="dashboard-yt-connect-banner-cta-spinner"
-                                aria-hidden
-                              />
-                              Connecting…
-                            </>
-                          ) : (
-                            <>
-                              <span className="dashboard-yt-connect-banner-cta-yt" aria-hidden>
-                                <IconYoutubeMark />
-                              </span>
-                              Connect YouTube
-                              <span className="dashboard-yt-connect-banner-cta-arrow" aria-hidden>
-                                <IconArrowRight />
-                              </span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </section>
-                )}
-
-                {/* Channel Overview — linked channel with ID only */}
-                {hasChannelData && (
-                  <section className="dashboard-section dashboard-channel-overview">
-                    <div className="dashboard-overview-intro">
-                      <h2 className="dashboard-overview-greeting">
-                        {getGreetingText()},{' '}
-                        <span className="dashboard-overview-greeting-accent">{dashboardName}</span>
-                      </h2>
-                    </div>
-                    <div className="dashboard-overview-card dashboard-overview-card--compact">
-                      <div className="dashboard-overview-stats">
-                        {overviewCards.map((card) => {
-                          const growthValue = Number.isFinite(card.growth) ? card.growth : null
-                          const growthText = formatGrowthPercent(growthValue)
-                          const growthClass =
-                            growthValue != null && growthValue > 0
-                              ? 'is-positive'
-                              : growthValue != null && growthValue < 0
-                                ? 'is-negative'
-                                : 'is-neutral'
-
-                          return (
-                            <article
-                              key={card.key}
-                              className={`dashboard-overview-stat ${card.className}`}
-                            >
-                              <div className="dashboard-overview-stat-head">
-                                <span className="dashboard-overview-stat-icon" aria-hidden>
-                                  {card.icon}
-                                </span>
-                                {growthText != null ? (
-                                  <span className={`dashboard-overview-stat-growth ${growthClass}`}>
-                                    {growthText}
-                                  </span>
-                                ) : (
-                                  <span
-                                    className="dashboard-overview-stat-growth dashboard-overview-stat-growth--na"
-                                    title="No period comparison yet"
-                                  >
-                                    —
-                                  </span>
-                                )}
-                              </div>
-                              <span className="dashboard-overview-stat-value">{card.value}</span>
-                              <div className="dashboard-overview-stat-meta">
-                                <span className="dashboard-overview-stat-label">{card.label}</span>
-                              </div>
-                            </article>
-                          )
-                        })}
-                      </div>
-                      <div className="dashboard-milestones-wrap dashboard-milestones-wrap--compact">
-                        <div className="dashboard-milestones-head">
-                          <h3 className="dashboard-milestones-heading">Milestones</h3>
-                        </div>
-                        <div className="dashboard-milestones-grid dashboard-milestones-grid--pair">
-                          <DashboardMilestoneStrip
-                            key={
-                              subsMilestoneFrom != null
-                                ? `ms-aud-${channelId}-${subsMilestoneFrom}`
-                                : `ms-aud-${channelId}`
-                            }
-                            title="Audience"
-                            metricKind="subs"
-                            steps={SUBS_STEPS}
-                            current={subsCount}
-                            animateFrom={subsMilestoneFrom}
-                          />
-                          <DashboardMilestoneStrip
-                            key={
-                              viewsMilestoneFrom != null
-                                ? `ms-vw-${channelId}-${viewsMilestoneFrom}`
-                                : `ms-vw-${channelId}`
-                            }
-                            title="Views"
-                            metricKind="views"
-                            steps={VIEWS_STEPS}
-                            current={viewsCount}
-                            animateFrom={viewsMilestoneFrom}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-                )}
-
-                {youtube?.connected && !channelId && (
-                  <section
-                    className="dashboard-section dashboard-channel-pending-section"
-                    aria-label="Finish channel setup"
-                  >
-                    <div className="dashboard-command-channel-pending" role="status">
-                      <div className="dashboard-command-channel-pending-text">
-                        <strong>Pick your channel.</strong> Open Account settings and choose which
-                        YouTube channel to analyze—then audits, forecasts, and ranked ideas load
-                        here.
-                      </div>
-                      <button
-                        type="button"
-                        className="dashboard-btn dashboard-btn-primary"
-                        onClick={() => openSettings('account')}
-                      >
-                        Open account settings
-                      </button>
-                    </div>
-                  </section>
-                )}
-
-                {hasChannelData && (
-                  <section
-                    className="dashboard-section dashboard-command-center"
-                    aria-label="Channel pulse"
-                  >
-                    <div className="dashboard-command-shell">
-                      <header className="dashboard-card-section-head">
-                        <h2 className="dashboard-section-title">
-                          <DashboardSectionGlyph name="pulse" />
-                          Channel pulse
-                        </h2>
-                        <div className="dashboard-card-section-meta">
-                          <span className="dashboard-command-status dashboard-command-status--live">
-                            YouTube linked
-                          </span>
-                          {auditLoading ? (
-                            <span className="dashboard-command-status dashboard-command-status--pending">
-                              Scoring channel…
-                            </span>
-                          ) : audit?.overall_score != null ? (
-                            <span className="dashboard-command-status">
-                              Health {audit.overall_score}/100
-                            </span>
-                          ) : (
-                            <span className="dashboard-command-status dashboard-command-status--pending">
-                              Audit pending
-                            </span>
-                          )}
-                        </div>
-                      </header>
-
-                      <div
-                        className="dashboard-command-summary-grid"
-                        aria-label="Channel pulse overview"
-                      >
-                        <aside className="dashboard-command-side-card dashboard-command-side-card--forecast">
-                          <div className="dashboard-command-side-head">
-                            <span className="dashboard-command-side-eyebrow">Forecast</span>
-                            <h3 className="dashboard-command-side-title">30-day view outlook</h3>
-                          </div>
-                          {growthLoading && (
-                            <div className="dashboard-forecast-skeleton" aria-busy="true">
-                              <span className="dashboard-skeleton-line" />
-                              <span className="dashboard-skeleton-line dashboard-skeleton-line--short" />
-                            </div>
-                          )}
-                          {!growthLoading && forecastMetrics && (
-                            <>
-                              {forecastMetrics.projected != null ? (
-                                <div
-                                  className="dashboard-command-outlook-hero"
-                                  title={
-                                    forecastMetrics.projectedIsEstimated
-                                      ? 'From 30-day daily pace'
-                                      : '30-day view projection'
-                                  }
-                                >
-                                  <div className="dashboard-command-outlook-row">
-                                    <span className="dashboard-command-outlook-value">
-                                      {formatCount(forecastMetrics.projected)}
-                                    </span>
-                                    <span className="dashboard-command-outlook-unit">views</span>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="dashboard-shell-empty" aria-hidden>
-                                  —
-                                </div>
-                              )}
-                              <div className="dashboard-command-mini-stats">
-                                <div className="dashboard-command-mini-stat">
-                                  <span className="dashboard-command-mini-stat-label">
-                                    7-day pace
-                                  </span>
-                                  <strong className="dashboard-command-mini-stat-value">
-                                    {forecastMetrics.v7 != null
-                                      ? `${forecastMetrics.v7.toFixed(1)} views/day`
-                                      : 'No data'}
-                                  </strong>
-                                </div>
-                                <div className="dashboard-command-mini-stat">
-                                  <span className="dashboard-command-mini-stat-label">
-                                    30-day pace
-                                  </span>
-                                  <strong className="dashboard-command-mini-stat-value">
-                                    {forecastMetrics.v30 != null
-                                      ? `${forecastMetrics.v30.toFixed(1)} views/day`
-                                      : 'No data'}
-                                  </strong>
-                                </div>
-                              </div>
-                            </>
-                          )}
-                          {!growthLoading && growthScenario?.opportunity && (
-                            <div className="dashboard-command-target">
-                              <span className="dashboard-command-target-label">Upside range</span>
-                              <strong className="dashboard-command-target-value">
-                                {growthScenario.opportunity}
-                              </strong>
-                            </div>
-                          )}
-                          {!growthLoading && !forecastMetrics && (
-                            <div className="dashboard-shell-empty" aria-hidden>
-                              —
-                            </div>
-                          )}
-                        </aside>
-
-                        <article className="dashboard-command-side-card dashboard-command-side-card--packaging">
-                          <div className="dashboard-command-side-head">
-                            <span className="dashboard-command-side-eyebrow">Readiness</span>
-                            <h3 className="dashboard-command-side-title">Pre-publish check</h3>
-                          </div>
-                          {auditLoading && (
-                            <div className="dashboard-command-side-body" aria-busy="true">
-                              <div className="dashboard-command-metrics dashboard-command-metrics--loading">
-                                <span className="dashboard-skeleton-pill" />
-                                <span className="dashboard-skeleton-pill" />
-                                <span className="dashboard-skeleton-pill" />
-                              </div>
-                              <div className="dashboard-tile-score-skeleton">
-                                <span className="dashboard-skeleton-ring" />
-                              </div>
-                            </div>
-                          )}
-                          {!auditLoading && scriptPerformanceEstimate && prePublishScore && (
-                            <div className="dashboard-command-side-body">
-                              <div className="dashboard-command-check-top">
-                                <div className="dashboard-command-check-score">
-                                  <div className="dashboard-command-check-score-row-main">
-                                    <span className="dashboard-command-check-score-num">
-                                      {prePublishScore.score}
-                                    </span>
-                                    <span className="dashboard-command-check-score-max">/100</span>
-                                  </div>
-                                </div>
-                                <span
-                                  className={`dashboard-command-readiness-pill dashboard-command-readiness-pill--${prePublishScore.tier}`}
-                                >
-                                  {prePublishScore.tier === 'strong'
-                                    ? 'Ship-ready'
-                                    : prePublishScore.tier === 'mixed'
-                                      ? 'Polish first'
-                                      : 'Needs work'}
-                                </span>
-                              </div>
-
-                              <div className="dashboard-command-score-list">
-                                <div className="dashboard-command-score-row">
-                                  <span className="dashboard-command-score-key">
-                                    Packaging blend
-                                  </span>
-                                  <span className="dashboard-command-score-val">
-                                    {scriptPerformanceEstimate.overall}
-                                    <span className="dashboard-command-score-val-max">/100</span>
-                                  </span>
-                                </div>
-                                <div className="dashboard-command-score-row">
-                                  <span className="dashboard-command-score-key">
-                                    Retention signal
-                                  </span>
-                                  <span className="dashboard-command-score-val">
-                                    {scriptPerformanceEstimate.retention}
-                                    <span className="dashboard-command-score-val-max">/100</span>
-                                  </span>
-                                </div>
-                                <div className="dashboard-command-score-row">
-                                  <span className="dashboard-command-score-key">
-                                    Hook &amp; title
-                                  </span>
-                                  <span className="dashboard-command-score-val">
-                                    {scriptPerformanceEstimate.hookStrength}
-                                    <span className="dashboard-command-score-val-max">/100</span>
-                                  </span>
-                                </div>
-                              </div>
-
-                              {scriptPerformanceEstimate.weakPoints?.length > 0 && (
-                                <div className="dashboard-command-fix-row">
-                                  <span className="dashboard-command-primary-label">
-                                    Weakest areas first
-                                  </span>
-                                  <div className="dashboard-command-fix-pills">
-                                    {scriptPerformanceEstimate.weakPoints
-                                      .slice(0, 2)
-                                      .map((point, wpIdx) => (
-                                        <span
-                                          key={`${wpIdx}-${point.label}`}
-                                          className="dashboard-command-mini-pill"
-                                        >
-                                          {point.label} · {point.score}/100
-                                        </span>
-                                      ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              <a
-                                href={`#${hashWithPrefill('optimize', optimizePrefill('titles & thumbnails', prePublishScore?.score ?? audit?.overall_score ?? null))}`}
-                                className="dashboard-btn dashboard-btn-secondary dashboard-command-side-cta"
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  window.location.hash = hashWithPrefill(
-                                    'optimize',
-                                    optimizePrefill(
-                                      'titles & thumbnails',
-                                      prePublishScore?.score ?? audit?.overall_score ?? null
-                                    )
-                                  )
-                                }}
-                              >
-                                Improve in Optimize
-                                <span className="dashboard-next-action-cta-arrow" aria-hidden>
-                                  <IconArrowRight />
-                                </span>
-                              </a>
-                            </div>
-                          )}
-                          {!auditLoading && (!scriptPerformanceEstimate || !prePublishScore) && (
-                            <div className="dashboard-command-side-body">
-                              <div className="dashboard-shell-empty" aria-hidden>
-                                —
-                              </div>
-                            </div>
-                          )}
-                        </article>
-                      </div>
-                    </div>
-                  </section>
-                )}
-
-                {/* Quick actions — only after YouTube is connected (use sidebar tools otherwise) */}
-                {youtube?.connected && (
-                  <section className="dashboard-section dashboard-quick-actions">
-                    <header className="dashboard-card-section-head dashboard-card-section-head--solo">
-                      <h2 className="dashboard-section-title">
-                        <DashboardSectionGlyph name="quick" />
-                        Quick actions
-                      </h2>
-                    </header>
-                    <div className="dashboard-quick-actions-grid">
-                      <a
-                        href={`#${hashWithPrefill('coach/scripts', scriptPrefill({ concept: null, pillar: 'Next video', score: null }))}`}
-                        className="dashboard-quick-action-card"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          window.location.hash = hashWithPrefill(
-                            'coach/scripts',
-                            scriptPrefill({ concept: null, pillar: 'Next video', score: null })
-                          )
-                        }}
-                      >
-                        <span
-                          className="dashboard-quick-action-icon dashboard-quick-action-icon--script"
-                          aria-hidden
-                        >
-                          <IconScript />
-                        </span>
-                        <span className="dashboard-quick-action-label">Script Generator</span>
-                        <span className="dashboard-quick-action-arrow" aria-hidden>
-                          <IconArrowRight />
-                        </span>
-                      </a>
-                      <a
-                        href={`#${hashWithPrefill('coach/thumbnails', thumbPrefill({ pillar: 'CTR', score: null, videoTitle: null }))}`}
-                        className="dashboard-quick-action-card"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          window.location.hash = hashWithPrefill(
-                            'coach/thumbnails',
-                            thumbPrefill({ pillar: 'CTR', score: null, videoTitle: null })
-                          )
-                        }}
-                      >
-                        <span
-                          className="dashboard-quick-action-icon dashboard-quick-action-icon--thumbnail"
-                          aria-hidden
-                        >
-                          <IconThumbnail />
-                        </span>
-                        <span className="dashboard-quick-action-label">Thumbnail Generator</span>
-                        <span className="dashboard-quick-action-arrow" aria-hidden>
-                          <IconArrowRight />
-                        </span>
-                      </a>
-                      <a
-                        href={`#${hashWithPrefill('coach', coachPrefill('Channel', null, 'Top 3 priorities for my channel this week.'))}`}
-                        className="dashboard-quick-action-card"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          window.location.hash = hashWithPrefill(
-                            'coach',
-                            coachPrefill(
-                              'Channel',
-                              null,
-                              'Top 3 priorities for my channel this week.'
-                            )
-                          )
-                        }}
-                      >
-                        <span
-                          className="dashboard-quick-action-icon dashboard-quick-action-icon--coach"
-                          aria-hidden
-                        >
-                          <IconMessage />
-                        </span>
-                        <span className="dashboard-quick-action-label">AI Coach</span>
-                        <span className="dashboard-quick-action-arrow" aria-hidden>
-                          <IconArrowRight />
-                        </span>
-                      </a>
-                      <a
-                        href={`#${hashWithPrefill('optimize', optimizePrefill('titles & thumbnails', null))}`}
-                        className="dashboard-quick-action-card"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          window.location.hash = hashWithPrefill(
-                            'optimize',
-                            optimizePrefill('titles & thumbnails', null)
-                          )
-                        }}
-                      >
-                        <span
-                          className="dashboard-quick-action-icon dashboard-quick-action-icon--optimize"
-                          aria-hidden
-                        >
-                          <IconOptimize />
-                        </span>
-                        <span className="dashboard-quick-action-label">Optimize</span>
-                        <span className="dashboard-quick-action-arrow" aria-hidden>
-                          <IconArrowRight />
-                        </span>
-                      </a>
-                    </div>
-                  </section>
-                )}
-
-                {/* AI Insights — script ideas */}
-                <section
-                  id="dashboard-video-ideas"
-                  className="dashboard-section dashboard-insights-section"
-                >
-                  <div className="dashboard-panel dashboard-panel--ideas">
-                    <header className="dashboard-card-section-head">
-                      <div className="dashboard-card-section-head-main">
-                        <h2 className="dashboard-section-title dashboard-script-ideas-title">
-                          <DashboardSectionGlyph name="ideas" />
-                          AI video ideas
-                        </h2>
-                      </div>
-                      <div className="dashboard-card-section-meta">
-                        <button
-                          type="button"
-                          className={`dashboard-script-ideas-regenerate${insightsBusy ? ' dashboard-script-ideas-regenerate--busy' : ''}`}
-                          onClick={() => {
-                            void insightsQuery.regenerateInsights().catch(() => {})
-                          }}
-                          disabled={insightsBusy}
-                          aria-busy={insightsRegenerating || insightsLoading}
-                          title="Regenerate ideas"
-                        >
-                          {insightsRegenerating ? (
-                            <>
-                              <span
-                                className="dashboard-script-ideas-regenerate-btn-spinner"
-                                aria-hidden
-                              />
-                              <span>Regenerating…</span>
-                            </>
-                          ) : (
-                            <>
-                              <IconRefresh />
-                              <span>{insightsLoading ? 'Loading…' : 'Regenerate'}</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </header>
-                    {insightsLoading && (
-                      <div className="dashboard-script-ideas-loading">
-                        <span className="dashboard-loading-spinner" />
-                        <span>Generating ideas…</span>
-                      </div>
-                    )}
-                    {insightsError && (
-                      <div className="dashboard-script-ideas-error">
-                        <p>{insightsError}</p>
-                        <button
-                          type="button"
-                          className="dashboard-btn dashboard-btn-primary"
-                          onClick={() => insightsQuery.refetch()}
-                          disabled={insightsQuery.isFetching}
-                        >
-                          Try again
-                        </button>
-                      </div>
-                    )}
-                    {!insightsLoading &&
-                      !insightsError &&
-                      insights &&
-                      visibleScriptIdeas.length > 0 && (
-                        <>
-                          {ideaFeedbackNotice && (
-                            <div
-                              className={`dashboard-inline-notice dashboard-inline-notice--${ideaFeedbackNotice.tone}`}
-                              role="status"
-                            >
-                              {ideaFeedbackNotice.text}
-                            </div>
-                          )}
-                          <div
-                            className={`dashboard-script-ideas-grid${insightsRegenerating ? ' dashboard-script-ideas-grid--refreshing' : ''}`}
-                          >
-                            {visibleScriptIdeas.map((idea, i) => {
-                              const title = idea?.idea_title ?? idea?.title ?? 'Idea'
-                              const script = idea?.short_script ?? idea?.script ?? idea?.description
-                              const key = `${title}-${i}`
-                              const sending =
-                                ideaFeedbackSending === `${title}-true` ||
-                                ideaFeedbackSending === `${title}-false`
-                              const tags = [
-                                idea?.hook_concept,
-                                idea?.angle,
-                                idea?.target_emotion,
-                                idea?.expected_audience,
-                              ].filter(Boolean)
-                              const num = i + 1
-                              return (
-                                <article key={key} className="dashboard-script-idea-card">
-                                  <div className="dashboard-script-idea-card-top">
-                                    <span className="dashboard-script-idea-num" aria-hidden>
-                                      {num}
-                                    </span>
-                                    <div className="dashboard-script-idea-card-intro">
-                                      <span className="dashboard-script-idea-field-label">
-                                        Video title
-                                      </span>
-                                      <h3 className="dashboard-script-idea-card-title">{title}</h3>
-                                      {script && (
-                                        <>
-                                          <span className="dashboard-script-idea-field-label">
-                                            How the video goes
-                                          </span>
-                                          <p className="dashboard-script-idea-card-desc">
-                                            {script}
-                                          </p>
-                                        </>
-                                      )}
-                                    </div>
-                                  </div>
-                                  {tags.length > 0 && (
-                                    <div className="dashboard-script-idea-signals-slot">
-                                      <div className="dashboard-script-idea-signals">
-                                        <div className="dashboard-script-idea-signals-head">
-                                          <span className="dashboard-script-idea-signals-kicker">
-                                            Signals
-                                          </span>
-                                          <p className="dashboard-script-idea-signals-sub">
-                                            Why this could work
-                                          </p>
-                                        </div>
-                                        <div
-                                          className="dashboard-script-idea-signals-divider"
-                                          aria-hidden
-                                        />
-                                        <div className="dashboard-script-idea-signals-chips">
-                                          {tags.map((tag) => (
-                                            <span
-                                              key={tag}
-                                              className="dashboard-script-idea-signals-chip"
-                                            >
-                                              {tag}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-                                  <div className="dashboard-script-idea-card-actions">
-                                    <div className="dashboard-script-idea-card-ctas">
-                                      <a
-                                        href={`#${hashWithPrefill('coach/scripts', scriptPrefill({ concept: title, pillar: 'Next video', score: null }))}`}
-                                        className="dashboard-script-idea-card-btn dashboard-script-idea-card-btn--primary"
-                                        onClick={(e) => {
-                                          e.preventDefault()
-                                          window.location.hash = hashWithPrefill(
-                                            'coach/scripts',
-                                            scriptPrefill({
-                                              concept: title,
-                                              pillar: 'Next video',
-                                              score: null,
-                                            })
-                                          )
-                                        }}
-                                      >
-                                        Write script
-                                      </a>
-                                      <a
-                                        href={`#${hashWithPrefill(
-                                          thumbnailBattleHref(title),
-                                          thumbPrefill({
-                                            pillar: 'CTR / thumbnails',
-                                            score: null,
-                                            videoTitle: title,
-                                          })
-                                        )}`}
-                                        className="dashboard-script-idea-card-btn dashboard-script-idea-card-btn--secondary"
-                                        onClick={(e) => {
-                                          e.preventDefault()
-                                          window.location.hash = hashWithPrefill(
-                                            thumbnailBattleHref(title),
-                                            thumbPrefill({
-                                              pillar: 'CTR / thumbnails',
-                                              score: null,
-                                              videoTitle: title,
-                                            })
-                                          )
-                                        }}
-                                      >
-                                        Thumbnail
-                                      </a>
-                                    </div>
-                                    <div
-                                      className="dashboard-script-idea-card-feedback"
-                                      role="group"
-                                      aria-label="Idea feedback"
-                                    >
-                                      <button
-                                        type="button"
-                                        className="dashboard-script-idea-feedback-pill dashboard-script-idea-feedback-pill--yes"
-                                        title="Keep — we will favor ideas like this"
-                                        aria-label="Keep this idea"
-                                        disabled={sending}
-                                        onClick={() => handleIdeaFeedback(idea, true)}
-                                      >
-                                        {sending ? (
-                                          <span
-                                            className="dashboard-script-idea-feedback-pill-dots"
-                                            aria-hidden
-                                          >
-                                            …
-                                          </span>
-                                        ) : (
-                                          <>
-                                            <span
-                                              className="dashboard-script-idea-feedback-pill-glyph"
-                                              aria-hidden
-                                            >
-                                              ✓
-                                            </span>
-                                            <span className="dashboard-script-idea-feedback-pill-text">
-                                              Keep
-                                            </span>
-                                          </>
-                                        )}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="dashboard-script-idea-feedback-pill dashboard-script-idea-feedback-pill--pass"
-                                        title="Pass — tell us why this idea is not a fit"
-                                        aria-label="Pass on this idea"
-                                        disabled={sending}
-                                        onClick={() => handleIdeaFeedback(idea, false)}
-                                      >
-                                        <span
-                                          className="dashboard-script-idea-feedback-pill-glyph dashboard-script-idea-feedback-pill-glyph--pass"
-                                          aria-hidden
-                                        >
-                                          ↪
-                                        </span>
-                                        <span className="dashboard-script-idea-feedback-pill-text">
-                                          Pass
-                                        </span>
-                                      </button>
-                                    </div>
-                                  </div>
-                                </article>
-                              )
-                            })}
-                          </div>
-                        </>
-                      )}
-                    {!insightsLoading &&
-                      !insightsError &&
-                      insights &&
-                      visibleScriptIdeas.length === 0 && (
-                        <div className="dashboard-script-ideas-empty">
-                          <p>No ideas yet.</p>
-                          <a
-                            href="#coach/scripts"
-                            className="dashboard-script-ideas-empty-link"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              window.location.hash = 'coach/scripts'
-                            }}
-                          >
-                            Script Generator <IconArrowRight />
-                          </a>
-                        </div>
-                      )}
-                  </div>
-                </section>
-
-                {/* Channel Audit (channel required) */}
-                {channelId && (
-                  <section
-                    className="dashboard-section dashboard-audit-open-section"
-                    aria-labelledby="dashboard-audit-heading"
-                  >
-                    <div className="dashboard-details-body">
-                      <header className="dashboard-card-section-head dashboard-card-section-head--solo">
-                        <h2 id="dashboard-audit-heading" className="dashboard-section-title">
-                          <DashboardSectionGlyph name="health" />
-                          Channel health &amp; audit
-                        </h2>
-                      </header>
-                      {auditLoading && (
-                        <div className="dashboard-loading">
-                          <span className="dashboard-loading-spinner" /> Loading audit…
-                        </div>
-                      )}
-                      {!auditLoading && audit && (
-                        <div className="dashboard-audit-layout dashboard-audit-layout--stack">
-                          <div className="dashboard-ai-card dashboard-audit-card dashboard-audit-card--hero dashboard-audit-card--hero-full">
-                            <div className="dashboard-audit-hero">
-                              <div className="dashboard-audit-hero-top">
-                                <div className="dashboard-audit-hero-main">
-                                  <span className="dashboard-audit-overall-label">
-                                    Overall score
-                                  </span>
-                                  <div className="dashboard-audit-overall-row">
-                                    <span className="dashboard-audit-overall-value">
-                                      {audit.overall_score ?? 0}
-                                      <span className="dashboard-audit-overall-max">/100</span>
-                                    </span>
-                                    <span
-                                      className={`dashboard-audit-overall-badge dashboard-audit-overall-badge--${getAuditScoreTier(audit.overall_score ?? 0)}`}
-                                    >
-                                      {auditTierLabel(getAuditScoreTier(audit.overall_score ?? 0))}
-                                    </span>
-                                  </div>
-                                </div>
-                                {auditBreakdownStats && (
-                                  <ul
-                                    className="dashboard-audit-hero-quick"
-                                    aria-label="Score summary"
-                                  >
-                                    <li>
-                                      <span className="dashboard-audit-hero-quick-label">Avg</span>
-                                      <span className="dashboard-audit-hero-quick-value">
-                                        {auditBreakdownStats.avg}
-                                      </span>
-                                    </li>
-                                    <li>
-                                      <span className="dashboard-audit-hero-quick-label">
-                                        Strong
-                                      </span>
-                                      <span className="dashboard-audit-hero-quick-value">
-                                        {auditBreakdownStats.strongCount}
-                                      </span>
-                                    </li>
-                                    <li>
-                                      <span className="dashboard-audit-hero-quick-label">
-                                        To improve
-                                      </span>
-                                      <span className="dashboard-audit-hero-quick-value">
-                                        {auditBreakdownStats.focusCount}
-                                      </span>
-                                    </li>
-                                  </ul>
-                                )}
-                              </div>
-                              <div
-                                className="dashboard-audit-overall-bar"
-                                role="progressbar"
-                                aria-valuenow={audit.overall_score ?? 0}
-                                aria-valuemin={0}
-                                aria-valuemax={100}
-                              >
-                                <div
-                                  className={`dashboard-audit-overall-bar-fill dashboard-audit-overall-bar-fill--${getAuditScoreTier(audit.overall_score ?? 0)}`}
-                                  style={{
-                                    width: `${Math.min(100, Math.max(0, audit.overall_score ?? 0))}%`,
-                                  }}
-                                />
-                              </div>
-                              {auditBreakdownStats && (
-                                <div className="dashboard-audit-hero-foot">
-                                  <div className="dashboard-audit-hero-focus-card">
-                                    <p className="dashboard-audit-hero-focus">
-                                      <span className="dashboard-audit-hero-focus-label">
-                                        Lowest area
-                                      </span>
-                                      <span className="dashboard-audit-hero-focus-value">
-                                        {auditBreakdownStats.weakest.name} ·{' '}
-                                        {auditBreakdownStats.weakest.score}/100
-                                      </span>
-                                    </p>
-                                  </div>
-                                  <a
-                                    href={`#${optimizeAuditHash}`}
-                                    className="dashboard-audit-hero-cta dashboard-btn dashboard-btn-secondary"
-                                    onClick={(e) => {
-                                      e.preventDefault()
-                                      window.location.hash = optimizeAuditHash
-                                    }}
-                                  >
-                                    Improve in Optimize
-                                    <span className="dashboard-audit-hero-cta-arrow" aria-hidden>
-                                      <IconArrowRight />
-                                    </span>
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {Array.isArray(audit.scores) && audit.scores.length > 0 && (
-                            <div className="dashboard-audit-breakdown-card dashboard-audit-breakdown-card--full">
-                              <div className="dashboard-audit-scores-head">
-                                <div className="dashboard-audit-scores-head-text">
-                                  <span className="dashboard-audit-scores-title">Breakdown</span>
-                                  <span className="dashboard-audit-scores-sub">
-                                    Scores by area — use the action on each row to jump to the right
-                                    tool.
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="dashboard-audit-scores">
-                                {audit.scores.map((s, i) => {
-                                  const score = Number(s.score ?? 0)
-                                  const pct = Math.min(100, Math.max(0, score))
-                                  const tier = getAuditScoreTier(score)
-                                  const nm = String(s.name ?? s.label ?? '')
-                                  const guidance = getAuditAreaGuidance(
-                                    nm,
-                                    score,
-                                    s.label ? String(s.label) : null
-                                  )
-                                  const areaAct = guidance.href
-                                    ? { label: 'Do this now', hash: guidance.href }
-                                    : getAreaAction(nm)
-                                  const areaNavHash = hashWithPrefill(
-                                    areaAct.hash,
-                                    getAreaPrefill(nm, score)
-                                  )
-                                  return (
-                                    <div
-                                      key={i}
-                                      className={`dashboard-audit-score-item dashboard-audit-score-item--${tier}`}
-                                    >
-                                      <div className="dashboard-audit-score-head">
-                                        <div className="dashboard-audit-score-name-wrap">
-                                          <span className="dashboard-audit-score-name">
-                                            {s.name ?? s.label}
-                                          </span>
-                                          <span
-                                            className={`dashboard-audit-score-tier dashboard-audit-score-tier--${tier}`}
-                                          >
-                                            {auditTierLabel(tier)}
-                                          </span>
-                                        </div>
-                                        <span
-                                          className={`dashboard-audit-score-value dashboard-audit-score-value--${tier}`}
-                                        >
-                                          {score}
-                                        </span>
-                                      </div>
-                                      <div
-                                        className="dashboard-audit-score-bar"
-                                        role="progressbar"
-                                        aria-valuenow={score}
-                                        aria-valuemin={0}
-                                        aria-valuemax={100}
-                                      >
-                                        <div
-                                          className={`dashboard-audit-score-bar-fill dashboard-audit-score-bar-fill--${tier}`}
-                                          style={{ width: `${pct}%` }}
-                                        />
-                                      </div>
-                                      <div className="dashboard-audit-score-cta-row">
-                                        <a
-                                          href={`#${areaNavHash}`}
-                                          className="dashboard-audit-guidance-cta"
-                                          onClick={(e) => {
-                                            e.preventDefault()
-                                            window.location.hash = areaNavHash
-                                          }}
-                                        >
-                                          {areaAct.label}
-                                          <IconArrowRight />
-                                        </a>
-                                      </div>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </section>
-                )}
-
-                {/* Performance: KPI + growth + best time (single block) */}
-                {channelId && (
-                  <section
-                    className="dashboard-section dashboard-performance-section"
-                    aria-labelledby="dashboard-performance-heading"
-                  >
-                    <div className="dashboard-details-body">
-                      <div className="dashboard-performance-shell dashboard-performance-shell--unified">
-                        <div className="dashboard-performance-zone dashboard-performance-zone--unified dashboard-performance-zone--sheet">
-                          <div className="dashboard-performance-zone-frame">
-                            <header className="dashboard-card-section-head dashboard-card-section-head--solo">
-                              <h2
-                                id="dashboard-performance-heading"
-                                className="dashboard-section-title"
-                              >
-                                <DashboardSectionGlyph name="performance" />
-                                Performance &amp; posting
-                              </h2>
-                            </header>
-                            <header className="dashboard-performance-unified-head">
-                              <div className="dashboard-performance-unified-head-copy">
-                                <h3 className="dashboard-performance-block-title">KPI snapshot</h3>
-                                <p className="dashboard-performance-unified-sub">
-                                  Last 30 days, growth pace, and when your uploads tend to perform —
-                                  in one place.
-                                </p>
-                              </div>
-                              <span className="dashboard-performance-block-meta">30d</span>
-                            </header>
-
-                            {(snapshotLoading || growthLoading) && (
-                              <div
-                                className="dashboard-perf-skeleton-grid dashboard-perf-skeleton-grid--compact"
-                                aria-busy
-                                aria-label="Loading performance metrics"
-                              >
-                                {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-                                  <div
-                                    key={i}
-                                    className="dashboard-perf-skeleton-card dashboard-perf-skeleton-card--compact"
-                                    style={{ animationDelay: `${i * 0.05}s` }}
-                                  />
-                                ))}
-                              </div>
-                            )}
-
-                            {!snapshotLoading &&
-                              !growthLoading &&
-                              (performanceSnapshotHasKpis || performanceGrowthHasKpis) && (
-                                <>
-                                  <div className="dashboard-perf-metrics-grid">
-                                    {snapshot?.current_period?.views != null && (
-                                      <div className="dashboard-perf-metric">
-                                        <div className="dashboard-perf-metric-label">Views</div>
-                                        <div className="dashboard-perf-metric-value">
-                                          {formatCount(snapshot.current_period.views)}
-                                        </div>
-                                        {snapshot.previous_period?.views != null && (
-                                          <div
-                                            className={`dashboard-perf-metric-delta ${snapshot.current_period.views - snapshot.previous_period.views >= 0 ? 'positive' : 'negative'}`}
-                                          >
-                                            {snapshot.current_period.views -
-                                              snapshot.previous_period.views >=
-                                            0
-                                              ? '↑'
-                                              : '↓'}{' '}
-                                            vs prior 30d
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-                                    {snapshot?.current_period?.watch_time_hours != null && (
-                                      <div className="dashboard-perf-metric">
-                                        <div className="dashboard-perf-metric-label">
-                                          Watch time
-                                        </div>
-                                        <div className="dashboard-perf-metric-value">
-                                          {Number(snapshot.current_period.watch_time_hours).toFixed(
-                                            1
-                                          )}
-                                          <span className="dashboard-perf-metric-unit">h</span>
-                                        </div>
-                                      </div>
-                                    )}
-                                    {snapshot?.current_period?.video_count != null && (
-                                      <div className="dashboard-perf-metric">
-                                        <div className="dashboard-perf-metric-label">
-                                          30d uploads
-                                        </div>
-                                        <div className="dashboard-perf-metric-value">
-                                          {snapshot.current_period.video_count}
-                                        </div>
-                                      </div>
-                                    )}
-                                    {snapshot?.current_period?.views_per_video != null && (
-                                      <div className="dashboard-perf-metric">
-                                        <div className="dashboard-perf-metric-label">
-                                          Views / video
-                                        </div>
-                                        <div className="dashboard-perf-metric-value">
-                                          {Number(snapshot.current_period.views_per_video).toFixed(
-                                            0
-                                          )}
-                                        </div>
-                                      </div>
-                                    )}
-                                    {growth && growth.subs_current != null && (
-                                      <div className="dashboard-perf-metric">
-                                        <div className="dashboard-perf-metric-label">
-                                          Subscribers
-                                        </div>
-                                        <div className="dashboard-perf-metric-value">
-                                          {formatCount(growth.subs_current)}
-                                        </div>
-                                      </div>
-                                    )}
-                                    {growth && growth.views_velocity_7d != null && (
-                                      <div className="dashboard-perf-metric">
-                                        <div className="dashboard-perf-metric-label">
-                                          Views / day (7d)
-                                        </div>
-                                        <div className="dashboard-perf-metric-value">
-                                          {Number(growth.views_velocity_7d).toFixed(1)}
-                                        </div>
-                                      </div>
-                                    )}
-                                    {growth && growth.views_velocity_30d != null && (
-                                      <div className="dashboard-perf-metric">
-                                        <div className="dashboard-perf-metric-label">
-                                          Views / day (30d)
-                                        </div>
-                                        <div className="dashboard-perf-metric-value">
-                                          {Number(growth.views_velocity_30d).toFixed(1)}
-                                        </div>
-                                      </div>
-                                    )}
-                                    {growth && growth.projected_views_30d != null && (
-                                      <div className="dashboard-perf-metric">
-                                        <div className="dashboard-perf-metric-label">
-                                          Projected views (30d)
-                                        </div>
-                                        <div className="dashboard-perf-metric-value">
-                                          {formatCount(Math.round(growth.projected_views_30d))}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                  {growthScenario && (
-                                    <div className="dashboard-perf-outlook" role="note">
-                                      <div className="dashboard-perf-outlook-row">
-                                        <span className="dashboard-perf-outlook-baseline">
-                                          {growthScenario.baseline}
-                                        </span>
-                                        <span className="dashboard-perf-outlook-arrow" aria-hidden>
-                                          →
-                                        </span>
-                                        <span className="dashboard-perf-outlook-opp">
-                                          {growthScenario.opportunity} if pace improves
-                                        </span>
-                                      </div>
-                                      <span className="dashboard-perf-outlook-lever">
-                                        Levers: {growthScenario.lever}
-                                      </span>
-                                    </div>
-                                  )}
-                                </>
-                              )}
-
-                            {!snapshotLoading &&
-                              !growthLoading &&
-                              !performanceSnapshotHasKpis &&
-                              !performanceGrowthHasKpis && (
-                                <div className="dashboard-perf-zone-empty dashboard-perf-zone-empty--inline">
-                                  <p>No channel metrics yet</p>
-                                </div>
-                              )}
-
-                            <hr className="dashboard-card-divider" />
-
-                            <div className="dashboard-performance-block dashboard-performance-block--best-time">
-                              <div className="dashboard-performance-block-head dashboard-performance-block-head--tight">
-                                <div className="dashboard-performance-block-head-text">
-                                  <h3 className="dashboard-performance-block-title">
-                                    Best time to post
-                                  </h3>
-                                  <p className="dashboard-performance-unified-sub dashboard-performance-unified-sub--micro">
-                                    Based on your upload history and how those videos performed by
-                                    hour.
-                                  </p>
-                                </div>
-                              </div>
-                              {bestTimeLoading && (
-                                <div
-                                  className="dashboard-perf-skeleton-line dashboard-perf-skeleton-line--compact"
-                                  aria-busy
-                                  aria-label="Loading schedule"
-                                />
-                              )}
-                              {!bestTimeLoading && bestTime && (
-                                <>
-                                  {Array.isArray(bestTime.recommended_slots) &&
-                                    bestTime.recommended_slots.length > 0 && (
-                                      <div className="dashboard-best-time-hero dashboard-best-time-hero--unified">
-                                        <p className="dashboard-best-time-primary">
-                                          <span className="dashboard-best-time-primary-label">
-                                            Top pick
-                                          </span>
-                                          <span className="dashboard-best-time-primary-value">
-                                            {bestTime.recommended_slots[0].label ??
-                                              `${bestTime.recommended_slots[0].day} ${bestTime.recommended_slots[0].hour}:00`}
-                                          </span>
-                                        </p>
-                                        {bestTime.recommended_slots.length > 1 && (
-                                          <div
-                                            className="dashboard-best-time-slots"
-                                            aria-label="Other suggested slots"
-                                          >
-                                            {bestTime.recommended_slots
-                                              .slice(1, 5)
-                                              .map((slot, i) => (
-                                                <span
-                                                  key={i}
-                                                  className="dashboard-best-time-slot dashboard-best-time-slot--compact"
-                                                >
-                                                  {slot.label ?? `${slot.day} ${slot.hour}:00`}
-                                                </span>
-                                              ))}
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-                                  {Array.isArray(bestTime.bar_chart_data) &&
-                                    bestTime.bar_chart_data.length > 0 &&
-                                    bestTimeUploadTotal >= 3 && (
-                                      <div className="dashboard-best-time-chart-wrap dashboard-best-time-chart-wrap--unified">
-                                        <div className="dashboard-best-time-chart-head">
-                                          <span className="dashboard-best-time-chart-title">
-                                            Performance by hour
-                                          </span>
-                                          <span className="dashboard-best-time-chart-axis">
-                                            Hover bars for detail
-                                          </span>
-                                        </div>
-                                        <div
-                                          className="dashboard-best-time-chart"
-                                          role="img"
-                                          aria-label="Best upload time by hour"
-                                        >
-                                          {bestTime.bar_chart_data.map((bar, i) => (
-                                            <button
-                                              key={i}
-                                              type="button"
-                                              className={`dashboard-best-time-bar ${bar.is_recommended ? 'recommended' : ''}`}
-                                              style={{
-                                                height: `${Math.max(8, bar.height_pct || 0)}%`,
-                                              }}
-                                              aria-label={`${bar.time_label}: ${bar.tooltip?.title ?? ''}`}
-                                            >
-                                              <span className="dashboard-best-time-tooltip">
-                                                <span className="dashboard-best-time-tooltip-title">
-                                                  {bar.tooltip?.title ?? bar.time_label}
-                                                </span>
-                                                {bar.tooltip != null &&
-                                                  Number(bar.tooltip.uploads) > 0 && (
-                                                    <span className="dashboard-best-time-tooltip-meta">
-                                                      Avg{' '}
-                                                      {Number(
-                                                        bar.tooltip.average_views ?? 0
-                                                      ).toFixed(0)}{' '}
-                                                      views · Score{' '}
-                                                      {Number(bar.tooltip.score ?? 0).toFixed(0)}
-                                                    </span>
-                                                  )}
-                                              </span>
-                                              <span className="dashboard-best-time-bar-label">
-                                                {bar.short_label ?? bar.time_label}
-                                              </span>
-                                            </button>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-                                  {Array.isArray(bestTime.bar_chart_data) &&
-                                    bestTime.bar_chart_data.length > 0 &&
-                                    bestTimeUploadTotal === 0 && (
-                                      <div className="dashboard-perf-chart-gate">
-                                        <p className="dashboard-perf-chart-gate-title">
-                                          Hourly chart
-                                        </p>
-                                        <p className="dashboard-perf-chart-gate-body">
-                                          Publish a few videos so we can compare which upload hours
-                                          earn the best average views for your channel.
-                                        </p>
-                                      </div>
-                                    )}
-                                  {Array.isArray(bestTime.bar_chart_data) &&
-                                    bestTime.bar_chart_data.length > 0 &&
-                                    bestTimeUploadTotal > 0 &&
-                                    bestTimeUploadTotal < 3 && (
-                                      <div className="dashboard-perf-chart-gate">
-                                        <p className="dashboard-perf-chart-gate-title">
-                                          Hourly chart
-                                        </p>
-                                        <p className="dashboard-perf-chart-gate-body">
-                                          {bestTimeUploadTotal} of 3 uploads in this window —
-                                          publish {3 - bestTimeUploadTotal} more{' '}
-                                          {3 - bestTimeUploadTotal === 1 ? 'video' : 'videos'} to
-                                          unlock the chart (needs enough data to compare hours
-                                          without one outlier skewing the bars).
-                                        </p>
-                                      </div>
-                                    )}
-                                  {(!bestTime.bar_chart_data ||
-                                    bestTime.bar_chart_data.length === 0) &&
-                                    !bestTime.recommended_slots?.length && (
-                                      <div className="dashboard-empty dashboard-empty--tight dashboard-empty--performance-muted">
-                                        No schedule data yet
-                                      </div>
-                                    )}
-                                </>
-                              )}
-                              {!bestTimeLoading && !bestTime && (
-                                <div className="dashboard-perf-zone-empty dashboard-perf-zone-empty--inline">
-                                  <p>No schedule data</p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-                )}
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
-    </div>
+      }
+    >
+      {dashboardContent}
+    </AppShellLayout>
   )
 }

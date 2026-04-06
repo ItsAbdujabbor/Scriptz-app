@@ -1,0 +1,20 @@
+/**
+ * Shared shell chrome — complements Dashboard.css `.dashboard-app-shell`.
+ * Keeps layout + motion aligned across Dashboard, Coach, Optimize, Pro, Templates.
+ */
+.app-shell-root {
+  transition: opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dashboard-main-wrap,
+.coach-main-wrap {
+  transition: opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell-root,
+  .dashboard-main-wrap,
+  .coach-main-wrap {
+    transition: none;
+  }
+}

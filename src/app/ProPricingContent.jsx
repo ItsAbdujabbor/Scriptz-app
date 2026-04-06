@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import '../landing/sections/pricing/pricing.css'
 
 const PLANS = [
@@ -146,7 +145,13 @@ function IconMic() {
   )
 }
 
-const LIMIT_ICONS = { thumb: IconThumb, script: IconScript, opt: IconOpt, star: IconStar, mic: IconMic }
+const LIMIT_ICONS = {
+  thumb: IconThumb,
+  script: IconScript,
+  opt: IconOpt,
+  star: IconStar,
+  mic: IconMic,
+}
 
 function LimitIcon({ type }) {
   const Icon = LIMIT_ICONS[type] || IconThumb
@@ -154,53 +159,24 @@ function LimitIcon({ type }) {
 }
 
 export function ProPricingContent({ onStartTrial }) {
-  const [period, setPeriod] = useState('monthly')
-  const annual = period === 'annual'
-
   const handleCta = (e) => {
     e.preventDefault()
     onStartTrial?.()
   }
 
   return (
-    <section className="pri-section" id="pricing" aria-labelledby="pri-heading">
+    <section className="pri-section pro-plan-section" id="pricing" aria-labelledby="pri-heading">
       <div className="pri-inner">
         <div className="pri-header pri-reveal pri-visible">
-          <div className="pri-badge">
-            <span className="pri-badge-dot" />
-            Pricing
-          </div>
           <h2 className="pri-h2" id="pri-heading">
-            Start Creating with
+            Choose your
             <br />
-            <span className="pri-h2-accent">Scriptz AI Today</span>
+            <span className="pri-h2-accent">Scriptz plan</span>
           </h2>
-          <p className="pri-lead">No hidden fees. Cancel anytime.</p>
-
-          <div className="pri-toggle-wrap">
-            <div className="pri-toggle" role="group" aria-label="Billing period">
-              <button
-                type="button"
-                className={`pri-toggle-btn ${period === 'monthly' ? 'pri-toggle-active' : ''}`}
-                onClick={() => setPeriod('monthly')}
-                data-period="monthly"
-              >
-                Monthly
-              </button>
-              <button
-                type="button"
-                className={`pri-toggle-btn ${period === 'annual' ? 'pri-toggle-active' : ''}`}
-                onClick={() => setPeriod('annual')}
-                data-period="annual"
-              >
-                Annually
-                <span className="pri-toggle-save">Save 30%</span>
-              </button>
-            </div>
-            <p className={`pri-annual-msg ${annual ? 'pri-show' : ''}`} aria-live="polite">
-              Save 30% with our annual plans
-            </p>
-          </div>
+          <p className="pri-lead">
+            AI scripts, thumbnails, and video tools in one workspace. Prices are per month; cancel
+            anytime. Annual billing is available at checkout with savings.
+          </p>
         </div>
 
         <div className="pri-cards">
@@ -219,14 +195,14 @@ export function ProPricingContent({ onStartTrial }) {
 
                 <div className="pri-price">
                   <div className="pri-price-nums">
-                    <span className={`pri-old ${annual ? '' : 'pri-hidden'}`}>{plan.oldPrice}</span>
-                    <span className="pri-cur">{annual ? plan.annual : plan.monthly}</span>
+                    <span className="pri-old pri-hidden">{plan.oldPrice}</span>
+                    <span className="pri-cur">{plan.monthly}</span>
                     <span className="pri-mo">/mo</span>
                   </div>
-                  <p className={`pri-billed ${annual ? '' : 'pri-hidden'}`}>
+                  <p className="pri-billed pri-hidden">
                     Billed annually — <strong>{plan.billedAnnual}</strong>
                   </p>
-                  <p className={`pri-billed-mo ${annual ? 'pri-hidden' : ''}`}>Billed monthly</p>
+                  <p className="pri-billed-mo">Billed monthly</p>
                 </div>
 
                 <p className="pri-desc">{plan.desc}</p>
@@ -267,7 +243,11 @@ export function ProPricingContent({ onStartTrial }) {
                 ))}
               </ul>
 
-              <button type="button" className={`pri-trial ${plan.popular ? 'pri-trial--pop' : ''}`} onClick={handleCta}>
+              <button
+                type="button"
+                className={`pri-trial ${plan.popular ? 'pri-trial--pop' : ''}`}
+                onClick={handleCta}
+              >
                 or Start Free Trial →
               </button>
             </div>

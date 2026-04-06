@@ -1,9 +1,9 @@
 /* Optimize page — 4 columns, 15 per page, pill tabs, search-in-input, divider, engagement */
 
+/* Width + horizontal inset come from .dashboard-content-shell (matches Dashboard) */
 .optimize-page {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 1.25rem 1.5rem 2rem;
+  width: 100%;
+  padding: 0 0 0.5rem;
 }
 
 /* Top container: heading + search on one line */
