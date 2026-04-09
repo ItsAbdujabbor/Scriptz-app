@@ -1,17 +1,18 @@
 import { useCallback, useRef, useState } from 'react'
 
-/** Lenient check — full validation happens on the server (Pydantic / email-validator). */
+/** Lenient check — accepts international emails (IDN, unicode). Full validation on server. */
 function isPlausibleEmail(s) {
   const t = typeof s === 'string' ? s.trim() : ''
-  if (t.length < 3 || t.length > 254) return false
-  const at = t.indexOf('@')
+  if (t.length < 3 || t.length > 320) return false
+  const at = t.lastIndexOf('@')
   if (at <= 0) return false
-  if (t.indexOf('@', at + 1) !== -1) return false
   const local = t.slice(0, at)
   const domain = t.slice(at + 1)
-  if (!local.length || !domain.length) return false
-  const d = domain.toLowerCase()
-  if (d.startsWith('.') || d.endsWith('.') || d.includes('..')) return false
+  if (!local.length || local.length > 64) return false
+  if (!domain.length || domain.length > 253) return false
+  if (domain.startsWith('.') || domain.endsWith('.') || domain.includes('..')) return false
+  // Domain must have at least one dot (e.g. gmail.com, mail.co.uk, почта.рф)
+  if (!domain.includes('.')) return false
   return true
 }
 
@@ -108,12 +109,11 @@ export function WaitlistForm({ id = 'waitlist', className = '' }) {
         </div>
         <div className="lin-waitlist-combo">
           <input
-            type="text"
+            type="email"
             name="email"
             className="lin-waitlist-input"
-            placeholder="you@example.com"
+            placeholder="Enter your email"
             autoComplete="email"
-            inputMode="email"
             spellCheck={false}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -123,7 +123,7 @@ export function WaitlistForm({ id = 'waitlist', className = '' }) {
             aria-describedby={error ? 'lin-waitlist-err' : 'lin-waitlist-fineprint'}
           />
           <button type="submit" className="lin-waitlist-join" disabled={busy}>
-            {status === 'loading' ? 'Joining…' : status === 'success' ? 'Joined' : 'Join'}
+            {status === 'loading' ? 'Joining…' : status === 'success' ? 'You\'re in!' : 'Join the waitlist'}
           </button>
         </div>
         {error ? (
@@ -137,7 +137,7 @@ export function WaitlistForm({ id = 'waitlist', className = '' }) {
           </p>
         ) : null}
         <p id="lin-waitlist-fineprint" className="lin-waitlist-fineprint">
-          We’ll only use your email for Scriptz launch updates. Unsubscribe anytime.
+          No spam — only launch updates. Unsubscribe anytime.
         </p>
       </form>
     </div>

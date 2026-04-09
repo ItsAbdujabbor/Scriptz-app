@@ -376,6 +376,15 @@
 .lin-waitlist-input::placeholder {
   color: rgba(255, 255, 255, 0.32);
 }
+.lin-waitlist-input:-webkit-autofill,
+.lin-waitlist-input:-webkit-autofill:hover,
+.lin-waitlist-input:-webkit-autofill:focus,
+.lin-waitlist-input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+  -webkit-text-fill-color: var(--lt1, #fff) !important;
+  background-color: transparent !important;
+  transition: background-color 9999s ease-in-out 0s;
+}
 .lin-waitlist-input:disabled {
   opacity: 0.65;
 }
