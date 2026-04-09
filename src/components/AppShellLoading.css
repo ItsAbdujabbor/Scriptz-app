@@ -10,21 +10,6 @@
   box-sizing: border-box;
 }
 
-.route-loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid rgba(255, 255, 255, 0.12);
-  border-top-color: #a78bfa;
-  border-radius: 50%;
-  animation: route-loading-spin 0.85s linear infinite;
-}
-
-@keyframes route-loading-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .dashboard-main-wrap--route-loading {
   min-height: 0;
 }

@@ -1,6 +1,7 @@
 import { useAuthStore } from '../stores/authStore'
 import { getCoachHashState } from '../lib/coachHashRoute'
 import { AppShellLayout } from './AppShellLayout'
+import { Loading } from './Loading'
 import { Sidebar } from '../app/Sidebar'
 import '../app/Sidebar.css'
 import '../app/Dashboard.css'
@@ -8,10 +9,10 @@ import '../app/CoachChat.css'
 import '../app/Templates.css'
 import './AppShellLoading.css'
 
-function RouteSpinner({ label = 'Loading…' }) {
+function RouteSpinner({ label: _label = 'Loading…' }) {
   return (
-    <div className="route-loading-pane" role="status" aria-live="polite" aria-label={label}>
-      <div className="route-loading-spinner" aria-hidden />
+    <div className="route-loading-pane">
+      <Loading size="lg" layout="center" />
     </div>
   )
 }

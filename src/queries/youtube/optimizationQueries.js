@@ -4,16 +4,15 @@ import { queryFreshness } from '../../lib/query/queryConfig'
 import { queryKeys } from '../../lib/query/queryKeys'
 import { getAccessTokenOrNull } from '../../lib/query/authToken'
 
-export function useYoutubeVideoOptimization({ videoId, enabled }) {
+export function useYoutubeVideoOptimization({ videoId, channelId, enabled }) {
   return useQuery({
     queryKey: queryKeys.youtube.videoOptimization(videoId),
     queryFn: async () => {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Not authenticated')
-      return youtubeApi.optimizeVideo(token, videoId)
+      return youtubeApi.optimizeVideo(token, videoId, channelId || null)
     },
     enabled: enabled && !!videoId,
     staleTime: queryFreshness.short,
   })
 }
-

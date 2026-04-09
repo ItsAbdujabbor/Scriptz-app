@@ -108,9 +108,44 @@
 }
 
 .tabbar.modal {
-  background: rgba(0, 0, 0, 0.15);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 10px 10px 0 0;
+  background: transparent;
+  border-bottom: none;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  width: fit-content;
+}
+
+.tabbar.modal .tabbar-tab {
+  padding: 8px 16px;
+  border-radius: 100px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.tabbar.modal .tabbar-tab:hover {
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tabbar.modal .tabbar-tab.is-active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tabbar.modal .tabbar-tab:active {
+  transform: scale(0.97);
+  transition: transform 0.08s ease;
+}
+
+.tabbar.modal .tabbar-indicator {
+  display: none;
 }
 
 .tabbar-tab {
@@ -146,7 +181,7 @@
 }
 
 .tabbar-tab.is-active {
-  color: #a78bfa;
+  color: #fff;
 }
 
 .tabbar.minimal .tabbar-tab.is-active {
@@ -167,13 +202,12 @@
   bottom: 0;
   left: 0;
   height: 2px;
-  background: linear-gradient(90deg, #a78bfa, #8b5cf6);
+  background: rgba(255, 255, 255, 0.5);
   border-radius: 2px 2px 0 0;
   transition:
-    transform 0.32s cubic-bezier(0.33, 1.1, 0.32, 1),
-    width 0.32s cubic-bezier(0.33, 1.1, 0.32, 1);
+    transform 0.28s cubic-bezier(0.33, 1, 0.32, 1),
+    width 0.28s cubic-bezier(0.33, 1, 0.32, 1);
   pointer-events: none;
-  box-shadow: 0 -1px 12px rgba(139, 92, 246, 0.35);
 }
 
 .tabbar.minimal .tabbar-indicator {

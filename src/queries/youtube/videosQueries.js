@@ -24,6 +24,7 @@ export function useYoutubeVideosList({
         search: search?.trim() || undefined,
         sort,
         video_type: videoType,
+        channel_id: channelId || undefined,
       })
     },
     enabled: enabled && !!channelId && !!page,
@@ -31,4 +32,3 @@ export function useYoutubeVideosList({
     keepPreviousData: true,
   })
 }
-

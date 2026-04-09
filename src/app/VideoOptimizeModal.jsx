@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars
 import { youtubeApi } from '../api/youtube'
 import { Loading } from '../components/Loading'
 import { TabBar } from '../components/TabBar'
@@ -13,17 +14,6 @@ const TABS = [
   { id: 'thumbnail', label: 'Thumbnail ideas' },
   { id: 'seo', label: 'SEO' },
   { id: 'preview', label: 'Preview' },
-]
-
-const COMING_SOON = {
-  preview: 'Preview coming soon',
-}
-
-const THUMBNAIL_QUICK_PROMPTS = [
-  { id: 'dramatic', label: 'More dramatic' },
-  { id: 'text', label: 'Add text overlay' },
-  { id: 'face', label: 'Close-up face' },
-  { id: 'clean', label: 'Clean & minimal' },
 ]
 
 const SCORE_TIERS = [
@@ -76,12 +66,15 @@ export function VideoOptimizeModal({
 }) {
   const [activeTab, setActiveTab] = useState('title')
   const queryClient = useQueryClient()
-  const optimizationQuery = useYoutubeVideoOptimization({ videoId: video?.id, enabled: open })
+  // Do NOT auto-generate — only fetch if already cached from a previous session
+  const optimizationQuery = useYoutubeVideoOptimization({
+    videoId: video?.id,
+    channelId,
+    enabled: false,
+  })
   const data = optimizationQuery.data
-  const loading = optimizationQuery.isPending
-  const error = optimizationQuery.isError
-    ? optimizationQuery.error?.message || 'Failed to load optimization'
-    : null
+  const loading = false
+  const error = null
   const [titleInput, setTitleInput] = useState('')
   const [titleScore, setTitleScore] = useState(null)
   const [scoreTier, setScoreTier] = useState(null)
@@ -104,63 +97,82 @@ export function VideoOptimizeModal({
   const [seoNotice, setSeoNotice] = useState(null)
   const refineDropdownRef = useRef(null)
   const [thumbnailPrompt, setThumbnailPrompt] = useState('')
-  const [thumbnailBatch, setThumbnailBatch] = useState([])
+  const [thumbnailsByVideo, setThumbnailsByVideo] = useState({})
   const [thumbnailLoading, setThumbnailLoading] = useState(false)
-  const [uploadedThumbnails, setUploadedThumbnails] = useState([])
+  const [uploadedByVideo, setUploadedByVideo] = useState({})
+  const THUMB_PROMPT_MAX = 200
+  const videoId = video?.id
+  const thumbnailBatch = thumbnailsByVideo[videoId] || []
+  const uploadedThumbnails = uploadedByVideo[videoId] || []
   const [selectedPreviewThumbnailUrl, setSelectedPreviewThumbnailUrl] = useState(null)
   const [previewTheme, setPreviewTheme] = useState('dark')
+  const [fullSizeImage, setFullSizeImage] = useState(null)
   const fileInputRef = useRef(null)
+  const screenRef = useRef(null)
+  const scoreAbortRef = useRef(null)
+  const recsAbortRef = useRef(null)
+  const refineAbortRef = useRef(null)
+  const tagsAbortRef = useRef(null)
+  const thumbAbortRef = useRef(null)
   const DESC_MAX = 5000
   const TAGS_MAX_CHARS = 500
 
   const REFINE_OPTIONS = [
     {
-      id: 'shorter',
-      label: 'Make shorter',
+      id: 'firstlines',
+      label: 'Optimize first 2 lines',
+      icon: '🎯',
       instruction:
-        'Make this description shorter and more concise while keeping the key information.',
-    },
-    {
-      id: 'longer',
-      label: 'Make longer',
-      instruction: 'Expand this description with more detail, examples, or context.',
-    },
-    {
-      id: 'hooks',
-      label: 'Add hooks',
-      instruction: 'Add compelling hooks and attention-grabbing phrases at the start.',
-    },
-    {
-      id: 'professional',
-      label: 'More professional',
-      instruction: 'Rewrite in a more professional, polished tone.',
-    },
-    {
-      id: 'simplify',
-      label: 'Simplify',
-      instruction: 'Simplify the language - use shorter sentences and fewer jargon.',
-    },
-    {
-      id: 'cta',
-      label: 'Add call to action',
-      instruction: 'Add a clear call to action (subscribe, like, comment, or visit link).',
+        'Rewrite the first 1-2 lines to maximize click-through from YouTube search results. YouTube only shows ~100 characters above the fold — these lines must create curiosity, include the primary keyword naturally, and give viewers a reason to click. Use a question, bold claim, or emotional hook.',
     },
     {
       id: 'keywords',
-      label: 'Add SEO keywords',
-      instruction: 'Naturally weave in relevant SEO keywords and phrases for YouTube search.',
+      label: 'Boost SEO keywords',
+      icon: '🔍',
+      instruction:
+        "Analyze this description and naturally integrate high-ranking YouTube SEO keywords and long-tail phrases. Place the most important keyword in the first sentence. Include related terms that YouTube's algorithm uses for topic clustering. Do NOT keyword-stuff — keep it readable and natural. Ensure keywords match what users would actually search for on YouTube.",
     },
     {
-      id: 'firstlines',
-      label: 'Optimize first lines',
+      id: 'hooks',
+      label: 'Add retention hooks',
+      icon: '🪝',
       instruction:
-        'Rewrite the first 1-2 lines to be more clickable and search-visible. YouTube shows ~100 characters in search.',
+        "Add compelling hooks optimized for YouTube's algorithm. Include: 1) A curiosity gap in the first line that makes viewers want to watch, 2) A value proposition (\"In this video you'll learn...\"), 3) Social proof or urgency if relevant. YouTube's algorithm favors descriptions that drive watch time — write hooks that set expectations and deliver.",
+    },
+    {
+      id: 'cta',
+      label: 'Add YouTube CTAs',
+      icon: '📢',
+      instruction:
+        'Add strategic calls-to-action optimized for YouTube engagement signals. Include: 1) Subscribe + bell notification CTA, 2) "Like if you..." engagement prompt, 3) Comment question to boost comments (YouTube ranks videos with more comments higher), 4) Link to related video/playlist for session time. Place CTAs after delivering value, not at the very start.',
     },
     {
       id: 'timestamps',
-      label: 'Add timestamps section',
+      label: 'Add chapters',
+      icon: '📑',
       instruction:
-        'Add a timestamps section at the end with placeholder format: 0:00 Intro, etc. Keep existing content.',
+        'Add a YouTube Chapters section with timestamps. Format: start with "0:00 Introduction" and add logical chapter markers every 2-5 minutes. YouTube shows chapters in search results and on the progress bar — this improves CTR and watch time. Keep existing description content above the timestamps.',
+    },
+    {
+      id: 'hashtags',
+      label: 'Add hashtags',
+      icon: '#️⃣',
+      instruction:
+        'Add 3-5 relevant YouTube hashtags at the very end of the description. YouTube shows the first 3 hashtags above the video title. Use: 1 broad category tag, 1-2 specific topic tags, 1 trending/niche tag. Format: #Hashtag (no spaces, capitalize each word). Do NOT use more than 15 hashtags — YouTube may ignore them all.',
+    },
+    {
+      id: 'shorter',
+      label: 'Make concise',
+      icon: '✂️',
+      instruction:
+        'Shorten this description while keeping all SEO value. Remove filler words, redundant phrases, and generic statements. Keep keywords, CTAs, links, and timestamps. YouTube rewards descriptions that are information-dense — every sentence should serve a purpose for either the viewer or the algorithm.',
+    },
+    {
+      id: 'longer',
+      label: 'Expand description',
+      icon: '📝',
+      instruction:
+        "Expand this description to 1000-2000 characters for maximum YouTube SEO benefit. Add: detailed video summary with keywords, related topics for algorithm clustering, social links section, related videos/playlists. YouTube's algorithm can extract topics from longer descriptions to recommend the video for more search queries.",
     },
   ]
 
@@ -198,9 +210,14 @@ export function VideoOptimizeModal({
   useEffect(() => {
     if (open && video?.id) {
       setThumbnailPrompt('')
-      setThumbnailBatch([])
-      setUploadedThumbnails([])
       setSelectedPreviewThumbnailUrl(null)
+    }
+  }, [open, video?.id])
+
+  // Scroll to top when screen opens
+  useEffect(() => {
+    if (open && screenRef.current) {
+      screenRef.current.scrollTop = 0
     }
   }, [open, video?.id])
 
@@ -240,28 +257,24 @@ export function VideoOptimizeModal({
   const previewChannelName =
     channelTitle || data?.channel_title || video?.channel_title || 'Your channel'
 
+  // Hydrate from video's existing YouTube data (not AI-generated)
   useEffect(() => {
-    if (open && data) {
-      if (data.description != null) setDescriptionInput(data.description || '')
-      if (Array.isArray(data.tags) && data.tags.length > 0) {
-        setTagsList(data.tags.map((t) => ({ tag: String(t).trim(), score: null })))
-        setTagsGenerated(true)
-      } else {
-        setTagsList([])
-        setTagsGenerated(false)
-      }
-    }
-    if (open && !data) {
-      if (video?.description != null) setDescriptionInput(video.description || '')
+    if (!open) return
+    setDescriptionInput(video?.description || '')
+    // Load existing tags from video if available
+    if (Array.isArray(video?.tags) && video.tags.length > 0) {
+      setTagsList(video.tags.map((t) => ({ tag: String(t).trim(), score: null })))
+      setTagsGenerated(true)
+    } else {
       setTagsList([])
       setTagsGenerated(false)
     }
-  }, [open, data?.description, data?.tags, video?.description])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, video?.id])
 
   useEffect(() => {
     if (!open) return
-    // If the backend generated title options but the input video has no title,
-    // prefer the default AI title for the editing input.
+    // Only use cached AI data if it exists (from a previous manual generation)
     if (data?.title_options?.length && !video?.title) {
       const idx = data.default_title_index ?? 0
       setTitleInput(data.title_options[idx] || '')
@@ -312,16 +325,29 @@ export function VideoOptimizeModal({
   })
 
   const fetchTitleRecommendations = () => {
+    if (titleRecsLoading) {
+      recsAbortRef.current?.abort()
+      setTitleRecsLoading(false)
+      return
+    }
     if (!video?.title?.trim()) return
+    const ac = new AbortController()
+    recsAbortRef.current = ac
     setTitleRecsLoading(true)
     titleRecommendationsMutation
       .mutateAsync({
         videoIdea: titleInput.trim() || video.title,
         thumbnailUrl: video.thumbnail_url || `https://img.youtube.com/vi/${video.id}/mqdefault.jpg`,
       })
-      .then((res) => setTitleRecommendations(res))
-      .catch(() => setTitleRecommendations(null))
-      .finally(() => setTitleRecsLoading(false))
+      .then((res) => {
+        if (!ac.signal.aborted) setTitleRecommendations(res)
+      })
+      .catch(() => {
+        if (!ac.signal.aborted) setTitleRecommendations(null)
+      })
+      .finally(() => {
+        if (!ac.signal.aborted) setTitleRecsLoading(false)
+      })
   }
 
   const showSeoNotice = (text, tone = 'success') => {
@@ -329,31 +355,43 @@ export function VideoOptimizeModal({
     setTimeout(() => setSeoNotice(null), 2800)
   }
 
+  const handleStopRefine = () => {
+    refineAbortRef.current?.abort()
+    setRefineLoading(false)
+  }
+
   const handleRefineDescription = (instruction) => {
     setRefineDropdownOpen(false)
     if (!video?.id) return
+    const ac = new AbortController()
+    refineAbortRef.current = ac
     setRefineLoading(true)
     refineDescriptionMutation
       .mutateAsync({ videoId: video.id, description: descriptionInput, instruction })
       .then((res) => {
+        if (ac.signal.aborted) return
         if (res?.description != null) {
           setDescriptionInput(res.description)
           showSeoNotice('Description updated.')
         }
       })
-      .catch(() => showSeoNotice('Could not refine. Try again.', 'error'))
-      .finally(() => setRefineLoading(false))
+      .catch(() => {
+        if (!ac.signal.aborted) showSeoNotice('Could not refine. Try again.', 'error')
+      })
+      .finally(() => {
+        if (!ac.signal.aborted) setRefineLoading(false)
+      })
   }
 
   const handleRegenerateDescription = () => {
     handleRefineDescription(
-      'Rewrite this description to be more engaging, clear, and SEO-friendly while keeping the same key points.'
+      `Rewrite this YouTube description to maximize search ranking and viewer engagement. Keep the same core topic but: 1) Put the strongest keyword in the first sentence, 2) Write the first 2 lines as a curiosity-driven hook (YouTube shows ~100 chars in search), 3) Include 3-5 natural keyword variations for algorithm topic clustering, 4) Add a subscribe CTA and comment prompt, 5) Keep it under 2000 characters for optimal readability. Follow YouTube SEO best practices.`
     )
   }
 
   const handleRecreateDescription = () => {
     if (!video?.id || !titleInput?.trim()) return
-    const instruction = `Write a completely new, SEO-optimized YouTube description for this video. Use the title "${titleInput.trim()}" as context. Include: a strong hook in the first 1-2 lines (these show in search results), key takeaways or value, relevant keywords, and a clear call to action. Make it engaging and search-friendly.`
+    const instruction = `Write a completely new YouTube description optimized for the YouTube algorithm. Title: "${titleInput.trim()}". Structure it exactly like this: 1) FIRST 2 LINES: Hook with primary keyword + curiosity gap (this shows in search results), 2) VALUE SUMMARY: 2-3 sentences explaining what viewers will learn/gain, 3) KEY POINTS: Bullet points or short paragraphs with related keywords, 4) CTA SECTION: Subscribe, like, comment prompt with a specific question, 5) LINKS/SOCIAL: Placeholder for channel links. Use natural keyword density — include the primary topic keyword 3-4 times and related long-tail phrases. Total length: 1000-1500 characters.`
     const baseDescription = descriptionInput?.trim() || `Video about: ${titleInput.trim()}`
     setRefineLoading(true)
     refineDescriptionMutation
@@ -379,22 +417,32 @@ export function VideoOptimizeModal({
   }
 
   const handleGenerateTags = () => {
+    if (tagsLoading) {
+      tagsAbortRef.current?.abort()
+      setTagsLoading(false)
+      return
+    }
     if (!video?.id) return
+    const ac = new AbortController()
+    tagsAbortRef.current = ac
     setTagsLoading(true)
     generateTagsMutation
       .mutateAsync({
         videoId: video.id,
         description: descriptionInput || undefined,
-        title: video?.title || undefined,
+        title: titleInput?.trim() || video?.title || undefined,
       })
       .then((res) => {
+        if (ac.signal.aborted) return
         if (res?.tags?.length) {
           setTagsList(res.tags.map((t) => ({ tag: t.tag, score: t.score })))
           setTagsGenerated(true)
         }
       })
       .catch(() => {})
-      .finally(() => setTagsLoading(false))
+      .finally(() => {
+        if (!ac.signal.aborted) setTagsLoading(false)
+      })
   }
 
   const thumbnailChatMutation = useThumbnailChatMutation()
@@ -402,31 +450,44 @@ export function VideoOptimizeModal({
   const getYoutubeUrl = () => (video?.id ? `https://www.youtube.com/watch?v=${video.id}` : '')
 
   const handleGenerateThumbnails = async () => {
+    if (thumbnailLoading) {
+      thumbAbortRef.current?.abort()
+      setThumbnailLoading(false)
+      return
+    }
     const url = getYoutubeUrl()
-    const prompt = (thumbnailPrompt || video?.title || '').trim()
-    if ((!url && !prompt) || thumbnailLoading) return
-    const message = url ? (prompt ? `${url} ${prompt}` : url) : prompt
+    const userPrompt = thumbnailPrompt.trim()
+    const contextPrompt = `Create a better, more click-worthy version of the current thumbnail for this video. Keep the same style and subject but make it more eye-catching.`
+    const prompt = userPrompt || contextPrompt
+    if (!url && !prompt) return
+    const ac = new AbortController()
+    thumbAbortRef.current = ac
+    const message = url ? `${url} ${prompt}` : prompt
     setThumbnailLoading(true)
+    setThumbnailPrompt('')
     try {
       const res = await thumbnailChatMutation.mutateAsync({
         message,
-        num_thumbnails: 4,
+        num_thumbnails: 1,
         channel_id: channelId || undefined,
       })
+      if (ac.signal.aborted) return
       const thumbs = res?.thumbnails || []
-      const mapped = thumbs.map((t, i) => ({ ...t, title: t.title || `${i + 1}x` }))
-      setThumbnailBatch(mapped)
+      const mapped = thumbs.map((t) => ({
+        ...t,
+        title: t.title || userPrompt || 'AI Generated',
+        id: `gen-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        score: t.score ?? null,
+      }))
+      setThumbnailsByVideo((prev) => ({
+        ...prev,
+        [videoId]: [...mapped, ...(prev[videoId] || [])],
+      }))
     } catch (_) {
-      setThumbnailBatch([])
+      // keep existing thumbnails on error
     } finally {
-      setThumbnailLoading(false)
+      if (!ac.signal.aborted) setThumbnailLoading(false)
     }
-  }
-
-  const handleThumbnailQuickPrompt = (label) => {
-    const url = getYoutubeUrl()
-    if (!url) return
-    setThumbnailPrompt((p) => (p ? `${p} ${label}` : label))
   }
 
   const handleUploadThumbnail = (e) => {
@@ -437,17 +498,38 @@ export function VideoOptimizeModal({
     const reader = new FileReader()
     reader.onload = () => {
       const dataUrl = reader.result
-      setUploadedThumbnails((prev) => [
+      setUploadedByVideo((prev) => ({
         ...prev,
-        { image_url: dataUrl, title: 'Uploaded', id: `upload-${Date.now()}` },
-      ])
+        [videoId]: [
+          ...(prev[videoId] || []),
+          { image_url: dataUrl, title: 'Uploaded', id: `upload-${Date.now()}` },
+        ],
+      }))
     }
     reader.readAsDataURL(file)
     e.target.value = ''
   }
 
   const handleRemoveUploaded = (id) => {
-    setUploadedThumbnails((prev) => prev.filter((u) => u.id !== id))
+    const removed = uploadedThumbnails.find((u) => u.id === id)
+    if (removed && selectedPreviewThumbnailUrl === removed.image_url) {
+      setSelectedPreviewThumbnailUrl(null)
+    }
+    setUploadedByVideo((prev) => ({
+      ...prev,
+      [videoId]: (prev[videoId] || []).filter((u) => u.id !== id),
+    }))
+  }
+
+  const handleRemoveGenerated = (id) => {
+    const removed = thumbnailBatch.find((t) => t.id === id)
+    if (removed && selectedPreviewThumbnailUrl === removed.image_url) {
+      setSelectedPreviewThumbnailUrl(null)
+    }
+    setThumbnailsByVideo((prev) => ({
+      ...prev,
+      [videoId]: (prev[videoId] || []).filter((t) => t.id !== id),
+    }))
   }
 
   const handleDetailsCommandSubmit = () => {
@@ -469,21 +551,32 @@ export function VideoOptimizeModal({
   }
 
   const handleScore = () => {
+    if (scoreLoading) {
+      scoreAbortRef.current?.abort()
+      setScoreLoading(false)
+      return
+    }
     if (!titleInput.trim()) return
+    const ac = new AbortController()
+    scoreAbortRef.current = ac
     setScoreLoading(true)
     scoreTitleMutation
       .mutateAsync({ title: titleInput.trim() })
       .then((res) => {
+        if (ac.signal.aborted) return
         setTitleScore(res?.score ?? null)
         setScoreTier(res?.tier ?? getScoreTier(res?.score).id)
         setScoreExplanation(res?.explanation ?? null)
       })
       .catch(() => {
+        if (ac.signal.aborted) return
         setTitleScore(null)
         setScoreTier(null)
         setScoreExplanation(null)
       })
-      .finally(() => setScoreLoading(false))
+      .finally(() => {
+        if (!ac.signal.aborted) setScoreLoading(false)
+      })
   }
 
   const tagsArray = tagsList.map((t) => t.tag).filter(Boolean)
@@ -498,10 +591,9 @@ export function VideoOptimizeModal({
     mutationFn: async ({ videoId, payload }) => {
       const token = await getValidAccessToken()
       if (!token) throw new Error('Not authenticated')
-      return youtubeApi.updateVideoMetadata(token, videoId, payload)
+      return youtubeApi.updateVideoMetadata(token, videoId, payload, channelId || null)
     },
     onMutate: async ({ videoId, payload }) => {
-      // Optimistically patch cached list rows so the UI feels instant.
       const previousEntries = queryClient.getQueriesData({
         queryKey: ['youtube', 'videos', channelId],
         exact: false,
@@ -548,876 +640,1306 @@ export function VideoOptimizeModal({
   if (!open) return null
 
   return (
-    <div
-      className="video-opt-overlay"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="video-opt-title"
+    <motion.div
+      className="video-opt-screen"
+      ref={screenRef}
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.35, ease: [0.33, 1, 0.68, 1] }}
     >
-      <div className="video-opt-dialog" onClick={(e) => e.stopPropagation()}>
-        <div className="video-opt-header">
-          <div className="video-opt-header-video">
-            {video?.thumbnail_url && (
-              <img src={video.thumbnail_url} alt="" className="video-opt-thumb" />
-            )}
-            <div className="video-opt-header-text">
-              <h2 id="video-opt-title" className="video-opt-title">
-                {video?.title || 'Video optimization'}
-              </h2>
-              <p className="video-opt-subtitle">
-                AI suggestions — copy and apply in YouTube Studio
-              </p>
-              <div className="video-opt-header-watch-row">
-                {video?.id && (
-                  <a
-                    href={`https://www.youtube.com/watch?v=${video.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="video-opt-watch-link"
-                  >
-                    Watch on YouTube ↗
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="video-opt-header-actions">
-            <button type="button" className="video-opt-close" onClick={onClose} aria-label="Close">
-              &times;
-            </button>
+      {/* Full-size image viewer */}
+      <AnimatePresence>
+        {fullSizeImage && (
+          <motion.div
+            className="video-opt-fullsize-overlay"
+            onClick={() => setFullSizeImage(null)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.img
+              src={fullSizeImage}
+              alt="Full size"
+              className="video-opt-fullsize-img"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.33, 1, 0.68, 1] }}
+            />
             <button
               type="button"
-              className="video-opt-save-btn"
-              onClick={handleSave}
-              disabled={!hasChanges || saving}
+              className="video-opt-fullsize-close"
+              onClick={() => setFullSizeImage(null)}
+              aria-label="Close"
             >
-              {saving ? 'Saving…' : saveSuccess ? 'Saved' : 'Save changes'}
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
             </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Header */}
+      <motion.header
+        className="video-opt-screen-header"
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.1, ease: [0.33, 1, 0.68, 1] }}
+      >
+        <div className="video-opt-screen-header-left">
+          <button
+            type="button"
+            className="video-opt-back-btn"
+            onClick={onClose}
+            aria-label="Back to videos"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M19 12H5" />
+              <path d="M12 19l-7-7 7-7" />
+            </svg>
+            <span>Back</span>
+          </button>
+        </div>
+        <div className="video-opt-screen-header-center">
+          <div className="video-opt-screen-video-info">
+            {video?.thumbnail_url && (
+              <img src={video.thumbnail_url} alt="" className="video-opt-screen-thumb" />
+            )}
+            <div className="video-opt-screen-video-text">
+              <h2 className="video-opt-screen-title">{video?.title || 'Video optimization'}</h2>
+              <p className="video-opt-screen-subtitle">AI suggestions — edit and save to YouTube</p>
+            </div>
           </div>
         </div>
-
-        <div className="video-opt-tabrow">
-          <TabBar
-            tabs={TABS}
-            value={activeTab}
-            onChange={setActiveTab}
-            ariaLabel="Optimization sections"
-            variant="modal"
-            className="video-opt-tabs"
-          />
-        </div>
-
-        <div className="video-opt-body">
-          {loading && (
-            <div className="video-opt-loading">
-              <Loading message="Generating suggestions…" size="lg" />
-            </div>
-          )}
-          {error && <div className="video-opt-error">{error}</div>}
-          {!loading && !error && (
-            <div
-              className={`video-opt-panel ${activeTab === 'title' ? 'video-opt-panel--top' : ''}`}
+        <div className="video-opt-screen-header-right">
+          {video?.id && (
+            <a
+              href={`https://www.youtube.com/watch?v=${video.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="video-opt-watch-btn"
             >
-              {activeTab === 'title' && (
-                <div className="video-opt-title-studio">
-                  <header className="video-opt-title-studio-hero">
-                    <div className="video-opt-title-studio-hero-inner">
-                      <span className="video-opt-title-studio-kicker">Title lab</span>
-                      <h3 className="video-opt-title-studio-heading">
-                        Dial in a headline that earns the click
-                      </h3>
-                      <p className="video-opt-title-studio-lead">
-                        Tune your title, run an AI score, then try alternate hooks below — what you
-                        pick stays in sync with Preview and Save changes.
-                      </p>
-                    </div>
-                    <div className="video-opt-title-studio-hero-glow" aria-hidden />
-                  </header>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M10 15l5.19-3L10 9v6m11.56-7.83c.13.47.22 1.1.28 1.9.07.8.1 1.49.1 2.09L22 12c0 2.19-.16 3.8-.44 4.83-.25.9-.83 1.48-1.73 1.73-.47.13-1.33.22-2.65.28-1.3.07-2.49.1-3.59.1L12 19c-4.19 0-6.8-.16-7.83-.44-.9-.25-1.48-.83-1.73-1.73-.13-.47-.22-1.1-.28-1.9-.07-.8-.1-1.49-.1-2.09L2 12c0-2.19.16-3.8.44-4.83.25-.9.83-1.48 1.73-1.73.47-.13 1.33-.22 2.65-.28 1.3-.07 2.49-.1 3.59-.1L12 5c4.19 0 6.8.16 7.83.44.9.25 1.48.83 1.73 1.73z" />
+              </svg>
+              Watch
+            </a>
+          )}
+          <button
+            type="button"
+            className={`video-opt-save-btn ${saveSuccess ? 'video-opt-save-btn--success' : ''}`}
+            onClick={handleSave}
+            disabled={!hasChanges || saving}
+          >
+            {saving ? (
+              <>
+                <span className="video-opt-btn-spinner" aria-hidden />
+                Updating YouTube…
+              </>
+            ) : saveSuccess ? (
+              <>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Updated on YouTube
+              </>
+            ) : (
+              'Save changes'
+            )}
+          </button>
+        </div>
+      </motion.header>
 
-                  <section
-                    className="video-opt-title-editor-card"
-                    aria-labelledby="video-opt-title-field-label"
-                  >
-                    <div className="video-opt-title-editor-card-top">
-                      <label
-                        id="video-opt-title-field-label"
-                        className="video-opt-title-editor-label"
-                        htmlFor="video-opt-title-field"
-                      >
-                        Working title
-                      </label>
-                      <span className="video-opt-title-char-count" aria-live="polite">
-                        {titleInput.length}
-                        <span className="video-opt-title-char-max">/100</span>
-                      </span>
-                    </div>
-                    <div className="video-opt-title-row video-opt-title-row--stack">
-                      <div className="video-opt-title-input-wrap">
-                        <input
-                          id="video-opt-title-field"
-                          type="text"
-                          className="video-opt-title-input"
-                          value={titleInput}
-                          onChange={(e) => setTitleInput(e.target.value)}
-                          placeholder="Type a title or start from the video’s current one…"
-                          aria-label="Video title"
-                          maxLength={100}
-                        />
-                        <button
-                          type="button"
-                          className="video-opt-score-btn"
-                          onClick={handleScore}
-                          disabled={!titleInput.trim() || scoreLoading}
-                        >
-                          {scoreLoading ? (
-                            <>
-                              <span className="video-opt-score-btn-spinner" aria-hidden />
-                              <span>Scoring…</span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="video-opt-score-btn-icon" aria-hidden>
-                                ✦
-                              </span>
-                              Score title
-                            </>
-                          )}
-                        </button>
-                      </div>
-                      {titleScore != null && (
-                        <button
-                          type="button"
-                          className={`video-opt-score-badge ${scoreTier ? `video-opt-score-badge--${scoreTier}` : `video-opt-score-badge--${getScoreTier(titleScore).id}`}`}
-                          onClick={() => setScoreDescVisible((v) => !v)}
-                          aria-expanded={scoreDescVisible}
-                          title={scoreExplanation || getScoreTier(titleScore).description}
-                        >
-                          <span className="video-opt-score-badge-num">{titleScore}</span>
-                          <span className="video-opt-score-badge-label">
-                            {scoreTier || getScoreTier(titleScore).label}
-                          </span>
-                          <span className="video-opt-score-badge-chevron" aria-hidden>
-                            {scoreDescVisible ? '▲' : '▼'}
-                          </span>
-                        </button>
-                      )}
-                    </div>
-                    {titleScore != null && scoreDescVisible && (
-                      <p
-                        className="video-opt-score-desc video-opt-score-desc--card"
-                        role="region"
-                        aria-live="polite"
-                      >
-                        {scoreExplanation || getScoreTier(titleScore).description}
-                      </p>
-                    )}
-                  </section>
-
-                  <section
-                    className="video-opt-reco-suite"
-                    aria-labelledby="video-opt-reco-suite-title"
-                  >
-                    <div className="video-opt-reco-suite-head">
-                      <div className="video-opt-reco-suite-head-text">
-                        <h3 id="video-opt-reco-suite-title" className="video-opt-reco-suite-title">
-                          Alternate hooks
-                        </h3>
-                        <p className="video-opt-reco-suite-sub">
-                          Three AI angles from your thumbnail + topic. Tap one to load it into the
-                          editor.
-                        </p>
-                      </div>
-                      {video?.title && (
-                        <button
-                          type="button"
-                          className="video-opt-generate-btn video-opt-generate-btn--ghost"
-                          onClick={fetchTitleRecommendations}
-                          disabled={!video?.title?.trim() || titleRecsLoading}
-                        >
-                          {titleRecsLoading ? (
-                            <span className="video-opt-generate-btn-spinner" aria-hidden />
-                          ) : (
-                            <span className="video-opt-generate-btn-icon" aria-hidden>
-                              ↻
-                            </span>
-                          )}
-                          {titleRecsLoading
-                            ? 'Cooking ideas…'
-                            : titleRecommendations?.titles?.length
-                              ? 'Fresh ideas'
-                              : 'Generate ideas'}
-                        </button>
-                      )}
-                    </div>
-                    {video?.title && (
-                      <div className="video-opt-recommendations-grid">
-                        {[0, 1, 2].map((i) => {
-                          const item = titleRecommendations?.titles?.[i]
-                          const isLoading = titleRecsLoading
-                          const isPlaceholder = !item
-                          const labels = ['A', 'B', 'C']
-                          return (
-                            <button
-                              key={i}
-                              type="button"
-                              className={`video-opt-reco-card ${selectedRecommendationIndex === i ? 'video-opt-reco-card--selected' : ''} ${isPlaceholder ? 'video-opt-reco-card--placeholder' : ''}`}
-                              onClick={() => {
-                                if (isPlaceholder) return
-                                const next = selectedRecommendationIndex === i ? null : i
-                                setSelectedRecommendationIndex(next)
-                                if (next !== null && titleRecommendations?.titles?.[next]) {
-                                  setTitleInput(titleRecommendations.titles[next].title)
-                                }
-                              }}
-                              disabled={isPlaceholder}
-                            >
-                              <span className="video-opt-reco-option-badge" aria-hidden>
-                                {labels[i]}
-                              </span>
-                              <div className="video-opt-reco-thumb">
-                                <img
-                                  src={
-                                    titleRecommendations?.thumbnail_url ||
-                                    video?.thumbnail_url ||
-                                    ''
-                                  }
-                                  alt=""
-                                />
-                                {!isPlaceholder && item?.score != null && (
-                                  <span
-                                    className={`video-opt-reco-score-pill video-opt-reco-score-pill--${getScoreTier(item.score).id}`}
-                                  >
-                                    <span className="video-opt-reco-score-pill-num">
-                                      {item.score}
-                                    </span>
-                                    <span className="video-opt-reco-score-pill-label">
-                                      {getScoreTier(item.score).label}
-                                    </span>
-                                  </span>
-                                )}
-                              </div>
-                              <div
-                                className={`video-opt-reco-title-wrap ${isLoading ? 'video-opt-reco-title-wrap--shimmer' : ''} ${isPlaceholder ? 'video-opt-reco-title-wrap--blur' : ''}`}
-                              >
-                                <p className="video-opt-reco-title">
-                                  {item?.title ?? 'Your alternate title lands here'}
-                                </p>
-                                {!isPlaceholder && !isLoading && (
-                                  <span className="video-opt-reco-use-hint">Use this title</span>
-                                )}
-                              </div>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
-                    {!video?.title && (
-                      <p className="video-opt-reco-empty">
-                        Select a video from Optimize to unlock AI title ideas.
-                      </p>
-                    )}
-                  </section>
+      {/* Split layout: preview left + tools right */}
+      <div className="video-opt-split">
+        {/* Left — live preview */}
+        <aside className="video-opt-preview-sidebar">
+          <div className="video-opt-preview-sidebar-inner">
+            <div className="video-opt-preview-sidebar-card">
+              <div className="video-opt-preview-sidebar-thumb">
+                <img
+                  src={
+                    selectedPreviewThumbnailUrl ||
+                    video?.thumbnail_url ||
+                    (video?.id ? `https://img.youtube.com/vi/${video.id}/mqdefault.jpg` : '')
+                  }
+                  alt=""
+                />
+                {video?.duration_minutes != null &&
+                  video.duration_minutes > 0 &&
+                  (() => {
+                    const tot = Math.round(video.duration_minutes * 60)
+                    const h = Math.floor(tot / 3600)
+                    const m = Math.floor((tot % 3600) / 60)
+                    const s = tot % 60
+                    const pad = (n) => String(n).padStart(2, '0')
+                    const t = h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`
+                    return <span className="video-opt-preview-sidebar-duration">{t}</span>
+                  })()}
+              </div>
+              <div className="video-opt-preview-sidebar-meta">
+                <h3 className="video-opt-preview-sidebar-title">
+                  {titleInput || video?.title || 'Untitled'}
+                </h3>
+                <p className="video-opt-preview-sidebar-channel">
+                  {channelTitle || video?.channel_title || 'Your channel'}
+                </p>
+                <p className="video-opt-preview-sidebar-stats">
+                  {formatPreviewCount(video?.view_count)}
+                  {video?.view_count != null && video?.published_at && ' · '}
+                  {formatPreviewTime(video?.published_at)}
+                </p>
+              </div>
+              {descriptionInput && (
+                <div className="video-opt-preview-sidebar-desc">
+                  <p>
+                    {descriptionInput.slice(0, 160)}
+                    {descriptionInput.length > 160 ? '…' : ''}
+                  </p>
                 </div>
               )}
-              {activeTab === 'thumbnail' && (
-                <div className="video-opt-thumb-panel">
-                  <div className="video-opt-thumb-current-wrap">
-                    <div className="video-opt-thumb-current-label">Current</div>
-                    <div className="video-opt-thumb-current">
-                      {video?.thumbnail_url ? (
-                        <>
-                          <img
-                            src={video.thumbnail_url}
-                            alt="Current thumbnail"
-                            className="video-opt-thumb-current-img"
-                          />
-                          <button
-                            type="button"
-                            className="video-opt-thumb-use-preview"
-                            onClick={() => setSelectedPreviewThumbnailUrl(null)}
-                            title="Use in preview"
-                          >
-                            Use in preview
-                          </button>
-                        </>
-                      ) : (
-                        <div className="video-opt-thumb-current-placeholder">No thumbnail</div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="video-opt-thumb-grid-wrap">
-                    <div className="video-opt-thumb-grid-label">
-                      Generated & uploaded
-                      <span className="video-opt-thumb-grid-hint">
-                        Tap an image to view full size
-                      </span>
-                    </div>
-                    <div className="video-opt-thumb-grid">
-                      {thumbnailLoading && (
-                        <div className="video-opt-thumb-loading-card">
-                          <span className="video-opt-thumb-loading-spinner" aria-hidden />
-                          <span>Generating…</span>
+              {tagsGenerated && tagsList.length > 0 && (
+                <div className="video-opt-preview-sidebar-tags">
+                  {tagsList.slice(0, 8).map((t, i) => (
+                    <span key={i} className="video-opt-preview-sidebar-tag">
+                      {t.tag}
+                    </span>
+                  ))}
+                  {tagsList.length > 8 && (
+                    <span className="video-opt-preview-sidebar-tag">+{tagsList.length - 8}</span>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="video-opt-preview-sidebar-hint">Live preview — updates as you edit</div>
+          </div>
+        </aside>
+
+        {/* Right — tools */}
+        <div className="video-opt-tools">
+          <div className="video-opt-screen-tabrow">
+            <TabBar
+              tabs={TABS}
+              value={activeTab}
+              onChange={setActiveTab}
+              ariaLabel="Optimization sections"
+              variant="modal"
+              className="video-opt-tabs"
+            />
+          </div>
+
+          <div className="video-opt-screen-body">
+            {loading && (
+              <div className="video-opt-loading">
+                <Loading size="lg" layout="page" message="Generating suggestions…" />
+              </div>
+            )}
+            {error && (
+              <div className="video-opt-error">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="15" y1="9" x2="9" y2="15" />
+                  <line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+                <span>{error}</span>
+                <button
+                  type="button"
+                  className="video-opt-error-retry"
+                  onClick={() => optimizationQuery.refetch()}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+            {!loading && !error && (
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  className={`video-opt-panel ${activeTab === 'title' ? 'video-opt-panel--top' : ''}`}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.28, ease: [0.33, 1, 0.68, 1] }}
+                >
+                  {/* === TITLE TAB === */}
+                  {activeTab === 'title' && (
+                    <div className="video-opt-title-studio">
+                      <header className="video-opt-title-studio-hero">
+                        <div className="video-opt-title-studio-hero-inner">
+                          <span className="video-opt-title-studio-kicker">Title lab</span>
+                          <h3 className="video-opt-title-studio-heading">
+                            Dial in a headline that earns the click
+                          </h3>
+                          <p className="video-opt-title-studio-lead">
+                            Tune your title, run an AI score, then try alternate hooks below — what
+                            you pick stays in sync with Preview and Save changes.
+                          </p>
                         </div>
-                      )}
-                      {!thumbnailLoading &&
-                        thumbnailBatch.map((t, i) => (
-                          <div key={`gen-${i}`} className="video-opt-thumb-card">
-                            <div className="video-opt-thumb-card-img-wrap">
-                              <img
-                                src={t.image_url}
-                                alt={t.title}
-                                className="video-opt-thumb-card-img"
-                              />
-                            </div>
-                            <div className="video-opt-thumb-card-actions">
-                              <button
-                                type="button"
-                                className="video-opt-thumb-card-btn video-opt-thumb-card-btn--preview"
-                                title="Use in preview"
-                                onClick={() => setSelectedPreviewThumbnailUrl(t.image_url)}
-                              >
-                                <svg
-                                  width="16"
-                                  height="16"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                >
-                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                  <circle cx="12" cy="12" r="3" />
-                                </svg>
-                              </button>
-                              <a
-                                href={t.image_url}
-                                download={`thumbnail-${i + 1}.png`}
-                                className="video-opt-thumb-card-btn"
-                                title="Download"
-                                aria-label="Download"
-                              >
-                                <svg
-                                  width="16"
-                                  height="16"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                >
-                                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                  <polyline points="7 10 12 15 17 10" />
-                                  <line x1="12" y1="15" x2="12" y2="3" />
-                                </svg>
-                              </a>
-                            </div>
-                          </div>
-                        ))}
-                      {uploadedThumbnails.map((u) => (
-                        <div
-                          key={u.id}
-                          className="video-opt-thumb-card video-opt-thumb-card--uploaded"
-                        >
-                          <div className="video-opt-thumb-card-img-wrap">
-                            <img
-                              src={u.image_url}
-                              alt={u.title}
-                              className="video-opt-thumb-card-img"
+                      </header>
+
+                      <section
+                        className="video-opt-title-editor-card"
+                        aria-labelledby="video-opt-title-field-label"
+                      >
+                        <div className="video-opt-title-editor-card-top">
+                          <label
+                            id="video-opt-title-field-label"
+                            className="video-opt-title-editor-label"
+                            htmlFor="video-opt-title-field"
+                          >
+                            Working title
+                          </label>
+                          <span className="video-opt-title-char-count" aria-live="polite">
+                            {titleInput.length}
+                            <span className="video-opt-title-char-max">/100</span>
+                          </span>
+                        </div>
+                        <div className="video-opt-title-row video-opt-title-row--stack">
+                          <div className="video-opt-title-input-wrap">
+                            <input
+                              id="video-opt-title-field"
+                              type="text"
+                              className="video-opt-title-input"
+                              value={titleInput}
+                              onChange={(e) => setTitleInput(e.target.value)}
+                              placeholder="Type a title or start from the video's current one…"
+                              aria-label="Video title"
+                              maxLength={100}
                             />
-                          </div>
-                          <div className="video-opt-thumb-card-actions">
                             <button
                               type="button"
-                              className="video-opt-thumb-card-btn video-opt-thumb-card-btn--preview"
-                              title="Use in preview"
-                              onClick={() => setSelectedPreviewThumbnailUrl(u.image_url)}
+                              className={`video-opt-score-btn ${scoreLoading ? 'video-opt-score-btn--loading' : ''}`}
+                              onClick={handleScore}
+                              disabled={!titleInput.trim() && !scoreLoading}
                             >
-                              <svg
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              >
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                <circle cx="12" cy="12" r="3" />
-                              </svg>
-                            </button>
-                            <a
-                              href={u.image_url}
-                              download="thumbnail-uploaded.png"
-                              className="video-opt-thumb-card-btn"
-                              title="Download"
-                              aria-label="Download"
-                            >
-                              <svg
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              >
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="7 10 12 15 17 10" />
-                                <line x1="12" y1="15" x2="12" y2="3" />
-                              </svg>
-                            </a>
-                            <button
-                              type="button"
-                              className="video-opt-thumb-card-btn video-opt-thumb-card-btn--remove"
-                              title="Remove"
-                              aria-label="Remove"
-                              onClick={() => handleRemoveUploaded(u.id)}
-                            >
-                              ×
+                              {scoreLoading ? (
+                                <>
+                                  <span className="video-opt-btn-spinner" aria-hidden />
+                                  <span>Stop</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="video-opt-score-btn-icon" aria-hidden>
+                                    ✦
+                                  </span>
+                                  Score title
+                                </>
+                              )}
                             </button>
                           </div>
+                          {titleScore != null && (
+                            <button
+                              type="button"
+                              className={`video-opt-score-badge ${scoreTier ? `video-opt-score-badge--${scoreTier}` : `video-opt-score-badge--${getScoreTier(titleScore).id}`}`}
+                              onClick={() => setScoreDescVisible((v) => !v)}
+                              aria-expanded={scoreDescVisible}
+                              title={scoreExplanation || getScoreTier(titleScore).description}
+                            >
+                              <span className="video-opt-score-badge-num">{titleScore}</span>
+                              <span className="video-opt-score-badge-label">
+                                {scoreTier || getScoreTier(titleScore).label}
+                              </span>
+                              <span className="video-opt-score-badge-chevron" aria-hidden>
+                                {scoreDescVisible ? '▲' : '▼'}
+                              </span>
+                            </button>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="video-opt-thumb-float-bar">
-                    <div className="video-opt-thumb-float-inner">
-                      <div className="video-opt-thumb-quick-pills">
-                        {THUMBNAIL_QUICK_PROMPTS.map((p) => (
-                          <button
-                            key={p.id}
-                            type="button"
-                            className="video-opt-thumb-pill"
-                            onClick={() => handleThumbnailQuickPrompt(p.label)}
+                        {titleScore != null && scoreDescVisible && (
+                          <p
+                            className="video-opt-score-desc video-opt-score-desc--card"
+                            role="region"
+                            aria-live="polite"
                           >
-                            {p.label}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="video-opt-thumb-input-row">
-                        <input
-                          type="text"
-                          className="video-opt-thumb-input"
-                          value={thumbnailPrompt}
-                          onChange={(e) => setThumbnailPrompt(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleGenerateThumbnails()}
-                          placeholder="Describe your thumbnail… or add to quick prompts above"
-                          aria-label="Thumbnail prompt"
-                        />
+                            {scoreExplanation || getScoreTier(titleScore).description}
+                          </p>
+                        )}
+                      </section>
+
+                      <section
+                        className="video-opt-reco-suite"
+                        aria-labelledby="video-opt-reco-suite-title"
+                      >
+                        <div className="video-opt-reco-suite-head">
+                          <div className="video-opt-reco-suite-head-text">
+                            <h3
+                              id="video-opt-reco-suite-title"
+                              className="video-opt-reco-suite-title"
+                            >
+                              Alternate hooks
+                            </h3>
+                            <p className="video-opt-reco-suite-sub">
+                              Three AI angles from your thumbnail + topic. Tap one to load it into
+                              the editor.
+                            </p>
+                          </div>
+                          {video?.title && (
+                            <button
+                              type="button"
+                              className={`video-opt-generate-btn video-opt-generate-btn--ghost ${titleRecsLoading ? 'video-opt-generate-btn--loading' : ''}`}
+                              onClick={fetchTitleRecommendations}
+                              disabled={!video?.title?.trim() && !titleRecsLoading}
+                            >
+                              {titleRecsLoading ? (
+                                <span className="video-opt-btn-spinner" aria-hidden />
+                              ) : (
+                                <span className="video-opt-generate-btn-icon" aria-hidden>
+                                  ↻
+                                </span>
+                              )}
+                              {titleRecsLoading
+                                ? 'Stop'
+                                : titleRecommendations?.titles?.length
+                                  ? 'Fresh ideas'
+                                  : 'Generate ideas'}
+                            </button>
+                          )}
+                        </div>
+                        {video?.title && (
+                          <div className="video-opt-recommendations-grid">
+                            {[0, 1, 2].map((i) => {
+                              const item = titleRecommendations?.titles?.[i]
+                              const isLoading = titleRecsLoading
+                              const isPlaceholder = !item
+                              const labels = ['A', 'B', 'C']
+                              return (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  className={`video-opt-reco-card ${selectedRecommendationIndex === i ? 'video-opt-reco-card--selected' : ''} ${isPlaceholder ? 'video-opt-reco-card--placeholder' : ''}`}
+                                  onClick={() => {
+                                    if (isPlaceholder) return
+                                    const next = selectedRecommendationIndex === i ? null : i
+                                    setSelectedRecommendationIndex(next)
+                                    if (next !== null && titleRecommendations?.titles?.[next]) {
+                                      setTitleInput(titleRecommendations.titles[next].title)
+                                    }
+                                  }}
+                                  disabled={isPlaceholder}
+                                >
+                                  <span className="video-opt-reco-option-badge" aria-hidden>
+                                    {labels[i]}
+                                  </span>
+                                  <div className="video-opt-reco-thumb">
+                                    <img
+                                      src={
+                                        titleRecommendations?.thumbnail_url ||
+                                        video?.thumbnail_url ||
+                                        ''
+                                      }
+                                      alt=""
+                                    />
+                                    {!isPlaceholder && item?.score != null && (
+                                      <span
+                                        className={`video-opt-reco-score-pill video-opt-reco-score-pill--${getScoreTier(item.score).id}`}
+                                      >
+                                        <span className="video-opt-reco-score-pill-num">
+                                          {item.score}
+                                        </span>
+                                        <span className="video-opt-reco-score-pill-label">
+                                          {getScoreTier(item.score).label}
+                                        </span>
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div
+                                    className={`video-opt-reco-title-wrap ${isLoading ? 'video-opt-reco-title-wrap--shimmer' : ''} ${isPlaceholder ? 'video-opt-reco-title-wrap--blur' : ''}`}
+                                  >
+                                    <p className="video-opt-reco-title">
+                                      {item?.title ?? 'Your alternate title lands here'}
+                                    </p>
+                                    {!isPlaceholder && !isLoading && (
+                                      <span className="video-opt-reco-use-hint">
+                                        Use this title
+                                      </span>
+                                    )}
+                                  </div>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+                        {!video?.title && (
+                          <p className="video-opt-reco-empty">
+                            Select a video from Optimize to unlock AI title ideas.
+                          </p>
+                        )}
+                      </section>
+                    </div>
+                  )}
+
+                  {/* === THUMBNAIL TAB === */}
+                  {activeTab === 'thumbnail' && (
+                    <div className="video-opt-thumb-panel">
+                      {/* Action cards row */}
+                      <div className="video-opt-thumb-actions">
                         <button
                           type="button"
-                          className="video-opt-thumb-generate-btn"
+                          className={`video-opt-thumb-action ${thumbnailLoading ? 'video-opt-thumb-action--active' : ''}`}
                           onClick={handleGenerateThumbnails}
-                          disabled={thumbnailLoading || !video?.id}
+                          disabled={!thumbnailLoading && !video?.id}
                         >
-                          {thumbnailLoading ? (
-                            <span className="video-opt-thumb-btn-spinner" aria-hidden />
-                          ) : null}
-                          {thumbnailLoading ? 'Generating…' : 'Generate'}
+                          <span className="video-opt-thumb-action-icon">
+                            {thumbnailLoading ? (
+                              <span className="video-opt-btn-spinner" aria-hidden />
+                            ) : (
+                              <svg
+                                width="20"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                              >
+                                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                                <path d="M2 17l10 5 10-5" />
+                                <path d="M2 12l10 5 10-5" />
+                              </svg>
+                            )}
+                          </span>
+                          <span className="video-opt-thumb-action-label">
+                            {thumbnailLoading ? 'Stop' : 'Quick generate'}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className="video-opt-thumb-action"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <span className="video-opt-thumb-action-icon">
+                            <svg
+                              width="20"
+                              height="20"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                            >
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                              <polyline points="17 8 12 3 7 8" />
+                              <line x1="12" y1="3" x2="12" y2="15" />
+                            </svg>
+                          </span>
+                          <span className="video-opt-thumb-action-label">Upload</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="video-opt-thumb-action"
+                          onClick={handleGenerateThumbnails}
+                          disabled={!video?.id}
+                        >
+                          <span className="video-opt-thumb-action-icon">
+                            <svg
+                              width="20"
+                              height="20"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                            >
+                              <rect x="2" y="2" width="20" height="20" rx="2" />
+                              <path d="M9 2v20" />
+                              <path d="M2 12h7" />
+                            </svg>
+                          </span>
+                          <span className="video-opt-thumb-action-label">Start from frame</span>
                         </button>
                         <input
                           ref={fileInputRef}
                           type="file"
                           accept="image/*"
                           className="video-opt-thumb-file-input"
-                          aria-label="Upload thumbnail"
                           onChange={handleUploadThumbnail}
                         />
-                        <button
-                          type="button"
-                          className="video-opt-thumb-upload-btn"
-                          onClick={() => fileInputRef.current?.click()}
-                          title="Upload your own thumbnail"
-                        >
-                          Upload
-                        </button>
                       </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {activeTab === 'seo' && (
-                <div className="video-opt-details-panel">
-                  {seoNotice && (
-                    <div
-                      className={`video-opt-seo-notice video-opt-seo-notice--${seoNotice.tone}`}
-                      role="status"
-                    >
-                      {seoNotice.text}
-                    </div>
-                  )}
-                  <p className="video-opt-seo-intro">
-                    Optimize description and tags for YouTube search. Edit below, then use Recreate
-                    or Refine to improve with AI.
-                  </p>
-                  <div className="video-opt-details-actions-row video-opt-details-actions-row--primary">
-                    <button
-                      type="button"
-                      className="video-opt-details-recreate-btn"
-                      onClick={handleRecreateDescription}
-                      disabled={refineLoading || !video?.id || !titleInput?.trim()}
-                    >
-                      {refineLoading ? (
-                        <>
-                          <span className="video-opt-details-refine-spinner" aria-hidden />
-                          Creating…
-                        </>
-                      ) : (
-                        'Recreate'
-                      )}
-                    </button>
-                    <div className="video-opt-details-refine-dropdown-wrap" ref={refineDropdownRef}>
-                      <button
-                        type="button"
-                        className="video-opt-details-refine-main-btn"
-                        onClick={() => setRefineDropdownOpen((v) => !v)}
-                        disabled={refineLoading}
-                        aria-expanded={refineDropdownOpen}
-                        aria-haspopup="true"
-                      >
-                        {refineLoading ? (
-                          <>
-                            <span className="video-opt-details-refine-spinner" aria-hidden />
-                            Refining…
-                          </>
-                        ) : (
-                          'Refine'
-                        )}
-                      </button>
-                      {refineDropdownOpen && (
-                        <div className="video-opt-details-refine-dropdown" role="menu">
-                          {REFINE_OPTIONS.map((opt) => (
-                            <button
-                              key={opt.id}
-                              type="button"
-                              role="menuitem"
-                              className="video-opt-details-refine-dropdown-item"
-                              onClick={() => handleRefineDescription(opt.instruction)}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      className="video-opt-details-regenerate-quick-btn"
-                      onClick={handleRegenerateDescription}
-                      disabled={refineLoading}
-                    >
-                      {refineLoading ? (
-                        <>
-                          <span className="video-opt-details-regenerate-spinner" aria-hidden />
-                          Regenerating…
-                        </>
-                      ) : (
-                        'Regenerate'
-                      )}
-                    </button>
-                  </div>
 
-                  <div className="video-opt-details-section">
-                    <div className="video-opt-details-section-head">
-                      <label className="video-opt-details-label">Description</label>
-                      <span className="video-opt-details-meta">
-                        <span className="video-opt-details-count">
-                          {descriptionInput.length} of {DESC_MAX}
-                        </span>
-                        <button
-                          type="button"
-                          className="video-opt-details-copy-btn"
-                          onClick={handleCopyDescription}
-                          disabled={!descriptionInput?.trim()}
-                          title="Copy to clipboard"
+                      {/* Thumbnail gallery */}
+                      <div className="video-opt-thumb-gallery">
+                        {/* Current */}
+                        <div
+                          className={`video-opt-thumb-card video-opt-thumb-card--current ${!selectedPreviewThumbnailUrl ? 'video-opt-thumb-card--selected' : ''}`}
+                          onClick={() => setSelectedPreviewThumbnailUrl(null)}
                         >
-                          Copy
-                        </button>
-                      </span>
-                    </div>
-                    <textarea
-                      className="video-opt-details-description"
-                      value={descriptionInput}
-                      onChange={(e) => setDescriptionInput(e.target.value.slice(0, DESC_MAX))}
-                      placeholder="Why does it feel like everyone is ahead in life?&#10;&#10;Social media shows the highlights, not the real journey..."
-                      maxLength={DESC_MAX}
-                      rows={6}
-                      aria-label="Video description"
-                    />
-                  </div>
-
-                  <div className="video-opt-details-section">
-                    <div className="video-opt-details-section-head">
-                      <label className="video-opt-details-label">Tags</label>
-                      <span className="video-opt-details-count">
-                        {tagsList.length ? tagsList.map((t) => t.tag).join(',').length : 0} of{' '}
-                        {TAGS_MAX_CHARS}
-                      </span>
-                    </div>
-                    <div className="video-opt-details-tags-container">
-                      {!tagsGenerated && !tagsLoading && (
-                        <div className="video-opt-details-tags-placeholders">
-                          {[1, 2, 3].map((i) => (
-                            <span
-                              key={i}
-                              className="video-opt-details-tag-chip video-opt-details-tag-chip--blur"
-                            >
-                              <span className="video-opt-details-tag-chip-score">—</span>
-                              <span className="video-opt-details-tag-chip-name">Tag</span>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      {tagsLoading && (
-                        <div className="video-opt-details-tags-placeholders">
-                          <span className="video-opt-details-tags-loading">Generating tags…</span>
-                        </div>
-                      )}
-                      {tagsGenerated && tagsList.length > 0 && (
-                        <div className="video-opt-details-tags-chips">
-                          {tagsList.map((item, index) => (
-                            <span
-                              key={`${item.tag}-${index}`}
-                              className={`video-opt-details-tag-chip video-opt-details-tag-chip--${item.score != null ? getScoreTier(item.score).id : 'custom'}`}
-                            >
-                              {item.score != null && (
-                                <span className="video-opt-details-tag-chip-score">
-                                  {item.score}
-                                </span>
-                              )}
-                              <span className="video-opt-details-tag-chip-name">{item.tag}</span>
-                              <button
-                                type="button"
-                                className="video-opt-details-tag-chip-remove"
-                                onClick={() => removeTag(index)}
-                                aria-label={`Remove ${item.tag}`}
-                              >
-                                ×
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      {tagsGenerated && (
-                        <input
-                          type="text"
-                          className="video-opt-details-tag-input"
-                          value={tagInputValue}
-                          onChange={(e) => setTagInputValue(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ',') {
-                              e.preventDefault()
-                              addTag(tagInputValue)
-                            } else if (
-                              e.key === 'Backspace' &&
-                              !tagInputValue &&
-                              tagsList.length > 0
-                            ) {
-                              removeTag(tagsList.length - 1)
-                            }
-                          }}
-                          placeholder="Add tag (Enter or comma)"
-                          aria-label="Add tag"
-                        />
-                      )}
-                    </div>
-                    {(!tagsGenerated || tagsList.length === 0) && !tagsLoading && (
-                      <button
-                        type="button"
-                        className="video-opt-details-generate-tags-btn"
-                        onClick={handleGenerateTags}
-                        disabled={!video?.id}
-                      >
-                        Generate tags
-                      </button>
-                    )}
-                    {tagsGenerated && tagsList.length > 0 && !tagsLoading && (
-                      <button
-                        type="button"
-                        className="video-opt-details-regenerate-tags-btn"
-                        onClick={handleGenerateTags}
-                        disabled={!video?.id}
-                      >
-                        Regenerate tags
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="video-opt-details-command-float">
-                    <textarea
-                      className="video-opt-details-command-input video-opt-details-command-input-expand"
-                      value={detailsCommand}
-                      onChange={(e) => setDetailsCommand(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault()
-                          handleDetailsCommandSubmit()
-                        }
-                      }}
-                      placeholder="Custom instruction… e.g. Add a product link, mention my channel, add FAQ section"
-                      aria-label="Command for description"
-                      rows={Math.max(1, Math.min(6, detailsCommand.split('\n').length))}
-                    />
-                    <button
-                      type="button"
-                      className="video-opt-details-command-submit"
-                      onClick={handleDetailsCommandSubmit}
-                      disabled={!detailsCommand.trim() || refineLoading}
-                    >
-                      Apply
-                    </button>
-                  </div>
-                </div>
-              )}
-              {activeTab === 'preview' && (
-                <div className={`video-opt-preview-mock video-opt-preview-mock--${previewTheme}`}>
-                  <header className="video-opt-preview-nav">
-                    <div className="video-opt-preview-nav-left">
-                      <button
-                        type="button"
-                        className="video-opt-preview-nav-icon"
-                        title="Home"
-                        aria-label="Home"
-                      >
-                        <svg viewBox="0 0 24 24" width="24" height="24">
-                          <path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        className="video-opt-preview-nav-icon"
-                        title="Search"
-                        aria-label="Search"
-                      >
-                        <svg viewBox="0 0 24 24" width="24" height="24">
-                          <path
-                            fill="currentColor"
-                            d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
-                          />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        className="video-opt-preview-nav-icon"
-                        title="Device"
-                        aria-label="Device"
-                      >
-                        <svg viewBox="0 0 24 24" width="24" height="24">
-                          <path
-                            fill="currentColor"
-                            d="M4 6h18V4H4c-1.1 0-2 .9-2 2v11H0v3h14v-3H4V6zm19 2h-6c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h6c.55 0 1-.45 1-1V9c0-.55-.45-1-1-1zm-1 9h-4v-7h4v7z"
-                          />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        className="video-opt-preview-nav-icon"
-                        title="Media"
-                        aria-label="Media"
-                      >
-                        <svg viewBox="0 0 24 24" width="24" height="24">
-                          <path
-                            fill="currentColor"
-                            d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                    <div className="video-opt-preview-nav-right">
-                      <button
-                        type="button"
-                        className="video-opt-preview-nav-icon"
-                        title={previewTheme === 'dark' ? 'Switch to light' : 'Switch to dark'}
-                        aria-label="Theme"
-                        onClick={() => setPreviewTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-                      >
-                        {previewTheme === 'dark' ? (
-                          <svg viewBox="0 0 24 24" width="24" height="24">
-                            <path
-                              fill="currentColor"
-                              d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"
-                            />
-                          </svg>
-                        ) : (
-                          <svg viewBox="0 0 24 24" width="24" height="24">
-                            <path
-                              fill="currentColor"
-                              d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 0 0 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"
-                            />
-                          </svg>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        className="video-opt-preview-nav-icon"
-                        title="Refresh preview"
-                        aria-label="Refresh"
-                        onClick={() => setSelectedPreviewThumbnailUrl(null)}
-                      >
-                        <svg viewBox="0 0 24 24" width="24" height="24">
-                          <path
-                            fill="currentColor"
-                            d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  </header>
-                  <div className="video-opt-preview-content">
-                    <div className="video-opt-preview-grid">
-                      <div className="video-opt-preview-card">
-                        <div className="video-opt-preview-thumb-wrap">
-                          {previewThumbnailUrl ? (
+                          <div className="video-opt-thumb-card-img-wrap">
                             <img
-                              src={previewThumbnailUrl}
-                              alt=""
-                              className="video-opt-preview-thumb"
+                              src={
+                                video?.thumbnail_url ||
+                                `https://img.youtube.com/vi/${video?.id}/mqdefault.jpg`
+                              }
+                              alt="Current"
+                              className="video-opt-thumb-card-img"
                             />
-                          ) : (
-                            <div className="video-opt-preview-thumb-placeholder">
-                              <span>No thumbnail</span>
-                            </div>
-                          )}
-                          {video?.duration_minutes != null &&
-                            video.duration_minutes > 0 &&
-                            (() => {
-                              const tot = Math.round(video.duration_minutes * 60)
-                              const h = Math.floor(tot / 3600)
-                              const m = Math.floor((tot % 3600) / 60)
-                              const s = tot % 60
-                              const pad = (n) => String(n).padStart(2, '0')
-                              const t = h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`
-                              return <div className="video-opt-preview-duration">{t}</div>
-                            })()}
+                            <span className="video-opt-thumb-card-badge">Current</span>
+                          </div>
                         </div>
-                        <div className="video-opt-preview-info">
-                          <div className="video-opt-preview-avatar" aria-hidden />
-                          <div className="video-opt-preview-meta">
-                            <h3
-                              className="video-opt-preview-title"
-                              title={titleInput || video?.title}
+
+                        {/* Generating */}
+                        <AnimatePresence>
+                          {thumbnailLoading && (
+                            <motion.div
+                              className="video-opt-thumb-card video-opt-thumb-card--generating"
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.95 }}
+                              transition={{ duration: 0.2 }}
                             >
-                              {titleInput || video?.title || 'Untitled'}
-                            </h3>
-                            <div className="video-opt-preview-channel">{previewChannelName}</div>
-                            <div className="video-opt-preview-stats">
-                              {formatPreviewCount(video?.view_count)}
-                              {(video?.view_count != null || video?.published_at) && (
-                                <span className="video-opt-preview-dot">•</span>
+                              <div className="video-opt-thumb-card-img-wrap">
+                                <div className="video-opt-thumb-generating-placeholder">
+                                  <span className="video-opt-btn-spinner" aria-hidden />
+                                  <span>Generating…</span>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+
+                        {/* Generated */}
+                        <AnimatePresence>
+                          {thumbnailBatch.map((t) => (
+                            <motion.div
+                              key={t.id}
+                              className={`video-opt-thumb-card ${selectedPreviewThumbnailUrl === t.image_url ? 'video-opt-thumb-card--selected' : ''}`}
+                              initial={{ opacity: 0, scale: 0.92 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.92 }}
+                              transition={{ duration: 0.25, ease: [0.33, 1, 0.68, 1] }}
+                              layout
+                            >
+                              <div
+                                className="video-opt-thumb-card-img-wrap"
+                                onClick={() => setSelectedPreviewThumbnailUrl(t.image_url)}
+                              >
+                                <img
+                                  src={t.image_url}
+                                  alt={t.title}
+                                  className="video-opt-thumb-card-img"
+                                />
+                                {t.score != null && (
+                                  <span
+                                    className={`video-opt-thumb-card-score video-opt-thumb-card-score--${getScoreTier(t.score).id}`}
+                                  >
+                                    {t.score}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="video-opt-thumb-card-actions">
+                                <button
+                                  type="button"
+                                  className={`video-opt-thumb-card-btn video-opt-thumb-card-btn--select ${selectedPreviewThumbnailUrl === t.image_url ? 'video-opt-thumb-card-btn--active' : ''}`}
+                                  onClick={() => setSelectedPreviewThumbnailUrl(t.image_url)}
+                                >
+                                  {selectedPreviewThumbnailUrl === t.image_url
+                                    ? 'Selected'
+                                    : 'Select'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="video-opt-thumb-card-btn"
+                                  onClick={() => setFullSizeImage(t.image_url)}
+                                >
+                                  <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                  >
+                                    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                                  </svg>
+                                </button>
+                                <a
+                                  href={t.image_url}
+                                  download={`thumbnail-${t.id}.png`}
+                                  className="video-opt-thumb-card-btn"
+                                  title="Download"
+                                >
+                                  <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                  >
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                    <polyline points="7 10 12 15 17 10" />
+                                    <line x1="12" y1="15" x2="12" y2="3" />
+                                  </svg>
+                                </a>
+                                <button
+                                  type="button"
+                                  className="video-opt-thumb-card-btn video-opt-thumb-card-btn--remove"
+                                  onClick={() => handleRemoveGenerated(t.id)}
+                                  title="Delete"
+                                >
+                                  <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                  >
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+
+                        {/* Uploaded */}
+                        <AnimatePresence>
+                          {uploadedThumbnails.map((u) => (
+                            <motion.div
+                              key={u.id}
+                              className={`video-opt-thumb-card ${selectedPreviewThumbnailUrl === u.image_url ? 'video-opt-thumb-card--selected' : ''}`}
+                              initial={{ opacity: 0, scale: 0.92 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.92 }}
+                              transition={{ duration: 0.25, ease: [0.33, 1, 0.68, 1] }}
+                              layout
+                            >
+                              <div
+                                className="video-opt-thumb-card-img-wrap"
+                                onClick={() => setSelectedPreviewThumbnailUrl(u.image_url)}
+                              >
+                                <img
+                                  src={u.image_url}
+                                  alt={u.title}
+                                  className="video-opt-thumb-card-img"
+                                />
+                                <span className="video-opt-thumb-card-badge">Uploaded</span>
+                              </div>
+                              <div className="video-opt-thumb-card-actions">
+                                <button
+                                  type="button"
+                                  className={`video-opt-thumb-card-btn video-opt-thumb-card-btn--select ${selectedPreviewThumbnailUrl === u.image_url ? 'video-opt-thumb-card-btn--active' : ''}`}
+                                  onClick={() => setSelectedPreviewThumbnailUrl(u.image_url)}
+                                >
+                                  {selectedPreviewThumbnailUrl === u.image_url
+                                    ? 'Selected'
+                                    : 'Select'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="video-opt-thumb-card-btn"
+                                  onClick={() => setFullSizeImage(u.image_url)}
+                                >
+                                  <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                  >
+                                    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                                  </svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="video-opt-thumb-card-btn video-opt-thumb-card-btn--remove"
+                                  onClick={() => handleRemoveUploaded(u.id)}
+                                  title="Delete"
+                                >
+                                  <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                  >
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                      </div>
+
+                      {/* Floating glass input bar */}
+                      <div className="video-opt-thumb-float-bar">
+                        <div className="video-opt-float-glass">
+                          <textarea
+                            className="video-opt-float-input"
+                            value={thumbnailPrompt}
+                            onChange={(e) =>
+                              setThumbnailPrompt(e.target.value.slice(0, THUMB_PROMPT_MAX))
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault()
+                                handleGenerateThumbnails()
+                              }
+                            }}
+                            onInput={(e) => {
+                              e.target.style.height = 'auto'
+                              e.target.style.height = Math.min(e.target.scrollHeight, 88) + 'px'
+                            }}
+                            placeholder="Describe your thumbnail idea..."
+                            aria-label="Thumbnail prompt"
+                            maxLength={THUMB_PROMPT_MAX}
+                            rows={1}
+                          />
+                          <div className="video-opt-float-actions">
+                            <button
+                              type="button"
+                              className="video-opt-float-action-btn"
+                              onClick={() => fileInputRef.current?.click()}
+                              title="Add image"
+                            >
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              >
+                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                <polyline points="21 15 16 10 5 21" />
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
+                              className={`video-opt-float-send ${thumbnailLoading ? 'video-opt-float-send--loading' : ''}`}
+                              onClick={handleGenerateThumbnails}
+                              disabled={!thumbnailLoading && !videoId}
+                            >
+                              {thumbnailLoading ? (
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                  <rect x="6" y="6" width="12" height="12" rx="2" />
+                                </svg>
+                              ) : (
+                                <svg
+                                  width="16"
+                                  height="16"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <path d="M12 19V5" />
+                                  <path d="M5 12l7-7 7 7" />
+                                </svg>
                               )}
-                              {formatPreviewTime(video?.published_at)}
-                            </div>
+                            </button>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                  <p className="video-opt-preview-hint">
-                    Select a thumbnail in the Thumbnail tab. Use theme and refresh above.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+                  )}
+
+                  {/* === SEO TAB === */}
+                  {activeTab === 'seo' && (
+                    <div className="video-opt-details-panel">
+                      <AnimatePresence>
+                        {seoNotice && (
+                          <motion.div
+                            className={`video-opt-seo-notice video-opt-seo-notice--${seoNotice.tone}`}
+                            role="status"
+                            initial={{ opacity: 0, y: -8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            {seoNotice.text}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Description section */}
+                      <div className="video-opt-details-section">
+                        <div className="video-opt-details-section-head">
+                          <label className="video-opt-details-label">Description</label>
+                          <span className="video-opt-details-meta">
+                            <span className="video-opt-details-count">
+                              {descriptionInput.length}/{DESC_MAX}
+                            </span>
+                            <button
+                              type="button"
+                              className="video-opt-details-copy-btn"
+                              onClick={handleCopyDescription}
+                              disabled={!descriptionInput?.trim()}
+                            >
+                              Copy
+                            </button>
+                          </span>
+                        </div>
+                        <textarea
+                          className="video-opt-details-description"
+                          value={descriptionInput}
+                          onChange={(e) => setDescriptionInput(e.target.value.slice(0, DESC_MAX))}
+                          placeholder="Write a compelling description for your video...&#10;&#10;The first 2 lines are critical — YouTube shows them in search results."
+                          maxLength={DESC_MAX}
+                          rows={8}
+                          aria-label="Video description"
+                        />
+
+                        {/* AI refine tools — inline pills */}
+                        <div className="video-opt-details-refine-row">
+                          {refineLoading ? (
+                            <button
+                              type="button"
+                              className="video-opt-details-refine-pill video-opt-details-refine-pill--stop"
+                              onClick={handleStopRefine}
+                            >
+                              <span className="video-opt-btn-spinner" aria-hidden />
+                              Stop
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                className="video-opt-details-refine-pill video-opt-details-refine-pill--primary"
+                                onClick={handleRecreateDescription}
+                                disabled={!video?.id || !titleInput?.trim()}
+                              >
+                                Recreate from scratch
+                              </button>
+                              <button
+                                type="button"
+                                className="video-opt-details-refine-pill"
+                                onClick={handleRegenerateDescription}
+                                disabled={!descriptionInput?.trim()}
+                              >
+                                Regenerate
+                              </button>
+                              <div
+                                className="video-opt-details-refine-dropdown-wrap"
+                                ref={refineDropdownRef}
+                              >
+                                <button
+                                  type="button"
+                                  className="video-opt-details-refine-pill"
+                                  onClick={() => setRefineDropdownOpen((v) => !v)}
+                                  aria-expanded={refineDropdownOpen}
+                                  aria-haspopup="true"
+                                >
+                                  Refine
+                                  <svg
+                                    width="12"
+                                    height="12"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                  >
+                                    <path d="M6 9l6 6 6-6" />
+                                  </svg>
+                                </button>
+                                <AnimatePresence>
+                                  {refineDropdownOpen && (
+                                    <motion.div
+                                      className="video-opt-details-refine-dropdown"
+                                      role="menu"
+                                      initial={{ opacity: 0, y: 4, scale: 0.97 }}
+                                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                                      exit={{ opacity: 0, y: 4, scale: 0.97 }}
+                                      transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+                                    >
+                                      {REFINE_OPTIONS.map((opt) => (
+                                        <button
+                                          key={opt.id}
+                                          type="button"
+                                          role="menuitem"
+                                          className="video-opt-details-refine-dropdown-item"
+                                          onClick={() => handleRefineDescription(opt.instruction)}
+                                        >
+                                          <span className="video-opt-details-refine-dropdown-icon">
+                                            {opt.icon}
+                                          </span>
+                                          {opt.label}
+                                        </button>
+                                      ))}
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Tags section */}
+                      <div className="video-opt-details-section">
+                        <div className="video-opt-details-section-head">
+                          <label className="video-opt-details-label">Tags</label>
+                          <span className="video-opt-details-meta">
+                            <span className="video-opt-details-count">
+                              {tagsList.length ? tagsList.map((t) => t.tag).join(',').length : 0}/
+                              {TAGS_MAX_CHARS}
+                            </span>
+                            {(!tagsGenerated || tagsList.length === 0) && !tagsLoading ? (
+                              <button
+                                type="button"
+                                className="video-opt-details-generate-tags-btn"
+                                onClick={handleGenerateTags}
+                                disabled={!video?.id}
+                              >
+                                {tagsLoading ? (
+                                  <span className="video-opt-btn-spinner" aria-hidden />
+                                ) : null}
+                                Generate
+                              </button>
+                            ) : tagsGenerated && tagsList.length > 0 && !tagsLoading ? (
+                              <button
+                                type="button"
+                                className="video-opt-details-generate-tags-btn"
+                                onClick={handleGenerateTags}
+                                disabled={!video?.id}
+                              >
+                                Regenerate
+                              </button>
+                            ) : null}
+                          </span>
+                        </div>
+                        <div className="video-opt-details-tags-container">
+                          {!tagsGenerated && !tagsLoading && (
+                            <div className="video-opt-details-tags-placeholders">
+                              {['keyword', 'topic', 'niche'].map((t) => (
+                                <span
+                                  key={t}
+                                  className="video-opt-details-tag-chip video-opt-details-tag-chip--blur"
+                                >
+                                  <span className="video-opt-details-tag-chip-name">{t}</span>
+                                </span>
+                              ))}
+                              <span className="video-opt-details-tags-hint">
+                                Generate tags to see YouTube-optimized suggestions
+                              </span>
+                            </div>
+                          )}
+                          {tagsLoading && (
+                            <div className="video-opt-details-tags-placeholders">
+                              <span className="video-opt-btn-spinner" aria-hidden />
+                              <span className="video-opt-details-tags-loading">
+                                Analyzing video for optimal tags…
+                              </span>
+                            </div>
+                          )}
+                          {tagsGenerated && tagsList.length > 0 && (
+                            <div className="video-opt-details-tags-chips">
+                              {tagsList.map((item, index) => (
+                                <motion.span
+                                  key={`${item.tag}-${index}`}
+                                  className={`video-opt-details-tag-chip video-opt-details-tag-chip--${item.score != null ? getScoreTier(item.score).id : 'custom'}`}
+                                  initial={{ opacity: 0, scale: 0.9 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  transition={{ delay: index * 0.03, duration: 0.2 }}
+                                  layout
+                                >
+                                  {item.score != null && (
+                                    <span className="video-opt-details-tag-chip-score">
+                                      {item.score}
+                                    </span>
+                                  )}
+                                  <span className="video-opt-details-tag-chip-name">
+                                    {item.tag}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="video-opt-details-tag-chip-remove"
+                                    onClick={() => removeTag(index)}
+                                    aria-label={`Remove ${item.tag}`}
+                                  >
+                                    ×
+                                  </button>
+                                </motion.span>
+                              ))}
+                            </div>
+                          )}
+                          {tagsGenerated && (
+                            <input
+                              type="text"
+                              className="video-opt-details-tag-input"
+                              value={tagInputValue}
+                              onChange={(e) => setTagInputValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ',') {
+                                  e.preventDefault()
+                                  addTag(tagInputValue)
+                                } else if (
+                                  e.key === 'Backspace' &&
+                                  !tagInputValue &&
+                                  tagsList.length > 0
+                                ) {
+                                  removeTag(tagsList.length - 1)
+                                }
+                              }}
+                              placeholder="Add a custom tag…"
+                              aria-label="Add tag"
+                            />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Floating glass command bar */}
+                      <div className="video-opt-details-command-float">
+                        <div className="video-opt-float-glass">
+                          <textarea
+                            className="video-opt-float-input"
+                            value={detailsCommand}
+                            onChange={(e) => setDetailsCommand(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault()
+                                handleDetailsCommandSubmit()
+                              }
+                            }}
+                            onInput={(e) => {
+                              e.target.style.height = 'auto'
+                              e.target.style.height = Math.min(e.target.scrollHeight, 88) + 'px'
+                            }}
+                            placeholder="Ask AI to edit your description…"
+                            aria-label="AI command for description"
+                            rows={1}
+                          />
+                          <div className="video-opt-float-actions">
+                            <button
+                              type="button"
+                              className={`video-opt-float-send ${refineLoading ? 'video-opt-float-send--loading' : ''}`}
+                              onClick={handleDetailsCommandSubmit}
+                              disabled={!detailsCommand.trim() || refineLoading}
+                            >
+                              {refineLoading ? (
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                  <rect x="6" y="6" width="12" height="12" rx="2" />
+                                </svg>
+                              ) : (
+                                <svg
+                                  width="16"
+                                  height="16"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <path d="M12 19V5" />
+                                  <path d="M5 12l7-7 7 7" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* === PREVIEW TAB === */}
+                  {activeTab === 'preview' && (
+                    <div
+                      className={`video-opt-preview-mock video-opt-preview-mock--${previewTheme}`}
+                    >
+                      <header className="video-opt-preview-nav">
+                        <div className="video-opt-preview-nav-left">
+                          <button
+                            type="button"
+                            className="video-opt-preview-nav-icon"
+                            title="Home"
+                            aria-label="Home"
+                          >
+                            <svg viewBox="0 0 24 24" width="24" height="24">
+                              <path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            className="video-opt-preview-nav-icon"
+                            title="Search"
+                            aria-label="Search"
+                          >
+                            <svg viewBox="0 0 24 24" width="24" height="24">
+                              <path
+                                fill="currentColor"
+                                d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="video-opt-preview-nav-right">
+                          <button
+                            type="button"
+                            className="video-opt-preview-nav-icon"
+                            title={previewTheme === 'dark' ? 'Switch to light' : 'Switch to dark'}
+                            aria-label="Theme"
+                            onClick={() =>
+                              setPreviewTheme((t) => (t === 'dark' ? 'light' : 'dark'))
+                            }
+                          >
+                            {previewTheme === 'dark' ? (
+                              <svg viewBox="0 0 24 24" width="24" height="24">
+                                <path
+                                  fill="currentColor"
+                                  d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"
+                                />
+                              </svg>
+                            ) : (
+                              <svg viewBox="0 0 24 24" width="24" height="24">
+                                <path
+                                  fill="currentColor"
+                                  d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 0 0 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"
+                                />
+                              </svg>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            className="video-opt-preview-nav-icon"
+                            title="Refresh preview"
+                            aria-label="Refresh"
+                            onClick={() => setSelectedPreviewThumbnailUrl(null)}
+                          >
+                            <svg viewBox="0 0 24 24" width="24" height="24">
+                              <path
+                                fill="currentColor"
+                                d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </header>
+                      <div className="video-opt-preview-content">
+                        <div className="video-opt-preview-grid">
+                          <div className="video-opt-preview-card video-opt-preview-card--main">
+                            <div className="video-opt-preview-thumb-wrap">
+                              {previewThumbnailUrl ? (
+                                <img
+                                  src={previewThumbnailUrl}
+                                  alt=""
+                                  className="video-opt-preview-thumb"
+                                />
+                              ) : (
+                                <div className="video-opt-preview-thumb-placeholder">
+                                  <span>No thumbnail</span>
+                                </div>
+                              )}
+                              {video?.duration_minutes != null &&
+                                video.duration_minutes > 0 &&
+                                (() => {
+                                  const tot = Math.round(video.duration_minutes * 60)
+                                  const h = Math.floor(tot / 3600)
+                                  const m = Math.floor((tot % 3600) / 60)
+                                  const s = tot % 60
+                                  const pad = (n) => String(n).padStart(2, '0')
+                                  const t = h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`
+                                  return <div className="video-opt-preview-duration">{t}</div>
+                                })()}
+                            </div>
+                            <div className="video-opt-preview-info">
+                              <div className="video-opt-preview-avatar" aria-hidden />
+                              <div className="video-opt-preview-meta">
+                                <h3
+                                  className="video-opt-preview-title"
+                                  title={titleInput || video?.title}
+                                >
+                                  {titleInput || video?.title || 'Untitled'}
+                                </h3>
+                                <div className="video-opt-preview-channel">
+                                  {previewChannelName}
+                                </div>
+                                <div className="video-opt-preview-stats">
+                                  {formatPreviewCount(video?.view_count)}
+                                  {(video?.view_count != null || video?.published_at) && (
+                                    <span className="video-opt-preview-dot">•</span>
+                                  )}
+                                  {formatPreviewTime(video?.published_at)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          {/* Description preview */}
+                          {descriptionInput && (
+                            <div className="video-opt-preview-desc-card">
+                              <h4 className="video-opt-preview-desc-heading">Description</h4>
+                              <p className="video-opt-preview-desc-text">
+                                {descriptionInput.slice(0, 300)}
+                                {descriptionInput.length > 300 ? '…' : ''}
+                              </p>
+                            </div>
+                          )}
+                          {/* Tags preview */}
+                          {tagsGenerated && tagsList.length > 0 && (
+                            <div className="video-opt-preview-tags-card">
+                              <h4 className="video-opt-preview-tags-heading">Tags</h4>
+                              <div className="video-opt-preview-tags-list">
+                                {tagsList.slice(0, 12).map((t, i) => (
+                                  <span key={i} className="video-opt-preview-tag-pill">
+                                    {t.tag}
+                                  </span>
+                                ))}
+                                {tagsList.length > 12 && (
+                                  <span className="video-opt-preview-tag-pill video-opt-preview-tag-pill--more">
+                                    +{tagsList.length - 12}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <p className="video-opt-preview-hint">
+                        Live preview of your changes. Select a thumbnail in the Thumbnail tab, edit
+                        title in Title tab.
+                      </p>
+                    </div>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }
