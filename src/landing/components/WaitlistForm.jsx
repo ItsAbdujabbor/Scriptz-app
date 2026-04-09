@@ -30,7 +30,7 @@ function getApiBaseUrl() {
   const explicit = env.VITE_API_BASE_URL
   return explicit && String(explicit).trim() !== ''
     ? String(explicit).trim()
-    : 'http://localhost:8000'
+    : 'https://api.scriptz.app'
 }
 
 /**
