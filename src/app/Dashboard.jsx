@@ -16,9 +16,7 @@ import { queryFreshness } from '../lib/query/queryConfig'
 import {
   useDashboardAudit,
   useDashboardGrowth,
-  useDashboardInsights,
   useDashboardSnapshot,
-  useIdeaFeedbackMutation,
 } from '../queries/dashboard/dashboardQueries'
 import { useUserPreferencesQuery } from '../queries/user/preferencesQueries'
 import { useUserProfileQuery } from '../queries/user/profileQueries'
@@ -27,11 +25,7 @@ import {
   getAuditAreaGuidance,
   getGrowthScenarioMessage,
 } from '../lib/dashboardActions'
-import {
-  computePrePublishScore,
-  computeScriptPerformanceEstimate,
-  thumbnailBattleHref,
-} from '../lib/dashboardCommandCenter'
+import { computePrePublishScore, thumbnailBattleHref } from '../lib/dashboardCommandCenter'
 import {
   coachPrefill,
   getAreaPrefill,
@@ -128,21 +122,7 @@ const IconChartUp = () => (
     <polyline points="16 7 22 7 22 13" />
   </svg>
 )
-const IconScript = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M12 19l7-7 3 3-7 7-3-3z" />
-    <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-    <path d="m2 2 7.586 7.586" />
-    <circle cx="11" cy="11" r="2" />
-  </svg>
-)
+
 const IconThumbnail = () => (
   <svg
     viewBox="0 0 24 24"
@@ -244,14 +224,6 @@ const IconTileGauge = () => (
     <path d="M12 5V3" />
   </svg>
 )
-
-const IDEA_FEEDBACK_REASONS = [
-  { value: 'not_my_niche', label: 'Not my niche' },
-  { value: 'already_made', label: 'Already covered' },
-  { value: 'not_relevant', label: 'Not for now' },
-  { value: 'too_hard', label: 'Too heavy to make' },
-  { value: 'other', label: 'Something else' },
-]
 
 function formatCount(n) {
   if (n == null || n === '') return null
@@ -516,13 +488,6 @@ export function Dashboard({ onLogout, shellManaged }) {
   const [refreshing, setRefreshing] = useState(false)
   const channelPillRef = useRef(null)
 
-  const [ideaFeedbackSending, setIdeaFeedbackSending] = useState(null)
-  const [ideaFeedbackNotice, setIdeaFeedbackNotice] = useState(null)
-  const [ideaDismissIdea, setIdeaDismissIdea] = useState(null)
-  const [ideaDismissReason, setIdeaDismissReason] = useState('not_relevant')
-  const [ideaDismissDetails, setIdeaDismissDetails] = useState('')
-  const [ideaDismissError, setIdeaDismissError] = useState('')
-
   useEffect(() => {
     clearError()
   }, [clearError])
@@ -602,61 +567,9 @@ export function Dashboard({ onLogout, shellManaged }) {
     return { from, to }
   }, [])
 
-  const insightsQuery = useDashboardInsights(channelId)
   const auditQuery = useDashboardAudit(channelId)
   const growthQuery = useDashboardGrowth(channelId)
   const snapshotQuery = useDashboardSnapshot(channelId, snapshotRange.from, snapshotRange.to)
-
-  const insights = insightsQuery.data
-  const insightsLoading = insightsQuery.isPending
-  const insightsRegenerating = insightsQuery.isRegenerating
-  const insightsBusy = insightsLoading || insightsRegenerating
-  const insightsError = insightsQuery.isError ? insightsQuery.error?.message : null
-  const insightsHasCached = insightsQuery.hasCachedIdeas
-
-  // Placeholder ideas shown (blurred) when nothing has been generated yet.
-  // Same shape as real ideas so the same card component renders both.
-  const PLACEHOLDER_SCRIPT_IDEAS = useMemo(
-    () => [
-      {
-        idea_title: 'Why nobody talks about this YouTube secret',
-        short_script:
-          'A short narrative hook with three beats designed to keep viewers watching to the end with curiosity and value.',
-        hook_concept: 'curiosity gap',
-        angle: 'contrarian',
-        target_emotion: 'intrigue',
-        __placeholder: true,
-      },
-      {
-        idea_title: 'I tried this for 30 days and the results shocked me',
-        short_script:
-          'A personal challenge format that builds tension and pays off with a surprising outcome at the end.',
-        hook_concept: 'experiment',
-        angle: 'first-person',
-        target_emotion: 'anticipation',
-        __placeholder: true,
-      },
-      {
-        idea_title: 'The truth about going viral nobody tells you',
-        short_script:
-          'A myth-busting deep dive with concrete data and real examples that shifts how viewers think.',
-        hook_concept: 'mythbusting',
-        angle: 'data-driven',
-        target_emotion: 'surprise',
-        __placeholder: true,
-      },
-    ],
-    []
-  )
-
-  const visibleScriptIdeas = useMemo(() => {
-    if (!Array.isArray(insights?.script_suggestions) || insights.script_suggestions.length === 0) {
-      return PLACEHOLDER_SCRIPT_IDEAS
-    }
-    return insights.script_suggestions.filter(Boolean).slice(0, 3)
-  }, [insights, PLACEHOLDER_SCRIPT_IDEAS])
-
-  const ideasArePlaceholder = !insightsHasCached
 
   const audit = auditQuery.data
   const auditLoading = auditQuery.isPending
@@ -665,10 +578,6 @@ export function Dashboard({ onLogout, shellManaged }) {
   const growthLoading = growthQuery.isPending
 
   const prePublishScore = useMemo(() => (audit ? computePrePublishScore(audit) : null), [audit])
-  const scriptPerformanceEstimate = useMemo(
-    () => (audit ? computeScriptPerformanceEstimate(audit) : null),
-    [audit]
-  )
 
   const snapshot = snapshotQuery.data
 
@@ -747,7 +656,6 @@ export function Dashboard({ onLogout, shellManaged }) {
     }
   }, [growth])
 
-  const ideaFeedbackMutation = useIdeaFeedbackMutation({ channelId })
   const dashboardName = getDashboardName(user)
 
   useEffect(() => {
@@ -933,12 +841,6 @@ export function Dashboard({ onLogout, shellManaged }) {
       .catch(() => {})
   }, [channelId, queryClient])
 
-  useEffect(() => {
-    if (!ideaFeedbackNotice) return undefined
-    const timeout = window.setTimeout(() => setIdeaFeedbackNotice(null), 3200)
-    return () => window.clearTimeout(timeout)
-  }, [ideaFeedbackNotice])
-
   const handleRefreshDashboard = async (e) => {
     e?.stopPropagation?.()
     if (refreshing || !youtube?.connected) return
@@ -953,85 +855,12 @@ export function Dashboard({ onLogout, shellManaged }) {
     // but we also explicitly refetch to avoid waiting for staleTime.
     userPreferencesQuery.refetch()
     userProfileQuery.refetch()
-    insightsQuery.refetch()
     if (channelId) {
       auditQuery.refetch()
       growthQuery.refetch()
       snapshotQuery.refetch()
     }
     setRefreshing(false)
-  }
-
-  const closeIdeaDismissDialog = () => {
-    setIdeaDismissIdea(null)
-    setIdeaDismissReason('not_relevant')
-    setIdeaDismissDetails('')
-    setIdeaDismissError('')
-  }
-
-  const submitIdeaFeedback = async ({
-    idea,
-    interested,
-    reason = null,
-    details = null,
-    successMessage,
-  }) => {
-    const key = `${idea?.idea_title || idea?.title || ''}-${interested}`
-    setIdeaFeedbackSending(key)
-    try {
-      await ideaFeedbackMutation.mutateAsync({ idea, interested, reason, details })
-      setIdeaFeedbackNotice({
-        tone: interested ? 'success' : 'info',
-        text: successMessage,
-      })
-      return true
-    } catch (error) {
-      // Mutation already rolls back optimistic changes on error.
-      const message = error?.message || 'Could not save your feedback.'
-      if (interested) {
-        setIdeaFeedbackNotice({ tone: 'error', text: message })
-      } else {
-        setIdeaDismissError(message)
-      }
-      return false
-    } finally {
-      setIdeaFeedbackSending(null)
-    }
-  }
-
-  const handleIdeaFeedback = async (idea, interested) => {
-    if (!interested) {
-      setIdeaDismissIdea(idea)
-      setIdeaDismissReason('not_relevant')
-      setIdeaDismissDetails('')
-      setIdeaDismissError('')
-      return
-    }
-
-    await submitIdeaFeedback({
-      idea,
-      interested: true,
-      successMessage: 'Saved. We will keep recommendations like this in mind.',
-    })
-  }
-
-  const handleDismissSubmit = async (e) => {
-    e.preventDefault()
-    if (!ideaDismissIdea) return
-    if (ideaDismissReason === 'other' && !ideaDismissDetails.trim()) {
-      setIdeaDismissError('Add a short note so we know why this idea is not a fit.')
-      return
-    }
-
-    const ok = await submitIdeaFeedback({
-      idea: ideaDismissIdea,
-      interested: false,
-      reason: ideaDismissReason,
-      details: ideaDismissDetails.trim() || null,
-      successMessage: 'Removed. You will not see this recommendation again.',
-    })
-
-    if (ok) closeIdeaDismissDialog()
   }
 
   const handleConnectYouTube = async () => {
@@ -1328,127 +1157,6 @@ export function Dashboard({ onLogout, shellManaged }) {
                 setUseFirstPerson={setUseFirstPerson}
                 onLogout={onLogout}
               />
-            )}
-
-            {ideaDismissIdea && (
-              <div
-                className="dashboard-idea-modal-backdrop"
-                role="presentation"
-                onClick={closeIdeaDismissDialog}
-              >
-                <div
-                  className="dashboard-idea-modal"
-                  role="dialog"
-                  aria-modal="true"
-                  aria-labelledby="dashboard-idea-dismiss-title"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="dashboard-idea-modal-accent" aria-hidden />
-                  <div className="dashboard-idea-modal-head">
-                    <div className="dashboard-idea-modal-head-text">
-                      <span className="dashboard-idea-modal-kicker">Pass on this idea</span>
-                      <h3 id="dashboard-idea-dismiss-title">Help us show better suggestions</h3>
-                    </div>
-                    <button
-                      type="button"
-                      className="dashboard-idea-modal-close"
-                      aria-label="Close"
-                      onClick={closeIdeaDismissDialog}
-                    >
-                      <span aria-hidden>×</span>
-                    </button>
-                  </div>
-                  <div className="dashboard-idea-modal-preview">
-                    <span className="dashboard-idea-modal-preview-label">Video title</span>
-                    <p className="dashboard-idea-modal-preview-title">
-                      {ideaDismissIdea?.idea_title || ideaDismissIdea?.title || 'Untitled idea'}
-                    </p>
-                  </div>
-                  <form className="dashboard-idea-modal-form" onSubmit={handleDismissSubmit}>
-                    <p
-                      className="dashboard-idea-modal-section-label"
-                      id="idea-dismiss-reasons-label"
-                    >
-                      Why are you passing?
-                    </p>
-                    <div
-                      className="dashboard-idea-modal-options"
-                      role="radiogroup"
-                      aria-labelledby="idea-dismiss-reasons-label"
-                    >
-                      {IDEA_FEEDBACK_REASONS.map((option) => (
-                        <label
-                          key={option.value}
-                          className={`dashboard-idea-modal-option ${ideaDismissReason === option.value ? 'is-selected' : ''}`}
-                        >
-                          <input
-                            type="radio"
-                            name="idea-dismiss-reason"
-                            value={option.value}
-                            checked={ideaDismissReason === option.value}
-                            onChange={() => {
-                              setIdeaDismissReason(option.value)
-                              setIdeaDismissError('')
-                            }}
-                          />
-                          <span className="dashboard-idea-modal-option-body">
-                            <span className="dashboard-idea-modal-option-title">
-                              {option.label}
-                            </span>
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                    <label className="dashboard-idea-modal-field">
-                      <span className="dashboard-idea-modal-field-label">
-                        Note{' '}
-                        {ideaDismissReason === 'other' ? <em>(required)</em> : <em>(optional)</em>}
-                      </span>
-                      <textarea
-                        value={ideaDismissDetails}
-                        onChange={(e) => {
-                          setIdeaDismissDetails(e.target.value)
-                          setIdeaDismissError('')
-                        }}
-                        placeholder="Anything specific helps — we read these to improve the model."
-                        rows={3}
-                      />
-                    </label>
-                    {ideaDismissError && (
-                      <div className="dashboard-idea-modal-error" role="alert">
-                        {ideaDismissError}
-                      </div>
-                    )}
-                    <div className="dashboard-idea-modal-actions">
-                      <button
-                        type="button"
-                        className="dashboard-idea-modal-btn dashboard-idea-modal-btn--ghost"
-                        onClick={closeIdeaDismissDialog}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        className="dashboard-idea-modal-btn dashboard-idea-modal-btn--primary"
-                        disabled={
-                          ideaFeedbackSending ===
-                          `${ideaDismissIdea?.idea_title || ideaDismissIdea?.title || ''}-false`
-                        }
-                      >
-                        {ideaFeedbackSending ===
-                        `${ideaDismissIdea?.idea_title || ideaDismissIdea?.title || ''}-false` ? (
-                          <>
-                            <span className="dashboard-idea-modal-btn-spinner" aria-hidden />
-                            Removing…
-                          </>
-                        ) : (
-                          'Remove from my list'
-                        )}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
             )}
 
             {/* Compact YouTube connect promo — when not connected */}
@@ -1755,7 +1463,7 @@ export function Dashboard({ onLogout, shellManaged }) {
                         </div>
                       </div>
                     )}
-                    {!auditLoading && scriptPerformanceEstimate && prePublishScore && (
+                    {!auditLoading && prePublishScore && (
                       <div className="dashboard-command-side-body">
                         <div className="dashboard-command-check-top">
                           <div className="dashboard-command-check-score">
@@ -1776,75 +1484,9 @@ export function Dashboard({ onLogout, shellManaged }) {
                                 : 'Needs work'}
                           </span>
                         </div>
-
-                        <div className="dashboard-command-score-list">
-                          <div className="dashboard-command-score-row">
-                            <span className="dashboard-command-score-key">Packaging blend</span>
-                            <span className="dashboard-command-score-val">
-                              {scriptPerformanceEstimate.overall}
-                              <span className="dashboard-command-score-val-max">/100</span>
-                            </span>
-                          </div>
-                          <div className="dashboard-command-score-row">
-                            <span className="dashboard-command-score-key">Retention signal</span>
-                            <span className="dashboard-command-score-val">
-                              {scriptPerformanceEstimate.retention}
-                              <span className="dashboard-command-score-val-max">/100</span>
-                            </span>
-                          </div>
-                          <div className="dashboard-command-score-row">
-                            <span className="dashboard-command-score-key">Hook &amp; title</span>
-                            <span className="dashboard-command-score-val">
-                              {scriptPerformanceEstimate.hookStrength}
-                              <span className="dashboard-command-score-val-max">/100</span>
-                            </span>
-                          </div>
-                        </div>
-
-                        {scriptPerformanceEstimate.weakPoints?.length > 0 && (
-                          <div className="dashboard-command-fix-row">
-                            <span className="dashboard-command-primary-label">
-                              Weakest areas first
-                            </span>
-                            <div className="dashboard-command-fix-pills">
-                              {scriptPerformanceEstimate.weakPoints
-                                .slice(0, 2)
-                                .map((point, wpIdx) => (
-                                  <span
-                                    key={`${wpIdx}-${point.label}`}
-                                    className="dashboard-command-mini-pill"
-                                  >
-                                    {point.label} · {point.score}/100
-                                  </span>
-                                ))}
-                            </div>
-                          </div>
-                        )}
-
-                        <DashButton
-                          asLink
-                          variant="secondary"
-                          className="dashboard-command-side-cta"
-                          href={`#${hashWithPrefill('optimize', optimizePrefill('titles & thumbnails', prePublishScore?.score ?? audit?.overall_score ?? null))}`}
-                          onClick={(e) => {
-                            e.preventDefault()
-                            window.location.hash = hashWithPrefill(
-                              'optimize',
-                              optimizePrefill(
-                                'titles & thumbnails',
-                                prePublishScore?.score ?? audit?.overall_score ?? null
-                              )
-                            )
-                          }}
-                        >
-                          Improve in Optimize
-                          <span className="dashboard-next-action-cta-arrow" aria-hidden>
-                            <IconArrowRight />
-                          </span>
-                        </DashButton>
                       </div>
                     )}
-                    {!auditLoading && (!scriptPerformanceEstimate || !prePublishScore) && (
+                    {!auditLoading && !prePublishScore && (
                       <div className="dashboard-command-side-body">
                         <div className="dashboard-shell-empty" aria-hidden>
                           —
@@ -1860,30 +1502,6 @@ export function Dashboard({ onLogout, shellManaged }) {
             {youtube?.connected && (
               <DashSection icon="quick" title="Quick actions" className="dashboard-quick-actions">
                 <div className="dashboard-quick-actions-grid">
-                  {/* Script Generator quick action — next update
-                  <a
-                    href={`#${hashWithPrefill('coach/scripts', scriptPrefill({ concept: null, pillar: 'Next video', score: null }))}`}
-                    className="dashboard-quick-action-card"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      window.location.hash = hashWithPrefill(
-                        'coach/scripts',
-                        scriptPrefill({ concept: null, pillar: 'Next video', score: null })
-                      )
-                    }}
-                  >
-                    <span
-                      className="dashboard-quick-action-icon dashboard-quick-action-icon--script"
-                      aria-hidden
-                    >
-                      <IconScript />
-                    </span>
-                    <span className="dashboard-quick-action-label">Script Generator</span>
-                    <span className="dashboard-quick-action-arrow" aria-hidden>
-                      <IconArrowRight />
-                    </span>
-                  </a>
-                  */}
                   <a
                     href={`#${hashWithPrefill('coach/thumbnails', thumbPrefill({ pillar: 'CTR', score: null, videoTitle: null }))}`}
                     className="dashboard-quick-action-card"
@@ -1953,246 +1571,6 @@ export function Dashboard({ onLogout, shellManaged }) {
                 </div>
               </DashSection>
             )}
-
-            {/* AI Insights — script ideas */}
-            <DashSection
-              icon="ideas"
-              title="AI video ideas"
-              id="dashboard-video-ideas"
-              className="dashboard-insights-section"
-              meta={
-                <button
-                  type="button"
-                  className={`dashboard-script-ideas-regenerate${insightsBusy ? ' dashboard-script-ideas-regenerate--busy' : ''}`}
-                  onClick={() => {
-                    void insightsQuery.regenerateInsights().catch(() => {})
-                  }}
-                  disabled={insightsBusy}
-                  aria-busy={insightsRegenerating}
-                  title={insightsHasCached ? 'Regenerate ideas' : 'Generate ideas'}
-                >
-                  {insightsRegenerating ? (
-                    <>
-                      <span className="dashboard-script-ideas-regenerate-btn-spinner" aria-hidden />
-                      <span>Generating…</span>
-                    </>
-                  ) : (
-                    <>
-                      <IconRefresh />
-                      <span>{insightsHasCached ? 'Regenerate' : 'Generate'}</span>
-                    </>
-                  )}
-                </button>
-              }
-            >
-              {insightsRegenerating && (
-                <div className="dashboard-script-ideas-loading">
-                  <span className="dashboard-loading-spinner" />
-                  <span>Generating ideas…</span>
-                </div>
-              )}
-              {insightsError && (
-                <div className="dashboard-script-ideas-error">
-                  <p>{insightsError}</p>
-                  <DashButton
-                    variant="primary"
-                    onClick={() => insightsQuery.regenerateInsights().catch(() => {})}
-                    disabled={insightsBusy}
-                  >
-                    Try again
-                  </DashButton>
-                </div>
-              )}
-              {!insightsRegenerating && !insightsError && visibleScriptIdeas.length > 0 && (
-                <>
-                  {ideaFeedbackNotice && (
-                    <div
-                      className={`dashboard-inline-notice dashboard-inline-notice--${ideaFeedbackNotice.tone}`}
-                      role="status"
-                    >
-                      {ideaFeedbackNotice.text}
-                    </div>
-                  )}
-                  <div className="dashboard-script-ideas-wrap">
-                    <div
-                      className={`dashboard-script-ideas-grid${insightsRegenerating ? ' dashboard-script-ideas-grid--refreshing' : ''}${ideasArePlaceholder ? ' dashboard-script-ideas-grid--blurred' : ''}`}
-                      aria-hidden={ideasArePlaceholder || undefined}
-                    >
-                      {visibleScriptIdeas.map((idea, i) => {
-                        const title = idea?.idea_title ?? idea?.title ?? 'Idea'
-                        const script = idea?.short_script ?? idea?.script ?? idea?.description
-                        const key = `${title}-${i}`
-                        const sending =
-                          ideaFeedbackSending === `${title}-true` ||
-                          ideaFeedbackSending === `${title}-false`
-                        const tags = [
-                          idea?.hook_concept,
-                          idea?.angle,
-                          idea?.target_emotion,
-                          idea?.expected_audience,
-                        ].filter(Boolean)
-                        const num = i + 1
-                        return (
-                          <article key={key} className="dashboard-script-idea-card">
-                            <div className="dashboard-script-idea-card-top">
-                              <span className="dashboard-script-idea-num" aria-hidden>
-                                {num}
-                              </span>
-                              <div className="dashboard-script-idea-card-intro">
-                                <span className="dashboard-script-idea-field-label">
-                                  Video title
-                                </span>
-                                <h3 className="dashboard-script-idea-card-title">{title}</h3>
-                                {script && (
-                                  <>
-                                    <span className="dashboard-script-idea-field-label">
-                                      How the video goes
-                                    </span>
-                                    <p className="dashboard-script-idea-card-desc">{script}</p>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                            {tags.length > 0 && (
-                              <div className="dashboard-script-idea-signals-slot">
-                                <div className="dashboard-script-idea-signals">
-                                  <div className="dashboard-script-idea-signals-head">
-                                    <span className="dashboard-script-idea-signals-kicker">
-                                      Signals
-                                    </span>
-                                    <p className="dashboard-script-idea-signals-sub">
-                                      Why this could work
-                                    </p>
-                                  </div>
-                                  <div
-                                    className="dashboard-script-idea-signals-divider"
-                                    aria-hidden
-                                  />
-                                  <div className="dashboard-script-idea-signals-chips">
-                                    {tags.map((tag) => (
-                                      <span
-                                        key={tag}
-                                        className="dashboard-script-idea-signals-chip"
-                                      >
-                                        {tag}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                            <div className="dashboard-script-idea-card-actions">
-                              <div className="dashboard-script-idea-card-ctas">
-                                <a
-                                  href={`#${hashWithPrefill(
-                                    thumbnailBattleHref(title),
-                                    thumbPrefill({
-                                      pillar: 'CTR / thumbnails',
-                                      score: null,
-                                      videoTitle: title,
-                                    })
-                                  )}`}
-                                  className="dashboard-script-idea-card-btn dashboard-script-idea-card-btn--secondary"
-                                  onClick={(e) => {
-                                    e.preventDefault()
-                                    window.location.hash = hashWithPrefill(
-                                      thumbnailBattleHref(title),
-                                      thumbPrefill({
-                                        pillar: 'CTR / thumbnails',
-                                        score: null,
-                                        videoTitle: title,
-                                      })
-                                    )
-                                  }}
-                                >
-                                  Thumbnail
-                                </a>
-                              </div>
-                              <div
-                                className="dashboard-script-idea-card-feedback"
-                                role="group"
-                                aria-label="Idea feedback"
-                              >
-                                <button
-                                  type="button"
-                                  className="dashboard-script-idea-feedback-pill dashboard-script-idea-feedback-pill--yes"
-                                  title="Keep — we will favor ideas like this"
-                                  aria-label="Keep this idea"
-                                  disabled={sending}
-                                  onClick={() => handleIdeaFeedback(idea, true)}
-                                >
-                                  {sending ? (
-                                    <span
-                                      className="dashboard-script-idea-feedback-pill-dots"
-                                      aria-hidden
-                                    >
-                                      …
-                                    </span>
-                                  ) : (
-                                    <>
-                                      <span
-                                        className="dashboard-script-idea-feedback-pill-glyph"
-                                        aria-hidden
-                                      >
-                                        ✓
-                                      </span>
-                                      <span className="dashboard-script-idea-feedback-pill-text">
-                                        Keep
-                                      </span>
-                                    </>
-                                  )}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="dashboard-script-idea-feedback-pill dashboard-script-idea-feedback-pill--pass"
-                                  title="Pass — tell us why this idea is not a fit"
-                                  aria-label="Pass on this idea"
-                                  disabled={sending}
-                                  onClick={() => handleIdeaFeedback(idea, false)}
-                                >
-                                  <span
-                                    className="dashboard-script-idea-feedback-pill-glyph dashboard-script-idea-feedback-pill-glyph--pass"
-                                    aria-hidden
-                                  >
-                                    ↪
-                                  </span>
-                                  <span className="dashboard-script-idea-feedback-pill-text">
-                                    Pass
-                                  </span>
-                                </button>
-                              </div>
-                            </div>
-                          </article>
-                        )
-                      })}
-                    </div>
-                    {ideasArePlaceholder && (
-                      <div className="dashboard-script-ideas-overlay">
-                        <p className="dashboard-script-ideas-overlay-text">
-                          Tap <strong>Generate</strong> to get personalized AI video ideas based on
-                          your channel.
-                        </p>
-                        <DashButton
-                          variant="primary"
-                          onClick={() => insightsQuery.regenerateInsights().catch(() => {})}
-                          disabled={insightsBusy}
-                        >
-                          Generate ideas
-                        </DashButton>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-              {!insightsLoading &&
-                !insightsError &&
-                insights &&
-                visibleScriptIdeas.length === 0 && (
-                  <div className="dashboard-script-ideas-empty">
-                    <p>No ideas yet.</p>
-                  </div>
-                )}
-            </DashSection>
 
             {/* Channel Audit (channel required) */}
             {channelId && (
