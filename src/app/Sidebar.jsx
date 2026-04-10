@@ -1178,7 +1178,7 @@ export function Sidebar({
                           <IconFolder />
                         </span>
                         <span className="sidebar-history-empty-text">
-                          No chats yet. Start in AI Coach, Script Generator, or Thumbnail Generator.
+                          No chats yet. Start a conversation in AI Coach or Thumbnail Generator.
                         </span>
                       </div>
                     ) : (
