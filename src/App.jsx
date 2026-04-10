@@ -94,8 +94,8 @@ function getView() {
   if (h === 'coach' || h.startsWith('coach/')) return 'coach'
   if (h === 'optimize') return 'optimize'
   if (h === 'pro') return 'pro'
-  if (h === 'library') return 'templates'
-  if (h === 'templates') return 'templates'
+  // if (h === 'library') return 'templates'  // next update
+  // if (h === 'templates') return 'templates' // next update
   if (h === 'app-youtube') return 'dashboard'
   return 'landing'
 }

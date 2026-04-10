@@ -6,7 +6,7 @@ import { Sidebar } from '../app/Sidebar'
 import '../app/Sidebar.css'
 import '../app/Dashboard.css'
 import '../app/CoachChat.css'
-import '../app/Templates.css'
+// import '../app/Templates.css' // next update — Templates moved to src/next-update-ideas
 import './AppShellLoading.css'
 
 function RouteSpinner({ label: _label = 'Loading…' }) {

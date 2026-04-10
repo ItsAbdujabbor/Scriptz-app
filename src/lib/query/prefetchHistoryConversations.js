@@ -3,11 +3,11 @@
  * Uses longer staleTime so prefetched data survives until the Sidebar mounts.
  */
 import { coachApi } from '../../api/coach'
-import { scriptsApi } from '../../api/scripts'
+// import { scriptsApi } from '../../api/scripts' // next update — moved to src/next-update-ideas
 import { thumbnailsApi } from '../../api/thumbnails'
 import {
   prefetchTopCoachConversationDetails,
-  prefetchTopScriptConversationDetails,
+  // prefetchTopScriptConversationDetails, // next update
   prefetchTopThumbnailConversationDetails,
 } from './chatCacheUtils'
 import { getAccessTokenOrNull } from './authToken'
@@ -28,16 +28,10 @@ export async function prefetchHistoryConversations(queryClient) {
   const stale = queryFreshness.long
   const listGc = queryFreshness.chatThreadGc
 
-  const [coachList, scriptList, thumbList] = await Promise.all([
+  const [coachList, thumbList] = await Promise.all([
     queryClient.fetchQuery({
       queryKey: queryKeys.coach.conversations(COACH_HISTORY_PARAMS),
       queryFn: () => coachApi.listConversations(token, COACH_HISTORY_PARAMS),
-      staleTime: stale,
-      gcTime: listGc,
-    }),
-    queryClient.fetchQuery({
-      queryKey: queryKeys.scripts.conversations(LIST_PARAMS),
-      queryFn: () => scriptsApi.listConversations(token, LIST_PARAMS),
       staleTime: stale,
       gcTime: listGc,
     }),
@@ -50,12 +44,13 @@ export async function prefetchHistoryConversations(queryClient) {
   ])
 
   // Thread bodies are heavy; run after paint / when idle so first navigation stays responsive.
-  const idle = typeof requestIdleCallback !== 'undefined' ? requestIdleCallback : (cb) => setTimeout(cb, 16)
+  const idle =
+    typeof requestIdleCallback !== 'undefined' ? requestIdleCallback : (cb) => setTimeout(cb, 16)
   idle(
     () => {
       void Promise.all([
         prefetchTopCoachConversationDetails(queryClient, coachList?.items, 2),
-        prefetchTopScriptConversationDetails(queryClient, scriptList?.items, 2),
+        // prefetchTopScriptConversationDetails — next update
         prefetchTopThumbnailConversationDetails(queryClient, thumbList?.items, 2),
       ])
     },

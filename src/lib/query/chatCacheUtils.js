@@ -3,7 +3,7 @@
  * and mutations refresh data without blanket invalidations.
  */
 import { coachApi } from '../../api/coach'
-import { scriptsApi } from '../../api/scripts'
+// import { scriptsApi } from '../../api/scripts' // next update — moved to src/next-update-ideas
 import { thumbnailsApi } from '../../api/thumbnails'
 import { getAccessTokenOrNull } from './authToken'
 import { queryFreshness } from './queryConfig'
@@ -85,18 +85,8 @@ export async function refreshCoachConversationCache(queryClient, conversationId)
   }
 }
 
-export async function refreshScriptConversationCache(queryClient, conversationId) {
-  if (conversationId == null) return null
-  const token = await getAccessTokenOrNull()
-  if (!token) return null
-  try {
-    const detail = await scriptsApi.getConversation(token, conversationId)
-    queryClient.setQueryData(queryKeys.scripts.conversation(conversationId), detail)
-    mergeScriptConversationsListCache(queryClient, conversationId, detail)
-    return detail
-  } catch {
-    return null
-  }
+export async function refreshScriptConversationCache(_queryClient, _conversationId) {
+  return null // next update — scriptsApi moved to src/next-update-ideas/ScriptGenerator
 }
 
 export async function refreshThumbnailConversationCache(queryClient, conversationId) {
@@ -134,22 +124,8 @@ export async function prefetchTopCoachConversationDetails(queryClient, items, ma
   )
 }
 
-export async function prefetchTopScriptConversationDetails(queryClient, items, maxPrefetch = 6) {
-  const token = await getAccessTokenOrNull()
-  if (!token || !items?.length) return
-  const ids = items
-    .slice(0, maxPrefetch)
-    .map((c) => c.id)
-    .filter((id) => id != null)
-  await Promise.all(
-    ids.map((id) =>
-      queryClient.prefetchQuery({
-        queryKey: queryKeys.scripts.conversation(id),
-        queryFn: () => scriptsApi.getConversation(token, id),
-        ...chatThreadQueryOptions,
-      })
-    )
-  )
+export async function prefetchTopScriptConversationDetails(_queryClient, _items, _maxPrefetch = 6) {
+  // next update — scriptsApi moved to src/next-update-ideas/ScriptGenerator
 }
 
 export async function prefetchTopThumbnailConversationDetails(queryClient, items, maxPrefetch = 6) {

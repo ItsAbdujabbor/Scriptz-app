@@ -37,7 +37,7 @@ import {
   getAreaPrefill,
   hashWithPrefill,
   optimizePrefill,
-  scriptPrefill,
+  // scriptPrefill, // next update
   thumbPrefill,
 } from '../lib/dashboardActionPayload'
 import { getMilestonePair, SUBS_STEPS, VIEWS_STEPS } from '../lib/channelMilestones'
@@ -1860,6 +1860,7 @@ export function Dashboard({ onLogout, shellManaged }) {
             {youtube?.connected && (
               <DashSection icon="quick" title="Quick actions" className="dashboard-quick-actions">
                 <div className="dashboard-quick-actions-grid">
+                  {/* Script Generator quick action — next update
                   <a
                     href={`#${hashWithPrefill('coach/scripts', scriptPrefill({ concept: null, pillar: 'Next video', score: null }))}`}
                     className="dashboard-quick-action-card"
@@ -1882,6 +1883,7 @@ export function Dashboard({ onLogout, shellManaged }) {
                       <IconArrowRight />
                     </span>
                   </a>
+                  */}
                   <a
                     href={`#${hashWithPrefill('coach/thumbnails', thumbPrefill({ pillar: 'CTR', score: null, videoTitle: null }))}`}
                     className="dashboard-quick-action-card"
@@ -2081,6 +2083,7 @@ export function Dashboard({ onLogout, shellManaged }) {
                             )}
                             <div className="dashboard-script-idea-card-actions">
                               <div className="dashboard-script-idea-card-ctas">
+                                {/* Write script button — next update
                                 <a
                                   href={`#${hashWithPrefill('coach/scripts', scriptPrefill({ concept: title, pillar: 'Next video', score: null }))}`}
                                   className="dashboard-script-idea-card-btn dashboard-script-idea-card-btn--primary"
@@ -2098,6 +2101,7 @@ export function Dashboard({ onLogout, shellManaged }) {
                                 >
                                   Write script
                                 </a>
+                                */}
                                 <a
                                   href={`#${hashWithPrefill(
                                     thumbnailBattleHref(title),
@@ -2205,6 +2209,7 @@ export function Dashboard({ onLogout, shellManaged }) {
                 visibleScriptIdeas.length === 0 && (
                   <div className="dashboard-script-ideas-empty">
                     <p>No ideas yet.</p>
+                    {/* Script Generator empty link — next update
                     <a
                       href="#coach/scripts"
                       className="dashboard-script-ideas-empty-link"
@@ -2215,6 +2220,7 @@ export function Dashboard({ onLogout, shellManaged }) {
                     >
                       Script Generator <IconArrowRight />
                     </a>
+                    */}
                   </div>
                 )}
             </DashSection>

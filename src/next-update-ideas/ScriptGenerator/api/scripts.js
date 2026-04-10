@@ -14,7 +14,7 @@ function request(method, path, accessToken, body = null, headers = {}) {
     const isJson = contentType.includes('application/json')
     const data = isJson ? await res.json().catch(() => ({})) : {}
     if (!res.ok) {
-      const msg = (data?.detail || data?.message) || res.statusText
+      const msg = data?.detail || data?.message || res.statusText
       const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
       err.status = res.status
       throw err
@@ -50,10 +50,19 @@ export const scriptsApi = {
     return request('GET', withQuery('/api/scripts/chatbot/conversations', params), accessToken)
   },
   getConversation(accessToken, conversationId, params = {}) {
-    return request('GET', withQuery(`/api/scripts/chatbot/conversations/${conversationId}`, params), accessToken)
+    return request(
+      'GET',
+      withQuery(`/api/scripts/chatbot/conversations/${conversationId}`, params),
+      accessToken
+    )
   },
   updateConversation(accessToken, conversationId, payload) {
-    return request('PATCH', `/api/scripts/chatbot/conversations/${conversationId}`, accessToken, payload)
+    return request(
+      'PATCH',
+      `/api/scripts/chatbot/conversations/${conversationId}`,
+      accessToken,
+      payload
+    )
   },
   deleteConversation(accessToken, conversationId) {
     return request('DELETE', `/api/scripts/chatbot/conversations/${conversationId}`, accessToken)

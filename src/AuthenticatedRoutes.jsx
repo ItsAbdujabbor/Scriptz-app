@@ -9,7 +9,7 @@ import { Dashboard } from './app/Dashboard'
 import { CoachChat } from './app/CoachChat'
 import { Optimize } from './app/Optimize'
 import { Pro } from './app/Pro'
-import { Templates } from './app/Templates'
+// import { Templates } from './app/Templates' // moved to src/next-update-ideas/Templates
 
 import './app/Sidebar.css'
 import './app/Dashboard.css'
@@ -93,8 +93,7 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
         return <Optimize onLogout={onLogout} shellManaged />
       case 'pro':
         return <Pro onLogout={onLogout} shellManaged />
-      case 'templates':
-        return <Templates onLogout={onLogout} shellManaged />
+      // case 'templates': return <Templates onLogout={onLogout} shellManaged /> // next update
       default:
         return null
     }

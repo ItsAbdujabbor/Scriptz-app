@@ -19,7 +19,7 @@ import { stripPrefillFromHash } from '../lib/dashboardActionPayload'
 import { extractYoutubeUrl } from '../lib/youtubeUrl'
 import { renderMessageContent } from '../lib/messageRender.jsx'
 import { useThreadScrollToBottom } from '../lib/useThreadScrollToBottom'
-import './ScriptGenerator.css'
+// import './ScriptGenerator.css' // next update — ScriptGenerator moved to src/next-update-ideas
 import './ThumbnailGenerator.css'
 
 const THUMB_COMPOSER_HINTS = [

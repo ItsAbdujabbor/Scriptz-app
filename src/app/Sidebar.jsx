@@ -17,12 +17,18 @@ import {
   useDeleteCoachConversationMutation,
   useUpdateCoachConversationMutation,
 } from '../queries/coach/coachQueries'
-import {
-  prefetchScriptConversation,
-  useScriptConversationsQuery,
-  useDeleteScriptConversationMutation,
-  useUpdateScriptConversationMutation,
-} from '../queries/scripts/scriptQueries'
+// Script queries — next update (moved to src/next-update-ideas/ScriptGenerator)
+// import { prefetchScriptConversation, useScriptConversationsQuery, useDeleteScriptConversationMutation, useUpdateScriptConversationMutation } from '../queries/scripts/scriptQueries'
+const useScriptConversationsQuery = () => ({ data: null, isFetched: true }) // next update stub
+const prefetchScriptConversation = () => {} // next update stub
+const useDeleteScriptConversationMutation = () => ({
+  mutateAsync: async () => {},
+  isPending: false,
+}) // next update stub
+const useUpdateScriptConversationMutation = () => ({
+  mutateAsync: async () => {},
+  isPending: false,
+}) // next update stub
 import {
   prefetchThumbnailConversationCache,
   useThumbnailConversationsQuery,
@@ -288,7 +294,7 @@ const IconLogout = () => (
   </svg>
 )
 const TOOLKIT_ITEMS = [
-  { label: 'Script Generator', id: 'script-generator' },
+  // { label: 'Script Generator', id: 'script-generator' }, // next update
   { label: 'Thumbnail Generator', id: 'thumbnail-generator' },
   { label: 'Rate Thumbnails', id: 'thumbnail-rate' },
   { label: 'Title Generator', id: 'title-generator' },
@@ -1118,6 +1124,7 @@ export function Sidebar({
                 }}
               />
 
+              {/* Templates — next update
               <SidebarButton
                 href="#templates"
                 icon={<IconFolder />}
@@ -1129,7 +1136,7 @@ export function Sidebar({
                   closeMobile()
                   window.location.hash = 'templates'
                 }}
-              />
+              /> */}
 
               <button
                 type="button"

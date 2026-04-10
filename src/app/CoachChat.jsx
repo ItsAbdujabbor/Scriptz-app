@@ -38,8 +38,7 @@ import {
   renderMessageContent,
 } from '../lib/messageRender.jsx'
 import { onShellEvent } from '../lib/shellEvents'
-import { ScriptGenerator } from './ScriptGenerator'
-// ScriptStudio removed — Scripts tab now renders ScriptGenerator for Coach-parity UI
+// import { ScriptGenerator } from './ScriptGenerator' // moved to src/next-update-ideas/ScriptGenerator
 import { ThumbnailGenerator } from './ThumbnailGenerator'
 import {
   CoachChatVirtuosoItem,
@@ -49,7 +48,7 @@ import {
 
 const COACH_TABS = [
   { id: 'coach', label: 'Coach', hash: 'coach' },
-  { id: 'scripts', label: 'Scripts', hash: 'coach/scripts' },
+  // { id: 'scripts', label: 'Scripts', hash: 'coach/scripts' }, // next update
   { id: 'thumbnails', label: 'Thumbnails', hash: 'coach/thumbnails' },
 ]
 
@@ -82,9 +81,9 @@ function setThumbnailConversationHash(conversationId = null) {
     : '#coach/thumbnails'
 }
 
-function setScriptConversationHash(conversationId = null) {
-  window.location.hash = conversationId ? `#coach/scripts?id=${conversationId}` : '#coach/scripts'
-}
+// function setScriptConversationHash(conversationId = null) { // next update
+//   window.location.hash = conversationId ? `#coach/scripts?id=${conversationId}` : '#coach/scripts'
+// }
 
 const CUSTOM_RETRY_MARKER = '\n\nExtra direction for this retry: '
 
@@ -1976,13 +1975,8 @@ export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
           className="coach-tabbar coach-tabbar--floating"
         />
         <div className="coach-main-body">
-          {activeTab === 'scripts' ? (
-            <ScriptGenerator
-              channelId={channelId}
-              conversationId={selectedScriptConversationId}
-              onNavigateToConversation={setScriptConversationHash}
-            />
-          ) : activeTab === 'thumbnails' ? (
+          {/* Scripts tab — next update: <ScriptGenerator> moved to src/next-update-ideas/ScriptGenerator */}
+          {activeTab === 'thumbnails' ? (
             <ThumbnailGenerator
               channelId={channelId}
               onOpenPersonas={() => onOpenPersonas?.()}
@@ -2348,13 +2342,8 @@ export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
           className="coach-tabbar coach-tabbar--floating"
         />
         <div className="coach-main-body">
-          {activeTab === 'scripts' ? (
-            <ScriptGenerator
-              channelId={channelId}
-              conversationId={selectedScriptConversationId}
-              onNavigateToConversation={setScriptConversationHash}
-            />
-          ) : activeTab === 'thumbnails' ? (
+          {/* Scripts tab — next update: <ScriptGenerator> moved to src/next-update-ideas/ScriptGenerator */}
+          {activeTab === 'thumbnails' ? (
             <ThumbnailGenerator
               channelId={channelId}
               onOpenPersonas={() => setShowPersonasModal(true)}
