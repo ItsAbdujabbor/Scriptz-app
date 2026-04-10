@@ -2083,25 +2083,6 @@ export function Dashboard({ onLogout, shellManaged }) {
                             )}
                             <div className="dashboard-script-idea-card-actions">
                               <div className="dashboard-script-idea-card-ctas">
-                                {/* Write script button — next update
-                                <a
-                                  href={`#${hashWithPrefill('coach/scripts', scriptPrefill({ concept: title, pillar: 'Next video', score: null }))}`}
-                                  className="dashboard-script-idea-card-btn dashboard-script-idea-card-btn--primary"
-                                  onClick={(e) => {
-                                    e.preventDefault()
-                                    window.location.hash = hashWithPrefill(
-                                      'coach/scripts',
-                                      scriptPrefill({
-                                        concept: title,
-                                        pillar: 'Next video',
-                                        score: null,
-                                      })
-                                    )
-                                  }}
-                                >
-                                  Write script
-                                </a>
-                                */}
                                 <a
                                   href={`#${hashWithPrefill(
                                     thumbnailBattleHref(title),
@@ -2209,18 +2190,6 @@ export function Dashboard({ onLogout, shellManaged }) {
                 visibleScriptIdeas.length === 0 && (
                   <div className="dashboard-script-ideas-empty">
                     <p>No ideas yet.</p>
-                    {/* Script Generator empty link — next update
-                    <a
-                      href="#coach/scripts"
-                      className="dashboard-script-ideas-empty-link"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        window.location.hash = 'coach/scripts'
-                      }}
-                    >
-                      Script Generator <IconArrowRight />
-                    </a>
-                    */}
                   </div>
                 )}
             </DashSection>
