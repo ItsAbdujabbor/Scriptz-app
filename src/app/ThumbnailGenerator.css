@@ -280,32 +280,31 @@
 }
 
 .thumb-batch-grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-}
-
-.thumb-batch-grid:has(.thumb-batch-card:only-child) {
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
 }
 
 .thumb-batch-card {
   position: relative;
-  border-radius: 20px;
-  overflow: visible;
+  border-radius: 16px;
+  overflow: hidden;
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease,
     border-color 0.2s ease;
-  background: #1a1a1a;
+  background: #141414;
   border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  max-width: 600px;
+  width: 100%;
 }
 
 .thumb-batch-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
-  border-color: rgba(167, 139, 250, 0.35);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  border-color: rgba(167, 139, 250, 0.3);
 }
 
 .thumb-batch-card-inner {
@@ -316,13 +315,12 @@
 
 .thumb-batch-img-wrap {
   position: relative;
-  border-radius: 20px;
-  overflow: visible;
+  border-radius: 16px;
+  overflow: hidden;
   aspect-ratio: 16 / 9;
   background: rgba(0, 0, 0, 0.2);
-  border: 5px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   box-sizing: border-box;
-  padding-bottom: 36px;
 }
 
 .thumb-batch-img-wrap--viewable {
@@ -340,7 +338,7 @@
   object-fit: cover;
   display: block;
   border: none;
-  border-radius: 14px;
+  border-radius: 0;
 }
 
 .thumb-batch-score {
@@ -408,19 +406,22 @@
 
 .thumb-batch-actions-card {
   position: absolute;
-  left: 50%;
-  bottom: -18px;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  padding: 10px 18px;
-  background: rgba(0, 0, 0, 0.75);
-  border-radius: 9999px;
-  border: 2px solid rgba(255, 255, 255, 0.18);
-  box-sizing: border-box;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55);
+  padding: 28px 12px 10px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, transparent 100%);
   z-index: 2;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.thumb-batch-img-wrap:hover .thumb-batch-actions-card,
+.thumb-batch-img-wrap:focus-within .thumb-batch-actions-card {
+  opacity: 1;
 }
 
 .thumb-batch-actions-row {
@@ -575,102 +576,32 @@
   cursor: not-allowed;
 }
 
-/* Sub-tool tab bar (Prompt / Recreate / Analyze / Edit) + composer — one chrome */
-/* Parent .coach-composer-wrap uses pointer-events:none; inner chrome re-enables hits */
+/* Thumbnail footer: sub-tabbar (detached pill) + composer (Coach-style glass
+ * pill). The composer uses the default `.coach-composer` styling from
+ * CoachChat.css — no overrides — so it matches Coach's input bar exactly. */
 .coach-composer-wrap--thumb-tools {
   flex-direction: column;
   align-items: stretch;
   gap: 0;
 }
 
-/* Footer blur (::after on .coach-composer-wrap) can wash out this strip — hide it in thumbnails */
-#coach-panel-thumbnails .coach-composer-wrap--thumb-tools::after {
-  display: none;
-}
-
 .thumb-gen-footer-chrome {
-  width: var(--coach-content-width);
-  max-width: min(980px, calc(100% - 0.4rem));
+  width: 100%;
+  max-width: 100%;
   margin: 0 auto;
   pointer-events: auto;
   position: relative;
   z-index: 6;
-  border-radius: 20px;
-  background: #1a1a1a;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow:
-    0 6px 24px rgba(0, 0, 0, 0.08),
-    0 1px 0 rgba(255, 255, 255, 0.16) inset,
-    0 -1px 0 rgba(255, 255, 255, 0.06) inset;
-  backdrop-filter: blur(20px) saturate(170%);
-  -webkit-backdrop-filter: blur(20px) saturate(170%);
-  overflow: hidden;
-  isolation: isolate;
-  transition:
-    max-width 0.28s ease,
-    border-radius 0.28s ease,
-    box-shadow 0.28s ease,
-    padding 0.28s ease;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  overflow: visible;
 }
 
 .thumb-gen-footer-error {
   margin: 0.35rem auto 0.5rem !important;
-}
-
-.thumb-gen-subtabbar-wrap {
-  width: 100%;
-  padding: 0.24rem 0.28rem 0.24rem;
-  flex-shrink: 0;
-  display: flex;
-  justify-content: stretch;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  box-sizing: border-box;
-}
-
-@media (min-width: 720px) {
-  .thumb-gen-subtabbar-wrap {
-    padding: 0.28rem 0.36rem 0.28rem;
-  }
-}
-
-/* Thumbnail mode switcher — segmented TabBar, full width in footer chrome */
-.thumb-gen-subtabbar.tabbar.segmented {
-  width: 100%;
-  max-width: none;
-  margin-left: 0;
-  justify-content: stretch;
-  flex-wrap: nowrap;
-  padding: 3px;
-  gap: 3px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  background: rgba(0, 0, 0, 0.38);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.06) inset,
-    0 4px 18px rgba(0, 0, 0, 0.28);
-  position: relative;
-  z-index: 1;
-}
-
-.thumb-gen-subtabbar .tabbar-segment-highlight {
-  border-radius: 999px;
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 42%, #4f46e5 100%);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.14),
-    0 2px 14px rgba(124, 58, 237, 0.5),
-    0 1px 0 rgba(255, 255, 255, 0.12) inset;
-}
-
-#coach-panel-thumbnails .coach-composer--thumb-merged {
-  width: 100%;
-  max-width: none;
-  margin: 0;
-  border-radius: 0;
-  border: none;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 .thumb-gen-mode-pane {
@@ -683,75 +614,108 @@
 }
 
 .thumb-source-block {
-  padding: 0.28rem 0.34rem 0.12rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.15rem 0 0.2rem;
   transition: padding 0.24s ease;
 }
 
 .thumb-source-mode-tabs {
   display: inline-flex;
-  gap: 4px;
-  margin-bottom: 0.24rem;
-  padding: 2px;
+  align-self: flex-start;
+  gap: 3px;
+  padding: 3px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
 }
 
 .thumb-source-mode-tab {
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.58);
-  padding: 0.26rem 0.48rem;
+  color: rgba(226, 232, 240, 0.62);
+  padding: 0.34rem 0.7rem;
   border-radius: 999px;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 600;
+  letter-spacing: 0.01em;
   cursor: pointer;
   transition:
-    background 0.2s ease,
-    color 0.2s ease;
+    background 0.24s cubic-bezier(0.33, 1, 0.68, 1),
+    color 0.24s cubic-bezier(0.33, 1, 0.68, 1),
+    transform 0.14s ease;
+}
+
+.thumb-source-mode-tab:hover {
+  color: rgba(248, 250, 252, 0.92);
+}
+
+.thumb-source-mode-tab:active {
+  transform: scale(0.97);
 }
 
 .thumb-source-mode-tab.is-active {
-  color: #fff;
-  background: rgba(139, 92, 246, 0.26);
+  color: #f5f0ff;
+  background: linear-gradient(
+    145deg,
+    rgba(180, 160, 255, 0.3) 0%,
+    rgba(147, 110, 250, 0.22) 50%,
+    rgba(120, 100, 245, 0.18) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(200, 185, 255, 0.25),
+    0 2px 10px rgba(120, 90, 250, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .thumb-source-row {
   display: flex;
-  align-items: center;
-  gap: 0.38rem;
-  min-height: 38px;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
 .thumb-source-input {
   flex: 1;
   min-width: 0;
-  padding: 0.42rem 0.56rem;
-  border-radius: 9px;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border-radius: 12px;
+  text-align: center;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.28);
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 0.77rem;
+  background: rgba(0, 0, 0, 0.22);
+  color: rgba(248, 250, 252, 0.95);
+  font: inherit;
+  font-size: 0.8rem;
   outline: none;
   transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .thumb-source-input::placeholder {
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(148, 163, 184, 0.6);
+}
+
+.thumb-source-input:hover {
+  background: rgba(0, 0, 0, 0.28);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 .thumb-source-input:focus {
-  border-color: rgba(239, 68, 68, 0.45);
-  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.12);
+  background: rgba(0, 0, 0, 0.3);
+  border-color: rgba(167, 139, 250, 0.45);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
 }
 
 .thumb-source-preview {
   flex-shrink: 0;
-  width: 46px;
-  height: 26px;
-  border-radius: 6px;
+  width: 56px;
+  height: 32px;
+  border-radius: 8px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(0, 0, 0, 0.4);
@@ -763,21 +727,25 @@
 .thumb-source-upload-btn {
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.88);
-  border-radius: 9px;
-  padding: 0.42rem 0.56rem;
-  font-size: 0.74rem;
+  color: rgba(248, 250, 252, 0.92);
+  border-radius: 12px;
+  padding: 0.55rem 0.85rem;
+  font: inherit;
+  font-size: 0.78rem;
   font-weight: 600;
+  letter-spacing: 0.01em;
   cursor: pointer;
   transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    transform 0.18s ease;
+    background 0.22s cubic-bezier(0.33, 1, 0.68, 1),
+    border-color 0.22s cubic-bezier(0.33, 1, 0.68, 1),
+    box-shadow 0.22s cubic-bezier(0.33, 1, 0.68, 1),
+    transform 0.14s ease;
 }
 
 .thumb-source-upload-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(167, 139, 250, 0.35);
+  background: rgba(167, 139, 250, 0.12);
+  border-color: rgba(167, 139, 250, 0.4);
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.2);
 }
 
 .thumb-source-upload-btn:active {
@@ -971,31 +939,196 @@
   -webkit-backdrop-filter: blur(22px) saturate(180%);
 }
 
-.thumb-edit-open-cta {
-  border: 1px solid rgba(167, 139, 250, 0.28);
-  background: linear-gradient(180deg, rgba(139, 92, 246, 0.18), rgba(99, 102, 241, 0.12));
-  color: #f5f3ff;
+/* Drop zone — drag-and-drop or click to upload */
+.thumb-drop-zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 76px;
+  border-radius: 12px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.thumb-drop-zone:hover,
+.thumb-drop-zone.is-dragging {
+  border-color: rgba(167, 139, 250, 0.5);
+  background: rgba(139, 92, 246, 0.07);
+}
+
+.thumb-drop-zone.is-dragging {
+  border-color: rgba(167, 139, 250, 0.75);
+  background: rgba(139, 92, 246, 0.12);
+}
+
+.thumb-drop-zone.has-image {
+  cursor: default;
+  min-height: 0;
+  padding: 0;
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.thumb-drop-zone-file-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.thumb-drop-zone-file-thumb {
+  width: 56px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.thumb-drop-zone-file-info {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: rgba(226, 232, 240, 0.75);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.thumb-drop-zone-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 1rem;
+  pointer-events: none;
+}
+
+.thumb-drop-zone-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.22);
+  color: rgba(167, 139, 250, 0.9);
+  margin-bottom: 0.1rem;
+}
+
+.thumb-drop-zone-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.thumb-drop-zone-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.75);
+}
+
+.thumb-drop-zone-hint {
+  font-size: 0.69rem;
+  color: rgba(148, 163, 184, 0.6);
+}
+
+.thumb-drop-zone-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 10px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.thumb-drop-zone-clear {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
   border-radius: 999px;
-  padding: 0.42rem 0.8rem;
-  font-size: 0.72rem;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.thumb-drop-zone-clear:hover {
+  background: rgba(239, 68, 68, 0.7);
+}
+
+/* Open editor CTA — centered, full-width, appealing */
+.thumb-edit-open-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0 0.1rem;
+}
+
+.thumb-edit-open-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  background: linear-gradient(145deg, rgba(139, 92, 246, 0.22) 0%, rgba(99, 102, 241, 0.15) 100%);
+  color: #f0ebff;
+  border-radius: 999px;
+  padding: 0.55rem 1.4rem;
+  font-size: 0.82rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   cursor: pointer;
+  box-shadow:
+    0 0 0 0 rgba(139, 92, 246, 0),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
   transition:
     transform 0.18s ease,
     background 0.18s ease,
     border-color 0.18s ease,
+    box-shadow 0.18s ease,
     opacity 0.18s ease;
+}
+
+.thumb-edit-open-cta svg {
+  width: 15px;
+  height: 15px;
+  opacity: 0.85;
 }
 
 .thumb-edit-open-cta:hover:not(:disabled) {
   transform: translateY(-1px);
-  background: linear-gradient(180deg, rgba(139, 92, 246, 0.24), rgba(99, 102, 241, 0.16));
-  border-color: rgba(167, 139, 250, 0.42);
+  background: linear-gradient(145deg, rgba(139, 92, 246, 0.32) 0%, rgba(99, 102, 241, 0.22) 100%);
+  border-color: rgba(167, 139, 250, 0.55);
+  box-shadow:
+    0 4px 18px rgba(120, 90, 250, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.thumb-edit-open-cta:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .thumb-edit-open-cta:disabled {
-  opacity: 0.46;
+  opacity: 0.42;
   cursor: not-allowed;
 }
 
@@ -1049,69 +1182,11 @@
   color: rgba(255, 255, 255, 0.45);
 }
 
-.thumb-gen-subtabbar .tabbar-tab {
-  flex: 1 1 0;
-  min-width: 0;
-  justify-content: center;
-  gap: 4px;
-  padding: 6px 7px;
-  border-radius: 999px;
-  font-size: 0.585rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  color: rgba(203, 213, 225, 0.72);
-  transition:
-    color 0.28s cubic-bezier(0.33, 1, 0.64, 1),
-    transform 0.16s ease;
-}
-
-.thumb-gen-subtabbar .tabbar-tab:hover {
-  color: rgba(245, 243, 255, 0.95);
-}
-
-.thumb-gen-subtabbar .tabbar-tab:not(.is-active):hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.thumb-gen-subtabbar .tabbar-tab.is-active {
-  color: #faf5ff;
-  background: transparent;
-  box-shadow: none;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.22);
-}
-
-.thumb-gen-subtabbar .tabbar-tab-icon svg {
-  width: 10px;
-  height: 10px;
-  opacity: 0.92;
-}
-
-.thumb-gen-subtabbar .tabbar-tab:not(.is-active) .tabbar-tab-icon svg {
-  color: rgba(196, 181, 253, 0.55);
-  stroke: currentColor;
-}
-
-.thumb-gen-subtabbar .tabbar-tab.is-active .tabbar-tab-icon svg {
-  color: rgba(255, 255, 255, 0.95);
-  stroke: currentColor;
-}
-
-@media (max-width: 520px) {
-  .thumb-gen-subtabbar.tabbar.segmented {
-    flex-wrap: wrap;
-    row-gap: 4px;
-  }
-
-  .thumb-gen-subtabbar .tabbar-tab {
-    flex: 1 1 calc(50% - 2px);
-    min-width: 0;
-  }
-}
-
-/* Prompt / recreate: use full thread width for thumbnail grids (no narrow centered column) */
+/* Prompt / recreate: full-bleed thread so thumbnail grids can use the full
+ * width. Content-width inherited from `.coach-chat-shell` (unified across all
+ * chat screens). */
 #coach-panel-thumbnails .coach-thread--thumb-panel {
   align-items: stretch;
-  --coach-content-width: min(960px, calc(100% - 1rem));
 }
 
 #coach-panel-thumbnails .coach-thread--thumb-panel .coach-message {
@@ -1345,10 +1420,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  background: rgba(0, 0, 0, 0.88);
-  backdrop-filter: blur(10px);
+  padding: clamp(0.75rem, 3vw, 1.5rem);
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
   box-sizing: border-box;
+  animation: thumbLightboxFade 0.2s ease both;
+}
+
+@keyframes thumbLightboxFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .thumb-gen-lightbox-inner {
@@ -1357,43 +1443,78 @@
   max-height: min(92vh, 900px);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  background: linear-gradient(180deg, #14141c 0%, #0f0f14 100%);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.25),
+    0 24px 56px rgba(0, 0, 0, 0.55),
+    0 0 80px rgba(124, 58, 237, 0.07);
+  overflow: hidden;
+  animation: thumbLightboxScale 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes thumbLightboxScale {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .thumb-gen-lightbox-chrome {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding: 0.875rem clamp(1rem, 4vw, 1.5rem);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .thumb-gen-lightbox-title {
-  font-size: 0.95rem;
+  font-size: 0.9375rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.88);
+  color: rgba(255, 255, 255, 0.9);
   margin: 0;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  letter-spacing: -0.01em;
 }
 
 .thumb-gen-lightbox-close {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: none;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  font-size: 1.5rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.375rem;
   line-height: 1;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease;
 }
 
 .thumb-gen-lightbox-close:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.thumb-gen-lightbox-close:active {
+  transform: scale(0.9);
 }
 
 .thumb-gen-lightbox-stage {
@@ -1402,10 +1523,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 16px;
-  overflow: hidden;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: clamp(1rem, 3vw, 1.5rem);
+  background: rgba(0, 0, 0, 0.2);
 }
 
 .thumb-gen-lightbox-img {
@@ -1415,4 +1534,521 @@
   height: auto;
   object-fit: contain;
   display: block;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Liquid glass skeleton loading card ── */
+.thumb-gen-skeleton-card {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  aspect-ratio: 16 / 9;
+  border-radius: 16px;
+  overflow: hidden;
+  /* Dark glass base — enough opacity to feel solid, not washed out */
+  background: rgba(14, 8, 30, 0.72);
+  backdrop-filter: blur(48px) saturate(180%);
+  -webkit-backdrop-filter: blur(48px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 0 0 0.5px rgba(0, 0, 0, 0.3),
+    0 8px 40px rgba(0, 0, 0, 0.45),
+    0 0 80px rgba(120, 80, 240, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Moving liquid color blobs behind the glass */
+.thumb-gen-skeleton-blob {
+  position: absolute;
+  inset: -40%;
+  background:
+    radial-gradient(ellipse 55% 45% at 30% 40%, rgba(120, 60, 240, 0.45) 0%, transparent 65%),
+    radial-gradient(ellipse 45% 55% at 72% 58%, rgba(80, 40, 200, 0.32) 0%, transparent 65%),
+    radial-gradient(ellipse 40% 35% at 55% 80%, rgba(160, 80, 250, 0.28) 0%, transparent 60%);
+  animation: thumbBlobDrift 7s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Specular / shimmer sweep */
+.thumb-gen-skeleton-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    112deg,
+    transparent 15%,
+    rgba(255, 255, 255, 0.04) 38%,
+    rgba(255, 255, 255, 0.09) 50%,
+    rgba(255, 255, 255, 0.04) 62%,
+    transparent 85%
+  );
+  background-size: 280% 100%;
+  animation: thumbSkeletonShimmer 2.8s linear infinite;
+  pointer-events: none;
+}
+
+/* Bottom fill bar — grows left-to-right with loadingPct */
+.thumb-gen-skeleton-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  min-width: 0;
+  max-width: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(139, 92, 246, 0.7) 0%,
+    rgba(167, 110, 255, 1) 70%,
+    rgba(200, 160, 255, 0.9) 100%
+  );
+  box-shadow:
+    0 0 12px rgba(167, 110, 255, 0.7),
+    0 0 24px rgba(139, 92, 246, 0.4);
+  border-radius: 0 0 0 0;
+  transition: width 0.09s linear;
+  pointer-events: none;
+}
+
+.thumb-gen-skeleton-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  /* Frosted pill behind the text */
+  padding: 1.1rem 2rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.thumb-gen-skeleton-pct {
+  font-size: 3rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow:
+    0 0 16px rgba(190, 160, 255, 1),
+    0 0 40px rgba(139, 92, 246, 0.6);
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  min-width: 3.5ch;
+  text-align: center;
+}
+
+.thumb-gen-skeleton-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(210, 190, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+}
+
+@keyframes thumbBlobDrift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(4%, -6%) scale(1.04);
+  }
+  66% {
+    transform: translate(-4%, 5%) scale(0.97);
+  }
+}
+
+@keyframes thumbSkeletonShimmer {
+  0% {
+    background-position: -280% 0;
+  }
+  100% {
+    background-position: 280% 0;
+  }
+}
+
+/* ── Bottom mode-switcher tabbar — frosted glass pill ── */
+.thumb-gen-subtabbar.tabbar.modal {
+  width: auto;
+  max-width: 100%;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  /* Opaque enough to make the blur visible, tinted dark-purple */
+  background: rgba(18, 10, 42, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.2),
+    0 0 0 0.5px rgba(0, 0, 0, 0.3),
+    0 6px 28px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+}
+
+.thumb-gen-subtabbar.tabbar.modal .tabbar-tab {
+  padding: 7px 16px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border-radius: 999px;
+  color: rgba(235, 235, 240, 0.52);
+  transition:
+    color 0.22s cubic-bezier(0.33, 1, 0.68, 1),
+    background 0.22s cubic-bezier(0.33, 1, 0.68, 1),
+    transform 0.14s ease;
+}
+
+.thumb-gen-subtabbar.tabbar.modal .tabbar-tab:hover {
+  color: rgba(245, 243, 255, 0.88);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.thumb-gen-subtabbar.tabbar.modal .tabbar-tab.is-active {
+  color: #f5f0ff;
+  background: linear-gradient(
+    145deg,
+    rgba(180, 160, 255, 0.32) 0%,
+    rgba(147, 110, 250, 0.24) 50%,
+    rgba(120, 100, 245, 0.2) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(200, 185, 255, 0.28),
+    0 3px 10px rgba(120, 90, 250, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 520px) {
+  .thumb-gen-subtabbar.tabbar.modal {
+    padding: 3px;
+    gap: 1px;
+  }
+
+  .thumb-gen-subtabbar.tabbar.modal .tabbar-tab {
+    padding: 6px 12px;
+    font-size: 0.7rem;
+  }
+}
+
+/* Single generated image in message */
+.thumb-msg-img-wrap {
+  border-radius: 14px;
+  overflow: hidden;
+  width: 100%;
+  max-width: 600px;
+}
+
+.thumb-msg-img-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: zoom-in;
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.thumb-msg-img-btn:focus-visible {
+  outline: 2px solid rgba(167, 139, 250, 0.7);
+  outline-offset: 2px;
+}
+
+.thumb-msg-img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+  border-radius: 12px;
+}
+
+.thumb-msg-img-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  border-radius: 12px;
+}
+
+.thumb-msg-img-overlay svg {
+  width: 22px;
+  height: 22px;
+  color: #fff;
+}
+
+.thumb-msg-img-btn:hover .thumb-msg-img-overlay {
+  opacity: 1;
+}
+
+/* Grid of thumbnails in message — no block wrapper */
+.thumb-msg-grid-wrap {
+  width: 100%;
+}
+
+/* ── Tabbar row — inside the glass composer pill ── */
+.thumb-gen-tab-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  margin-bottom: 0.1rem;
+}
+
+.thumb-gen-tab-row .chat-subtabbar-wrap {
+  margin: 0;
+}
+
+/* Source-mode tabs when placed in the tab row (right side) */
+.thumb-gen-tab-row .thumb-source-mode-tabs {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* Glass composer — wraps tab row + mode forms */
+.thumb-gen-glass-composer {
+  gap: 0;
+  padding: 0.9rem 1rem 0.75rem;
+}
+
+.thumb-gen-mode-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-top: 0.6rem;
+}
+
+/* Scroll-to-bottom uses .coach-scroll-to-bottom from CoachChat.css (shared class) */
+
+.thumb-gen-scroll-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.38rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(18, 10, 42, 0.65);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  color: rgba(235, 235, 240, 0.7);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition:
+    opacity 0.22s ease,
+    visibility 0.22s ease,
+    transform 0.22s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.thumb-gen-scroll-btn--visible {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.thumb-gen-scroll-btn:hover {
+  background: rgba(100, 60, 200, 0.35);
+  border-color: rgba(167, 139, 250, 0.35);
+  color: #fff;
+}
+
+.thumb-gen-scroll-btn:active {
+  transform: scale(0.96);
+}
+
+.thumb-gen-scroll-btn svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+/* Visible placeholder override — CoachChat.css hides ::placeholder globally for
+   the animated hint. These inputs need a real visible placeholder instead. */
+.thumb-visible-placeholder::placeholder {
+  color: rgba(148, 163, 184, 0.52) !important;
+}
+
+/* Link/Upload mini pill — tighter, floats at top-left of source block */
+.thumb-source-mode-tabs {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+/* URL input inside the pill block — no separate card, looks embedded */
+.thumb-source-input {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  font-size: 0.82rem;
+  padding: 0.55rem 0.85rem;
+}
+
+.thumb-source-input:focus {
+  background: rgba(0, 0, 0, 0.18);
+  border-color: rgba(167, 139, 250, 0.4);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.12);
+}
+
+/* Source row — now just the URL input or dropzone (tabs moved to tab-row) */
+.thumb-source-inline-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.thumb-source-inline-row .thumb-source-input,
+.thumb-source-inline-row .thumb-source-url-row {
+  flex: 1;
+  min-width: 0;
+}
+
+.thumb-source-inline-row:has(.thumb-drop-zone) {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* Press animations */
+.thumb-source-mode-tab:active,
+.thumb-batch-action:active,
+.thumb-msg-img-btn:active,
+.thumb-edit-open-cta:active {
+  transform: scale(0.96);
+}
+
+.coach-scroll-to-bottom-btn:active {
+  transform: scale(0.94);
+}
+
+/* ── Source URL row with inline preview ── */
+.thumb-source-url-row {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.thumb-source-url-row .thumb-source-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.thumb-source-url-preview {
+  flex-shrink: 0;
+  width: 44px;
+  height: 28px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumb-source-url-preview-loading {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: rgba(167, 139, 250, 0.8);
+  border-radius: 50%;
+  animation: thumbPreviewSpin 0.7s linear infinite;
+}
+
+@keyframes thumbPreviewSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.thumb-source-url-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.thumb-source-url-preview-img:hover {
+  opacity: 0.85;
+}
+
+/* ── Analyze submit row — centered full-width CTA ── */
+.thumb-gen-analyze-submit-row {
+  display: flex;
+  justify-content: center;
+  padding: 0.15rem 0 0.1rem;
+}
+
+.thumb-gen-analyze-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 2.5rem;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  color: #fff;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow:
+    0 2px 10px rgba(124, 58, 237, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transition:
+    opacity 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
+}
+
+.thumb-gen-analyze-btn:hover:not(:disabled) {
+  opacity: 0.92;
+  box-shadow:
+    0 4px 16px rgba(124, 58, 237, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.thumb-gen-analyze-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.thumb-gen-analyze-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  box-shadow: none;
 }

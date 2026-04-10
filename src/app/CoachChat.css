@@ -47,6 +47,10 @@
   display: flex;
   flex-direction: column;
   background: var(--dash-surface-page);
+  /* Match Dashboard's content gutter so chat screens have identical breathing
+   * room to the rest of the app. (Duplicates the value defined on
+   * `.dashboard-page` — needed because `.coach-page` doesn't inherit from it.) */
+  --dash-gutter-x: calc(clamp(0.85rem, 3.5vw, 1.75rem) + 12px);
 }
 
 .coach-main-body {
@@ -75,16 +79,17 @@
   );
 }
 
-/* Floating segmented tabbar — liquid glass, top-right */
-.tabbar.segmented.coach-tabbar--floating {
+/* Floating pill tabbar — liquid glass, centered — modal variant (individual pill tabs) */
+.tabbar.modal.coach-tabbar--floating {
   position: absolute;
   top: 0.6rem;
-  right: 0.7rem;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 14;
   width: auto;
-  gap: 3px;
+  gap: 2px;
   padding: 4px;
-  border-radius: 16px;
+  border-radius: 999px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.03) 100%);
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow:
@@ -95,33 +100,28 @@
     0 2px 8px rgba(0, 0, 0, 0.18);
   backdrop-filter: blur(28px) saturate(180%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
-  transition:
-    box-shadow 0.3s cubic-bezier(0.33, 1, 0.68, 1),
-    border-color 0.3s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
-.tabbar.segmented.coach-tabbar--floating .tabbar-tab {
-  padding: 8px 16px;
+.tabbar.modal.coach-tabbar--floating .tabbar-tab {
+  padding: 7px 18px;
   font-size: 0.76rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-  border-radius: 12px;
-  color: rgba(235, 235, 240, 0.5);
+  border-radius: 999px;
+  color: rgba(235, 235, 240, 0.52);
   transition:
-    color 0.26s cubic-bezier(0.33, 1, 0.68, 1),
+    color 0.22s cubic-bezier(0.33, 1, 0.68, 1),
+    background 0.22s cubic-bezier(0.33, 1, 0.68, 1),
     transform 0.14s ease;
 }
 
-.tabbar.segmented.coach-tabbar--floating .tabbar-tab:hover {
+.tabbar.modal.coach-tabbar--floating .tabbar-tab:hover {
   color: rgba(245, 243, 255, 0.88);
+  background: rgba(255, 255, 255, 0.05);
 }
 
-.tabbar.segmented.coach-tabbar--floating .tabbar-tab.is-active {
+.tabbar.modal.coach-tabbar--floating .tabbar-tab.is-active {
   color: #f5f0ff;
-}
-
-.tabbar.segmented.coach-tabbar--floating .tabbar-segment-highlight {
-  border-radius: 12px;
   background: linear-gradient(
     145deg,
     rgba(180, 160, 255, 0.32) 0%,
@@ -130,27 +130,21 @@
   );
   box-shadow:
     0 0 0 1px rgba(200, 185, 255, 0.28),
-    0 4px 14px rgba(120, 90, 250, 0.22),
+    0 3px 10px rgba(120, 90, 250, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 @media (max-width: 520px) {
-  .tabbar.segmented.coach-tabbar--floating {
+  .tabbar.modal.coach-tabbar--floating {
     top: 0.45rem;
-    right: 0.45rem;
-    border-radius: 14px;
+    border-radius: 999px;
     padding: 3px;
-    gap: 2px;
+    gap: 1px;
   }
 
-  .tabbar.segmented.coach-tabbar--floating .tabbar-tab {
-    padding: 6px 12px;
+  .tabbar.modal.coach-tabbar--floating .tabbar-tab {
+    padding: 6px 13px;
     font-size: 0.68rem;
-    border-radius: 11px;
-  }
-
-  .tabbar.segmented.coach-tabbar--floating .tabbar-segment-highlight {
-    border-radius: 11px;
   }
 
   .coach-header-shade {
@@ -237,6 +231,8 @@
 
 .coach-main {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   margin: 0 auto;
   padding: 0.5rem 0 0.5rem;
   box-sizing: border-box;
@@ -244,61 +240,49 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .coach-chat-shell {
-  --coach-content-width: min(720px, calc(100% - 2rem));
+  /* Unified content width across Coach, Scripts, and Thumbnail. The thread
+   * owns horizontal padding (see .coach-thread), so we just cap the inner
+   * column here and let parent padding + scrollbar gutter handle breathing
+   * room — keeps content fully inside the shell on every viewport size. */
+  --coach-content-width: min(760px, 100%);
   /* Set by JS from measured composer footer height so scroll-to-bottom stays above the input bar */
   --coach-composer-stack-px: 148px;
   position: relative;
   min-height: 0;
   height: 100%;
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  overflow: visible;
+  overflow: hidden;
   background: transparent;
 }
 
-/* Desktop: when empty, center thread + composer below quick actions */
-@media (min-width: 761px) {
-  .coach-chat-shell--empty {
-    justify-content: center;
-    align-items: center;
-  }
-
-  .coach-chat-shell--empty .coach-thread {
-    flex: 0 0 auto;
-    justify-content: center;
-    padding-bottom: 1.5rem;
-  }
-
-  .coach-chat-shell--empty .coach-composer-wrap--empty {
-    position: static;
-    margin-top: 0;
-    padding-top: 1rem;
-    width: var(--coach-content-width);
-  }
-
-  .coach-chat-shell--empty .coach-composer-wrap--empty::after {
-    display: none;
-  }
-}
-
-.coach-main--empty {
-  min-height: 100%;
-}
+/* Empty state: keep the same fill-and-scroll layout as populated.
+ * The thread stays `flex: 1; overflow-y: auto`, the composer stays sticky at
+ * the bottom, and empty-state content is centered via `.coach-thread--empty`
+ * (justify-content: center). This guarantees the screen always fits inside
+ * the main wrap — no overflow clipping when empty content + composer grow. */
 
 .coach-thread {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 3.6rem 0 6.25rem;
+  /* Horizontal padding uses the same gutter var as the Dashboard content shell
+   * (see .dashboard-content-shell in Dashboard.css) so chat screens feel
+   * identical in breathing room to the rest of the app. */
+  padding: 3.6rem var(--dash-gutter-x, 1.75rem) 6.25rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1rem;
+  box-sizing: border-box;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
@@ -325,7 +309,9 @@
   /* Items are absolutely positioned; gap does not apply — use padding on items */
   /* Top: enough clearance so first message sits below the floating tabbar */
   /* Bottom: measured composer stack + breathing room so last rows clear the input bar */
-  padding: 3.6rem 0 calc(var(--coach-composer-stack-px, 148px) + 2.25rem);
+  /* Horizontal: matches `.coach-thread` and Dashboard's content gutter. */
+  padding: 3.6rem var(--dash-gutter-x, 1.75rem)
+    calc(var(--coach-composer-stack-px, 148px) + 2.25rem);
   box-sizing: border-box;
   width: 100%;
 }
@@ -414,7 +400,9 @@
 }
 
 .coach-thread--empty {
-  justify-content: center;
+  /* Content is vertically centered via `.coach-empty-state { margin: auto 0 }`,
+   * which is scroll-safe (unlike justify-content: center, which would clip
+   * overflow-top). The thread stays flex: 1 + overflow-y: auto. */
   align-items: center;
   padding-top: 2rem;
   padding-bottom: 6rem;
@@ -639,7 +627,10 @@
 
 .coach-empty-state {
   width: var(--coach-content-width);
-  margin: auto 0;
+  max-width: 100%;
+  /* `margin: auto` centers the empty state on both axes inside any flex thread,
+   * regardless of the parent's `align-items` setting (scroll-safe). */
+  margin: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -647,6 +638,7 @@
   padding: 0 0 1.25rem;
   text-align: center;
   box-sizing: border-box;
+  min-width: 0;
 }
 
 .coach-empty-state-kicker {
@@ -676,11 +668,21 @@
 
 .coach-empty-actions {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* minmax(0, 1fr) so tracks can shrink below intrinsic content width — prevents
+   * horizontal overflow on narrow shells (e.g. sidebar open + small viewport). */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.55rem;
   width: var(--coach-content-width);
   max-width: 100%;
   margin-top: 0.85rem;
+}
+
+/* Narrow shells: collapse the 3-column quick-action grid to 1 column so cards
+ * fit without clipping. */
+@media (max-width: 520px) {
+  .coach-empty-actions {
+    grid-template-columns: 1fr;
+  }
 }
 
 .coach-empty-action {
@@ -688,6 +690,7 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 0.6rem;
+  min-width: 0;
   min-height: 5.2rem;
   padding: 0.9rem 0.95rem;
   border: 1px solid rgba(255, 255, 255, 0.11);
@@ -789,6 +792,8 @@
   flex-direction: column;
   gap: 0.45rem;
   width: var(--coach-content-width);
+  max-width: 100%;
+  min-width: 0;
   box-sizing: border-box;
 }
 
@@ -802,6 +807,8 @@
   align-items: flex-end;
   gap: 0.32rem;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .coach-user-message-meta {
@@ -847,7 +854,8 @@
 
 .coach-message-bubble {
   width: 100%;
-  max-width: none;
+  max-width: 100%;
+  min-width: 0;
   padding: 1rem 0;
   border-radius: 0;
   line-height: 1.72;
@@ -856,6 +864,8 @@
   box-shadow: none;
   color: #e8eaef;
   box-sizing: border-box;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .coach-message--user .coach-message-bubble {
@@ -1348,6 +1358,9 @@
   background: #1a1a1a;
   border: 1px solid rgba(255, 255, 255, 0.08);
   overflow-x: auto;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .coach-code-language {
@@ -1707,14 +1720,158 @@
   height: 18px;
 }
 
+/* ---------------------------------------------------------------------------
+ * Shared chat sub-tabbar — currently used by ThumbnailGenerator
+ * (Prompt/Recreate/Analyze/Edit/Batch). Built on the <TabBar variant="segmented">
+ * primitive and styled to match the top floating Coach tabbar (glass pill).
+ * Sits VISUALLY DETACHED above the input composer with its own gap.
+ * --------------------------------------------------------------------------- */
+.chat-subtabbar-wrap {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 0.75rem;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  box-sizing: border-box;
+  pointer-events: auto;
+  position: relative;
+  z-index: 2;
+  animation: chatSubtabbarReveal 380ms cubic-bezier(0.33, 1, 0.68, 1) both;
+}
+
+@keyframes chatSubtabbarReveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Glass pill — mirrors `.tabbar.segmented.coach-tabbar--floating` (top tabbar) */
+.chat-subtabbar.tabbar.segmented {
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 4px;
+  gap: 3px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.03) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 -0.5px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 0.5px rgba(0, 0, 0, 0.2),
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  transition:
+    box-shadow 0.3s cubic-bezier(0.33, 1, 0.68, 1),
+    border-color 0.3s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.chat-subtabbar .tabbar-segment-highlight {
+  border-radius: 12px;
+  background: linear-gradient(
+    145deg,
+    rgba(180, 160, 255, 0.32) 0%,
+    rgba(147, 110, 250, 0.24) 50%,
+    rgba(120, 100, 245, 0.2) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(200, 185, 255, 0.28),
+    0 4px 14px rgba(120, 90, 250, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.chat-subtabbar .tabbar-tab {
+  flex: 0 0 auto;
+  min-width: 0;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: rgba(235, 235, 240, 0.5);
+  transition:
+    color 0.26s cubic-bezier(0.33, 1, 0.68, 1),
+    transform 0.14s ease;
+}
+
+.chat-subtabbar .tabbar-tab:hover {
+  color: rgba(245, 243, 255, 0.88);
+}
+
+.chat-subtabbar .tabbar-tab:active {
+  transform: scale(0.98);
+}
+
+.chat-subtabbar .tabbar-tab.is-active {
+  color: #f5f0ff;
+  background: transparent;
+  box-shadow: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+}
+
+.chat-subtabbar .tabbar-tab-icon svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0.92;
+}
+
+.chat-subtabbar .tabbar-tab:not(.is-active) .tabbar-tab-icon svg {
+  color: rgba(196, 181, 253, 0.55);
+  stroke: currentColor;
+}
+
+.chat-subtabbar .tabbar-tab.is-active .tabbar-tab-icon svg {
+  color: rgba(255, 255, 255, 0.95);
+  stroke: currentColor;
+}
+
+@media (max-width: 520px) {
+  .chat-subtabbar.tabbar.segmented {
+    padding: 3px;
+    border-radius: 14px;
+  }
+
+  .chat-subtabbar .tabbar-tab {
+    padding: 7px 11px;
+    font-size: 0.7rem;
+    border-radius: 11px;
+    gap: 5px;
+  }
+
+  .chat-subtabbar .tabbar-segment-highlight {
+    border-radius: 11px;
+  }
+
+  .chat-subtabbar .tabbar-tab-icon svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+
 .coach-composer-wrap {
   position: sticky;
   bottom: 0;
   z-index: 3;
   margin-top: -4.2rem;
-  padding: 0.25rem 0 0.65rem;
+  /* Horizontal padding matches `.coach-thread` and Dashboard's content gutter. */
+  padding: 0.25rem var(--dash-gutter-x, 1.75rem) 0.65rem;
   background: transparent;
   pointer-events: none;
+  box-sizing: border-box;
 }
 
 .coach-composer-wrap::after {
@@ -1764,7 +1921,8 @@
 
 .coach-composer {
   width: var(--coach-content-width);
-  max-width: none;
+  max-width: 100%;
+  min-width: 0;
   margin: 0 auto;
   position: relative;
   display: flex;
@@ -2266,43 +2424,22 @@
   }
 
   .coach-chat-shell {
-    --coach-content-width: min(680px, calc(100% - 1.5rem));
+    --coach-content-width: min(720px, 100%);
   }
 }
 
 @media (max-width: 760px) {
   .coach-chat-shell {
-    --coach-content-width: min(100%, calc(100% - 1rem));
-  }
-
-  /* Mobile: always keep composer at bottom, never center */
-  .coach-chat-shell--empty {
-    justify-content: flex-start;
-    align-items: stretch;
-  }
-
-  .coach-chat-shell--empty .coach-thread {
-    flex: 1;
-    padding-bottom: 5.2rem;
-  }
-
-  .coach-chat-shell--empty .coach-composer-wrap--empty {
-    position: sticky;
-    bottom: 0;
-    margin-top: -3.6rem;
-    width: auto;
-  }
-
-  .coach-chat-shell--empty .coach-composer-wrap--empty::after {
-    display: block;
+    --coach-content-width: 100%;
   }
 
   .coach-main {
-    padding: 0.5rem 0.75rem 0.5rem;
+    padding: 0.5rem 0 0.5rem;
   }
 
   .coach-thread {
-    padding: 3rem 0 4.5rem;
+    padding-top: 3rem;
+    padding-bottom: 4.5rem;
   }
 
   .coach-virtuoso-list {
@@ -2351,7 +2488,8 @@
 
   .coach-composer-wrap {
     margin-top: -3.6rem;
-    padding: 0.2rem 0 calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    padding-top: 0.2rem;
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
   }
 
   .coach-composer {
@@ -2447,15 +2585,11 @@
 
 @media (max-width: 560px) {
   .coach-chat-shell {
-    --coach-content-width: calc(100% - 1.25rem);
-  }
-
-  .coach-chat-shell--empty .coach-composer-wrap--empty {
-    margin-top: -3.2rem;
+    --coach-content-width: 100%;
   }
 
   .coach-main {
-    padding: 0.5rem 0.65rem 0.5rem;
+    padding: 0.5rem 0 0.5rem;
   }
 
   .coach-thread {
@@ -2550,7 +2684,8 @@
 
   .coach-composer-wrap {
     margin-top: -3.2rem;
-    padding: 0.15rem 0 calc(0.4rem + env(safe-area-inset-bottom, 0px));
+    padding-top: 0.15rem;
+    padding-bottom: calc(0.4rem + env(safe-area-inset-bottom, 0px));
   }
 
   .coach-composer {

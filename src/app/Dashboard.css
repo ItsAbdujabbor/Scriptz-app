@@ -485,7 +485,7 @@
     }
   }
 
-  /* Split: floating main column */
+  /* Split: floating main column — lighter shadow for subtle depth */
   .dashboard-page .dashboard-app-shell .dashboard-shell-unified--split .dashboard-main-wrap,
   .dashboard-page .dashboard-app-shell .dashboard-shell-unified--split .coach-main-wrap,
   .coach-page .dashboard-app-shell .dashboard-shell-unified--split .dashboard-main-wrap,
@@ -498,7 +498,7 @@
     border-radius: 24px;
     box-shadow:
       0 0 0 1px rgba(255, 255, 255, 0.055),
-      0 28px 88px rgba(0, 0, 0, 0.48),
+      0 12px 32px rgba(0, 0, 0, 0.22),
       inset 0 1px 0 rgba(255, 255, 255, 0.04);
     z-index: 1;
     position: relative;
@@ -507,7 +507,7 @@
       border-radius var(--app-shell-surface-dur) var(--app-shell-surface-ease);
   }
 
-  /* Merged: main is the full card (sidebar floats over it) */
+  /* Merged: main is the full card (sidebar floats over it) — same light shadow */
   .dashboard-page .dashboard-app-shell .dashboard-shell-unified--merged .dashboard-main-wrap,
   .dashboard-page .dashboard-app-shell .dashboard-shell-unified--merged .coach-main-wrap,
   .coach-page .dashboard-app-shell .dashboard-shell-unified--merged .dashboard-main-wrap,
@@ -520,7 +520,7 @@
     border-radius: 24px;
     box-shadow:
       0 0 0 1px rgba(255, 255, 255, 0.055),
-      0 28px 88px rgba(0, 0, 0, 0.48),
+      0 12px 32px rgba(0, 0, 0, 0.22),
       inset 0 1px 0 rgba(255, 255, 255, 0.04);
     border: none;
     z-index: 1;
@@ -6746,6 +6746,53 @@ img.dashboard-youtube-avatar {
   pointer-events: none;
   transition: opacity 0.2s ease;
   filter: saturate(0.92);
+}
+
+/* ── Blurred placeholder state (no cached ideas yet) ── */
+.dashboard-script-ideas-wrap {
+  position: relative;
+}
+
+/* Blur each card individually so layout stays sharp */
+.dashboard-script-ideas-grid--blurred {
+  pointer-events: none;
+  user-select: none;
+}
+
+.dashboard-script-ideas-grid--blurred .dashboard-script-idea-card {
+  filter: blur(6px) saturate(0.7);
+  opacity: 0.55;
+}
+
+/* Centered CTA overlay that sits on top of the blurred grid */
+.dashboard-script-ideas-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  pointer-events: none;
+}
+
+.dashboard-script-ideas-overlay > * {
+  pointer-events: auto;
+}
+
+.dashboard-script-ideas-overlay-text {
+  margin: 0;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.85);
+  max-width: 360px;
+  line-height: 1.5;
+}
+
+.dashboard-script-ideas-overlay-text strong {
+  color: #fff;
+  font-weight: 600;
 }
 
 @media (max-width: 900px) {

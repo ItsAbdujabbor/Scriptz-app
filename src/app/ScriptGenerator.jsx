@@ -9,7 +9,23 @@ import {
 import { refreshScriptConversationCache } from '../lib/query/chatCacheUtils'
 import { stripHashQueryParams } from '../lib/dashboardActionPayload'
 import { ChatHistoryLoading } from '../components/ChatHistoryLoading'
+import { Dropdown } from '../components/ui/Dropdown'
+import { AnimatedComposerHint } from '../components/AnimatedComposerHint'
+import { renderMessageContent } from '../lib/messageRender.jsx'
+import { useThreadScrollToBottom } from '../lib/useThreadScrollToBottom'
 import './ScriptGenerator.css'
+
+const SCRIPT_COMPOSER_HINTS = [
+  'What script do you need?',
+  'Topic… e.g. How to start a side hustle in 2024',
+  'Ask me for a hook that opens with tension…',
+  "Paste a title and I'll draft the full script…",
+  'Need an intro that stops the scroll?',
+  'Want a 60-second Short script?',
+  'Tell me the video and target length…',
+]
+
+const SCRIPT_DRAFT_MAX_LEN = 3000
 
 function packClarificationFromResponse(res) {
   if (!res?.clarification) return undefined
@@ -108,7 +124,7 @@ function ScriptRatingBlock({ rating, intro }) {
   const summary = r.executive_summary || ''
 
   return (
-    <div className="script-rating-block">
+    <div className="script-rating-block coach-stream-block">
       {intro?.trim() ? (
         <div className="script-rating-intro-banner">
           <span className="script-rating-intro-banner-label">Summary</span>
@@ -342,6 +358,24 @@ function IconCopy() {
   )
 }
 
+function IconRefresh() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 12a9 9 0 0 1 15.5-6.3L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-15.5 6.3L3 16" />
+      <path d="M3 21v-5h5" />
+    </svg>
+  )
+}
+
 function IconChevronDown() {
   return (
     <svg
@@ -389,6 +423,54 @@ function IconEmptyScript() {
   )
 }
 
+function IconEmptyShort() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="6" y="3" width="12" height="18" rx="2" />
+      <path d="m10 10 4 2-4 2z" fill="currentColor" />
+    </svg>
+  )
+}
+
+function IconEmptyLong() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <path d="m10 9 5 3-5 3z" fill="currentColor" />
+    </svg>
+  )
+}
+
+function IconEmptyEducational() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+      <path d="M6 12v5c3 3 9 3 12 0v-5" />
+    </svg>
+  )
+}
+
 function IconCheck() {
   return (
     <svg
@@ -412,30 +494,40 @@ const SCRIPT_LOADING_STEPS = [
   { id: 'polish', label: 'Quality check & polish' },
 ]
 
-const SCRIPT_RATE_ANALYSIS_STEPS = [
-  { id: 'structure', label: 'Mapping hook, intro, main beats, and outro' },
-  { id: 'rubric', label: 'Scoring all twelve rubric dimensions' },
-  { id: 'weak', label: 'Flagging weak lines with example rewrites' },
-  { id: 'cta', label: 'Checking CTA, audience fit, and clarity' },
-  { id: 'report', label: 'Building your full report' },
-]
-
 const SCRIPT_QUICK_ACTIONS = [
   {
     id: 'short',
     label: '60s Short about productivity',
     prompt: 'Generate a 60-second YouTube Short script about productivity hacks.',
+    Icon: IconEmptyShort,
   },
   {
     id: 'long',
     label: '10-min script on side hustles',
     prompt: 'Generate a 10-minute script about how to start a side hustle.',
+    Icon: IconEmptyLong,
   },
   {
     id: 'educ',
     label: 'Educational ML for beginners',
     prompt: 'Create an educational script about machine learning for beginners.',
+    Icon: IconEmptyEducational,
   },
+]
+
+const TONE_OPTIONS = [
+  { value: '', label: 'Any tone', hint: 'Let AI pick' },
+  { value: 'educational', label: 'Educational', hint: 'Clear, instructive' },
+  { value: 'entertaining', label: 'Entertaining', hint: 'Fun, engaging' },
+  { value: 'conversational', label: 'Conversational', hint: 'Casual, friendly' },
+  { value: 'professional', label: 'Professional', hint: 'Formal, polished' },
+]
+
+const AUDIENCE_OPTIONS = [
+  { value: '', label: 'Any audience', hint: 'Let AI pick' },
+  { value: 'beginners', label: 'Beginners', hint: 'New to the topic' },
+  { value: 'intermediate', label: 'Intermediate', hint: 'Some background' },
+  { value: 'advanced', label: 'Advanced', hint: 'Expert viewers' },
 ]
 
 function useCopy(text) {
@@ -685,9 +777,6 @@ export function ScriptGenerator({
 
   const [localMessages, setLocalMessages] = useState([])
   const [draft, setDraft] = useState('')
-  const [composerMode, setComposerMode] = useState('generate')
-  const [raterAudience, setRaterAudience] = useState('')
-  const [raterNiche, setRaterNiche] = useState('')
   const [tone, setTone] = useState('')
   const [audience, setAudience] = useState('')
   const [sendError, setSendError] = useState('')
@@ -696,9 +785,7 @@ export function ScriptGenerator({
   /** 'full' = multi-step generation UI; 'minimal' = fast clarify / short reply (no fake hour-long steps). */
   const [pendingLoadMode, setPendingLoadMode] = useState(null)
   const [loadingStepIndex, setLoadingStepIndex] = useState(0)
-  const [rateStepIndex, setRateStepIndex] = useState(0)
   const stepIntervalRef = useRef(null)
-  const rateStepIntervalRef = useRef(null)
   const prevConversationIdRef = useRef(undefined)
   const threadRef = useRef(null)
   const messagesEndRef = useRef(null)
@@ -716,8 +803,10 @@ export function ScriptGenerator({
   const isEmptyScreen =
     !isHistoryLoading && messages.length === 0 && !pendingUserMessage && !pendingAssistant
   const layoutCentered = isEmptyScreen || isHistoryLoading
-  const draftMaxLen = composerMode === 'rate' ? 28000 : 3000
-
+  const { showScrollToBottom, scrollToBottom } = useThreadScrollToBottom(threadRef, {
+    enabled: !isHistoryLoading,
+    deps: [messages.length, pendingUserMessage, pendingAssistant],
+  })
   useEffect(() => {
     const prev = prevConversationIdRef.current
     prevConversationIdRef.current = conversationIdProp
@@ -729,7 +818,7 @@ export function ScriptGenerator({
   const appliedDashKeyRef = useRef('')
 
   useEffect(() => {
-    if (conversationIdProp != null || composerMode !== 'generate') return
+    if (conversationIdProp != null) return
     const hash = (typeof window !== 'undefined' && window.location.hash) || ''
     const normalized = hash.replace(/^#/, '').replace(/^\/+/, '')
     const [routePart, search = ''] = normalized.split('?')
@@ -765,7 +854,7 @@ export function ScriptGenerator({
       const len = textareaRef.current?.value?.length || 0
       textareaRef.current?.setSelectionRange?.(len, len)
     })
-  }, [conversationIdProp, composerMode])
+  }, [conversationIdProp])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -794,35 +883,11 @@ export function ScriptGenerator({
   }, [pendingAssistant, pendingLoadMode])
 
   useEffect(() => {
-    if (!pendingAssistant || pendingLoadMode !== 'rate') {
-      setRateStepIndex(0)
-      if (rateStepIntervalRef.current) {
-        clearInterval(rateStepIntervalRef.current)
-        rateStepIntervalRef.current = null
-      }
-      return
-    }
-    setRateStepIndex(0)
-    const n = SCRIPT_RATE_ANALYSIS_STEPS.length
-    const intervalMs = 780
-    rateStepIntervalRef.current = setInterval(() => {
-      setRateStepIndex((prev) => Math.min(prev + 1, n - 1))
-    }, intervalMs)
-    return () => {
-      if (rateStepIntervalRef.current) {
-        clearInterval(rateStepIntervalRef.current)
-        rateStepIntervalRef.current = null
-      }
-    }
-  }, [pendingAssistant, pendingLoadMode])
-
-  useEffect(() => {
     const el = textareaRef.current
     if (!el) return
-    const cap = composerMode === 'rate' ? 220 : 140
     el.style.height = '0px'
-    el.style.height = `${Math.max(28, Math.min(el.scrollHeight, cap))}px`
-  }, [draft, composerMode])
+    el.style.height = `${Math.max(28, Math.min(el.scrollHeight, 140))}px`
+  }, [draft])
 
   const handleQuickAction = (prompt) => {
     setDraft(prompt)
@@ -916,83 +981,33 @@ export function ScriptGenerator({
     ]
   )
 
-  const submitRateRequest = useCallback(async () => {
-    if (pendingAssistant) return
-    const script = String(draft || '').trim()
-    if (script.length < 40) {
-      setSendError('Paste at least 40 characters of script to rate.')
-      return
-    }
-    setSendError('')
-    setPendingLoadMode('rate')
-    setPendingUserMessage(`[Script rater] ${script.slice(0, 120)}${script.length > 120 ? '…' : ''}`)
-    setPendingAssistant(true)
-    const draftSnapshot = draft
-    setDraft('')
-
-    try {
-      const token = await getAccessTokenOrNull()
-      if (!token) throw new Error('Not authenticated')
-
-      const res = await scriptsApi.sendChatMessage(
-        token,
-        {
-          intent: 'rate',
-          message: '',
-          script_text: script,
-          target_audience: raterAudience.trim() || undefined,
-          niche: raterNiche.trim() || undefined,
-          conversation_id: conversationIdProp ?? undefined,
-          channel_id: channelId || undefined,
-        },
-        channelId
-      )
-
-      const extra = packAssistantExtra(res)
-
-      if (conversationIdProp == null) {
-        setLocalMessages((prev) => [
-          ...prev,
-          { id: `user-${Date.now()}`, role: 'user', content: script },
-          {
-            id: `assistant-${Date.now()}`,
-            role: 'assistant',
-            content: res.content || '',
-            script_response: res.script_response,
-            has_script: res.has_script,
-            extra,
-          },
-        ])
-      }
-
-      if (res.conversation_id != null) {
-        await refreshScriptConversationCache(queryClient, res.conversation_id)
-        onNavigateToConversation?.(res.conversation_id)
-      }
-    } catch (err) {
-      setSendError(err?.message || 'Could not rate script.')
-      setDraft(draftSnapshot)
-    } finally {
-      setPendingUserMessage(null)
-      setPendingAssistant(false)
-      setPendingLoadMode(null)
-    }
-  }, [
-    pendingAssistant,
-    draft,
-    raterAudience,
-    raterNiche,
-    conversationIdProp,
-    channelId,
-    queryClient,
-    onNavigateToConversation,
-  ])
-
   const handleSubmit = (e) => {
     e?.preventDefault?.()
-    if (composerMode === 'rate') void submitRateRequest()
-    else void submitScriptMessage(null)
+    void submitScriptMessage(null)
   }
+
+  const handleRetryAssistantMessage = (assistantMsg) => {
+    if (pendingAssistant) return
+    // Find the previous user message that triggered this assistant response
+    const idx = messages.findIndex((m) => m.id === assistantMsg.id)
+    if (idx <= 0) return
+    for (let i = idx - 1; i >= 0; i -= 1) {
+      if (messages[i]?.role === 'user') {
+        const prevText = messages[i].content
+        if (prevText) {
+          void submitScriptMessage(prevText)
+        }
+        return
+      }
+    }
+  }
+
+  const lastAssistantMessageId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      if (messages[i]?.role === 'assistant') return messages[i].id
+    }
+    return null
+  }, [messages])
 
   const handleCopyMessage = async (msg) => {
     try {
@@ -1017,11 +1032,11 @@ export function ScriptGenerator({
   return (
     <div
       id="coach-panel-scripts"
-      className={`coach-main ${layoutCentered ? 'coach-main--empty' : ''}`}
+      className="coach-main"
       role="tabpanel"
       aria-labelledby="coach-tab-scripts"
     >
-      <section className={`coach-chat-shell ${layoutCentered ? 'coach-chat-shell--empty' : ''}`}>
+      <section className="coach-chat-shell">
         <div
           ref={threadRef}
           className={`coach-thread ${layoutCentered ? 'coach-thread--empty' : ''} ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
@@ -1036,12 +1051,11 @@ export function ScriptGenerator({
           {isEmptyScreen && (
             <div className="coach-empty-state">
               <span className="coach-empty-state-kicker">Script Generator</span>
-              <h1>
-                {composerMode === 'rate' ? 'Paste a script to rate' : 'What script do you need?'}
-              </h1>
-              {composerMode === 'generate' && (
-                <div className="coach-empty-actions" role="group" aria-label="Quick actions">
-                  {SCRIPT_QUICK_ACTIONS.map((action) => (
+              <h1>What script do you need?</h1>
+              <div className="coach-empty-actions" role="group" aria-label="Quick actions">
+                {SCRIPT_QUICK_ACTIONS.map((action) => {
+                  const Icon = action.Icon || IconEmptyScript
+                  return (
                     <button
                       key={action.id}
                       type="button"
@@ -1049,13 +1063,13 @@ export function ScriptGenerator({
                       onClick={() => handleQuickAction(action.prompt)}
                     >
                       <span className="coach-empty-action-icon-wrap" aria-hidden>
-                        <IconEmptyScript />
+                        <Icon />
                       </span>
                       <span className="coach-empty-action-label">{action.label}</span>
                     </button>
-                  ))}
-                </div>
-              )}
+                  )
+                })}
+              </div>
             </div>
           )}
 
@@ -1063,7 +1077,7 @@ export function ScriptGenerator({
             messages.map((msg) => (
               <article
                 key={msg.id}
-                className={`coach-message ${msg.role === 'user' ? 'coach-message--user' : 'coach-message--assistant'}`}
+                className={`coach-message coach-message--enter ${msg.role === 'user' ? 'coach-message--user' : 'coach-message--assistant'}`}
               >
                 {msg.role === 'user' ? (
                   <div className="coach-user-message-stack">
@@ -1078,7 +1092,7 @@ export function ScriptGenerator({
                     {msg.extra?.script_rating ? (
                       <ScriptRatingBlock rating={msg.extra.script_rating} intro={msg.content} />
                     ) : msg.has_script && msg.script_response?.content_package ? (
-                      <div className="script-gen-output-shell">
+                      <div className="script-gen-output-shell coach-stream-block">
                         <header className="script-gen-output-header">
                           <span className="script-gen-output-kicker">Script package</span>
                           <h3 className="script-gen-output-title">Your generated content</h3>
@@ -1087,8 +1101,8 @@ export function ScriptGenerator({
                           </p>
                         </header>
                         {msg.content?.trim() ? (
-                          <div className="script-gen-output-intro script-assistant-text">
-                            {msg.content}
+                          <div className="script-gen-output-intro">
+                            {renderMessageContent(msg.content, `script-intro-${msg.id}`)}
                           </div>
                         ) : null}
                         <div className="script-gen-output-body">
@@ -1097,9 +1111,11 @@ export function ScriptGenerator({
                       </div>
                     ) : (
                       <>
-                        {msg.content && <p className="script-assistant-text">{msg.content}</p>}
+                        {msg.content
+                          ? renderMessageContent(msg.content, `script-msg-${msg.id}`)
+                          : null}
                         {msg.extra?.clarification && (
-                          <div className="script-clarification-panel">
+                          <div className="script-clarification-panel coach-stream-block">
                             {(msg.extra.clarification.questions?.length ?? 0) > 0 ? (
                               <ol className="script-clarification-questions">
                                 {msg.extra.clarification.questions.map((q, qi) => (
@@ -1141,12 +1157,24 @@ export function ScriptGenerator({
                   >
                     <IconCopy />
                   </button>
+                  {msg.role === 'assistant' && msg.id === lastAssistantMessageId && (
+                    <button
+                      type="button"
+                      className="coach-message-action"
+                      onClick={() => handleRetryAssistantMessage(msg)}
+                      disabled={pendingAssistant}
+                      aria-label="Try again"
+                      title="Try again"
+                    >
+                      <IconRefresh />
+                    </button>
+                  )}
                 </div>
               </article>
             ))}
 
           {pendingUserMessage && (
-            <article className="coach-message coach-message--user">
+            <article className="coach-message coach-message--user coach-message--enter">
               <div className="coach-user-message-stack">
                 <div className="coach-message-bubble">
                   <p>{pendingUserMessage}</p>
@@ -1156,106 +1184,24 @@ export function ScriptGenerator({
           )}
 
           {pendingAssistant && pendingLoadMode === 'minimal' && (
-            <article className="coach-message coach-message--assistant script-gen-progress-wrap">
-              <div
-                className="script-gen-quick-loader"
-                role="status"
-                aria-live="polite"
-                aria-label="Working on your request"
-              >
-                <span className="script-gen-quick-loader-ring" aria-hidden />
-                <div className="script-gen-quick-loader-copy">
-                  <span className="script-gen-quick-loader-title">One moment</span>
-                  <span className="script-gen-quick-loader-sub">
-                    Understanding your message — this should only take a second.
+            <article className="coach-message coach-message--assistant coach-message--enter">
+              <div className="coach-message-bubble coach-message-bubble--loading">
+                <div className="coach-assistant-loader" aria-label="Loading response">
+                  <span className="coach-assistant-loader-orb" aria-hidden="true" />
+                  <span className="coach-assistant-loader-lines" aria-hidden="true">
+                    <span className="coach-assistant-loader-line coach-assistant-loader-line--lg" />
+                    <span className="coach-assistant-loader-line coach-assistant-loader-line--md" />
+                    <span className="coach-assistant-loader-line coach-assistant-loader-line--sm" />
                   </span>
                 </div>
               </div>
             </article>
           )}
 
-          {pendingAssistant && pendingLoadMode === 'rate' && (
-            <article className="coach-message coach-message--assistant script-gen-progress-wrap">
-              <div
-                className="script-gen-progress-card script-gen-rate-progress-card"
-                role="status"
-                aria-live="polite"
-                aria-label="Analyzing script"
-              >
-                <div
-                  className="script-gen-progress-track script-gen-rate-progress-track"
-                  aria-hidden
-                  style={{
-                    ['--script-gen-progress']: `${Math.min(
-                      100,
-                      ((rateStepIndex + 0.35) / SCRIPT_RATE_ANALYSIS_STEPS.length) * 100
-                    )}%`,
-                  }}
-                />
-                <header className="script-gen-progress-head">
-                  <div className="script-gen-progress-head-left">
-                    <span className="script-gen-progress-kicker">Script rater</span>
-                    <h3 className="script-gen-progress-title">Analyzing your script</h3>
-                    <p className="script-gen-progress-sub">
-                      Twelve-dimension rubric, weak-line rewrites, and priority actions — usually
-                      under a minute.
-                    </p>
-                  </div>
-                  <div className="script-gen-progress-head-right">
-                    <span className="script-gen-progress-spinner" aria-hidden />
-                    <span className="script-gen-progress-pill">
-                      Step {Math.min(rateStepIndex + 1, SCRIPT_RATE_ANALYSIS_STEPS.length)} of{' '}
-                      {SCRIPT_RATE_ANALYSIS_STEPS.length}
-                    </span>
-                  </div>
-                </header>
-                <ol className="script-gen-progress-list">
-                  {SCRIPT_RATE_ANALYSIS_STEPS.map((step, i) => {
-                    const done = i < rateStepIndex
-                    const active = i === rateStepIndex
-                    return (
-                      <li
-                        key={step.id}
-                        className={`script-gen-progress-row ${done ? 'is-done' : ''} ${active ? 'is-active' : ''}`}
-                        style={{ '--script-gen-i': i }}
-                      >
-                        <div className="script-gen-progress-row-left">
-                          <span className="script-gen-progress-num">{i + 1}</span>
-                          <span className="script-gen-progress-label">{step.label}</span>
-                        </div>
-                        <div className="script-gen-progress-row-right">
-                          {done ? (
-                            <span className="script-gen-progress-check" aria-hidden>
-                              <IconCheck />
-                            </span>
-                          ) : active ? (
-                            <>
-                              <span className="script-gen-progress-mini-ring" aria-hidden />
-                              <span className="script-gen-progress-status script-gen-progress-status--active">
-                                Working
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="script-gen-progress-wait-dot" aria-hidden />
-                              <span className="script-gen-progress-status script-gen-progress-status--wait">
-                                Queued
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ol>
-              </div>
-            </article>
-          )}
-
           {pendingAssistant && pendingLoadMode === 'full' && (
-            <article className="coach-message coach-message--assistant script-gen-progress-wrap">
+            <article className="coach-message coach-message--assistant coach-message--enter script-gen-progress-wrap">
               <div
-                className="script-gen-progress-card"
+                className="script-gen-progress-card coach-stream-block"
                 role="status"
                 aria-live="polite"
                 aria-label="Generating script"
@@ -1337,10 +1283,25 @@ export function ScriptGenerator({
           <div ref={messagesEndRef} />
         </div>
 
-        <footer
-          className={`coach-composer-wrap ${layoutCentered ? 'coach-composer-wrap--empty' : ''} ${inputBlocked && composerMode === 'generate' ? 'coach-composer-wrap--script-blocked' : ''}`}
+        <div
+          className={`coach-scroll-to-bottom ${showScrollToBottom && !isEmptyScreen ? 'coach-scroll-to-bottom--visible' : ''}`}
+          aria-hidden={!showScrollToBottom || isEmptyScreen}
         >
-          {inputBlocked && composerMode === 'generate' && (
+          <button
+            type="button"
+            className="coach-scroll-to-bottom-btn"
+            onClick={scrollToBottom}
+            aria-label="Scroll to bottom"
+            title="Scroll to bottom"
+          >
+            <IconChevronDown />
+          </button>
+        </div>
+
+        <footer
+          className={`coach-composer-wrap ${inputBlocked ? 'coach-composer-wrap--script-blocked' : ''}`}
+        >
+          {inputBlocked && (
             <div
               className="script-gen-blocked-panel"
               role="region"
@@ -1399,62 +1360,15 @@ export function ScriptGenerator({
           )}
           {sendError && <div className="coach-compose-error">{sendError}</div>}
           <form className="coach-composer script-gen-composer" onSubmit={handleSubmit}>
-            <div className="script-gen-composer-tabs" role="tablist" aria-label="Composer mode">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={composerMode === 'generate'}
-                className={`script-gen-composer-tab ${composerMode === 'generate' ? 'is-active' : ''}`}
-                onClick={() => setComposerMode('generate')}
-              >
-                Write script
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={composerMode === 'rate'}
-                className={`script-gen-composer-tab ${composerMode === 'rate' ? 'is-active' : ''}`}
-                onClick={() => setComposerMode('rate')}
-              >
-                Script rater
-              </button>
-            </div>
-            {composerMode === 'rate' && (
-              <div className="script-gen-rater-meta">
-                <input
-                  type="text"
-                  className="script-gen-rater-input"
-                  value={raterAudience}
-                  onChange={(e) => setRaterAudience(e.target.value.slice(0, 400))}
-                  placeholder="Target audience (optional)"
-                  aria-label="Target audience"
-                  disabled={pendingAssistant}
-                />
-                <input
-                  type="text"
-                  className="script-gen-rater-input"
-                  value={raterNiche}
-                  onChange={(e) => setRaterNiche(e.target.value.slice(0, 400))}
-                  placeholder="Niche / topic (optional)"
-                  aria-label="Niche or topic"
-                  disabled={pendingAssistant}
-                />
-              </div>
-            )}
             <div className="coach-composer-input-wrap">
               <textarea
                 ref={textareaRef}
                 value={draft}
-                onChange={(e) => setDraft(String(e.target.value).slice(0, draftMaxLen))}
-                placeholder={
-                  composerMode === 'rate'
-                    ? 'Paste your full script here (spoken lines, beats, timestamps OK)…'
-                    : 'Topic… e.g. How to start a side hustle in 2024'
-                }
+                onChange={(e) => setDraft(String(e.target.value).slice(0, SCRIPT_DRAFT_MAX_LEN))}
                 rows={1}
                 className="coach-composer-input"
-                maxLength={draftMaxLen}
-                disabled={composerMode === 'generate' && inputBlocked}
+                maxLength={SCRIPT_DRAFT_MAX_LEN}
+                disabled={inputBlocked}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault()
@@ -1462,53 +1376,34 @@ export function ScriptGenerator({
                   }
                 }}
               />
+              {!draft ? (
+                <AnimatedComposerHint hints={SCRIPT_COMPOSER_HINTS} paused={inputBlocked} />
+              ) : null}
             </div>
             <div className="coach-composer-actions">
               <div className="coach-composer-actions-left script-gen-actions-left">
-                {composerMode === 'generate' ? (
-                  <>
-                    <select
-                      className="script-gen-dropdown"
-                      value={tone}
-                      onChange={(e) => setTone(e.target.value)}
-                      aria-label="Tone"
-                      disabled={inputBlocked}
-                    >
-                      <option value="">Tone</option>
-                      <option value="educational">Educational</option>
-                      <option value="entertaining">Entertaining</option>
-                      <option value="conversational">Conversational</option>
-                      <option value="professional">Professional</option>
-                    </select>
-                    <select
-                      className="script-gen-dropdown"
-                      value={audience}
-                      onChange={(e) => setAudience(e.target.value)}
-                      aria-label="Audience"
-                      disabled={inputBlocked}
-                    >
-                      <option value="">Audience</option>
-                      <option value="beginners">Beginners</option>
-                      <option value="intermediate">Intermediate</option>
-                      <option value="advanced">Advanced</option>
-                    </select>
-                  </>
-                ) : (
-                  <span className="script-gen-rater-hint">
-                    Min. 40 characters · scores 1–100 per category
-                  </span>
-                )}
+                <Dropdown
+                  label="Tone"
+                  value={tone}
+                  onChange={setTone}
+                  options={TONE_OPTIONS}
+                  disabled={inputBlocked}
+                  size="sm"
+                />
+                <Dropdown
+                  label="Audience"
+                  value={audience}
+                  onChange={setAudience}
+                  options={AUDIENCE_OPTIONS}
+                  disabled={inputBlocked}
+                  size="sm"
+                />
               </div>
               <button
                 type="submit"
                 className="coach-composer-send coach-composer-primary-action is-send"
-                disabled={
-                  pendingAssistant ||
-                  (composerMode === 'generate' && inputBlocked) ||
-                  !draft.trim() ||
-                  (composerMode === 'rate' && draft.trim().length < 40)
-                }
-                aria-label={composerMode === 'rate' ? 'Rate script' : 'Send'}
+                disabled={pendingAssistant || inputBlocked || !draft.trim()}
+                aria-label="Send"
               >
                 <IconArrowUp />
               </button>

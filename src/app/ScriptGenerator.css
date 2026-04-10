@@ -218,8 +218,22 @@
   font-size: 0.88rem;
   line-height: 1.55;
   color: #e8eaef;
-  white-space: pre-wrap;
   text-align: left;
+}
+
+.script-gen-output-intro > p,
+.script-gen-output-intro > ul,
+.script-gen-output-intro > ol {
+  margin: 0 0 0.55rem;
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.script-gen-output-intro > p:last-child,
+.script-gen-output-intro > ul:last-child,
+.script-gen-output-intro > ol:last-child {
+  margin-bottom: 0;
 }
 
 .script-gen-output-body {
@@ -502,28 +516,6 @@
     rgba(255, 255, 255, 0.02) 100%
   );
   pointer-events: none;
-}
-
-.script-gen-rate-progress-card {
-  border-color: rgba(167, 139, 250, 0.35);
-  box-shadow:
-    0 8px 32px rgba(88, 28, 135, 0.2),
-    0 1px 0 rgba(196, 181, 253, 0.12) inset,
-    0 -1px 0 rgba(0, 0, 0, 0.2) inset;
-}
-
-.script-gen-rate-progress-card::before {
-  background: linear-gradient(
-    165deg,
-    rgba(167, 139, 250, 0.14) 0%,
-    transparent 38%,
-    rgba(255, 255, 255, 0.02) 100%
-  );
-}
-
-.script-gen-rate-progress-track::after {
-  background: linear-gradient(90deg, #5b21b6 0%, #8b5cf6 40%, #e9d5ff 100%);
-  box-shadow: 0 0 16px rgba(167, 139, 250, 0.55);
 }
 
 .script-gen-progress-track {
@@ -1146,82 +1138,6 @@
   color: #ddd6fe;
 }
 
-/* Composer mode tabs (Write script / Script rater) */
-.script-gen-composer-tabs {
-  display: flex;
-  gap: 0.25rem;
-  padding: 0.15rem;
-  margin-bottom: 0.45rem;
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.script-gen-composer-tab {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  border-radius: 10px;
-  padding: 0.45rem 0.65rem;
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 650;
-  color: rgba(226, 232, 240, 0.65);
-  background: transparent;
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
-}
-
-.script-gen-composer-tab:hover {
-  color: rgba(248, 250, 252, 0.92);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.script-gen-composer-tab.is-active {
-  color: #f4f4f5;
-  background: rgba(139, 92, 246, 0.22);
-  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.25);
-}
-
-.script-gen-rater-meta {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.4rem;
-  margin-bottom: 0.45rem;
-  width: 100%;
-}
-
-.script-gen-rater-input {
-  min-width: 0;
-  padding: 0.45rem 0.65rem;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  color: #e8eaef;
-  font: inherit;
-  font-size: 0.78rem;
-}
-
-.script-gen-rater-input::placeholder {
-  color: rgba(148, 163, 184, 0.75);
-}
-
-.script-gen-rater-input:focus {
-  outline: none;
-  border-color: rgba(167, 139, 250, 0.35);
-}
-
-.script-gen-rater-hint {
-  font-size: 0.72rem;
-  color: rgba(148, 163, 184, 0.88);
-  line-height: 1.35;
-  padding: 0.15rem 0;
-}
-
 .coach-message-bubble--long-script {
   max-height: min(40vh, 280px);
   overflow-y: auto;
@@ -1630,9 +1546,5 @@
     min-height: 2rem;
     padding: 0.3rem 1.5rem 0.3rem 0.6rem;
     font-size: 0.72rem;
-  }
-
-  .script-gen-rater-meta {
-    grid-template-columns: 1fr;
   }
 }

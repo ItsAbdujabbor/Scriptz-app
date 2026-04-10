@@ -8,33 +8,39 @@ export function useDashboardInsights(channelId) {
   const queryClient = useQueryClient()
   const key = queryKeys.dashboard.insights(channelId)
 
+  // Auto-fetch with cached_only=true → only returns existing cached results, never generates
   const query = useQuery({
     queryKey: key,
     queryFn: async () => {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Not authenticated')
-      if (channelId) return dashboardApi.getInsights(token, channelId, false)
-      return dashboardApi.getOnboardingInsights(token, false)
+      if (channelId) return dashboardApi.getInsights(token, channelId, false, true)
+      return dashboardApi.getOnboardingInsights(token, false, true)
     },
     staleTime: queryFreshness.medium,
   })
 
+  // User-triggered: actually generates fresh ideas
   const regenerateMutation = useMutation({
     mutationFn: async () => {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Not authenticated')
-      if (channelId) return dashboardApi.getInsights(token, channelId, true)
-      return dashboardApi.getOnboardingInsights(token, true)
+      if (channelId) return dashboardApi.getInsights(token, channelId, true, false)
+      return dashboardApi.getOnboardingInsights(token, true, false)
     },
     onSuccess: (data) => {
       queryClient.setQueryData(key, data)
     },
   })
 
+  // Has any real cached suggestions?
+  const hasCachedIdeas = !!query.data?.script_suggestions?.length
+
   return {
     ...query,
     regenerateInsights: regenerateMutation.mutateAsync,
     isRegenerating: regenerateMutation.isPending,
+    hasCachedIdeas,
   }
 }
 

@@ -17,6 +17,7 @@
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 body {
@@ -24,4 +25,5 @@ body {
   font-family: var(--font-sans);
   background: var(--app-canvas-bg);
   color: var(--dash-text-body);
+  overflow-x: hidden;
 }
