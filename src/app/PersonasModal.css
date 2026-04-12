@@ -42,7 +42,9 @@
   color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
   border-radius: 8px;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
 
 .personas-modal-close:hover {
@@ -81,7 +83,7 @@
 .personas-modal-btn--primary {
   border: 1px solid rgba(139, 92, 246, 0.6);
   background: rgba(139, 92, 246, 0.15);
-  color: #a78bfa;
+  color: #9061f0;
 }
 
 .personas-modal-btn--primary:hover {
@@ -154,7 +156,9 @@
   color: rgba(255, 255, 255, 0.5);
   font-size: 12px;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .personas-image-placeholder:hover {
@@ -345,13 +349,13 @@
   cursor: pointer;
 }
 
-.personas-form-btns button[type="submit"] {
+.personas-form-btns button[type='submit'] {
   border: 1px solid rgba(139, 92, 246, 0.6);
   background: rgba(139, 92, 246, 0.2);
-  color: #c4b5fd;
+  color: #b794f6;
 }
 
-.personas-form-btns button[type="button"] {
+.personas-form-btns button[type='button'] {
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: transparent;
   color: rgba(255, 255, 255, 0.8);
@@ -467,7 +471,7 @@
   border: 1px solid rgba(139, 92, 246, 0.5);
   border-radius: 8px;
   background: rgba(139, 92, 246, 0.15);
-  color: #a78bfa;
+  color: #9061f0;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;

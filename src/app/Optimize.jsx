@@ -13,7 +13,7 @@ import { useUserProfileQuery } from '../queries/user/profileQueries'
 import { queryKeys } from '../lib/query/queryKeys'
 import { stripPrefillFromHash } from '../lib/dashboardActionPayload'
 import { AppShellLayout } from '../components/AppShellLayout'
-import { Loading } from '../components/Loading'
+import { IOSLoading } from '../components/IOSLoading'
 /* Sidebar.css, SettingsModal.css, Dashboard.css imported by AuthenticatedRoutes */
 import './Optimize.css'
 
@@ -279,6 +279,31 @@ export function Optimize({ onLogout, shellManaged }) {
     // When filters change, show the first page of the new result set.
     setPage(1) // eslint-disable-line react-hooks/set-state-in-effect
   }, [youtube?.connected, searchQuery, videoType, sort])
+
+  // Auto-open a video from hash param: #optimize?video_id=XYZ
+  const deepLinkHandledRef = useRef(false)
+  useEffect(() => {
+    if (deepLinkHandledRef.current) return
+    const hash = window.location.hash || ''
+    const qs = hash.indexOf('?') >= 0 ? hash.slice(hash.indexOf('?') + 1) : ''
+    const params = new URLSearchParams(qs)
+    const videoId = params.get('video_id')
+    if (!videoId) return
+    // Try to find in loaded list first
+    const match = videos.find((v) => v.id === videoId)
+    if (match) {
+      setSelectedVideo(match)
+      deepLinkHandledRef.current = true
+    } else if (!videosLoading && videos.length > 0) {
+      // Video not in current page — open with minimal data, modal fetches the rest
+      setSelectedVideo({
+        id: videoId,
+        title: '',
+        thumbnail_url: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+      })
+      deepLinkHandledRef.current = true
+    }
+  }, [videos, videosLoading])
 
   const handleSearch = () => {
     setSearchQuery(searchInput)
@@ -585,7 +610,7 @@ export function Optimize({ onLogout, shellManaged }) {
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <Loading size="lg" layout="page" message="Loading videos…" />
+                    <IOSLoading size="lg" layout="page" message="Loading videos…" />
                   </motion.div>
                 )}
 

@@ -53,7 +53,10 @@ export function useDashboardAudit(channelId) {
       return dashboardApi.getChannelAudit(token, channelId)
     },
     enabled: !!channelId,
-    staleTime: queryFreshness.medium,
+    staleTime: queryFreshness.long,
+    gcTime: queryFreshness.chatThreadGc,
+    placeholderData: (prev) => prev,
+    refetchOnWindowFocus: false,
   })
 }
 
@@ -66,7 +69,10 @@ export function useDashboardGrowth(channelId) {
       return dashboardApi.getGrowth(token, channelId)
     },
     enabled: !!channelId,
-    staleTime: queryFreshness.medium,
+    staleTime: queryFreshness.long,
+    gcTime: queryFreshness.chatThreadGc,
+    placeholderData: (prev) => prev,
+    refetchOnWindowFocus: false,
   })
 }
 
@@ -80,6 +86,9 @@ export function useDashboardSnapshot(channelId, from, to) {
     },
     enabled: !!channelId && !!from && !!to,
     staleTime: queryFreshness.long,
+    gcTime: queryFreshness.chatThreadGc,
+    placeholderData: (prev) => prev,
+    refetchOnWindowFocus: false,
   })
 }
 

@@ -86,7 +86,7 @@
   border-radius: 10px;
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.28) 0%, rgba(109, 40, 217, 0.22) 100%);
   border: 1px solid rgba(139, 92, 246, 0.32);
-  color: #c4b5fd;
+  color: #b794f6;
   box-shadow: 0 0 14px rgba(139, 92, 246, 0.2);
   flex-shrink: 0;
 }
@@ -165,7 +165,7 @@
 .etd-tool--active {
   background: rgba(139, 92, 246, 0.18) !important;
   border-color: rgba(139, 92, 246, 0.48) !important;
-  color: #c4b5fd !important;
+  color: #b794f6 !important;
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
 }
 
@@ -205,7 +205,7 @@
   font-size: 0.6rem;
   font-family: inherit;
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.01em;
   color: rgba(255, 255, 255, 0.38);
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -423,7 +423,7 @@
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #a78bfa 0%, #7c3aed 55%, #3b0764 100%);
+  background: radial-gradient(circle at 35% 35%, #9061f0 0%, #7c3aed 55%, #3b0764 100%);
   box-shadow:
     0 0 24px rgba(139, 92, 246, 0.65),
     0 0 70px rgba(139, 92, 246, 0.28);
@@ -449,7 +449,7 @@
 .etd-applying-label {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #c4b5fd;
+  color: #b794f6;
   letter-spacing: 0.02em;
 }
 
@@ -501,7 +501,7 @@
 .etd-upload-btn:hover {
   background: rgba(139, 92, 246, 0.08);
   border-color: rgba(139, 92, 246, 0.35);
-  color: #c4b5fd;
+  color: #b794f6;
 }
 
 .etd-thumb-chip {

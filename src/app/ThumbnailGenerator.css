@@ -1,5 +1,24 @@
 /* Thumbnail Generator — same coach/script layout, thumbnail-specific blocks */
 
+/* Thumbnail shown in user's sent message (analyze mode) */
+.thumb-user-sent-image {
+  align-self: flex-end;
+  border-radius: 12px;
+  overflow: hidden;
+  max-width: 260px;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.thumb-user-sent-img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+}
+
 .thumb-gen-content {
   margin-top: 0.5rem;
 }
@@ -75,7 +94,7 @@
 .thumb-concept-action--save {
   background: rgba(139, 92, 246, 0.3);
   border-color: rgba(139, 92, 246, 0.5);
-  color: #c4b5fd;
+  color: #b794f6;
 }
 
 .thumb-concept-action--save:hover:not(:disabled) {
@@ -260,7 +279,7 @@
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: -0.01em;
   color: rgba(167, 139, 250, 0.95);
 }
 
@@ -624,51 +643,45 @@
 .thumb-source-mode-tabs {
   display: inline-flex;
   align-self: flex-start;
-  gap: 3px;
+  align-items: center;
+  gap: 1px;
   padding: 3px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+  min-height: 30px;
 }
 
 .thumb-source-mode-tab {
   border: none;
   background: transparent;
-  color: rgba(226, 232, 240, 0.62);
-  padding: 0.34rem 0.7rem;
-  border-radius: 999px;
-  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.35);
+  padding: 0.25rem 0.65rem;
+  border-radius: 100px;
+  font-size: 0.73rem;
   font-weight: 600;
-  letter-spacing: 0.01em;
   cursor: pointer;
-  transition:
-    background 0.24s cubic-bezier(0.33, 1, 0.68, 1),
-    color 0.24s cubic-bezier(0.33, 1, 0.68, 1),
-    transform 0.14s ease;
+  font-family: inherit;
+  white-space: nowrap;
+  letter-spacing: 0.015em;
+  transition: color 0.18s ease;
 }
 
 .thumb-source-mode-tab:hover {
-  color: rgba(248, 250, 252, 0.92);
-}
-
-.thumb-source-mode-tab:active {
-  transform: scale(0.97);
+  color: rgba(255, 255, 255, 0.65);
 }
 
 .thumb-source-mode-tab.is-active {
-  color: #f5f0ff;
-  background: linear-gradient(
-    145deg,
-    rgba(180, 160, 255, 0.3) 0%,
-    rgba(147, 110, 250, 0.22) 50%,
-    rgba(120, 100, 245, 0.18) 100%
-  );
+  color: #fff;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.1) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow:
-    0 0 0 1px rgba(200, 185, 255, 0.25),
-    0 2px 10px rgba(120, 90, 250, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 2px 6px rgba(0, 0, 0, 0.28);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 
 .thumb-source-row {
@@ -681,9 +694,8 @@
   flex: 1;
   min-width: 0;
   width: 100%;
-  padding: 0.65rem 1rem;
-  border-radius: 12px;
-  text-align: center;
+  padding: 0.65rem 1.1rem;
+  border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.22);
   color: rgba(248, 250, 252, 0.95);
@@ -697,18 +709,18 @@
 }
 
 .thumb-source-input::placeholder {
-  color: rgba(148, 163, 184, 0.6);
+  color: rgba(148, 163, 184, 0.55);
 }
 
 .thumb-source-input:hover {
   background: rgba(0, 0, 0, 0.28);
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 .thumb-source-input:focus {
-  background: rgba(0, 0, 0, 0.3);
-  border-color: rgba(167, 139, 250, 0.45);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+  background: rgba(0, 0, 0, 0.28);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.05);
 }
 
 .thumb-source-preview {
@@ -806,7 +818,15 @@
 }
 
 .thumb-prompt-input-wrap {
-  padding: 0.28rem 0.34rem 0.16rem;
+  padding: 0.5rem 0.4rem 0.3rem;
+}
+
+/* Align hint text exactly with the textarea cursor */
+.thumb-prompt-input-wrap .coach-composer-placeholder {
+  top: 0.5rem;
+  left: 0.4rem;
+  right: 0.4rem;
+  padding: 0.2rem 0;
 }
 
 .thumb-prompt-textarea {
@@ -824,7 +844,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.32rem;
-  padding: 0.2rem 0.3rem 0.28rem;
+  padding: 0.1rem 0.2rem 0.1rem;
   flex-wrap: nowrap;
 }
 
@@ -882,38 +902,38 @@
   min-width: 34px;
   padding: 0;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 100%);
-  color: rgba(226, 232, 240, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.85);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
   transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .thumb-batch-circle-trigger:hover:not(:disabled) {
-  border-color: rgba(167, 139, 250, 0.55);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(167, 139, 250, 0.45);
 }
 
 .thumb-batch-circle-trigger[aria-expanded='true'] {
-  border-color: rgba(167, 139, 250, 0.75);
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(167, 139, 250, 0.6);
   box-shadow:
-    0 0 0 2px rgba(124, 58, 237, 0.25),
-    0 6px 20px rgba(0, 0, 0, 0.3);
+    0 0 0 3px rgba(124, 58, 237, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .thumb-batch-circle-trigger-badge {
   font-size: 0.68rem;
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.92);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.01em;
 }
 
 .thumb-batch-circle-trigger-badge--solo {
@@ -923,20 +943,21 @@
 
 .thumb-batch-circle-popover {
   position: absolute;
-  bottom: calc(100% + 8px);
+  bottom: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%);
-  min-width: 200px;
-  padding: 10px;
-  border-radius: 16px;
+  min-width: 196px;
+  padding: 8px;
+  border-radius: 18px;
   z-index: 120;
-  background: rgba(22, 22, 26, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(16, 14, 24, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow:
-    0 16px 48px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
+    0 20px 60px rgba(0, 0, 0, 0.55),
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(28px) saturate(200%);
+  -webkit-backdrop-filter: blur(28px) saturate(200%);
 }
 
 /* Drop zone — drag-and-drop or click to upload */
@@ -1076,69 +1097,14 @@
   background: rgba(239, 68, 68, 0.7);
 }
 
-/* Open editor CTA — centered, full-width, appealing */
-.thumb-edit-open-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.25rem 0 0.1rem;
-}
-
-.thumb-edit-open-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  border: 1px solid rgba(167, 139, 250, 0.35);
-  background: linear-gradient(145deg, rgba(139, 92, 246, 0.22) 0%, rgba(99, 102, 241, 0.15) 100%);
-  color: #f0ebff;
-  border-radius: 999px;
-  padding: 0.55rem 1.4rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  box-shadow:
-    0 0 0 0 rgba(139, 92, 246, 0),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  transition:
-    transform 0.18s ease,
-    background 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    opacity 0.18s ease;
-}
-
-.thumb-edit-open-cta svg {
-  width: 15px;
-  height: 15px;
-  opacity: 0.85;
-}
-
-.thumb-edit-open-cta:hover:not(:disabled) {
-  transform: translateY(-1px);
-  background: linear-gradient(145deg, rgba(139, 92, 246, 0.32) 0%, rgba(99, 102, 241, 0.22) 100%);
-  border-color: rgba(167, 139, 250, 0.55);
-  box-shadow:
-    0 4px 18px rgba(120, 90, 250, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
-
-.thumb-edit-open-cta:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.thumb-edit-open-cta:disabled {
-  opacity: 0.42;
-  cursor: not-allowed;
-}
-
 .thumb-batch-circle-popover-title {
-  margin: 0 0 8px;
-  font-size: 10px;
+  margin: 0 0 6px;
+  padding: 2px 4px;
+  font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: -0.01em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.35);
   text-align: center;
 }
 
@@ -1148,15 +1114,19 @@
   justify-content: space-between;
   width: 100%;
   gap: 10px;
-  padding: 8px 10px;
-  margin-bottom: 4px;
-  border: none;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.88);
+  padding: 9px 12px;
+  margin-bottom: 2px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
   font-size: 13px;
+  font-family: inherit;
   cursor: pointer;
-  transition: background 0.12s;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease;
 }
 
 .thumb-batch-circle-option:last-child {
@@ -1164,12 +1134,14 @@
 }
 
 .thumb-batch-circle-option:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .thumb-batch-circle-option.is-active {
-  background: rgba(139, 92, 246, 0.3);
-  color: #f5f3ff;
+  background: rgba(139, 92, 246, 0.22);
+  border-color: rgba(167, 139, 250, 0.3);
+  color: #e9d5ff;
 }
 
 .thumb-batch-circle-option-n {
@@ -1179,7 +1151,11 @@
 
 .thumb-batch-circle-option-hint {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.thumb-batch-circle-option.is-active .thumb-batch-circle-option-hint {
+  color: rgba(216, 180, 254, 0.6);
 }
 
 /* Prompt / recreate: full-bleed thread so thumbnail grids can use the full
@@ -1539,77 +1515,67 @@
 }
 
 /* ── Liquid glass skeleton loading card ── */
+/* ── Generating loader card ── */
 .thumb-gen-skeleton-card {
   position: relative;
   width: 100%;
-  max-width: 600px;
-  aspect-ratio: 16 / 9;
-  border-radius: 16px;
+  max-width: 480px;
+  border-radius: 18px;
   overflow: hidden;
-  /* Dark glass base — enough opacity to feel solid, not washed out */
-  background: rgba(14, 8, 30, 0.72);
-  backdrop-filter: blur(48px) saturate(180%);
-  -webkit-backdrop-filter: blur(48px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: linear-gradient(140deg, #110a28 0%, #1c1040 55%, #0e0820 100%);
+  border: 1px solid rgba(139, 92, 246, 0.18);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-    0 0 0 0.5px rgba(0, 0, 0, 0.3),
-    0 8px 40px rgba(0, 0, 0, 0.45),
-    0 0 80px rgba(120, 80, 240, 0.12);
+    0 8px 36px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  padding: 1.6rem 1.75rem 1.4rem;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-/* Moving liquid color blobs behind the glass */
+/* Ambient glow blobs */
 .thumb-gen-skeleton-blob {
   position: absolute;
-  inset: -40%;
+  inset: -60%;
   background:
-    radial-gradient(ellipse 55% 45% at 30% 40%, rgba(120, 60, 240, 0.45) 0%, transparent 65%),
-    radial-gradient(ellipse 45% 55% at 72% 58%, rgba(80, 40, 200, 0.32) 0%, transparent 65%),
-    radial-gradient(ellipse 40% 35% at 55% 80%, rgba(160, 80, 250, 0.28) 0%, transparent 60%);
-  animation: thumbBlobDrift 7s ease-in-out infinite;
+    radial-gradient(ellipse 50% 40% at 25% 35%, rgba(120, 60, 240, 0.3) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 50% at 75% 65%, rgba(80, 40, 200, 0.2) 0%, transparent 60%);
+  animation: thumbBlobDrift 8s ease-in-out infinite;
   pointer-events: none;
 }
 
-/* Specular / shimmer sweep */
+/* Shimmer sweep across the card */
 .thumb-gen-skeleton-shimmer {
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    112deg,
-    transparent 15%,
-    rgba(255, 255, 255, 0.04) 38%,
-    rgba(255, 255, 255, 0.09) 50%,
-    rgba(255, 255, 255, 0.04) 62%,
-    transparent 85%
+    105deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.025) 48%,
+    rgba(255, 255, 255, 0.055) 50%,
+    rgba(255, 255, 255, 0.025) 52%,
+    transparent 70%
   );
-  background-size: 280% 100%;
-  animation: thumbSkeletonShimmer 2.8s linear infinite;
+  background-size: 250% 100%;
+  animation: thumbSkeletonShimmer 3.2s linear infinite;
   pointer-events: none;
 }
 
-/* Bottom fill bar — grows left-to-right with loadingPct */
+/* Progress bar — fills left to right */
 .thumb-gen-skeleton-fill {
   position: absolute;
   bottom: 0;
   left: 0;
-  height: 3px;
-  min-width: 0;
+  height: 2px;
   max-width: 100%;
   background: linear-gradient(
     90deg,
-    rgba(139, 92, 246, 0.7) 0%,
-    rgba(167, 110, 255, 1) 70%,
-    rgba(200, 160, 255, 0.9) 100%
+    rgba(139, 92, 246, 0.6) 0%,
+    rgba(167, 110, 255, 1) 60%,
+    rgba(210, 170, 255, 0.85) 100%
   );
-  box-shadow:
-    0 0 12px rgba(167, 110, 255, 0.7),
-    0 0 24px rgba(139, 92, 246, 0.4);
-  border-radius: 0 0 0 0;
-  transition: width 0.09s linear;
+  box-shadow: 0 0 10px rgba(167, 110, 255, 0.55);
+  transition: width 0.1s linear;
   pointer-events: none;
 }
 
@@ -1617,40 +1583,58 @@
   position: relative;
   z-index: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.6rem;
-  /* Frosted pill behind the text */
-  padding: 1.1rem 2rem;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  gap: 1rem;
 }
 
-.thumb-gen-skeleton-pct {
-  font-size: 3rem;
-  font-weight: 700;
-  color: #fff;
-  text-shadow:
-    0 0 16px rgba(190, 160, 255, 1),
-    0 0 40px rgba(139, 92, 246, 0.6);
-  letter-spacing: -0.03em;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  min-width: 3.5ch;
-  text-align: center;
+/* Spinning orb */
+.thumb-gen-skeleton-orb {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.9) 0%, rgba(99, 102, 241, 0.9) 100%);
+  box-shadow:
+    0 0 18px rgba(139, 92, 246, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  animation: thumbOrbPulse 2s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumb-gen-skeleton-orb::after {
+  content: '';
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-top-color: transparent;
+  animation: thumbOrbSpin 0.9s linear infinite;
+}
+
+.thumb-gen-skeleton-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  min-width: 0;
 }
 
 .thumb-gen-skeleton-label {
-  font-size: 0.7rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  color: rgba(210, 190, 255, 0.7);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  color: rgba(230, 215, 255, 0.88);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.thumb-gen-skeleton-pct {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: rgba(170, 140, 255, 0.55);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
 }
 
 @keyframes thumbBlobDrift {
@@ -1658,11 +1642,31 @@
   100% {
     transform: translate(0, 0) scale(1);
   }
-  33% {
-    transform: translate(4%, -6%) scale(1.04);
+  40% {
+    transform: translate(5%, -7%) scale(1.05);
   }
-  66% {
-    transform: translate(-4%, 5%) scale(0.97);
+  70% {
+    transform: translate(-4%, 5%) scale(0.96);
+  }
+}
+
+@keyframes thumbOrbPulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 18px rgba(139, 92, 246, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 28px rgba(139, 92, 246, 0.85),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  }
+}
+
+@keyframes thumbOrbSpin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -1676,66 +1680,10 @@
 }
 
 /* ── Bottom mode-switcher tabbar — frosted glass pill ── */
-.thumb-gen-subtabbar.tabbar.modal {
+/* thumb-gen-subtabbar inherits all styles from .tabbar.modal in TabBar.css */
+.thumb-gen-subtabbar {
   width: auto;
   max-width: 100%;
-  gap: 2px;
-  padding: 4px;
-  border-radius: 999px;
-  /* Opaque enough to make the blur visible, tinted dark-purple */
-  background: rgba(18, 10, 42, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -0.5px 0 rgba(0, 0, 0, 0.2),
-    0 0 0 0.5px rgba(0, 0, 0, 0.3),
-    0 6px 28px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(40px) saturate(200%);
-  -webkit-backdrop-filter: blur(40px) saturate(200%);
-}
-
-.thumb-gen-subtabbar.tabbar.modal .tabbar-tab {
-  padding: 7px 16px;
-  font-size: 0.76rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  border-radius: 999px;
-  color: rgba(235, 235, 240, 0.52);
-  transition:
-    color 0.22s cubic-bezier(0.33, 1, 0.68, 1),
-    background 0.22s cubic-bezier(0.33, 1, 0.68, 1),
-    transform 0.14s ease;
-}
-
-.thumb-gen-subtabbar.tabbar.modal .tabbar-tab:hover {
-  color: rgba(245, 243, 255, 0.88);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.thumb-gen-subtabbar.tabbar.modal .tabbar-tab.is-active {
-  color: #f5f0ff;
-  background: linear-gradient(
-    145deg,
-    rgba(180, 160, 255, 0.32) 0%,
-    rgba(147, 110, 250, 0.24) 50%,
-    rgba(120, 100, 245, 0.2) 100%
-  );
-  box-shadow:
-    0 0 0 1px rgba(200, 185, 255, 0.28),
-    0 3px 10px rgba(120, 90, 250, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-@media (max-width: 520px) {
-  .thumb-gen-subtabbar.tabbar.modal {
-    padding: 3px;
-    gap: 1px;
-  }
-
-  .thumb-gen-subtabbar.tabbar.modal .tabbar-tab {
-    padding: 6px 12px;
-    font-size: 0.7rem;
-  }
 }
 
 /* Single generated image in message */
@@ -1800,22 +1748,29 @@
   width: 100%;
 }
 
-/* ── Tabbar row — inside the glass composer pill ── */
+/* ── Tabbar row — inside the glass composer ── */
 .thumb-gen-tab-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding-bottom: 0.6rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  margin-bottom: 0.1rem;
+  gap: 0.75rem;
+  padding-bottom: 0.5rem;
+  /* Gradient fade divider — matches the glass aesthetic */
+  background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.07) 12%,
+      rgba(255, 255, 255, 0.07) 88%,
+      transparent 100%
+    )
+    no-repeat center bottom / 100% 1px;
 }
 
 .thumb-gen-tab-row .chat-subtabbar-wrap {
   margin: 0;
 }
 
-/* Source-mode tabs when placed in the tab row (right side) */
+/* Source-mode tabs — right side of tab row */
 .thumb-gen-tab-row .thumb-source-mode-tabs {
   flex-shrink: 0;
   align-self: center;
@@ -1824,14 +1779,14 @@
 /* Glass composer — wraps tab row + mode forms */
 .thumb-gen-glass-composer {
   gap: 0;
-  padding: 0.9rem 1rem 0.75rem;
+  padding: 0.7rem 1.2rem 0.6rem;
 }
 
 .thumb-gen-mode-form {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  padding-top: 0.6rem;
+  gap: 0.4rem;
+  padding-top: 0.5rem;
 }
 
 /* Scroll-to-bottom uses .coach-scroll-to-bottom from CoachChat.css (shared class) */
@@ -1897,28 +1852,25 @@
   color: rgba(148, 163, 184, 0.52) !important;
 }
 
-/* Link/Upload mini pill — tighter, floats at top-left of source block */
+/* Link/Upload mini pill — positioned in the tab row */
 .thumb-source-mode-tabs {
-  align-self: flex-start;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  flex-shrink: 0;
 }
 
-/* URL input inside the pill block — no separate card, looks embedded */
+/* URL input inside the glass composer — pill shaped */
 .thumb-source-input {
-  background: transparent;
-  border-color: rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.18);
+  border-color: rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
   font-size: 0.82rem;
-  padding: 0.55rem 0.85rem;
+  padding: 0.52rem 1rem;
+  text-align: center;
 }
 
 .thumb-source-input:focus {
-  background: rgba(0, 0, 0, 0.18);
-  border-color: rgba(167, 139, 250, 0.4);
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.05);
 }
 
 /* Source row — now just the URL input or dropzone (tabs moved to tab-row) */
@@ -1942,8 +1894,7 @@
 /* Press animations */
 .thumb-source-mode-tab:active,
 .thumb-batch-action:active,
-.thumb-msg-img-btn:active,
-.thumb-edit-open-cta:active {
+.thumb-msg-img-btn:active {
   transform: scale(0.96);
 }
 
@@ -2006,41 +1957,49 @@
   opacity: 0.85;
 }
 
-/* ── Analyze submit row — centered full-width CTA ── */
+/* ── Analyze submit row — centered pill button ── */
 .thumb-gen-analyze-submit-row {
   display: flex;
+  align-items: center;
   justify-content: center;
-  padding: 0.15rem 0 0.1rem;
+  padding: 0.15rem 0 0.05rem;
 }
 
 .thumb-gen-analyze-btn {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 0.6rem 2.5rem;
+  gap: 6px;
+  padding: 0.52rem 1.6rem;
   border-radius: 999px;
-  border: none;
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.9) 0%, rgba(99, 102, 241, 0.9) 100%);
   color: #fff;
   font: inherit;
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 0.84rem;
+  font-weight: 650;
   letter-spacing: 0.01em;
   cursor: pointer;
   box-shadow:
-    0 2px 10px rgba(124, 58, 237, 0.4),
+    0 2px 12px rgba(99, 102, 241, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.15);
   transition:
-    opacity 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.1s ease;
+    filter 0.14s ease,
+    box-shadow 0.14s ease,
+    opacity 0.14s ease,
+    transform 0.14s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.thumb-gen-analyze-btn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .thumb-gen-analyze-btn:hover:not(:disabled) {
-  opacity: 0.92;
+  filter: brightness(1.08);
   box-shadow:
-    0 4px 16px rgba(124, 58, 237, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    0 4px 18px rgba(99, 102, 241, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 .thumb-gen-analyze-btn:active:not(:disabled) {
@@ -2048,7 +2007,45 @@
 }
 
 .thumb-gen-analyze-btn:disabled {
-  opacity: 0.38;
+  opacity: 0.35;
   cursor: not-allowed;
-  box-shadow: none;
+}
+
+/* ── Centered empty-state layout ───────────────────────────────────────
+   When there are no messages, the thread collapses to auto-height and
+   the shell flexes to center the heading + composer together —
+   creating a ChatGPT-style centered input on the screen.              */
+
+.coach-chat-shell--thumb-empty {
+  justify-content: center;
+  align-items: stretch;
+  gap: 0;
+}
+
+.coach-chat-shell--thumb-empty .coach-thread--empty {
+  flex: 0 0 auto;
+  overflow: visible;
+  padding-top: 0;
+  padding-bottom: 0.5rem;
+  min-height: 0;
+  gap: 0;
+}
+
+.coach-chat-shell--thumb-empty .coach-composer-wrap {
+  position: static !important;
+  margin-top: 0 !important;
+  padding-top: 0;
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.75rem);
+}
+
+/* Empty state heading — generous vertical breathing room */
+.thumb-empty-state {
+  padding: 1.5rem 0 1.25rem;
+  margin: 0 auto;
+  gap: 0.45rem;
+}
+
+.thumb-empty-state h1 {
+  font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+  margin-bottom: 0;
 }

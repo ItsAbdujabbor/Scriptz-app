@@ -1,7 +1,7 @@
 import { useAuthStore } from '../stores/authStore'
 import { getCoachHashState } from '../lib/coachHashRoute'
 import { AppShellLayout } from './AppShellLayout'
-import { Loading } from './Loading'
+import { IOSLoading } from './IOSLoading'
 import { Sidebar } from '../app/Sidebar'
 import '../app/Sidebar.css'
 import '../app/Dashboard.css'
@@ -12,7 +12,7 @@ import './AppShellLoading.css'
 function RouteSpinner({ label: _label = 'Loading…' }) {
   return (
     <div className="route-loading-pane">
-      <Loading size="lg" layout="center" />
+      <IOSLoading size="lg" layout="center" />
     </div>
   )
 }

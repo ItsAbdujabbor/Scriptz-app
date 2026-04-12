@@ -929,7 +929,6 @@ export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
     if (!el) return
 
     const prevHeight = el.offsetHeight
-    const prevInlineTransition = el.style.transition
 
     el.style.transition = 'none'
     el.style.minHeight = '0'
@@ -942,16 +941,9 @@ export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
     const floor = coachComposerSingleLineFloorPx(el)
     const target = Math.min(Math.max(natural, floor), COACH_COMPOSER_TEXTAREA_MAX_PX)
 
-    if (target <= prevHeight) {
-      el.style.height = `${target}px`
-      void el.offsetHeight
-      el.style.transition = prevInlineTransition
-      return
-    }
-
     el.style.height = `${prevHeight}px`
     void el.offsetHeight
-    el.style.transition = prevInlineTransition
+    el.style.transition = 'height 0.28s cubic-bezier(0.25, 1, 0.5, 1)'
     requestAnimationFrame(() => {
       if (textareaRef.current !== el) return
       el.style.height = `${target}px`
@@ -1991,7 +1983,10 @@ export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
               role="tabpanel"
               aria-labelledby="coach-tab-coach"
             >
-              <section ref={coachChatShellRef} className="coach-chat-shell">
+              <section
+                ref={coachChatShellRef}
+                className={`coach-chat-shell${isEmptyScreen ? ' coach-chat-shell--empty' : ''}`}
+              >
                 <div
                   ref={(el) => {
                     if (!showCoachVirtuoso) threadRef.current = el
@@ -2358,7 +2353,10 @@ export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
               role="tabpanel"
               aria-labelledby="coach-tab-coach"
             >
-              <section ref={coachChatShellRef} className="coach-chat-shell">
+              <section
+                ref={coachChatShellRef}
+                className={`coach-chat-shell${isEmptyScreen ? ' coach-chat-shell--empty' : ''}`}
+              >
                 <div
                   ref={(el) => {
                     if (!showCoachVirtuoso) threadRef.current = el

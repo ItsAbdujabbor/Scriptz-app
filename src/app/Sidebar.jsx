@@ -4,13 +4,7 @@ import './Sidebar.css'
 import '../components/ui/ui.css'
 import { useSidebarStore } from '../stores/sidebarStore'
 import { useShallow } from 'zustand/react/shallow'
-import {
-  SidebarButton,
-  SidebarDropdown,
-  ConfirmDialog,
-  FloatingMenu,
-  LiquidGlass,
-} from '../components/ui'
+import { SidebarButton, ConfirmDialog, FloatingMenu, LiquidGlass } from '../components/ui'
 import {
   prefetchCoachConversation,
   useCoachConversationsQuery,
@@ -35,12 +29,6 @@ import {
   useDeleteThumbnailConversationMutation,
   useUpdateThumbnailConversationMutation,
 } from '../queries/thumbnails/thumbnailQueries'
-import {
-  coachPrefill,
-  hashWithPrefill,
-  scriptPrefill,
-  thumbPrefill,
-} from '../lib/dashboardActionPayload'
 import logoSrc from '../assets/logo.jpg'
 
 const IconDashboard = () => (
@@ -68,18 +56,6 @@ const IconPlus = () => (
     strokeLinejoin="round"
   >
     <path d="M12 5v14M5 12h14" />
-  </svg>
-)
-const IconWrench = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
   </svg>
 )
 const IconChart = () => (
@@ -293,40 +269,6 @@ const IconLogout = () => (
     <line x1="21" y1="12" x2="9" y2="12" />
   </svg>
 )
-const TOOLKIT_ITEMS = [
-  // { label: 'Script Generator', id: 'script-generator' }, // next update
-  { label: 'Thumbnail Generator', id: 'thumbnail-generator' },
-  { label: 'Rate Thumbnails', id: 'thumbnail-rate' },
-  { label: 'Title Generator', id: 'title-generator' },
-]
-
-function getToolkitHash(toolId) {
-  switch (toolId) {
-    case 'script-generator':
-      return `#${hashWithPrefill('coach/scripts', scriptPrefill({ concept: null, pillar: 'Next video', score: null }))}`
-    case 'thumbnail-generator':
-      return `#${hashWithPrefill('coach/thumbnails', thumbPrefill({ pillar: 'CTR', score: null, videoTitle: null }))}`
-    case 'thumbnail-rate':
-      return '#coach/thumbnails?view=analyze'
-    case 'title-generator':
-      return `#${hashWithPrefill(
-        'coach',
-        coachPrefill(
-          'Titles',
-          null,
-          'Generate 10 YouTube title ideas I can test. Mix curiosity, specificity, and clear benefits; add a one-line rationale per title.'
-        )
-      )}`
-    default:
-      return '#dashboard'
-  }
-}
-
-function navigateToHashHref(href) {
-  const raw = String(href || '').replace(/^#/, '')
-  if (!raw) return
-  window.location.hash = raw
-}
 
 function getCoachConversationIdFromHash() {
   const hash = (typeof window !== 'undefined' && window.location.hash) || ''
@@ -497,11 +439,10 @@ export function Sidebar({
   activeThumbnailConversationId = null,
   onNewChat,
 }) {
-  const { collapsed, mobileOpen, toolsExpanded, accountDialogOpen } = useSidebarStore(
+  const { collapsed, mobileOpen, accountDialogOpen } = useSidebarStore(
     useShallow((state) => ({
       collapsed: state.collapsed,
       mobileOpen: state.mobileOpen,
-      toolsExpanded: state.toolsExpanded,
       accountDialogOpen: state.accountDialogOpen,
     }))
   )
@@ -512,7 +453,6 @@ export function Sidebar({
       toggleCollapsed,
       setMobileOpen,
       closeMobile,
-      toggleToolsExpanded,
       toggleAccountDialog,
       setAccountDialogOpen,
     },
@@ -528,11 +468,6 @@ export function Sidebar({
   const [deleteChatDialogOpen, setDeleteChatDialogOpen] = useState(false)
   const [deleteChatConversationId, setDeleteChatConversationId] = useState(null)
   const [deleteChatConversationType, setDeleteChatConversationType] = useState(null)
-  const [toolkitFlyoutOpen, setToolkitFlyoutOpen] = useState(false)
-  const [narrowNavLayout, setNarrowNavLayout] = useState(false)
-  const toolkitTriggerRef = useRef(null)
-  const toolkitFlyoutRef = useRef(null)
-  const [toolkitFlyoutPos, setToolkitFlyoutPos] = useState({ top: 0, left: 0 })
   const prevCollapsedRef = useRef(collapsed)
   const [railExpandFade, setRailExpandFade] = useState(false)
   const [railCollapseSettle, setRailCollapseSettle] = useState(false)
@@ -542,7 +477,7 @@ export function Sidebar({
     prevCollapsedRef.current = collapsed
 
     if (collapsed && !wasCollapsed) {
-      setRailCollapseSettle(true)
+      setRailCollapseSettle(true) // eslint-disable-line react-hooks/set-state-in-effect -- intentional
       setRailExpandFade(false)
       const id = window.setTimeout(() => setRailCollapseSettle(false), 420)
       return () => window.clearTimeout(id)
@@ -631,11 +566,6 @@ export function Sidebar({
         (activeThumbnailConversationId == null || activeThumbnailConversationId === '')))
 
   /* Outside-click and Escape for account menu are handled by FloatingMenu component */
-
-  // Close toolkit flyout when account dialog opens (avoids two menus open)
-  useEffect(() => {
-    if (accountDialogOpen) setToolkitFlyoutOpen(false) // eslint-disable-line react-hooks/set-state-in-effect -- intentional
-  }, [accountDialogOpen])
 
   useLayoutEffect(() => {
     if (!accountDialogOpen) return
@@ -797,92 +727,6 @@ export function Sidebar({
 
   const userInitial = (user?.email?.[0] || 'U').toUpperCase()
 
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 1024px)')
-    const update = () => setNarrowNavLayout(mq.matches)
-    update()
-    mq.addEventListener('change', update)
-    return () => mq.removeEventListener('change', update)
-  }, [])
-
-  const toolkitRailCollapsed = collapsed && !narrowNavLayout
-  const toolkitMenuOpen = toolsExpanded || (toolkitRailCollapsed && toolkitFlyoutOpen)
-
-  useLayoutEffect(() => {
-    if (!toolkitFlyoutOpen || !toolkitRailCollapsed) return
-    const measure = () => {
-      const el = toolkitTriggerRef.current
-      if (!el) return
-      const r = el.getBoundingClientRect()
-      const gap = 10
-      const flyoutW = 248
-      const flyoutMaxH = 340
-      let left = r.right + gap
-      if (left + flyoutW > window.innerWidth - 8) {
-        left = Math.max(8, r.left - flyoutW - gap)
-      }
-      const top = Math.min(Math.max(8, r.top - 4), Math.max(8, window.innerHeight - flyoutMaxH - 8))
-      setToolkitFlyoutPos({ top, left })
-    }
-    measure()
-    window.addEventListener('resize', measure, { passive: true })
-    return () => window.removeEventListener('resize', measure)
-  }, [toolkitFlyoutOpen, toolkitRailCollapsed])
-
-  // Close toolkit flyout when rail expands or layout narrows
-  useEffect(() => {
-    if (!toolkitRailCollapsed) setToolkitFlyoutOpen(false) // eslint-disable-line react-hooks/set-state-in-effect -- intentional
-  }, [toolkitRailCollapsed])
-  useEffect(() => {
-    if (narrowNavLayout) setToolkitFlyoutOpen(false) // eslint-disable-line react-hooks/set-state-in-effect -- intentional
-  }, [narrowNavLayout])
-
-  /* Outside-click and Escape for toolkit flyout are handled by FloatingMenu component */
-
-  const handleToolkitTriggerClick = () => {
-    setAccountDialogOpen(false)
-    if (toolkitRailCollapsed) {
-      setToolkitFlyoutOpen((o) => !o)
-    } else {
-      toggleToolsExpanded()
-    }
-  }
-
-  const onToolkitItemNavigate = (href) => {
-    closeMobile()
-    setToolkitFlyoutOpen(false)
-    navigateToHashHref(href)
-  }
-
-  const toolkitFlyoutPortal = (
-    <FloatingMenu
-      ref={toolkitFlyoutRef}
-      open={toolkitRailCollapsed && toolkitFlyoutOpen}
-      style={{ top: toolkitFlyoutPos.top, left: toolkitFlyoutPos.left }}
-      triggerRef={toolkitTriggerRef}
-      onClose={() => setToolkitFlyoutOpen(false)}
-      aria-label="Toolkit"
-    >
-      {TOOLKIT_ITEMS.map(({ id, label }) => {
-        const href = getToolkitHash(id)
-        return (
-          <a
-            key={id}
-            href={href}
-            className="floating-menu__item"
-            role="menuitem"
-            onClick={(e) => {
-              e.preventDefault()
-              onToolkitItemNavigate(href)
-            }}
-          >
-            {label}
-          </a>
-        )
-      })}
-    </FloatingMenu>
-  )
-
   const accountMenuPortal = (
     <FloatingMenu
       ref={accountMenuPortalRef}
@@ -962,10 +806,6 @@ export function Sidebar({
         </span>
         Log out
       </button>
-      <div className="floating-menu__footer">
-        <span className="floating-menu__footer-text">{user?.email || 'User'}</span>
-        <span className="floating-menu__footer-sub">Free</span>
-      </div>
     </FloatingMenu>
   )
 
@@ -1077,39 +917,6 @@ export function Sidebar({
                   handleNewChat()
                 }}
               />
-
-              <SidebarDropdown
-                ref={toolkitTriggerRef}
-                icon={<IconWrench />}
-                label="Toolkit"
-                expanded={toolkitMenuOpen}
-                collapsed={collapsed && !narrowNavLayout}
-                onToggle={handleToolkitTriggerClick}
-                ariaControls={
-                  toolkitRailCollapsed && toolkitFlyoutOpen
-                    ? 'sidebar-toolkit-flyout-menu'
-                    : 'sidebar-tools-content'
-                }
-                aria-label="Toolkit"
-              >
-                {TOOLKIT_ITEMS.map(({ id, label }) => {
-                  const href = getToolkitHash(id)
-                  return (
-                    <a
-                      key={id}
-                      href={href}
-                      className="sb-dropdown__link"
-                      role="menuitem"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        onToolkitItemNavigate(href)
-                      }}
-                    >
-                      {label}
-                    </a>
-                  )
-                })}
-              </SidebarDropdown>
 
               <SidebarButton
                 href="#optimize"
@@ -1251,7 +1058,6 @@ export function Sidebar({
         </div>
       </aside>
 
-      {toolkitFlyoutPortal}
       {accountMenuPortal}
 
       <div

@@ -96,7 +96,7 @@
 }
 
 .thumb-rater-drop-icon {
-  color: #a78bfa;
+  color: #9061f0;
   display: flex;
 }
 
@@ -139,7 +139,7 @@
 .thumb-rater-text-btn {
   border: none;
   background: none;
-  color: #a78bfa;
+  color: #9061f0;
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
@@ -160,7 +160,7 @@
   font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: -0.01em;
   color: rgba(229, 229, 231, 0.45);
 }
 
@@ -200,7 +200,9 @@
   cursor: pointer;
   border: 1px solid transparent;
   text-decoration: none;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .thumb-rater-btn:disabled {
@@ -295,7 +297,7 @@
 
 .thumb-rater-score-value {
   font-size: 2.25rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.03em;
   color: #fafafa;
 }
@@ -310,7 +312,7 @@
   font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: -0.01em;
   color: rgba(229, 229, 231, 0.75);
   padding: 0.35rem 0.65rem;
   border-radius: 8px;
@@ -354,7 +356,7 @@
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: -0.01em;
   color: rgba(167, 139, 250, 0.9);
   margin-bottom: 0.45rem;
 }

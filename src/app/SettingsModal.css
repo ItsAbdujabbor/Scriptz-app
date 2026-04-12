@@ -8,7 +8,9 @@
   -webkit-backdrop-filter: blur(16px);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.22s ease, visibility 0.22s ease;
+  transition:
+    opacity 0.22s ease,
+    visibility 0.22s ease;
 }
 .settings-modal-backdrop.visible {
   opacity: 1;
@@ -20,10 +22,17 @@
   --settings-surface: rgba(255, 255, 255, 0.045);
   --settings-surface-2: rgba(255, 255, 255, 0.075);
   --settings-border: rgba(255, 255, 255, 0.08);
-  --settings-divider: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.05) 10%, rgba(167, 139, 250, 0.18) 50%, rgba(255, 255, 255, 0.05) 90%, transparent 100%);
+  --settings-divider: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.05) 10%,
+    rgba(167, 139, 250, 0.18) 50%,
+    rgba(255, 255, 255, 0.05) 90%,
+    transparent 100%
+  );
   --settings-text: #f5f5f6;
   --settings-text-muted: rgba(255, 255, 255, 0.64);
-  --settings-accent: #a78bfa;
+  --settings-accent: #9061f0;
   --settings-accent-bg: rgba(167, 139, 250, 0.13);
   --settings-accent-ring: rgba(139, 92, 246, 0.22);
 
@@ -48,7 +57,10 @@
   flex-direction: column;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.22s ease, visibility 0.22s ease, transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    opacity 0.22s ease,
+    visibility 0.22s ease,
+    transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .settings-modal-backdrop.visible .settings-modal-dialog {
   opacity: 1;
@@ -96,7 +108,10 @@
   border-radius: 10px;
   color: var(--settings-text-muted);
   cursor: pointer;
-  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    border-color 0.2s;
 }
 .settings-modal-close:hover {
   background: var(--settings-surface-2);
@@ -131,8 +146,12 @@
   scrollbar-width: thin;
   scrollbar-color: rgba(167, 139, 250, 0.15) transparent;
 }
-.settings-modal-sidebar::-webkit-scrollbar { width: 4px; }
-.settings-modal-sidebar::-webkit-scrollbar-track { background: transparent; }
+.settings-modal-sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+.settings-modal-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
 .settings-modal-sidebar::-webkit-scrollbar-thumb {
   background: rgba(167, 139, 250, 0.2);
   border-radius: 999px;
@@ -150,7 +169,9 @@
   border-radius: 10px;
   cursor: pointer;
   text-align: left;
-  transition: background 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s;
   font-family: inherit;
 }
 .settings-modal-nav-item:hover {
@@ -186,8 +207,12 @@
   scrollbar-width: thin;
   scrollbar-color: rgba(167, 139, 250, 0.2) transparent;
 }
-.settings-modal-content::-webkit-scrollbar { width: 6px; }
-.settings-modal-content::-webkit-scrollbar-track { background: transparent; }
+.settings-modal-content::-webkit-scrollbar {
+  width: 6px;
+}
+.settings-modal-content::-webkit-scrollbar-track {
+  background: transparent;
+}
 .settings-modal-content::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, rgba(167, 139, 250, 0.2) 0%, rgba(99, 102, 241, 0.25) 100%);
   border-radius: 999px;
@@ -228,7 +253,9 @@
   margin: 1.25rem 0 0.5rem 0;
   letter-spacing: 0.02em;
 }
-.settings-subheading:first-of-type { margin-top: 0; }
+.settings-subheading:first-of-type {
+  margin-top: 0;
+}
 
 .settings-block {
   padding: 0.75rem 1rem;
@@ -241,8 +268,12 @@
   color: var(--settings-text-muted);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
-.settings-account-email strong { color: var(--settings-text); }
-.settings-account-email span { margin-left: 0.35rem; }
+.settings-account-email strong {
+  color: var(--settings-text);
+}
+.settings-account-email span {
+  margin-left: 0.35rem;
+}
 
 .settings-message {
   font-size: 0.875rem;
@@ -255,7 +286,9 @@
   flex-wrap: wrap;
   gap: 0.35rem;
 }
-.settings-message .settings-inline-dismiss { margin-left: auto; }
+.settings-message .settings-inline-dismiss {
+  margin-left: auto;
+}
 .settings-message--success {
   color: #4ade80;
   background: rgba(34, 197, 94, 0.12);
@@ -277,7 +310,9 @@
   padding: 0 0.25rem;
   line-height: 1;
 }
-.settings-inline-dismiss:hover { opacity: 1; }
+.settings-inline-dismiss:hover {
+  opacity: 1;
+}
 
 .settings-form label {
   display: block;
@@ -287,9 +322,9 @@
   margin-bottom: 0.4rem;
 }
 .settings-input,
-.settings-form input[type="password"],
-.settings-form input[type="text"],
-.settings-form input[type="email"] {
+.settings-form input[type='password'],
+.settings-form input[type='text'],
+.settings-form input[type='email'] {
   width: 100%;
   max-width: 320px;
   padding: 0.6rem 0.9rem;
@@ -301,7 +336,9 @@
   border-radius: 10px;
   margin-bottom: 0.75rem;
   box-sizing: border-box;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 .settings-input:focus,
@@ -314,7 +351,10 @@
 .settings-form input::placeholder {
   color: var(--settings-text-muted);
 }
-.settings-form .settings-btn { margin-top: 0.25rem; margin-bottom: 0.5rem; }
+.settings-form .settings-btn {
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+}
 
 .settings-btn {
   display: inline-flex;
@@ -328,18 +368,30 @@
   border-radius: 10px;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    color 0.2s;
 }
 .settings-btn-primary {
   color: #fff;
-  background: linear-gradient(135deg, rgba(196, 181, 253, 0.45) 0%, rgba(139, 92, 246, 0.55) 45%, rgba(124, 58, 237, 0.65) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(196, 181, 253, 0.45) 0%,
+    rgba(139, 92, 246, 0.55) 45%,
+    rgba(124, 58, 237, 0.65) 100%
+  );
   border: 1px solid rgba(216, 199, 254, 0.35);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 4px 12px rgba(139, 92, 246, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 4px 12px rgba(139, 92, 246, 0.2);
 }
 .settings-btn-primary:hover:not(:disabled) {
   filter: brightness(1.06);
   border-color: rgba(233, 213, 255, 0.45);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 6px 16px rgba(139, 92, 246, 0.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 6px 16px rgba(139, 92, 246, 0.25);
 }
 .settings-btn-ghost {
   color: var(--settings-text-muted);
@@ -369,7 +421,10 @@
   background: rgba(239, 68, 68, 0.25);
   color: #fca5a5;
 }
-.settings-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.settings-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 .settings-select {
   max-width: 280px;
@@ -383,7 +438,9 @@
   border-radius: 10px;
   cursor: pointer;
   margin-bottom: 1rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 .settings-select:focus {
@@ -414,7 +471,7 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #6366f1, #a78bfa);
+  background: linear-gradient(135deg, #6d28d9, #9061f0);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -435,8 +492,14 @@
   gap: 0.2rem;
   min-width: 0;
 }
-.settings-youtube-info strong { font-size: 0.95rem; color: var(--text, #f4f4f5); }
-.settings-youtube-info span { font-size: 0.8rem; color: var(--text-muted, rgba(255, 255, 255, 0.55)); }
+.settings-youtube-info strong {
+  font-size: 0.95rem;
+  color: var(--text, #f4f4f5);
+}
+.settings-youtube-info span {
+  font-size: 0.8rem;
+  color: var(--text-muted, rgba(255, 255, 255, 0.55));
+}
 .settings-youtube-actions {
   display: flex;
   align-items: center;
@@ -487,7 +550,9 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--settings-border);
   border-radius: 12px;
-  transition: border-color 0.2s, background 0.2s;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
 }
 .settings-youtube-channel-card:hover {
   background: rgba(255, 255, 255, 0.05);
@@ -501,7 +566,7 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #6366f1, #a78bfa);
+  background: linear-gradient(135deg, #6d28d9, #9061f0);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -548,7 +613,7 @@
   font-weight: 600;
   color: var(--settings-accent);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.01em;
   padding: 0.25rem 0.5rem;
   background: rgba(167, 139, 250, 0.2);
   border-radius: 6px;
@@ -655,7 +720,9 @@
   margin-bottom: 0.5rem;
   box-sizing: border-box;
   resize: vertical;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 .settings-textarea:focus {
   outline: none;
@@ -706,7 +773,7 @@
   color: var(--text-muted, #9ca3af);
   line-height: 1.35;
 }
-.settings-checkbox-label input[type="checkbox"] {
+.settings-checkbox-label input[type='checkbox'] {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
@@ -714,9 +781,11 @@
   cursor: pointer;
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.25);
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
-.settings-checkbox-label input[type="checkbox"]:checked {
+.settings-checkbox-label input[type='checkbox']:checked {
   box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.4);
 }
 .settings-checkbox-label input:focus-visible {
@@ -747,7 +816,7 @@
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.01em;
   color: var(--text-muted, rgba(255, 255, 255, 0.5));
 }
 .settings-profile-value {
@@ -804,7 +873,9 @@
   color: var(--text-muted, rgba(255, 255, 255, 0.45));
 }
 .usage-chart-label-start,
-.usage-chart-label-end { margin: 0; }
+.usage-chart-label-end {
+  margin: 0;
+}
 
 /* ——— Toggle switches (notifications, personalization) ——— */
 .settings-toggles {
@@ -956,7 +1027,7 @@
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.01em;
   color: var(--settings-text-muted);
 }
 .settings-script-voice-option.is-on .settings-script-voice-status {
@@ -1007,7 +1078,9 @@
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--settings-border);
   border-radius: 999px;
-  transition: background 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 .settings-toggle-slider::after {
@@ -1045,15 +1118,23 @@
   gap: 0.2rem;
   margin-bottom: 0.75rem;
 }
-.settings-billing-plan strong { font-size: 1.1rem; color: var(--text, #f4f4f5); }
-.settings-billing-plan span { font-size: 0.85rem; color: var(--text-muted, rgba(255, 255, 255, 0.55)); }
+.settings-billing-plan strong {
+  font-size: 1.1rem;
+  color: var(--text, #f4f4f5);
+}
+.settings-billing-plan span {
+  font-size: 0.85rem;
+  color: var(--text-muted, rgba(255, 255, 255, 0.55));
+}
 .settings-billing-desc {
   font-size: 0.9rem;
   color: var(--text-muted, rgba(255, 255, 255, 0.6));
   margin: 0 0 1rem 0;
   line-height: 1.45;
 }
-.settings-billing-card .settings-btn { margin-top: 0.25rem; }
+.settings-billing-card .settings-btn {
+  margin-top: 0.25rem;
+}
 
 /* ——— Help section (complete) ——— */
 .settings-help-section {
@@ -1079,12 +1160,14 @@
   font-weight: 500;
   color: var(--settings-accent);
   text-decoration: none;
-  transition: background 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s;
   border-radius: 10px;
   background: transparent;
 }
 .settings-help-link:hover {
-  color: #c4b5fd;
+  color: #b794f6;
   background: var(--settings-accent-bg);
 }
 
@@ -1154,7 +1237,10 @@
   border-radius: 12px;
   text-decoration: none;
   color: inherit;
-  transition: background 0.2s, border-color 0.2s, transform 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    transform 0.2s;
 }
 .settings-overview-card:hover {
   background: rgba(255, 255, 255, 0.06);
@@ -1190,7 +1276,10 @@
   font-size: 0.9rem;
   color: var(--text-muted, rgba(255, 255, 255, 0.7));
 }
-.settings-account-info .settings-account-email { font-weight: 500; color: var(--text, #f4f4f5); }
+.settings-account-info .settings-account-email {
+  font-weight: 500;
+  color: var(--text, #f4f4f5);
+}
 
 .settings-theme-block {
   margin-bottom: 1.25rem;
@@ -1214,12 +1303,14 @@
   border-radius: 8px;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s;
 }
 .settings-theme-option:hover {
   color: var(--text);
 }
-.settings-theme-option[aria-pressed="true"],
+.settings-theme-option[aria-pressed='true'],
 .settings-theme-option.active {
   color: var(--text);
   background: var(--theme-toggle-active-bg, rgba(139, 92, 246, 0.25));
@@ -1229,7 +1320,7 @@ body.theme-light .settings-theme-toggle {
   --theme-toggle-bg: rgba(0, 0, 0, 0.06);
   --theme-toggle-border: rgba(0, 0, 0, 0.1);
 }
-body.theme-light .settings-theme-option[aria-pressed="true"],
+body.theme-light .settings-theme-option[aria-pressed='true'],
 body.theme-light .settings-theme-option.active {
   --theme-toggle-active-bg: rgba(139, 92, 246, 0.15);
   color: #5b21b6;
@@ -1242,11 +1333,17 @@ body.theme-light .settings-theme-option.active {
   margin: 1.1rem 0 0.4rem 0;
   letter-spacing: 0.02em;
 }
-.settings-panel-subheading:first-of-type { margin-top: 0; }
+.settings-panel-subheading:first-of-type {
+  margin-top: 0;
+}
 .settings-account-block {
   margin-bottom: 1rem;
 }
-.settings-account-block .youtube-connect-hint { font-size: 0.8rem; margin-top: 0.5rem; color: var(--text-muted, rgba(255, 255, 255, 0.5)); }
+.settings-account-block .youtube-connect-hint {
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+}
 .settings-form-row-2 {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1262,7 +1359,11 @@ body.theme-light .settings-theme-option.active {
 .settings-form-group {
   margin-bottom: 0;
 }
-.settings-form-group label { display: block; margin-bottom: 0.35rem; font-size: 0.82rem; }
+.settings-form-group label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.82rem;
+}
 .settings-personalization-form .settings-form-row-3 {
   margin-bottom: 0;
 }
@@ -1315,8 +1416,12 @@ body.theme-light .settings-theme-option.active {
   animation: settings-dialog-fade-in 0.2s ease;
 }
 @keyframes settings-dialog-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 .settings-confirm-dialog {
   width: 100%;
@@ -1329,8 +1434,14 @@ body.theme-light .settings-theme-option.active {
   animation: settings-dialog-scale-in 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 @keyframes settings-dialog-scale-in {
-  from { opacity: 0; transform: scale(0.96); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 .settings-confirm-dialog-title {
   margin: 0 0 0.5rem 0;
@@ -1357,7 +1468,9 @@ body.theme-light .settings-theme-option.active {
   font-size: 0.9rem;
   color: var(--settings-text-muted);
   line-height: 1.45;
-  transition: background 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
 }
 .settings-confirm-checkbox:hover {
   background: rgba(255, 255, 255, 0.06);
@@ -1367,7 +1480,7 @@ body.theme-light .settings-theme-option.active {
   background: rgba(167, 139, 250, 0.12);
   border-color: rgba(167, 139, 250, 0.35);
 }
-.settings-confirm-checkbox input[type="checkbox"] {
+.settings-confirm-checkbox input[type='checkbox'] {
   position: absolute;
   opacity: 0;
   width: 0;
@@ -1402,7 +1515,9 @@ body.theme-light .settings-theme-option.active {
 .settings-confirm-checkbox input:checked + .settings-confirm-checkbox-box {
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.5) 0%, rgba(167, 139, 250, 0.6) 100%);
   border-color: rgba(167, 139, 250, 0.8);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 0 0 1px rgba(167, 139, 250, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 0 0 1px rgba(167, 139, 250, 0.2);
 }
 .settings-confirm-checkbox input:checked + .settings-confirm-checkbox-box::after {
   border-color: #fff;
@@ -1459,7 +1574,10 @@ body.theme-light .settings-theme-option.active {
   border: 1px solid transparent;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    border-color 0.2s;
 }
 .settings-danger-btn.secondary {
   background: rgba(255, 255, 255, 0.06);
@@ -1481,11 +1599,22 @@ body.theme-light .settings-theme-option.active {
 }
 
 /* Profile form & analytics inside modal */
-.settings-modal-panel .profile-form .form-group { margin-bottom: 1rem; }
-.settings-modal-panel .profile-form .form-row { margin-bottom: 0; }
-.settings-modal-panel .settings-section-title { font-size: 1rem; margin: 1rem 0 0.5rem 0; }
-.settings-modal-panel .youtube-connect-cta { margin-top: 0.5rem; }
-.settings-modal-panel .settings-analytics-cards { margin-top: 0.75rem; }
+.settings-modal-panel .profile-form .form-group {
+  margin-bottom: 1rem;
+}
+.settings-modal-panel .profile-form .form-row {
+  margin-bottom: 0;
+}
+.settings-modal-panel .settings-section-title {
+  font-size: 1rem;
+  margin: 1rem 0 0.5rem 0;
+}
+.settings-modal-panel .youtube-connect-cta {
+  margin-top: 0.5rem;
+}
+.settings-modal-panel .settings-analytics-cards {
+  margin-top: 0.75rem;
+}
 
 @media (max-width: 560px) {
   .settings-modal-dialog {

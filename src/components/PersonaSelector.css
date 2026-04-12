@@ -13,7 +13,9 @@
   color: rgba(255, 255, 255, 0.9);
   font-size: 13px;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .persona-selector-trigger:hover {
@@ -57,7 +59,7 @@
   transition: transform 0.2s;
 }
 
-.persona-selector-trigger[aria-expanded="true"] .persona-selector-chevron {
+.persona-selector-trigger[aria-expanded='true'] .persona-selector-chevron {
   transform: rotate(180deg);
 }
 
@@ -109,7 +111,7 @@
   border: 1px solid rgba(139, 92, 246, 0.6);
   border-radius: 8px;
   background: rgba(139, 92, 246, 0.15);
-  color: #a78bfa;
+  color: #9061f0;
   font-size: 13px;
   cursor: pointer;
   transition: background 0.15s;
@@ -131,7 +133,9 @@
   font-size: 13px;
   text-align: left;
   cursor: pointer;
-  transition: background 0.18s ease, color 0.18s ease;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
 }
 
 .persona-selector-option:hover {
@@ -140,7 +144,7 @@
 
 .persona-selector-option.is-selected {
   background: rgba(139, 92, 246, 0.2);
-  color: #c4b5fd;
+  color: #b794f6;
 }
 
 .persona-selector-option--clear {
@@ -150,7 +154,7 @@
 
 .persona-selector-option--manage {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  color: #a78bfa;
+  color: #9061f0;
   font-weight: 500;
 }
 
@@ -202,7 +206,9 @@
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  transition: border-color 0.18s ease, background 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease;
 }
 
 .persona-selector--glass-circle .persona-selector-trigger--circle:hover {
@@ -227,8 +233,7 @@
 }
 
 .persona-selector-dropdown--glass {
-  background:
-    linear-gradient(180deg, rgba(28, 28, 34, 0.82), rgba(20, 20, 24, 0.86)) !important;
+  background: linear-gradient(180deg, rgba(28, 28, 34, 0.82), rgba(20, 20, 24, 0.86)) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   border-radius: 18px !important;
   box-shadow:

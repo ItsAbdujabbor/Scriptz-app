@@ -11,13 +11,13 @@
   --app-border-2: rgba(255, 255, 255, 0.12);
   --app-text: #e5e5e7;
   --app-text-dim: #9ca3af;
-  --app-accent: #a78bfa;
+  --app-accent: #9061f0;
   /* Hero heading gradient — use for accents, buttons, active states */
-  --hero-gradient: linear-gradient(125deg, #c4b5fd 0%, #a78bfa 25%, #818cf8 60%, #6366f1 100%);
-  --hero-gradient-solid: linear-gradient(135deg, #a78bfa, #818cf8, #6366f1);
-  --hero-accent: #c4b5fd;
-  --hero-accent-mid: #818cf8;
-  --hero-accent-deep: #6366f1;
+  --hero-gradient: linear-gradient(125deg, #b794f6 0%, #9061f0 25%, #7c3aed 60%, #6d28d9 100%);
+  --hero-gradient-solid: linear-gradient(135deg, #9061f0, #7c3aed, #6d28d9);
+  --hero-accent: #b794f6;
+  --hero-accent-mid: #7c3aed;
+  --hero-accent-deep: #6d28d9;
 
   min-height: 100vh;
   min-height: 100dvh;
@@ -151,7 +151,7 @@
 
 .dash-logo {
   font-size: 1.15rem;
-  font-weight: 800;
+  font-weight: 700;
   color: #fff;
   text-decoration: none;
   letter-spacing: -0.04em;
@@ -177,7 +177,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #6366f1, #a78bfa);
+  background: linear-gradient(135deg, #6d28d9, #9061f0);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -267,7 +267,7 @@
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.01em;
   color: var(--app-text-dim);
 }
 .dash-profile-value {

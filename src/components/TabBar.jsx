@@ -25,7 +25,9 @@ export function TabBar({
   })
 
   const isSegmented = variant === 'segmented'
-  const effectiveShowIndicator = showIndicator && !isSegmented
+  const isModal = variant === 'modal'
+  const usesSlider = isSegmented
+  const effectiveShowIndicator = showIndicator && !isSegmented && !isModal
 
   const updateIndicator = () => {
     if (!effectiveShowIndicator || !tabsRef.current) return
@@ -39,7 +41,7 @@ export function TabBar({
   }
 
   const updateSegment = useCallback(() => {
-    if (!isSegmented || !tabsRef.current) return
+    if (!usesSlider || !tabsRef.current) return
     const root = tabsRef.current
     const activeBtn = root.querySelector('.tabbar-tab.is-active')
     if (!activeBtn) {
@@ -54,7 +56,7 @@ export function TabBar({
       transform: `translate(${b.left - r.left}px, ${b.top - r.top}px)`,
       ready: b.width > 0 && b.height > 0,
     })
-  }, [isSegmented])
+  }, [usesSlider])
 
   useEffect(() => {
     if (!effectiveShowIndicator) return
@@ -65,7 +67,7 @@ export function TabBar({
   }, [value, effectiveShowIndicator, tabs.length])
 
   useEffect(() => {
-    if (!isSegmented) return
+    if (!usesSlider) return
     const run = () => requestAnimationFrame(() => updateSegment())
     run()
     const ro = new ResizeObserver(run)
@@ -75,7 +77,7 @@ export function TabBar({
       ro.disconnect()
       window.removeEventListener('resize', run)
     }
-  }, [isSegmented, value, tabs.length, updateSegment])
+  }, [usesSlider, value, tabs.length, updateSegment])
 
   return (
     <div
@@ -84,7 +86,7 @@ export function TabBar({
       role="tablist"
       aria-label={ariaLabel}
     >
-      {isSegmented ? (
+      {usesSlider ? (
         <span
           className={`tabbar-segment-highlight ${segmentStyle.ready ? 'tabbar-segment-highlight--ready' : ''}`}
           style={{

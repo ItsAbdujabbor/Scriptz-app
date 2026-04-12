@@ -9,19 +9,19 @@
   color: #f5f5f6;
 }
 
-/* Embedded pricing: match dashboard surfaces + readable text */
+/* Embedded pricing: match unified dashboard surfaces */
 .pro-page .pri-section,
 .pro-plan-section {
   padding: 1rem 0 2rem;
   background: transparent !important;
-  color: #f5f5f6;
+  color: #ffffff;
   --pri-bg: transparent;
-  --pri-card: #1a1a1a;
-  --pri-card-pop: #1a1a1a;
-  --pri-t1: #f5f5f6;
-  --pri-t2: rgba(255, 255, 255, 0.64);
-  --pri-t3: rgba(255, 255, 255, 0.42);
-  --pri-bd: rgba(255, 255, 255, 0.08);
+  --pri-card: #18181c;
+  --pri-card-pop: #18181c;
+  --pri-t1: #ffffff;
+  --pri-t2: #8e8e93;
+  --pri-t3: #636366;
+  --pri-bd: rgba(255, 255, 255, 0.07);
   --pri-bd-h: rgba(255, 255, 255, 0.12);
 }
 
@@ -68,7 +68,7 @@
   font-weight: 600;
   letter-spacing: normal;
   color: #fff !important;
-  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 55%, #5b21b6 100%) !important;
+  background: linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%) !important;
   border: none !important;
   border-radius: 9999px !important;
   cursor: pointer;
@@ -124,7 +124,7 @@
 
 /* Popular card: same gradient + slightly richer shadow (still header-trial family) */
 .pro-page .pri-btn--pop {
-  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 55%, #5b21b6 100%) !important;
+  background: linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%) !important;
   border: none !important;
   box-shadow: 0 4px 24px rgba(124, 58, 237, 0.48);
 }
@@ -193,4 +193,264 @@
   .pro-page .pri-btn:hover::before {
     transform: translateX(-110%);
   }
+}
+
+/* ═══════════════════════════════════════
+   CREDIT-BASED PRICING SYSTEM
+   ═══════════════════════════════════════ */
+
+/* Billing toggle (Monthly / Annually) */
+.pro-billing-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 100px;
+  margin-top: 1.25rem;
+}
+
+.pro-billing-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.95rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: rgba(255, 255, 255, 0.5);
+  background: transparent;
+  border: none;
+  border-radius: 100px;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.pro-billing-btn:hover {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.pro-billing-btn--active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pro-billing-save {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  color: #30d158;
+  background: rgba(48, 209, 88, 0.15);
+  border-radius: 100px;
+}
+
+/* ─ Plan cards — equal size, no glow ─ */
+.pro-page .pri-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.pro-page .pri-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: rgba(24, 24, 28, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.pro-page .pri-card:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(30, 30, 36, 0.7);
+}
+
+.pro-page .pri-card--pop {
+  background: rgba(28, 24, 38, 0.7);
+  border-color: rgba(139, 92, 246, 0.28);
+}
+
+.pro-page .pri-card--pop:hover {
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+/* Kill the glow */
+.pro-page .pri-card-glow,
+.pro-page .pri-glow--pop {
+  display: none !important;
+}
+
+/* Make the feature list flex so each card fills equally */
+.pro-page .pri-feats {
+  flex: 1;
+}
+
+/* ─ Dashboard-style CTA buttons ─ */
+.pro-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.6rem 1.15rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.pro-cta:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.pro-cta:active {
+  transform: scale(0.97);
+  transition: transform 0.08s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pro-cta--primary {
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #5b21b6 100%);
+  border: none;
+  box-shadow: 0 2px 10px rgba(109, 40, 217, 0.3);
+}
+
+.pro-cta--primary:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 4px 16px rgba(109, 40, 217, 0.4);
+  border: none;
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #5b21b6 100%);
+}
+
+/* Feature list refinement */
+.pro-feats {
+  margin-top: 1rem;
+}
+
+.pro-feats .pri-feat:first-child {
+  font-weight: 700;
+  color: #fff;
+}
+
+.pri-card--pop .pro-feats .pri-feat:first-child {
+  color: #c4b5fd;
+}
+
+/* Slider label head */
+.pro-slider-label-head {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.35);
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.pro-slider-wrap {
+  margin: 0.5rem 0 0.25rem;
+  padding: 0.75rem 0.15rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+@media (max-width: 900px) {
+  .pro-page .pri-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─ Slider ─ */
+.pro-slider-wrap {
+  margin: 0.5rem 0 1rem;
+  padding: 0 0.15rem;
+}
+
+.pro-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  border-radius: 100px;
+  background: linear-gradient(
+    to right,
+    #fff var(--slider-fill, 0%),
+    rgba(255, 255, 255, 0.1) var(--slider-fill, 0%)
+  );
+  outline: none;
+  cursor: pointer;
+}
+
+.pro-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  cursor: grab;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.1s ease;
+}
+
+.pro-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.pro-slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.08);
+}
+
+.pro-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  cursor: grab;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.pri-card--pop .pro-slider {
+  accent-color: #a78bfa;
+}
+
+.pro-slider-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  padding: 0 2px;
+}
+
+.pro-slider-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.3);
+  transition:
+    color 0.15s ease,
+    transform 0.15s ease;
+  cursor: pointer;
+}
+
+.pro-slider-label--active {
+  color: #fff;
+  transform: scale(1.08);
 }

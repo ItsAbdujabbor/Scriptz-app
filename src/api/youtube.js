@@ -95,6 +95,15 @@ export const youtubeApi = {
   },
 
   /**
+   * Comprehensive video score — title + description + tags + engagement + thumbnail.
+   * POST /api/youtube/score-video body: { video_id, title?, description?, tags?, view_count?, like_count?, comment_count?, thumbnail_url? }
+   * Returns { score, tier, breakdown }.
+   */
+  scoreVideo(accessToken, videoData) {
+    return request('POST', '/api/youtube/score-video', accessToken, videoData)
+  },
+
+  /**
    * Generate 3 AI title recommendations. POST /api/youtube/title-recommendations
    * Body: { video_idea, script_text?, thumbnail_url }
    * Returns { titles: [{ title, score }], thumbnail_url }.

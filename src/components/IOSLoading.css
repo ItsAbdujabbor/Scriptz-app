@@ -1,0 +1,162 @@
+/**
+ * IOSLoading — Apple UIActivityIndicatorView replica.
+ * 8 blades with staggered opacity, smooth entry animation.
+ */
+
+/* ── Entry animation ── */
+@keyframes ios-loading-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ── Blade fade cycle ── */
+@keyframes ios-blade-fade {
+  0%,
+  100% {
+    opacity: 0.12;
+  }
+  12.5% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.12;
+  }
+}
+
+/* ── Base wrapper ── */
+.ios-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  animation: ios-loading-in 0.35s var(--ios-spring, cubic-bezier(0.34, 1.56, 0.64, 1)) both;
+}
+
+/* Layout: center */
+.ios-loading--center {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 1;
+  gap: 0.85rem;
+}
+
+/* Layout: page */
+.ios-loading--page {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 1;
+  padding: 3rem 1.5rem;
+  gap: 0.85rem;
+}
+
+/* ── Spinner (8-blade radial) ── */
+.ios-loading__spinner {
+  position: relative;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.ios-loading__blade {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 6px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--ios-label-primary, #ffffff);
+  transform-origin: center 10px;
+  transform: rotate(calc(var(--blade-index) * 45deg));
+  opacity: 0.12;
+  animation: ios-blade-fade 0.8s linear infinite;
+  animation-delay: calc(var(--blade-index) * -0.1s);
+}
+
+/* ── Size: sm ── */
+.ios-loading--sm .ios-loading__spinner {
+  width: 16px;
+  height: 16px;
+}
+
+.ios-loading--sm .ios-loading__blade {
+  width: 1.5px;
+  height: 4.5px;
+  transform-origin: center 8px;
+}
+
+.ios-loading--sm {
+  gap: 0.45rem;
+}
+
+.ios-loading--sm .ios-loading__msg {
+  font-size: var(--ios-caption1, 0.75rem);
+}
+
+/* ── Size: lg ── */
+.ios-loading--lg .ios-loading__spinner {
+  width: 28px;
+  height: 28px;
+}
+
+.ios-loading--lg .ios-loading__blade {
+  width: 2.5px;
+  height: 8px;
+  border-radius: 1.5px;
+  transform-origin: center 14px;
+}
+
+.ios-loading--lg {
+  gap: 1rem;
+}
+
+.ios-loading--lg .ios-loading__msg {
+  font-size: var(--ios-subhead, 0.9375rem);
+}
+
+/* ── Message ── */
+.ios-loading__msg {
+  font-size: var(--ios-footnote, 0.8125rem);
+  font-weight: 500;
+  color: var(--ios-label-secondary, #8e8e93);
+  line-height: 1.3;
+  text-align: center;
+}
+
+/* ── Light style (for dark backgrounds with contrast) ── */
+.ios-loading--light .ios-loading__blade {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .ios-loading {
+    animation: none;
+  }
+  .ios-loading__blade {
+    animation: none;
+    opacity: 0.35;
+  }
+  .ios-loading__blade:nth-child(1) {
+    opacity: 1;
+  }
+  .ios-loading__blade:nth-child(2) {
+    opacity: 0.85;
+  }
+  .ios-loading__blade:nth-child(3) {
+    opacity: 0.65;
+  }
+}

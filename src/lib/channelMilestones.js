@@ -1,77 +1,81 @@
 /**
- * Creator milestone paths — dense steps (e.g. 100 → 150 → 200 …), then wider tiers.
- * Used for dashboard progress UI only (display).
+ * Channel Milestones — meaningful creator achievement tiers.
+ *
+ * Each milestone is a real achievement worth celebrating.
+ * Steps get exponentially bigger as channels grow.
  */
 
-/** Compact label for counts (subs, views, etc.). */
 export function formatMilestoneLabel(n) {
   const x = Math.round(Number(n))
   if (!Number.isFinite(x) || x < 0) return '0'
   if (x < 1000) return String(x)
   if (x < 1_000_000) {
     const k = x / 1000
-    if (Math.abs(k - Math.round(k)) < 1e-9) return `${Math.round(k)}k`
-    const s = k >= 10 ? k.toFixed(0) : k.toFixed(1).replace(/\.0$/, '')
-    return `${s}k`
+    return k === Math.round(k)
+      ? `${Math.round(k)}k`
+      : `${k >= 10 ? k.toFixed(0) : k.toFixed(1).replace(/\.0$/, '')}k`
   }
   if (x < 1_000_000_000) {
     const m = x / 1_000_000
-    if (Math.abs(m - Math.round(m)) < 1e-9) return `${Math.round(m)}M`
-    const s = m >= 10 ? m.toFixed(0) : m.toFixed(1).replace(/\.0$/, '')
-    return `${s}M`
+    return m === Math.round(m)
+      ? `${Math.round(m)}M`
+      : `${m >= 10 ? m.toFixed(0) : m.toFixed(1).replace(/\.0$/, '')}M`
   }
   const b = x / 1_000_000_000
-  const s = b >= 10 ? b.toFixed(0) : b.toFixed(1).replace(/\.0$/, '')
-  return `${s}B`
+  return `${b >= 10 ? b.toFixed(0) : b.toFixed(1).replace(/\.0$/, '')}B`
 }
 
-function buildMilestoneSteps(targets, titleFn) {
-  const out = []
-  let prev = -1
-  for (const t of targets) {
-    const target = Math.round(Number(t))
-    if (!Number.isFinite(target) || target <= prev) continue
-    prev = target
-    out.push({
-      target,
-      label: formatMilestoneLabel(target),
-      title: titleFn(target),
-    })
-  }
-  return out
-}
+/**
+ * Subscriber milestones — big, meaningful jumps.
+ * Each one is a real creator achievement with a name.
+ */
+export const SUBS_STEPS = [
+  { target: 1, label: '1', title: 'First subscriber', tier: 'seed' },
+  { target: 10, label: '10', title: 'First fans', tier: 'seed' },
+  { target: 50, label: '50', title: 'Growing community', tier: 'sprout' },
+  { target: 100, label: '100', title: 'Triple digits', tier: 'sprout' },
+  { target: 250, label: '250', title: 'Quarter thousand', tier: 'sprout' },
+  { target: 500, label: '500', title: 'Halfway to 1k', tier: 'rising' },
+  { target: 1_000, label: '1k', title: 'Thousand club', tier: 'rising' },
+  { target: 2_500, label: '2.5k', title: 'Building momentum', tier: 'rising' },
+  { target: 5_000, label: '5k', title: 'Five thousand strong', tier: 'established' },
+  { target: 10_000, label: '10k', title: 'Ten thousand', tier: 'established' },
+  { target: 25_000, label: '25k', title: 'Quarter of 100k', tier: 'established' },
+  { target: 50_000, label: '50k', title: 'Halfway to 100k', tier: 'notable' },
+  { target: 100_000, label: '100k', title: 'Silver Play Button', tier: 'notable' },
+  { target: 250_000, label: '250k', title: 'Quarter million', tier: 'notable' },
+  { target: 500_000, label: '500k', title: 'Half a million', tier: 'star' },
+  { target: 1_000_000, label: '1M', title: 'Gold Play Button', tier: 'star' },
+  { target: 2_500_000, label: '2.5M', title: 'Multi-million', tier: 'star' },
+  { target: 5_000_000, label: '5M', title: 'Five million', tier: 'legend' },
+  { target: 10_000_000, label: '10M', title: 'Diamond Play Button', tier: 'legend' },
+  { target: 50_000_000, label: '50M', title: 'Fifty million', tier: 'legend' },
+  { target: 100_000_000, label: '100M', title: 'Red Diamond', tier: 'legend' },
+]
 
-function collectSortedTargets(add) {
-  const targets = []
-  const push = (n) => {
-    const v = Math.round(Number(n))
-    if (v > 0 && (!targets.length || targets[targets.length - 1] < v)) targets.push(v)
-  }
-  add(push)
-  return targets
-}
+/**
+ * Views milestones — lifetime total views.
+ */
+export const VIEWS_STEPS = [
+  { target: 100, label: '100', title: 'First hundred views', tier: 'seed' },
+  { target: 500, label: '500', title: 'Getting noticed', tier: 'seed' },
+  { target: 1_000, label: '1k', title: 'Thousand views', tier: 'sprout' },
+  { target: 5_000, label: '5k', title: 'Five thousand', tier: 'sprout' },
+  { target: 10_000, label: '10k', title: 'Ten thousand views', tier: 'sprout' },
+  { target: 50_000, label: '50k', title: 'Fifty thousand', tier: 'rising' },
+  { target: 100_000, label: '100k', title: 'Hundred thousand', tier: 'rising' },
+  { target: 500_000, label: '500k', title: 'Half a million', tier: 'rising' },
+  { target: 1_000_000, label: '1M', title: 'One million views', tier: 'established' },
+  { target: 5_000_000, label: '5M', title: 'Five million', tier: 'established' },
+  { target: 10_000_000, label: '10M', title: 'Ten million', tier: 'notable' },
+  { target: 50_000_000, label: '50M', title: 'Fifty million', tier: 'notable' },
+  { target: 100_000_000, label: '100M', title: 'Hundred million', tier: 'star' },
+  { target: 500_000_000, label: '500M', title: 'Half a billion', tier: 'star' },
+  { target: 1_000_000_000, label: '1B', title: 'Billion views', tier: 'legend' },
+]
 
-/** Subscriber milestones — small gaps early (…100, 150, 200…), then scaling bands. */
-export const SUBS_STEPS = buildMilestoneSteps(
-  collectSortedTargets((push) => {
-    ;[1, 5, 10, 25, 50, 75, 100].forEach(push)
-    for (let v = 150; v < 500; v += 50) push(v)
-    for (let v = 500; v <= 1000; v += 50) push(v)
-    for (let v = 1050; v < 5000; v += 50) push(v)
-    for (let v = 5000; v <= 10000; v += 250) push(v)
-    for (let v = 10250; v < 25000; v += 250) push(v)
-    for (let v = 25000; v < 50000; v += 2500) push(v)
-    for (let v = 50000; v <= 100000; v += 5000) push(v)
-    for (let v = 125000; v <= 500000; v += 25000) push(v)
-    for (let v = 525000; v <= 1000000; v += 50000) push(v)
-    ;[1000000, 1250000, 1500000, 2000000, 2500000, 5000000, 10000000, 25000000, 50000000, 100000000].forEach(push)
-  }),
-  (target) => `${formatMilestoneLabel(target)} subscribers`,
-)
-
-/** Published videos on channel (lifetime). */
 export const VIDEO_STEPS = [
-  { target: 1, label: 'First', title: '1st video live' },
+  { target: 1, label: '1', title: 'First video' },
   { target: 5, label: '5', title: '5 videos' },
   { target: 10, label: '10', title: '10 videos' },
   { target: 25, label: '25', title: '25 videos' },
@@ -79,7 +83,6 @@ export const VIDEO_STEPS = [
   { target: 100, label: '100', title: '100 videos' },
 ]
 
-/** Bigger leap after the core path — “major” tier. */
 export const VIDEO_MAJOR_STEPS = [
   { target: 250, label: '250', title: '250 videos' },
   { target: 500, label: '500', title: '500 videos' },
@@ -91,24 +94,6 @@ export const SUBS_MAJOR_STEPS = [
   { target: 1000000, label: '1M', title: '1M subscribers' },
 ]
 
-/** Lifetime channel views — dense early rungs, then wider. */
-export const VIEWS_STEPS = buildMilestoneSteps(
-  collectSortedTargets((push) => {
-    ;[100, 250, 500, 750, 1000].forEach(push)
-    for (let v = 1500; v <= 10000; v += 500) push(v)
-    for (let v = 11000; v < 25000; v += 1000) push(v)
-    for (let v = 25000; v <= 100000; v += 2500) push(v)
-    for (let v = 125000; v <= 500000; v += 25000) push(v)
-    for (let v = 525000; v <= 1000000; v += 50000) push(v)
-    for (let v = 1250000; v <= 10000000; v += 250000) push(v)
-    ;[10000000, 12500000, 15000000, 20000000, 25000000, 50000000, 75000000, 100000000, 250000000, 500000000, 1000000000].forEach(push)
-  }),
-  (target) => `${formatMilestoneLabel(target)} lifetime views`,
-)
-
-/**
- * @returns {{ completed: number, next: object | null, prevTarget: number, pctToNext: number, isMaxed: boolean }}
- */
 export function progressAlongSteps(current, steps) {
   const n = Math.max(0, Number(current) || 0)
   let completed = 0
@@ -116,7 +101,13 @@ export function progressAlongSteps(current, steps) {
     if (n >= steps[i].target) completed = i + 1
   }
   if (completed >= steps.length) {
-    return { completed, next: null, prevTarget: steps[steps.length - 1].target, pctToNext: 1, isMaxed: true }
+    return {
+      completed,
+      next: null,
+      prevTarget: steps[steps.length - 1].target,
+      pctToNext: 1,
+      isMaxed: true,
+    }
   }
   const next = steps[completed]
   const prevTarget = completed === 0 ? 0 : steps[completed - 1].target
@@ -125,7 +116,6 @@ export function progressAlongSteps(current, steps) {
   return { completed, next, prevTarget, pctToNext, isMaxed: false }
 }
 
-/** 0–100 for a smooth progress bar across all steps. */
 export function overallBarPercent(current, steps) {
   const { completed, next, pctToNext, isMaxed } = progressAlongSteps(current, steps)
   if (isMaxed || !next || !steps.length) return 100
@@ -133,35 +123,26 @@ export function overallBarPercent(current, steps) {
   return Math.min(100, completed * segmentWeight + pctToNext * segmentWeight)
 }
 
-/**
- * Exactly two anchors: latest achieved milestone (if any) and the next target.
- * Bar fill is progress from “achieved floor” (or 0) to the next target.
- * @returns {{ achieved: object | null, next: object | null, barFillPercent: number }}
- */
 export function getMilestonePair(current, steps) {
   const n = Math.max(0, Number(current) || 0)
   if (!Array.isArray(steps) || steps.length === 0) {
     return { achieved: null, next: null, barFillPercent: 0 }
   }
-
   let lastIdx = -1
   for (let i = 0; i < steps.length; i += 1) {
     if (n >= steps[i].target) lastIdx = i
   }
-
   const achieved = lastIdx >= 0 ? steps[lastIdx] : null
   const next = lastIdx < steps.length - 1 ? steps[lastIdx + 1] : null
-
   let barFillPercent = 0
   if (!achieved && next) {
-    const span = next.target
-    barFillPercent = span > 0 ? Math.min(100, (n / span) * 100) : 0
+    barFillPercent = next.target > 0 ? Math.min(100, (n / next.target) * 100) : 0
   } else if (achieved && next) {
     const span = next.target - achieved.target
-    barFillPercent = span > 0 ? Math.min(100, Math.max(0, ((n - achieved.target) / span) * 100)) : 100
+    barFillPercent =
+      span > 0 ? Math.min(100, Math.max(0, ((n - achieved.target) / span) * 100)) : 100
   } else if (achieved && !next) {
     barFillPercent = 100
   }
-
   return { achieved, next, barFillPercent }
 }

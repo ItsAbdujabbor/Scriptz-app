@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { createPortal } from 'react-dom'
+import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
 import { useOnboardingStore } from '../stores/onboardingStore'
 import { useSidebarStore } from '../stores/sidebarStore'
@@ -9,6 +10,7 @@ import { Sidebar } from './Sidebar'
 import { SettingsModal } from './SettingsModal'
 import { DashButton } from '../components/DashButton'
 import { DashSection } from '../components/DashSection'
+import { IOSLoading } from '../components/IOSLoading'
 /* Sidebar.css, SettingsModal.css, Dashboard.css imported by AuthenticatedRoutes */
 import { queryKeys } from '../lib/query/queryKeys'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
@@ -20,6 +22,7 @@ import {
 } from '../queries/dashboard/dashboardQueries'
 import { useUserPreferencesQuery } from '../queries/user/preferencesQueries'
 import { useUserProfileQuery } from '../queries/user/profileQueries'
+import { useYoutubeVideosList } from '../queries/youtube/videosQueries'
 import {
   getAreaAction,
   getAuditAreaGuidance,
@@ -27,14 +30,18 @@ import {
 } from '../lib/dashboardActions'
 import { computePrePublishScore, thumbnailBattleHref } from '../lib/dashboardCommandCenter'
 import {
-  coachPrefill,
   getAreaPrefill,
   hashWithPrefill,
   optimizePrefill,
   // scriptPrefill, // next update
   thumbPrefill,
 } from '../lib/dashboardActionPayload'
-import { getMilestonePair, SUBS_STEPS, VIEWS_STEPS } from '../lib/channelMilestones'
+import {
+  getMilestonePair,
+  progressAlongSteps,
+  SUBS_STEPS,
+  VIEWS_STEPS,
+} from '../lib/channelMilestones'
 import {
   readMilestoneVisitSnapshot,
   writeMilestoneVisitSnapshot,
@@ -140,21 +147,6 @@ const IconThumbnail = () => (
     <line x1="2" y1="17" x2="7" y2="17" />
   </svg>
 )
-const IconMessage = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M12 2a10 10 0 1 0 10 10H4a2 2 0 0 1-2-2V4a10 10 0 0 0 10 2z" />
-    <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-    <line x1="9" y1="9" x2="9.01" y2="9" />
-    <line x1="15" y1="9" x2="15.01" y2="9" />
-  </svg>
-)
 const IconOptimize = () => (
   <svg
     viewBox="0 0 24 24"
@@ -249,11 +241,48 @@ function getDashboardName(user) {
   return first.charAt(0).toUpperCase() + first.slice(1)
 }
 
+const GREETING_VARIANTS = {
+  morning: [
+    'Good morning',
+    'Morning',
+    'Hey',
+    'Rise and shine',
+    'Top of the morning',
+    'Hello',
+    'What\u2019s good',
+    'Happy to see you',
+  ],
+  afternoon: [
+    'Good afternoon',
+    'Hey',
+    'Welcome back',
+    'Hello again',
+    'What\u2019s up',
+    'Great to see you',
+    'Back at it',
+    'Hey there',
+  ],
+  evening: [
+    'Good evening',
+    'Hey',
+    'Welcome back',
+    'Evening',
+    'Hey there',
+    'Hello again',
+    'Still going strong',
+    'Glad you\u2019re here',
+  ],
+}
+
 function getGreetingText() {
   const hour = new Date().getHours()
-  if (hour < 12) return 'Good morning'
-  if (hour < 18) return 'Good afternoon'
-  return 'Good evening'
+  const pool =
+    hour < 12
+      ? GREETING_VARIANTS.morning
+      : hour < 18
+        ? GREETING_VARIANTS.afternoon
+        : GREETING_VARIANTS.evening
+  return pool[Math.floor(Math.random() * pool.length)]
 }
 
 function getPercentChange(current, previous) {
@@ -287,25 +316,31 @@ function auditTierLabel(tier) {
   return 'Room to grow'
 }
 
-const MILESTONE_METRIC_COPY = {
-  subs: { unit: 'subscribers' },
-  views: { unit: 'lifetime views' },
+/** Tier-based gradient colors for milestones */
+const TIER_COLORS = {
+  seed: ['#3b82f6', '#60a5fa'],
+  sprout: ['#6366f1', '#818cf8'],
+  rising: ['#8b5cf6', '#a78bfa'],
+  established: ['#a855f7', '#c084fc'],
+  notable: ['#d946ef', '#e879f9'],
+  star: ['#f43f5e', '#fb7185'],
+  legend: ['#f97316', '#fbbf24'],
 }
 
-function DashboardMilestoneStrip({
-  title,
-  steps,
-  current,
-  animateFrom,
-  major,
-  locked,
-  lockedHint,
-  metricKind = 'subs',
-}) {
+function getTierGradient(tier) {
+  return TIER_COLORS[tier] || TIER_COLORS.seed
+}
+
+/** How many levels to show on the card (rest go in the dialog) */
+const CARD_VISIBLE = 5
+
+function DashboardMilestones({ title, steps, current, animateFrom, locked }) {
   const cur = Math.max(0, Number(current) || 0)
   const fromCandidate =
     animateFrom != null && animateFrom < cur ? Math.max(0, Number(animateFrom) || 0) : null
   const [live, setLive] = useState(() => (fromCandidate != null ? fromCandidate : cur))
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogClosing, setDialogClosing] = useState(false)
   const reducedMotionRef = useRef(false)
   const visitAnimDoneRef = useRef(false)
 
@@ -323,25 +358,21 @@ function DashboardMilestoneStrip({
       setLive(cur)
       return
     }
-    if (reducedMotionRef.current) {
+    if (reducedMotionRef.current || visitAnimDoneRef.current) {
       visitAnimDoneRef.current = true
-      setLive(cur)
-      return
-    }
-    if (visitAnimDoneRef.current) {
       setLive(cur)
       return
     }
     setLive(fromCandidate)
     const start = performance.now()
-    const dur = 920
+    const dur = 1200
     const a = fromCandidate
     const b = cur
     let raf
     const tick = (now) => {
       const p = Math.min(1, (now - start) / dur)
-      const e = 1 - (1 - p) ** 2.35
-      setLive(Math.round(a + (b - a) * e))
+      const e = p < 1 ? 1 - Math.pow(1 - p, 3) * Math.cos(p * Math.PI * 0.6) : 1
+      setLive(Math.round(a + (b - a) * Math.min(1, e)))
       if (p >= 1) visitAnimDoneRef.current = true
       if (p < 1) raf = requestAnimationFrame(tick)
     }
@@ -351,84 +382,670 @@ function DashboardMilestoneStrip({
     }
   }, [fromCandidate, cur])
 
+  const closeDialog = useCallback(() => {
+    if (dialogClosing) return
+    setDialogClosing(true)
+    setTimeout(() => {
+      setDialogOpen(false)
+      setDialogClosing(false)
+    }, 280)
+  }, [dialogClosing])
+
+  // Close dialog on Escape + lock ALL scroll
+  useEffect(() => {
+    if (!dialogOpen) return
+    const onKey = (e) => {
+      if (e.key === 'Escape') closeDialog()
+    }
+    window.addEventListener('keydown', onKey)
+    const prevBodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const scrollEl = document.querySelector('.dashboard-main-scroll')
+    const prevScroll = scrollEl ? scrollEl.style.overflow : ''
+    if (scrollEl) scrollEl.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevBodyOverflow
+      if (scrollEl) scrollEl.style.overflow = prevScroll
+    }
+  }, [dialogOpen, closeDialog])
+
   const display = locked ? cur : live
-  const { achieved, next, barFillPercent } = getMilestonePair(display, steps)
+  const { completed } = progressAlongSteps(display, steps)
+  const { next, barFillPercent } = getMilestonePair(display, steps)
   const pct = locked ? 0 : barFillPercent
-  const nowLabel = formatCount(display)
-  const isVisitAnimating = !locked && fromCandidate != null && display !== cur
-  const metric = MILESTONE_METRIC_COPY[metricKind] || MILESTONE_METRIC_COPY.subs
 
-  return (
-    <div
-      className={`dashboard-milestone-strip ${major ? 'dashboard-milestone-strip--major' : ''} ${locked ? 'is-locked' : ''} ${isVisitAnimating ? 'dashboard-milestone-strip--visit-in' : ''}`}
-      role="group"
-      aria-label={`${title} milestones`}
-    >
-      <div className="dashboard-milestone-strip-head">
-        <span className="dashboard-milestone-strip-title">{title}</span>
-        {locked && lockedHint ? (
-          <span className="dashboard-milestone-strip-lock">{lockedHint}</span>
-        ) : achieved ? (
-          <span className="dashboard-milestone-now-pill">
-            <span className="dashboard-milestone-now-pill-label">Now</span>
-            <span className="dashboard-milestone-now-pill-value">{nowLabel}</span>
-          </span>
-        ) : null}
-      </div>
+  // Card shows: last 2 achieved + current in-progress + next 2 upcoming = ~5 rows starting from user's position
+  const currentIdx = completed // index of the next unachieved step
+  const startIdx = Math.max(0, currentIdx - 2)
+  const cardSteps = steps.slice(startIdx, startIdx + CARD_VISIBLE)
+  const hasMore = steps.length > CARD_VISIBLE
 
-      <div className="dashboard-milestone-pair">
-        {achieved ? (
-          <div className="dashboard-milestone-card dashboard-milestone-card--achieved">
-            <span className="dashboard-milestone-card-kicker">Latest hit</span>
-            <span className="dashboard-milestone-card-value">{achieved.label}</span>
-            <span className="dashboard-milestone-card-desc">{achieved.title}</span>
-          </div>
-        ) : (
-          <div className="dashboard-milestone-card dashboard-milestone-card--current">
-            <span className="dashboard-milestone-card-kicker">Your count</span>
-            <span className="dashboard-milestone-card-value dashboard-milestone-card-value--hero">
-              {nowLabel}
-            </span>
-            <span className="dashboard-milestone-card-desc">{metric.unit}</span>
+  // Arc gauge — bigger, with glow
+  const R = 52
+  const STROKE = 7
+  const halfCircum = Math.PI * R
+  const fillLen = (pct / 100) * halfCircum
+  const tierColor = next?.tier ? getTierGradient(next.tier) : getTierGradient('seed')
+  const gradId = `ms-${title.replace(/\s/g, '')}`
+  // Position of the dot indicator at the end of the fill arc
+  const dotAngle = Math.PI - (pct / 100) * Math.PI
+  const dotX = 60 + R * Math.cos(dotAngle)
+  const dotY = 60 - R * Math.sin(dotAngle)
+
+  const renderLevel = (step, i, delay, showBar) => {
+    const done = display >= step.target
+    const isCurrent = steps.indexOf(step) === completed
+    const stepPct = done ? 100 : isCurrent ? pct : 0
+    const [gA, gB] = getTierGradient(step.tier || 'seed')
+    return (
+      <div
+        key={step.target}
+        className={`ms-level ${done ? 'ms-level--done' : ''} ${isCurrent ? 'ms-level--current' : ''}`}
+        style={{ animationDelay: `${delay + i * 0.04}s` }}
+      >
+        <div
+          className="ms-level__dot"
+          style={
+            done || isCurrent ? { background: `linear-gradient(135deg, ${gA}, ${gB})` } : undefined
+          }
+        />
+        <div className="ms-level__info">
+          <span className="ms-level__label">{step.label}</span>
+          <span className="ms-level__desc">{step.title}</span>
+        </div>
+        {showBar && (
+          <div className="ms-level__bar">
+            <div
+              className="ms-level__bar-fill"
+              style={{
+                width: `${stepPct}%`,
+                background: stepPct > 0 ? `linear-gradient(90deg, ${gA}, ${gB})` : undefined,
+              }}
+            />
           </div>
         )}
-        <div className="dashboard-milestone-card dashboard-milestone-card--next">
-          <span className="dashboard-milestone-card-kicker">Next target</span>
-          {next ? (
-            <>
-              <span className="dashboard-milestone-card-value">{next.label}</span>
-              <span className="dashboard-milestone-card-desc">{next.title}</span>
-            </>
+        {done && (
+          <span className="ms-level__check" aria-label="Achieved">
+            ✓
+          </span>
+        )}
+        {isCurrent && !done && <span className="ms-level__pct">{Math.round(pct)}%</span>}
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div
+        className={`ms-panel ${locked ? 'ms-panel--locked' : ''}`}
+        role="group"
+        aria-label={`${title} milestones`}
+      >
+        {/* Header arc */}
+        <div className="ms-panel__header">
+          <div className="ms-panel__arc">
+            <svg viewBox="0 0 120 68" className="ms-panel__svg" aria-hidden>
+              <defs>
+                <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor={tierColor[0]} />
+                  <stop offset="100%" stopColor={tierColor[1]} />
+                </linearGradient>
+              </defs>
+              <path
+                d="M 8 60 A 52 52 0 0 1 112 60"
+                fill="none"
+                stroke="rgba(255,255,255,0.05)"
+                strokeWidth={STROKE}
+                strokeLinecap="round"
+              />
+              {pct > 0 && (
+                <path
+                  d="M 8 60 A 52 52 0 0 1 112 60"
+                  fill="none"
+                  stroke={`url(#${gradId})`}
+                  strokeWidth={STROKE}
+                  strokeLinecap="round"
+                  strokeDasharray={`${fillLen} ${halfCircum}`}
+                  className="ms-panel__arc-fill"
+                />
+              )}
+              {pct > 2 && pct < 100 && (
+                <circle
+                  cx={dotX}
+                  cy={dotY}
+                  r="3.5"
+                  fill={tierColor[1]}
+                  className="ms-panel__arc-dot"
+                />
+              )}
+            </svg>
+            <div className="ms-panel__arc-text">
+              <span className="ms-panel__arc-value">{formatCount(display)}</span>
+              {next && <span className="ms-panel__arc-target">/ {formatCount(next.target)}</span>}
+            </div>
+          </div>
+          <span className="ms-panel__title">{title}</span>
+        </div>
+
+        {/* Card-level list (compact, ~5 rows) */}
+        <div className="ms-panel__levels">
+          {cardSteps.map((step, i) => renderLevel(step, i, 0, true))}
+        </div>
+
+        {/* See all milestones button → opens dialog */}
+        {hasMore && (
+          <button type="button" className="ms-panel__more" onClick={() => setDialogOpen(true)}>
+            See all milestones
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* Full milestones dialog — portaled to body so it covers everything */}
+      {dialogOpen &&
+        createPortal(
+          <div
+            className={`ms-dialog-backdrop ${dialogClosing ? 'ms-dialog-backdrop--closing' : ''}`}
+            onClick={closeDialog}
+          >
+            <div
+              className={`ms-dialog ${dialogClosing ? 'ms-dialog--closing' : ''}`}
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-label={`${title} — All milestones`}
+            >
+              <div className="ms-dialog__header">
+                <h3 className="ms-dialog__title">{title} Milestones</h3>
+                <button
+                  type="button"
+                  className="ms-dialog__close"
+                  onClick={closeDialog}
+                  aria-label="Close"
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  >
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="ms-dialog__summary">
+                <div className="ms-dialog__summary-arc">
+                  <svg viewBox="0 0 120 68" className="ms-panel__svg" aria-hidden>
+                    <defs>
+                      <linearGradient id={`${gradId}-dlg`} x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor={tierColor[0]} />
+                        <stop offset="100%" stopColor={tierColor[1]} />
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M 8 60 A 52 52 0 0 1 112 60"
+                      fill="none"
+                      stroke="rgba(255,255,255,0.05)"
+                      strokeWidth={STROKE}
+                      strokeLinecap="round"
+                    />
+                    {pct > 0 && (
+                      <path
+                        d="M 8 60 A 52 52 0 0 1 112 60"
+                        fill="none"
+                        stroke={`url(#${gradId}-dlg)`}
+                        strokeWidth={STROKE}
+                        strokeLinecap="round"
+                        strokeDasharray={`${fillLen} ${halfCircum}`}
+                        className="ms-panel__arc-fill"
+                      />
+                    )}
+                  </svg>
+                  <div className="ms-panel__arc-text">
+                    <span className="ms-panel__arc-value">{formatCount(display)}</span>
+                    {next && (
+                      <span className="ms-panel__arc-target">/ {formatCount(next.target)}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="ms-dialog__summary-meta">
+                  <span className="ms-dialog__summary-stat">
+                    {completed} of {steps.length} achieved
+                  </span>
+                  {next && <span className="ms-dialog__summary-next">Next: {next.title}</span>}
+                </div>
+              </div>
+
+              <div className="ms-dialog__list">
+                {steps.map((step, i) => renderLevel(step, i, 0.05, false))}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
+  )
+}
+
+function scoreTier(score) {
+  if (score == null) return null
+  if (score >= 75) return 'strong'
+  if (score >= 50) return 'mid'
+  return 'low'
+}
+
+const VD_LOADING_TEXTS = [
+  'Analyzing video',
+  'Checking title SEO',
+  'Reviewing description',
+  'Evaluating tags',
+  'Measuring engagement',
+  'Scoring thumbnail',
+  'Generating feedback',
+]
+
+function VdLoadingState() {
+  const [textIdx, setTextIdx] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => {
+      setTextIdx((i) => (i + 1) % VD_LOADING_TEXTS.length)
+    }, 2000)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <div className="vd-analyze">
+      <div className="vd-analyze__ring">
+        <svg viewBox="0 0 48 48" className="vd-analyze__svg" aria-hidden>
+          <circle
+            cx="24"
+            cy="24"
+            r="20"
+            fill="none"
+            stroke="rgba(255,255,255,0.06)"
+            strokeWidth="3"
+          />
+          <circle
+            cx="24"
+            cy="24"
+            r="20"
+            fill="none"
+            stroke="rgba(255,255,255,0.35)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray="30 95.7"
+            className="vd-analyze__arc"
+          />
+        </svg>
+      </div>
+      <span className="vd-analyze__text" key={textIdx}>
+        {VD_LOADING_TEXTS[textIdx]}
+      </span>
+    </div>
+  )
+}
+
+const SCORE_AREAS = [
+  { key: 'title', label: 'Title', icon: 'T' },
+  { key: 'description', label: 'Description', icon: 'D' },
+  { key: 'tags', label: 'Tags', icon: '#' },
+  { key: 'engagement', label: 'Engagement', icon: 'E' },
+  { key: 'thumbnail', label: 'Thumbnail', icon: 'I' },
+]
+
+function getScoreColor(s) {
+  if (s >= 80) return '#30D158'
+  if (s >= 60) return '#FFD60A'
+  if (s >= 40) return '#FF9F0A'
+  return '#FF453A'
+}
+
+function ChannelPulseVideoCard({ video, accessToken, onOptimize }) {
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogClosing, setDialogClosing] = useState(false)
+
+  const videoScoreQuery = useQuery({
+    queryKey: ['channelPulse', 'videoScore', video.id],
+    queryFn: () =>
+      youtubeApi.scoreVideo(accessToken, {
+        video_id: video.id,
+        title: video.title || '',
+        description: video.description || '',
+        tags: video.tags || [],
+        view_count: Number(video.view_count ?? 0),
+        like_count: Number(video.like_count ?? 0),
+        comment_count: Number(video.comment_count ?? 0),
+        thumbnail_url: video.thumbnail_url || null,
+      }),
+    enabled: !!accessToken && !!video.id,
+    staleTime: queryFreshness.weekly,
+    placeholderData: (prev) => prev,
+    retry: 1,
+  })
+
+  const score = videoScoreQuery.data?.score ?? null
+  const breakdown = videoScoreQuery.data?.breakdown ?? null
+  const feedback = videoScoreQuery.data?.feedback ?? null
+  const tier = scoreTier(score)
+
+  const views = Number(video.view_count ?? video.views ?? 0)
+  const likes = Number(video.like_count ?? 0)
+  const comments = Number(video.comment_count ?? 0)
+  const publishedAt = video.published_at ? new Date(video.published_at) : null
+  const formattedDate = publishedAt
+    ? publishedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : null
+  const desc = video.description || ''
+
+  const thumbSrc =
+    video.thumbnail_url ||
+    (video.id ? `https://img.youtube.com/vi/${video.id}/mqdefault.jpg` : null)
+
+  const closeDialog = useCallback(() => {
+    if (dialogClosing) return
+    setDialogClosing(true)
+    setTimeout(() => {
+      setDialogOpen(false)
+      setDialogClosing(false)
+    }, 280)
+  }, [dialogClosing])
+
+  useEffect(() => {
+    if (!dialogOpen) return
+    const onKey = (e) => {
+      if (e.key === 'Escape') closeDialog()
+    }
+    window.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+    const scrollEl = document.querySelector('.dashboard-main-scroll')
+    const prev = scrollEl ? scrollEl.style.overflow : ''
+    if (scrollEl) scrollEl.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+      if (scrollEl) scrollEl.style.overflow = prev
+    }
+  }, [dialogOpen, closeDialog])
+
+  return (
+    <>
+      <div
+        className="cpulse-video-card"
+        onClick={() => setDialogOpen(true)}
+        role="button"
+        tabIndex={0}
+      >
+        <div className="cpulse-video-thumb-wrap">
+          {thumbSrc ? (
+            <img src={thumbSrc} alt="" className="cpulse-video-thumb" loading="lazy" />
           ) : (
-            <>
-              <span className="dashboard-milestone-card-value dashboard-milestone-card-value--done">
-                Done
-              </span>
-              <span className="dashboard-milestone-card-desc">You cleared this path</span>
-            </>
+            <div className="cpulse-video-thumb cpulse-video-thumb--empty" aria-hidden />
           )}
+          {score != null && (
+            <span className={`cpulse-score-badge cpulse-score-badge--${tier}`}>{score}</span>
+          )}
+          {videoScoreQuery.isPending && (
+            <span className="cpulse-score-badge cpulse-score-badge--loading">…</span>
+          )}
+        </div>
+        <div className="cpulse-video-info">
+          <p className="cpulse-video-title" title={video.title}>
+            {video.title || 'Untitled'}
+          </p>
+          {desc && (
+            <p className="cpulse-video-desc">
+              {desc.slice(0, 100)}
+              {desc.length > 100 ? '…' : ''}
+            </p>
+          )}
+          <div className="cpulse-video-meta">
+            {views > 0 && (
+              <span className="cpulse-video-stat">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  width="12"
+                  height="12"
+                >
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                {formatCount(views)}
+              </span>
+            )}
+            {formattedDate && <span className="cpulse-video-stat">{formattedDate}</span>}
+          </div>
         </div>
       </div>
 
-      <div className="dashboard-milestone-bar" aria-hidden={locked ? true : undefined}>
-        <div className="dashboard-milestone-bar-track" />
-        <div className="dashboard-milestone-bar-fill" style={{ width: `${pct}%` }} />
-      </div>
-      {!locked && next && (
-        <p className="dashboard-milestone-caption">
-          <span>{formatCount(Math.max(0, next.target - display))} to go</span>
-          <span className="dashboard-milestone-caption-sep" aria-hidden>
-            ·
-          </span>
-          <span>target {formatCount(next.target)}</span>
-        </p>
-      )}
-      {locked ? (
-        <p className="dashboard-milestone-caption dashboard-milestone-caption--locked">
-          Progress hidden until unlocked
-        </p>
-      ) : null}
-    </div>
+      {/* Video detail dialog */}
+      {dialogOpen &&
+        createPortal(
+          <div
+            className={`vd-backdrop ${dialogClosing ? 'vd-backdrop--closing' : ''}`}
+            onClick={closeDialog}
+          >
+            <div
+              className={`vd-dialog ${dialogClosing ? 'vd-dialog--closing' : ''}`}
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-label={video.title || 'Video details'}
+            >
+              <div className="vd-header">
+                <h3 className="vd-header__title">Video details</h3>
+                <button
+                  type="button"
+                  className="vd-header__close"
+                  onClick={closeDialog}
+                  aria-label="Close"
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  >
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className={`vd-body ${videoScoreQuery.isPending ? 'vd-body--loading' : ''}`}>
+                {videoScoreQuery.isPending ? (
+                  <VdLoadingState />
+                ) : (
+                  <>
+                    {thumbSrc && (
+                      <div className="vd-thumb-banner">
+                        <img src={thumbSrc} alt="" className="vd-thumb-banner__img" />
+                        {score != null && (
+                          <div
+                            className="vd-thumb-banner__badge"
+                            style={{ background: getScoreColor(score) }}
+                          >
+                            {score}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="vd-info">
+                      <h4 className="vd-info__title">{video.title || 'Untitled'}</h4>
+                      <div className="vd-info__stats">
+                        {views > 0 && <span>{formatCount(views)} views</span>}
+                        {likes > 0 && <span>{formatCount(likes)} likes</span>}
+                        {comments > 0 && <span>{formatCount(comments)} comments</span>}
+                        {formattedDate && <span>{formattedDate}</span>}
+                      </div>
+                    </div>
+
+                    {desc && (
+                      <div className="vd-card">
+                        <span className="vd-card__label">Description</span>
+                        <p className="vd-card__text">
+                          {desc.slice(0, 280)}
+                          {desc.length > 280 ? '…' : ''}
+                        </p>
+                      </div>
+                    )}
+
+                    {score != null && (
+                      <div className="vd-card vd-card--score">
+                        <div className="vd-score-row">
+                          <div className="vd-score-ring">
+                            <svg viewBox="0 0 88 88" className="vd-score-ring__svg" aria-hidden>
+                              <circle
+                                cx="44"
+                                cy="44"
+                                r="38"
+                                fill="none"
+                                stroke="rgba(255,255,255,0.06)"
+                                strokeWidth="5.5"
+                              />
+                              <circle
+                                cx="44"
+                                cy="44"
+                                r="38"
+                                fill="none"
+                                stroke={getScoreColor(score)}
+                                strokeWidth="5.5"
+                                strokeLinecap="round"
+                                strokeDasharray={`${(score / 100) * 238.8} 238.8`}
+                                transform="rotate(-90 44 44)"
+                                className="vd-score-ring__fill"
+                              />
+                            </svg>
+                            <span
+                              className="vd-score-ring__val"
+                              style={{ color: getScoreColor(score) }}
+                            >
+                              {score}
+                            </span>
+                          </div>
+                          <div className="vd-score-meta">
+                            <span className="vd-score-meta__label">Video health</span>
+                            <span
+                              className="vd-score-meta__tier"
+                              style={{ color: getScoreColor(score) }}
+                            >
+                              {score >= 80
+                                ? 'Great'
+                                : score >= 60
+                                  ? 'Good'
+                                  : score >= 40
+                                    ? 'Fair'
+                                    : 'Needs work'}
+                            </span>
+                          </div>
+                        </div>
+                        {breakdown && (
+                          <div className="vd-bars">
+                            {SCORE_AREAS.map(({ key, label }) => {
+                              const val = breakdown[key]
+                              if (val == null) return null
+                              return (
+                                <div key={key} className="vd-bars__row">
+                                  <span className="vd-bars__label">{label}</span>
+                                  <div className="vd-bars__track">
+                                    <div
+                                      className="vd-bars__fill"
+                                      style={{ width: `${val}%`, background: getScoreColor(val) }}
+                                    />
+                                  </div>
+                                  <span
+                                    className="vd-bars__val"
+                                    style={{ color: getScoreColor(val) }}
+                                  >
+                                    {val}
+                                  </span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {feedback && Object.keys(feedback).length > 0 && (
+                      <div className="vd-card vd-card--feedback">
+                        <span className="vd-card__label">AI Feedback</span>
+                        <div className="vd-feedback-list">
+                          {SCORE_AREAS.map(({ key, label }) => {
+                            const tip = feedback[key]
+                            if (!tip) return null
+                            const val = breakdown?.[key]
+                            return (
+                              <div key={key} className="vd-feedback-item">
+                                <div
+                                  className="vd-feedback-item__dot"
+                                  style={{
+                                    background:
+                                      val != null ? getScoreColor(val) : 'rgba(255,255,255,0.2)',
+                                  }}
+                                />
+                                <div className="vd-feedback-item__body">
+                                  <span className="vd-feedback-item__area">{label}</span>
+                                  <span className="vd-feedback-item__tip">{tip}</span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="vd-footer">
+                <button
+                  type="button"
+                  className="vd-footer__btn"
+                  onClick={() => {
+                    closeDialog()
+                    setTimeout(() => onOptimize(video), 300)
+                  }}
+                >
+                  Optimize this video
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M5 12h14" />
+                    <path d="m12 5 7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
   )
 }
 
@@ -571,21 +1188,31 @@ export function Dashboard({ onLogout, shellManaged }) {
   const growthQuery = useDashboardGrowth(channelId)
   const snapshotQuery = useDashboardSnapshot(channelId, snapshotRange.from, snapshotRange.to)
 
+  const recentVideosQuery = useYoutubeVideosList({
+    channelId,
+    page: 1,
+    perPage: 3,
+    sort: 'published_at',
+    videoType: 'videos',
+    enabled: hasChannelData,
+  })
+  const recentVideos = recentVideosQuery.data?.items ?? []
+
+  const [pulseAccessToken, setPulseAccessToken] = useState(null)
+  useEffect(() => {
+    if (!hasChannelData) return
+    getAccessTokenOrNull().then((t) => setPulseAccessToken(t || null))
+  }, [hasChannelData])
+
   const audit = auditQuery.data
   const auditLoading = auditQuery.isPending
 
   const growth = growthQuery.data
-  const growthLoading = growthQuery.isPending
+  const growthLoading = growthQuery.isPending // eslint-disable-line no-unused-vars
 
-  const prePublishScore = useMemo(() => (audit ? computePrePublishScore(audit) : null), [audit])
+  const prePublishScore = useMemo(() => (audit ? computePrePublishScore(audit) : null), [audit]) // eslint-disable-line no-unused-vars
 
   const snapshot = snapshotQuery.data
-
-  const optimizeAuditHash = useMemo(
-    () =>
-      hashWithPrefill('optimize', optimizePrefill('channel health', audit?.overall_score ?? null)),
-    [audit]
-  )
 
   const auditBreakdownStats = useMemo(() => {
     if (!Array.isArray(audit?.scores) || audit.scores.length === 0) return null
@@ -605,7 +1232,7 @@ export function Dashboard({ onLogout, shellManaged }) {
     return { rows, weakest, avg, focusCount, strongCount, total: rows.length }
   }, [audit])
 
-  const growthScenario = useMemo(() => (growth ? getGrowthScenarioMessage(growth) : null), [growth])
+  const growthScenario = useMemo(() => (growth ? getGrowthScenarioMessage(growth) : null), [growth]) // eslint-disable-line no-unused-vars
 
   /** Thumbnail audit data for the workshop section */
   const thumbnailAuditScore = useMemo(() => {
@@ -626,6 +1253,7 @@ export function Dashboard({ onLogout, shellManaged }) {
   }, [audit])
 
   /** Big numbers + bar lengths for forecast panel (velocity comparison). */
+  // eslint-disable-next-line no-unused-vars
   const forecastMetrics = useMemo(() => {
     if (!growth) return null
     let proj =
@@ -656,7 +1284,7 @@ export function Dashboard({ onLogout, shellManaged }) {
     }
   }, [growth])
 
-  const dashboardName = getDashboardName(user)
+  const dashboardName = youtube?.channel_title || youtube?.channelName || getDashboardName(user)
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 1024px)')
@@ -861,6 +1489,10 @@ export function Dashboard({ onLogout, shellManaged }) {
       snapshotQuery.refetch()
     }
     setRefreshing(false)
+  }
+
+  const handlePulseOptimize = (video) => {
+    window.location.hash = `optimize?video_id=${encodeURIComponent(video.id)}`
   }
 
   const handleConnectYouTube = async () => {
@@ -1289,30 +1921,25 @@ export function Dashboard({ onLogout, shellManaged }) {
                     })}
                   </div>
                   <div className="dashboard-milestones-wrap dashboard-milestones-wrap--compact">
-                    <div className="dashboard-milestones-head">
-                      <h3 className="dashboard-milestones-heading">Milestones</h3>
-                    </div>
                     <div className="dashboard-milestones-grid dashboard-milestones-grid--pair">
-                      <DashboardMilestoneStrip
+                      <DashboardMilestones
                         key={
                           subsMilestoneFrom != null
-                            ? `ms-aud-${channelId}-${subsMilestoneFrom}`
-                            : `ms-aud-${channelId}`
+                            ? `ms-s-${channelId}-${subsMilestoneFrom}`
+                            : `ms-s-${channelId}`
                         }
-                        title="Audience"
-                        metricKind="subs"
+                        title="Subscribers"
                         steps={SUBS_STEPS}
                         current={subsCount}
                         animateFrom={subsMilestoneFrom}
                       />
-                      <DashboardMilestoneStrip
+                      <DashboardMilestones
                         key={
                           viewsMilestoneFrom != null
-                            ? `ms-vw-${channelId}-${viewsMilestoneFrom}`
-                            : `ms-vw-${channelId}`
+                            ? `ms-v-${channelId}-${viewsMilestoneFrom}`
+                            : `ms-v-${channelId}`
                         }
                         title="Views"
-                        metricKind="views"
                         steps={VIEWS_STEPS}
                         current={viewsCount}
                         animateFrom={viewsMilestoneFrom}
@@ -1342,233 +1969,42 @@ export function Dashboard({ onLogout, shellManaged }) {
 
             {hasChannelData && (
               <DashSection
-                icon="pulse"
-                title="Channel pulse"
-                className="dashboard-command-center"
+                icon="videos"
+                title="Recent videos"
                 meta={
-                  <>
-                    <span className="dashboard-command-status dashboard-command-status--live">
-                      YouTube linked
-                    </span>
-                    {auditLoading ? (
-                      <span className="dashboard-command-status dashboard-command-status--pending">
-                        Scoring channel…
-                      </span>
-                    ) : audit?.overall_score != null ? (
-                      <span className="dashboard-command-status">
-                        Health {audit.overall_score}/100
-                      </span>
-                    ) : (
-                      <span className="dashboard-command-status dashboard-command-status--pending">
-                        Audit pending
-                      </span>
-                    )}
-                  </>
+                  <span className="dashboard-command-status dashboard-command-status--live">
+                    YouTube linked
+                  </span>
                 }
               >
-                <div className="dashboard-command-summary-grid" aria-label="Channel pulse overview">
-                  <aside className="dashboard-command-side-card dashboard-command-side-card--forecast">
-                    <div className="dashboard-command-side-head">
-                      <span className="dashboard-command-side-eyebrow">Forecast</span>
-                      <h3 className="dashboard-command-side-title">30-day view outlook</h3>
-                    </div>
-                    {growthLoading && (
-                      <div className="dashboard-forecast-skeleton" aria-busy="true">
-                        <span className="dashboard-skeleton-line" />
-                        <span className="dashboard-skeleton-line dashboard-skeleton-line--short" />
-                      </div>
-                    )}
-                    {!growthLoading && forecastMetrics && (
-                      <>
-                        {forecastMetrics.projected != null ? (
-                          <div
-                            className="dashboard-command-outlook-hero"
-                            title={
-                              forecastMetrics.projectedIsEstimated
-                                ? 'From 30-day daily pace'
-                                : '30-day view projection'
-                            }
-                          >
-                            <div className="dashboard-command-outlook-row">
-                              <span className="dashboard-command-outlook-value">
-                                {formatCount(forecastMetrics.projected)}
-                              </span>
-                              <span className="dashboard-command-outlook-unit">views</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="dashboard-shell-empty" aria-hidden>
-                            —
-                          </div>
-                        )}
-                        <div className="dashboard-command-mini-stats">
-                          <div className="dashboard-command-mini-stat">
-                            <span className="dashboard-command-mini-stat-label">7-day pace</span>
-                            <strong className="dashboard-command-mini-stat-value">
-                              {forecastMetrics.v7 != null
-                                ? `${forecastMetrics.v7.toFixed(1)} views/day`
-                                : 'No data'}
-                            </strong>
-                          </div>
-                          <div className="dashboard-command-mini-stat">
-                            <span className="dashboard-command-mini-stat-label">30-day pace</span>
-                            <strong className="dashboard-command-mini-stat-value">
-                              {forecastMetrics.v30 != null
-                                ? `${forecastMetrics.v30.toFixed(1)} views/day`
-                                : 'No data'}
-                            </strong>
-                          </div>
-                          {growth?.projected_subs_90d != null && (
-                            <div className="dashboard-command-mini-stat">
-                              <span className="dashboard-command-mini-stat-label">
-                                Sub forecast (90d)
-                              </span>
-                              <strong className="dashboard-command-mini-stat-value">
-                                {formatCount(growth.projected_subs_90d)} subs
-                              </strong>
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    )}
-                    {!growthLoading && growthScenario?.opportunity && (
-                      <div className="dashboard-command-target">
-                        <span className="dashboard-command-target-label">Upside range</span>
-                        <strong className="dashboard-command-target-value">
-                          {growthScenario.opportunity}
-                        </strong>
-                      </div>
-                    )}
-                    {!growthLoading && !forecastMetrics && (
-                      <div className="dashboard-shell-empty" aria-hidden>
-                        —
-                      </div>
-                    )}
-                  </aside>
-
-                  <article className="dashboard-command-side-card dashboard-command-side-card--packaging">
-                    <div className="dashboard-command-side-head">
-                      <span className="dashboard-command-side-eyebrow">Readiness</span>
-                      <h3 className="dashboard-command-side-title">Pre-publish check</h3>
-                    </div>
-                    {auditLoading && (
-                      <div className="dashboard-command-side-body" aria-busy="true">
-                        <div className="dashboard-command-metrics dashboard-command-metrics--loading">
-                          <span className="dashboard-skeleton-pill" />
-                          <span className="dashboard-skeleton-pill" />
-                          <span className="dashboard-skeleton-pill" />
-                        </div>
-                        <div className="dashboard-tile-score-skeleton">
-                          <span className="dashboard-skeleton-ring" />
+                {recentVideosQuery.isPending && (
+                  <div className="cpulse-grid">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="cpulse-video-card cpulse-video-card--skeleton">
+                        <div className="cpulse-video-thumb cpulse-video-thumb--skeleton" />
+                        <div className="cpulse-video-info">
+                          <div className="cpulse-skeleton-line" />
+                          <div className="cpulse-skeleton-line cpulse-skeleton-line--short" />
                         </div>
                       </div>
-                    )}
-                    {!auditLoading && prePublishScore && (
-                      <div className="dashboard-command-side-body">
-                        <div className="dashboard-command-check-top">
-                          <div className="dashboard-command-check-score">
-                            <div className="dashboard-command-check-score-row-main">
-                              <span className="dashboard-command-check-score-num">
-                                {prePublishScore.score}
-                              </span>
-                              <span className="dashboard-command-check-score-max">/100</span>
-                            </div>
-                          </div>
-                          <span
-                            className={`dashboard-command-readiness-pill dashboard-command-readiness-pill--${prePublishScore.tier}`}
-                          >
-                            {prePublishScore.tier === 'strong'
-                              ? 'Ship-ready'
-                              : prePublishScore.tier === 'mixed'
-                                ? 'Polish first'
-                                : 'Needs work'}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    {!auditLoading && !prePublishScore && (
-                      <div className="dashboard-command-side-body">
-                        <div className="dashboard-shell-empty" aria-hidden>
-                          —
-                        </div>
-                      </div>
-                    )}
-                  </article>
-                </div>
-              </DashSection>
-            )}
-
-            {/* Quick actions — only after YouTube is connected (use sidebar tools otherwise) */}
-            {youtube?.connected && (
-              <DashSection icon="quick" title="Quick actions" className="dashboard-quick-actions">
-                <div className="dashboard-quick-actions-grid">
-                  <a
-                    href={`#${hashWithPrefill('coach/thumbnails', thumbPrefill({ pillar: 'CTR', score: null, videoTitle: null }))}`}
-                    className="dashboard-quick-action-card"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      window.location.hash = hashWithPrefill(
-                        'coach/thumbnails',
-                        thumbPrefill({ pillar: 'CTR', score: null, videoTitle: null })
-                      )
-                    }}
-                  >
-                    <span
-                      className="dashboard-quick-action-icon dashboard-quick-action-icon--thumbnail"
-                      aria-hidden
-                    >
-                      <IconThumbnail />
-                    </span>
-                    <span className="dashboard-quick-action-label">Thumbnail Generator</span>
-                    <span className="dashboard-quick-action-arrow" aria-hidden>
-                      <IconArrowRight />
-                    </span>
-                  </a>
-                  <a
-                    href={`#${hashWithPrefill('coach', coachPrefill('Channel', null, 'Top 3 priorities for my channel this week.'))}`}
-                    className="dashboard-quick-action-card"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      window.location.hash = hashWithPrefill(
-                        'coach',
-                        coachPrefill('Channel', null, 'Top 3 priorities for my channel this week.')
-                      )
-                    }}
-                  >
-                    <span
-                      className="dashboard-quick-action-icon dashboard-quick-action-icon--coach"
-                      aria-hidden
-                    >
-                      <IconMessage />
-                    </span>
-                    <span className="dashboard-quick-action-label">AI Coach</span>
-                    <span className="dashboard-quick-action-arrow" aria-hidden>
-                      <IconArrowRight />
-                    </span>
-                  </a>
-                  <a
-                    href={`#${hashWithPrefill('optimize', optimizePrefill('titles & thumbnails', null))}`}
-                    className="dashboard-quick-action-card"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      window.location.hash = hashWithPrefill(
-                        'optimize',
-                        optimizePrefill('titles & thumbnails', null)
-                      )
-                    }}
-                  >
-                    <span
-                      className="dashboard-quick-action-icon dashboard-quick-action-icon--optimize"
-                      aria-hidden
-                    >
-                      <IconOptimize />
-                    </span>
-                    <span className="dashboard-quick-action-label">Optimize</span>
-                    <span className="dashboard-quick-action-arrow" aria-hidden>
-                      <IconArrowRight />
-                    </span>
-                  </a>
-                </div>
+                    ))}
+                  </div>
+                )}
+                {!recentVideosQuery.isPending && recentVideos.length > 0 && (
+                  <div className="cpulse-grid">
+                    {recentVideos.map((video) => (
+                      <ChannelPulseVideoCard
+                        key={video.id}
+                        video={video}
+                        accessToken={pulseAccessToken}
+                        onOptimize={handlePulseOptimize}
+                      />
+                    ))}
+                  </div>
+                )}
+                {!recentVideosQuery.isPending && recentVideos.length === 0 && (
+                  <div className="dashboard-shell-empty">No videos found for this channel.</div>
+                )}
               </DashSection>
             )}
 
@@ -1576,179 +2012,136 @@ export function Dashboard({ onLogout, shellManaged }) {
             {channelId && (
               <DashSection
                 icon="health"
-                title="Channel health & audit"
+                title="Channel health"
                 id="dashboard-audit-heading"
                 className="dashboard-audit-open-section"
               >
                 {auditLoading && (
                   <div className="dashboard-loading">
-                    <span className="dashboard-loading-spinner" /> Loading audit…
+                    <IOSLoading size="md" layout="center" message="Loading audit…" />
                   </div>
                 )}
                 {!auditLoading && audit && (
-                  <div className="dashboard-audit-layout dashboard-audit-layout--stack">
-                    <div className="dashboard-ai-card dashboard-audit-card dashboard-audit-card--hero dashboard-audit-card--hero-full">
-                      <div className="dashboard-audit-hero">
-                        <div className="dashboard-audit-hero-top">
-                          <div className="dashboard-audit-hero-main">
-                            <span className="dashboard-audit-overall-label">Overall score</span>
-                            <div className="dashboard-audit-overall-row">
-                              <span className="dashboard-audit-overall-value">
-                                {audit.overall_score ?? 0}
-                                <span className="dashboard-audit-overall-max">/100</span>
-                              </span>
-                              <span
-                                className={`dashboard-audit-overall-badge dashboard-audit-overall-badge--${getAuditScoreTier(audit.overall_score ?? 0)}`}
-                              >
-                                {auditTierLabel(getAuditScoreTier(audit.overall_score ?? 0))}
-                              </span>
-                            </div>
-                          </div>
-                          {auditBreakdownStats && (
-                            <ul className="dashboard-audit-hero-quick" aria-label="Score summary">
-                              <li>
-                                <span className="dashboard-audit-hero-quick-label">Avg</span>
-                                <span className="dashboard-audit-hero-quick-value">
-                                  {auditBreakdownStats.avg}
-                                </span>
-                              </li>
-                              <li>
-                                <span className="dashboard-audit-hero-quick-label">Strong</span>
-                                <span className="dashboard-audit-hero-quick-value">
-                                  {auditBreakdownStats.strongCount}
-                                </span>
-                              </li>
-                              <li>
-                                <span className="dashboard-audit-hero-quick-label">To improve</span>
-                                <span className="dashboard-audit-hero-quick-value">
-                                  {auditBreakdownStats.focusCount}
-                                </span>
-                              </li>
-                            </ul>
-                          )}
-                        </div>
-                        <div
-                          className="dashboard-audit-overall-bar"
-                          role="progressbar"
-                          aria-valuenow={audit.overall_score ?? 0}
-                          aria-valuemin={0}
-                          aria-valuemax={100}
-                        >
-                          <div
-                            className={`dashboard-audit-overall-bar-fill dashboard-audit-overall-bar-fill--${getAuditScoreTier(audit.overall_score ?? 0)}`}
-                            style={{
-                              width: `${Math.min(100, Math.max(0, audit.overall_score ?? 0))}%`,
-                            }}
+                  <div className="audit-v2">
+                    {/* Overall score card */}
+                    <div className="audit-v2__score-card">
+                      <div className="audit-v2__ring-wrap">
+                        <svg viewBox="0 0 100 100" className="audit-v2__ring-svg" aria-hidden>
+                          <circle
+                            cx="50"
+                            cy="50"
+                            r="42"
+                            fill="none"
+                            stroke="rgba(255,255,255,0.06)"
+                            strokeWidth="6"
                           />
+                          <circle
+                            cx="50"
+                            cy="50"
+                            r="42"
+                            fill="none"
+                            stroke={getScoreColor(audit.overall_score ?? 0)}
+                            strokeWidth="6"
+                            strokeLinecap="round"
+                            strokeDasharray={`${((audit.overall_score ?? 0) / 100) * 263.9} 263.9`}
+                            transform="rotate(-90 50 50)"
+                            className="audit-v2__ring-fill"
+                          />
+                        </svg>
+                        <div className="audit-v2__ring-center">
+                          <span className="audit-v2__ring-val">{audit.overall_score ?? 0}</span>
                         </div>
+                      </div>
+                      <div className="audit-v2__score-info">
+                        <span
+                          className="audit-v2__score-tier"
+                          style={{ color: getScoreColor(audit.overall_score ?? 0) }}
+                        >
+                          {auditTierLabel(getAuditScoreTier(audit.overall_score ?? 0))}
+                        </span>
                         {auditBreakdownStats && (
-                          <div className="dashboard-audit-hero-foot">
-                            <div className="dashboard-audit-hero-focus-card">
-                              <p className="dashboard-audit-hero-focus">
-                                <span className="dashboard-audit-hero-focus-label">
-                                  Lowest area
-                                </span>
-                                <span className="dashboard-audit-hero-focus-value">
-                                  {auditBreakdownStats.weakest.name} ·{' '}
-                                  {auditBreakdownStats.weakest.score}/100
-                                </span>
-                              </p>
-                            </div>
-                            <DashButton
-                              asLink
-                              variant="secondary"
-                              className="dashboard-audit-hero-cta"
-                              href={`#${optimizeAuditHash}`}
-                              onClick={(e) => {
-                                e.preventDefault()
-                                window.location.hash = optimizeAuditHash
-                              }}
-                            >
-                              Improve in Optimize
-                              <span className="dashboard-audit-hero-cta-arrow" aria-hidden>
-                                <IconArrowRight />
-                              </span>
-                            </DashButton>
+                          <div className="audit-v2__score-stats">
+                            <span>
+                              <strong>{auditBreakdownStats.strongCount}</strong> strong
+                            </span>
+                            <span className="audit-v2__score-dot">·</span>
+                            <span>
+                              <strong>{auditBreakdownStats.focusCount}</strong> to improve
+                            </span>
                           </div>
                         )}
                       </div>
                     </div>
 
+                    {/* Individual area cards — fully pressable */}
                     {Array.isArray(audit.scores) && audit.scores.length > 0 && (
-                      <div className="dashboard-audit-breakdown-card dashboard-audit-breakdown-card--full">
-                        <div className="dashboard-audit-scores-head">
-                          <div className="dashboard-audit-scores-head-text">
-                            <span className="dashboard-audit-scores-title">Score breakdown</span>
-                          </div>
-                        </div>
-                        <div className="dashboard-audit-scores">
-                          {audit.scores.map((s, i) => {
-                            const score = Number(s.score ?? 0)
-                            const pct = Math.min(100, Math.max(0, score))
-                            const tier = getAuditScoreTier(score)
-                            const nm = String(s.name ?? s.label ?? '')
-                            const guidance = getAuditAreaGuidance(
-                              nm,
-                              score,
-                              s.label ? String(s.label) : null
-                            )
-                            const areaAct = guidance.href
-                              ? { label: 'Fix now', hash: guidance.href }
-                              : getAreaAction(nm)
-                            const areaNavHash = hashWithPrefill(
-                              areaAct.hash,
-                              getAreaPrefill(nm, score)
-                            )
-                            return (
-                              <a
-                                key={i}
-                                href={`#${areaNavHash}`}
-                                className={`dashboard-audit-score-item dashboard-audit-score-item--${tier}`}
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  window.location.hash = areaNavHash
-                                }}
-                              >
-                                <div className="dashboard-audit-score-head">
-                                  <span className="dashboard-audit-score-name">
-                                    {s.name ?? s.label}
-                                  </span>
-                                  <div className="dashboard-audit-score-right">
-                                    <span
-                                      className={`dashboard-audit-score-value dashboard-audit-score-value--${tier}`}
-                                    >
-                                      {score}
-                                      <span className="dashboard-audit-score-max">/100</span>
-                                    </span>
+                      <div className="audit-v2__grid">
+                        {audit.scores.map((s, i) => {
+                          const aScore = Number(s.score ?? 0)
+                          const aPct = Math.min(100, Math.max(0, aScore))
+                          const nm = String(s.name ?? s.label ?? '')
+                          const guidance = getAuditAreaGuidance(
+                            nm,
+                            aScore,
+                            s.label ? String(s.label) : null
+                          )
+                          const areaAct = guidance.href
+                            ? { label: 'Fix', hash: guidance.href }
+                            : getAreaAction(nm)
+                          const areaNavHash = hashWithPrefill(
+                            areaAct.hash,
+                            getAreaPrefill(nm, aScore)
+                          )
+                          const scoreColor = getScoreColor(aScore)
+                          return (
+                            <a
+                              key={i}
+                              href={`#${areaNavHash}`}
+                              className="audit-v2__item"
+                              style={{ '--audit-accent': scoreColor }}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                window.location.hash = areaNavHash
+                              }}
+                            >
+                              <div className="audit-v2__item-left">
+                                <div
+                                  className="audit-v2__item-score-badge"
+                                  style={{ background: `${scoreColor}18`, color: scoreColor }}
+                                >
+                                  {aScore}
+                                </div>
+                                <div className="audit-v2__item-info">
+                                  <span className="audit-v2__item-name">{s.name ?? s.label}</span>
+                                  <div className="audit-v2__item-bar">
+                                    <div
+                                      className="audit-v2__item-bar-fill"
+                                      style={{ width: `${aPct}%`, background: scoreColor }}
+                                    />
                                   </div>
                                 </div>
-                                <div
-                                  className="dashboard-audit-score-bar"
-                                  role="progressbar"
-                                  aria-valuenow={score}
-                                  aria-valuemin={0}
-                                  aria-valuemax={100}
+                              </div>
+                              <div className="audit-v2__item-right">
+                                <span className="audit-v2__item-cta">
+                                  {aScore >= 70 ? 'Details' : areaAct.label || 'Improve'}
+                                </span>
+                                <svg
+                                  className="audit-v2__item-arrow"
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
                                 >
-                                  <div
-                                    className={`dashboard-audit-score-bar-fill dashboard-audit-score-bar-fill--${tier}`}
-                                    style={{ width: `${pct}%` }}
-                                  />
-                                </div>
-                                <div className="dashboard-audit-score-footer">
-                                  <span
-                                    className={`dashboard-audit-score-tier dashboard-audit-score-tier--${tier}`}
-                                  >
-                                    {auditTierLabel(tier)}
-                                  </span>
-                                  <span className="dashboard-audit-score-action">
-                                    {tier === 'high' ? 'View details' : areaAct.label}
-                                    <IconArrowRight />
-                                  </span>
-                                </div>
-                              </a>
-                            )
-                          })}
-                        </div>
+                                  <path d="m9 18 6-6-6-6" />
+                                </svg>
+                              </div>
+                            </a>
+                          )
+                        })}
                       </div>
                     )}
                   </div>

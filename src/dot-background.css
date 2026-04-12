@@ -4,7 +4,7 @@
  */
 :root {
   /* Align with dashboard / coach canvas (--app-canvas-bg) */
-  --dot-base: #050506;
+  --dot-base: #0a0a0c;
   --dot-color: rgba(255, 255, 255, 0.042);
   /* Extra pass in the middle so the grid reads clearly in the focal area */
   --dot-color-center: rgba(255, 255, 255, 0.055);

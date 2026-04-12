@@ -2,16 +2,63 @@ import { useState, useEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars
 import { youtubeApi } from '../api/youtube'
-import { Loading } from '../components/Loading'
+import { IOSLoading } from '../components/IOSLoading'
 import { TabBar } from '../components/TabBar'
 import { useYoutubeVideoOptimization } from '../queries/youtube/optimizationQueries'
-import { useThumbnailChatMutation } from '../queries/thumbnails/thumbnailQueries'
+import { videoThumbnailsApi } from '../api/videoThumbnails'
+import { PersonaSelector } from '../components/PersonaSelector'
+import { StyleSelector } from '../components/StyleSelector'
 import { queryKeys } from '../lib/query/queryKeys'
 import './VideoOptimizeModal.css'
 
+function BatchCirclePicker({ value, onChange, disabled }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    if (open) {
+      document.addEventListener('click', onDoc)
+      return () => document.removeEventListener('click', onDoc)
+    }
+  }, [open])
+  return (
+    <div ref={ref} className={`vo-batch-picker ${disabled ? 'is-disabled' : ''}`}>
+      <button
+        type="button"
+        className="vo-batch-trigger"
+        disabled={disabled}
+        onClick={() => !disabled && setOpen((o) => !o)}
+        title="Concepts per run"
+      >
+        <span className="vo-batch-val">{value}×</span>
+      </button>
+      {open && !disabled && (
+        <div className="vo-batch-popover" role="listbox">
+          {[1, 2, 3, 4].map((n) => (
+            <button
+              key={n}
+              type="button"
+              role="option"
+              className={`vo-batch-option ${n === value ? 'is-active' : ''}`}
+              onClick={() => {
+                onChange(n)
+                setOpen(false)
+              }}
+            >
+              {n}×
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const TABS = [
-  { id: 'title', label: 'Title options' },
-  { id: 'thumbnail', label: 'Thumbnail ideas' },
+  { id: 'title', label: 'Title' },
+  { id: 'thumbnail', label: 'Thumbnails' },
   { id: 'seo', label: 'SEO' },
   { id: 'preview', label: 'Preview' },
 ]
@@ -100,7 +147,8 @@ export function VideoOptimizeModal({
   const [thumbnailsByVideo, setThumbnailsByVideo] = useState({})
   const [thumbnailLoading, setThumbnailLoading] = useState(false)
   const [uploadedByVideo, setUploadedByVideo] = useState({})
-  const THUMB_PROMPT_MAX = 200
+  const THUMB_PROMPT_MAX = 2500
+  const [thumbBatchCount, setThumbBatchCount] = useState(1)
   const videoId = video?.id
   const thumbnailBatch = thumbnailsByVideo[videoId] || []
   const uploadedThumbnails = uploadedByVideo[videoId] || []
@@ -445,9 +493,34 @@ export function VideoOptimizeModal({
       })
   }
 
-  const thumbnailChatMutation = useThumbnailChatMutation()
-
   const getYoutubeUrl = () => (video?.id ? `https://www.youtube.com/watch?v=${video.id}` : '')
+
+  // Load saved thumbnails from API when video opens
+  useEffect(() => {
+    if (!open || !videoId) return
+    let cancelled = false
+    getValidAccessToken().then(async (token) => {
+      if (!token || cancelled) return
+      try {
+        const res = await videoThumbnailsApi.list(token, videoId)
+        if (!cancelled && res?.thumbnails?.length) {
+          setThumbnailsByVideo((prev) => ({
+            ...prev,
+            [videoId]: res.thumbnails.map((t) => ({
+              ...t,
+              id: t.id,
+              image_url: t.image_url,
+              title: t.title || 'Generated',
+              source: t.source || 'generated',
+            })),
+          }))
+        }
+      } catch (_) {}
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [open, videoId, getValidAccessToken])
 
   const handleGenerateThumbnails = async () => {
     if (thumbnailLoading) {
@@ -466,22 +539,21 @@ export function VideoOptimizeModal({
     setThumbnailLoading(true)
     setThumbnailPrompt('')
     try {
-      const res = await thumbnailChatMutation.mutateAsync({
-        message,
-        num_thumbnails: 1,
+      const token = await getValidAccessToken()
+      if (!token) throw new Error('Not authenticated')
+      const res = await videoThumbnailsApi.generate(token, {
+        video_id: videoId,
         channel_id: channelId || undefined,
+        message,
+        num_thumbnails: thumbBatchCount,
+        persona_id: undefined,
+        style_id: undefined,
       })
       if (ac.signal.aborted) return
       const thumbs = res?.thumbnails || []
-      const mapped = thumbs.map((t) => ({
-        ...t,
-        title: t.title || userPrompt || 'AI Generated',
-        id: `gen-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        score: t.score ?? null,
-      }))
       setThumbnailsByVideo((prev) => ({
         ...prev,
-        [videoId]: [...mapped, ...(prev[videoId] || [])],
+        [videoId]: [...thumbs, ...(prev[videoId] || [])],
       }))
     } catch (_) {
       // keep existing thumbnails on error
@@ -521,15 +593,23 @@ export function VideoOptimizeModal({
     }))
   }
 
-  const handleRemoveGenerated = (id) => {
+  const handleRemoveGenerated = async (id) => {
     const removed = thumbnailBatch.find((t) => t.id === id)
     if (removed && selectedPreviewThumbnailUrl === removed.image_url) {
       setSelectedPreviewThumbnailUrl(null)
     }
+    // Remove from local state immediately
     setThumbnailsByVideo((prev) => ({
       ...prev,
       [videoId]: (prev[videoId] || []).filter((t) => t.id !== id),
     }))
+    // Delete from server
+    try {
+      const token = await getValidAccessToken()
+      if (token && typeof id === 'number') {
+        await videoThumbnailsApi.delete(token, id)
+      }
+    } catch (_) {}
   }
 
   const handleDetailsCommandSubmit = () => {
@@ -861,7 +941,7 @@ export function VideoOptimizeModal({
           <div className="video-opt-screen-body">
             {loading && (
               <div className="video-opt-loading">
-                <Loading size="lg" layout="page" message="Generating suggestions…" />
+                <IOSLoading size="lg" layout="page" message="Generating suggestions…" />
               </div>
             )}
             {error && (
@@ -1110,90 +1190,89 @@ export function VideoOptimizeModal({
                   {/* === THUMBNAIL TAB === */}
                   {activeTab === 'thumbnail' && (
                     <div className="video-opt-thumb-panel">
-                      {/* Action cards row */}
-                      <div className="video-opt-thumb-actions">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="video-opt-thumb-file-input"
+                        onChange={handleUploadThumbnail}
+                      />
+
+                      {/* Thumbnail gallery — action cards + thumbnails in same grid */}
+                      <div className="video-opt-thumb-gallery">
+                        {/* Quick generate */}
                         <button
                           type="button"
-                          className={`video-opt-thumb-action ${thumbnailLoading ? 'video-opt-thumb-action--active' : ''}`}
+                          className={`video-opt-thumb-card video-opt-thumb-card--action ${thumbnailLoading ? 'video-opt-thumb-card--action-active' : ''}`}
                           onClick={handleGenerateThumbnails}
                           disabled={!thumbnailLoading && !video?.id}
                         >
-                          <span className="video-opt-thumb-action-icon">
-                            {thumbnailLoading ? (
-                              <span className="video-opt-btn-spinner" aria-hidden />
-                            ) : (
-                              <svg
-                                width="20"
-                                height="20"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.5"
-                              >
-                                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                                <path d="M2 17l10 5 10-5" />
-                                <path d="M2 12l10 5 10-5" />
-                              </svg>
-                            )}
-                          </span>
-                          <span className="video-opt-thumb-action-label">
+                          {thumbnailLoading ? (
+                            <span className="video-opt-btn-spinner" aria-hidden />
+                          ) : (
+                            <svg
+                              width="26"
+                              height="26"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                            >
+                              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                              <path d="M2 17l10 5 10-5" />
+                              <path d="M2 12l10 5 10-5" />
+                            </svg>
+                          )}
+                          <span className="video-opt-thumb-card-action-label">
                             {thumbnailLoading ? 'Stop' : 'Quick generate'}
                           </span>
                         </button>
+
+                        {/* Start from frame */}
                         <button
                           type="button"
-                          className="video-opt-thumb-action"
-                          onClick={() => fileInputRef.current?.click()}
-                        >
-                          <span className="video-opt-thumb-action-icon">
-                            <svg
-                              width="20"
-                              height="20"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                            >
-                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                              <polyline points="17 8 12 3 7 8" />
-                              <line x1="12" y1="3" x2="12" y2="15" />
-                            </svg>
-                          </span>
-                          <span className="video-opt-thumb-action-label">Upload</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="video-opt-thumb-action"
+                          className="video-opt-thumb-card video-opt-thumb-card--action"
                           onClick={handleGenerateThumbnails}
                           disabled={!video?.id}
                         >
-                          <span className="video-opt-thumb-action-icon">
-                            <svg
-                              width="20"
-                              height="20"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                            >
-                              <rect x="2" y="2" width="20" height="20" rx="2" />
-                              <path d="M9 2v20" />
-                              <path d="M2 12h7" />
-                            </svg>
+                          <svg
+                            width="26"
+                            height="26"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                          >
+                            <rect x="2" y="2" width="20" height="20" rx="2" />
+                            <path d="M9 2v20" />
+                            <path d="M2 12h7" />
+                          </svg>
+                          <span className="video-opt-thumb-card-action-label">
+                            Start from frame
                           </span>
-                          <span className="video-opt-thumb-action-label">Start from frame</span>
                         </button>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          className="video-opt-thumb-file-input"
-                          onChange={handleUploadThumbnail}
-                        />
-                      </div>
 
-                      {/* Thumbnail gallery */}
-                      <div className="video-opt-thumb-gallery">
+                        {/* Upload */}
+                        <button
+                          type="button"
+                          className="video-opt-thumb-card video-opt-thumb-card--action"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <svg
+                            width="26"
+                            height="26"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                          >
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                          </svg>
+                          <span className="video-opt-thumb-card-action-label">Upload</span>
+                        </button>
+
                         {/* Current */}
                         <div
                           className={`video-opt-thumb-card video-opt-thumb-card--current ${!selectedPreviewThumbnailUrl ? 'video-opt-thumb-card--selected' : ''}`}
@@ -1400,80 +1479,6 @@ export function VideoOptimizeModal({
                             </motion.div>
                           ))}
                         </AnimatePresence>
-                      </div>
-
-                      {/* Floating glass input bar */}
-                      <div className="video-opt-thumb-float-bar">
-                        <div className="video-opt-float-glass">
-                          <textarea
-                            className="video-opt-float-input"
-                            value={thumbnailPrompt}
-                            onChange={(e) =>
-                              setThumbnailPrompt(e.target.value.slice(0, THUMB_PROMPT_MAX))
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault()
-                                handleGenerateThumbnails()
-                              }
-                            }}
-                            onInput={(e) => {
-                              e.target.style.height = 'auto'
-                              e.target.style.height = Math.min(e.target.scrollHeight, 88) + 'px'
-                            }}
-                            placeholder="Describe your thumbnail idea..."
-                            aria-label="Thumbnail prompt"
-                            maxLength={THUMB_PROMPT_MAX}
-                            rows={1}
-                          />
-                          <div className="video-opt-float-actions">
-                            <button
-                              type="button"
-                              className="video-opt-float-action-btn"
-                              onClick={() => fileInputRef.current?.click()}
-                              title="Add image"
-                            >
-                              <svg
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              >
-                                <rect x="3" y="3" width="18" height="18" rx="2" />
-                                <circle cx="8.5" cy="8.5" r="1.5" />
-                                <polyline points="21 15 16 10 5 21" />
-                              </svg>
-                            </button>
-                            <button
-                              type="button"
-                              className={`video-opt-float-send ${thumbnailLoading ? 'video-opt-float-send--loading' : ''}`}
-                              onClick={handleGenerateThumbnails}
-                              disabled={!thumbnailLoading && !videoId}
-                            >
-                              {thumbnailLoading ? (
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                  <rect x="6" y="6" width="12" height="12" rx="2" />
-                                </svg>
-                              ) : (
-                                <svg
-                                  width="16"
-                                  height="16"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2.5"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                >
-                                  <path d="M12 19V5" />
-                                  <path d="M5 12l7-7 7 7" />
-                                </svg>
-                              )}
-                            </button>
-                          </div>
-                        </div>
                       </div>
                     </div>
                   )}
@@ -1721,58 +1726,6 @@ export function VideoOptimizeModal({
                           )}
                         </div>
                       </div>
-
-                      {/* Floating glass command bar */}
-                      <div className="video-opt-details-command-float">
-                        <div className="video-opt-float-glass">
-                          <textarea
-                            className="video-opt-float-input"
-                            value={detailsCommand}
-                            onChange={(e) => setDetailsCommand(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault()
-                                handleDetailsCommandSubmit()
-                              }
-                            }}
-                            onInput={(e) => {
-                              e.target.style.height = 'auto'
-                              e.target.style.height = Math.min(e.target.scrollHeight, 88) + 'px'
-                            }}
-                            placeholder="Ask AI to edit your description…"
-                            aria-label="AI command for description"
-                            rows={1}
-                          />
-                          <div className="video-opt-float-actions">
-                            <button
-                              type="button"
-                              className={`video-opt-float-send ${refineLoading ? 'video-opt-float-send--loading' : ''}`}
-                              onClick={handleDetailsCommandSubmit}
-                              disabled={!detailsCommand.trim() || refineLoading}
-                            >
-                              {refineLoading ? (
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                  <rect x="6" y="6" width="12" height="12" rx="2" />
-                                </svg>
-                              ) : (
-                                <svg
-                                  width="16"
-                                  height="16"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2.5"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                >
-                                  <path d="M12 19V5" />
-                                  <path d="M5 12l7-7 7 7" />
-                                </svg>
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   )}
 
@@ -1938,6 +1891,139 @@ export function VideoOptimizeModal({
               </AnimatePresence>
             )}
           </div>
+
+          {/* Float bars pinned to bottom of tools panel */}
+          {activeTab === 'thumbnail' && (
+            <div className="video-opt-thumb-float-bar">
+              <div className="video-opt-float-glass">
+                <textarea
+                  className="video-opt-float-input"
+                  value={thumbnailPrompt}
+                  onChange={(e) => setThumbnailPrompt(e.target.value.slice(0, THUMB_PROMPT_MAX))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleGenerateThumbnails()
+                    }
+                  }}
+                  onInput={(e) => {
+                    e.target.style.height = 'auto'
+                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
+                  }}
+                  placeholder="Describe your thumbnail idea... e.g. dramatic lighting, close-up face with surprised expression, bold text overlay"
+                  aria-label="Thumbnail prompt"
+                  maxLength={THUMB_PROMPT_MAX}
+                  rows={1}
+                />
+                <div className="video-opt-float-actions">
+                  <button
+                    type="button"
+                    className="video-opt-float-circle-btn"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Add reference image"
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <rect x="3" y="3" width="18" height="18" rx="2" />
+                      <circle cx="8.5" cy="8.5" r="1.5" />
+                      <polyline points="21 15 16 10 5 21" />
+                    </svg>
+                  </button>
+                  <PersonaSelector variant="glassCircle" />
+                  <StyleSelector variant="glassCircle" />
+                  <BatchCirclePicker
+                    value={thumbBatchCount}
+                    onChange={setThumbBatchCount}
+                    disabled={thumbnailLoading}
+                  />
+                  <button
+                    type="button"
+                    className={`video-opt-float-send ${thumbnailLoading ? 'video-opt-float-send--loading' : ''}`}
+                    onClick={handleGenerateThumbnails}
+                    disabled={!thumbnailLoading && !videoId}
+                  >
+                    {thumbnailLoading ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="6" y="6" width="12" height="12" rx="2" />
+                      </svg>
+                    ) : (
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 19V5" />
+                        <path d="M5 12l7-7 7 7" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {activeTab === 'seo' && (
+            <div className="video-opt-details-command-float">
+              <div className="video-opt-float-glass">
+                <textarea
+                  className="video-opt-float-input"
+                  value={detailsCommand}
+                  onChange={(e) => setDetailsCommand(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleDetailsCommandSubmit()
+                    }
+                  }}
+                  onInput={(e) => {
+                    e.target.style.height = 'auto'
+                    e.target.style.height = Math.min(e.target.scrollHeight, 88) + 'px'
+                  }}
+                  placeholder="Ask AI to edit your description…"
+                  aria-label="AI command for description"
+                  rows={1}
+                />
+                <div className="video-opt-float-actions">
+                  <button
+                    type="button"
+                    className={`video-opt-float-send ${refineLoading ? 'video-opt-float-send--loading' : ''}`}
+                    onClick={handleDetailsCommandSubmit}
+                    disabled={!detailsCommand.trim() || refineLoading}
+                  >
+                    {refineLoading ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="6" y="6" width="12" height="12" rx="2" />
+                      </svg>
+                    ) : (
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 19V5" />
+                        <path d="M5 12l7-7 7 7" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

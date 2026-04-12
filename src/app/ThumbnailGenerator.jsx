@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { thumbnailsApi } from '../api/thumbnails'
@@ -92,79 +92,6 @@ function IconChevronDown() {
     </svg>
   )
 }
-
-function IconEmptyGenerate() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-    </svg>
-  )
-}
-
-function IconEmptyRecreate() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 12a9 9 0 0 1 15.5-6.3L21 8" />
-      <path d="M21 3v5h-5" />
-      <path d="M21 12a9 9 0 0 1-15.5 6.3L3 16" />
-      <path d="M3 21v-5h5" />
-    </svg>
-  )
-}
-
-function IconEmptyAnalyze() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.35-4.35" />
-    </svg>
-  )
-}
-
-const THUMB_QUICK_ACTIONS = [
-  {
-    id: 'ideas',
-    label: 'Generate from title',
-    prompt: 'Generate a click-worthy thumbnail concept for my next video.',
-    mode: 'prompt',
-    Icon: IconEmptyGenerate,
-  },
-  {
-    id: 'hook',
-    label: 'Recreate existing',
-    prompt: 'Recreate this thumbnail with a fresh design while keeping the subject.',
-    mode: 'recreate',
-    Icon: IconEmptyRecreate,
-  },
-  {
-    id: 'thumbnail',
-    label: 'Analyze competitor',
-    prompt: 'Analyze this thumbnail and tell me what works and what to improve.',
-    mode: 'analyze',
-    Icon: IconEmptyAnalyze,
-  },
-]
 
 function IconPaperclip() {
   return (
@@ -959,6 +886,7 @@ export function ThumbnailGenerator({
   const [sendError, setSendError] = useState('')
   const [pendingUserMessage, setPendingUserMessage] = useState(null)
   const [pendingAssistant, setPendingAssistant] = useState(false)
+  const [pendingUserImageUrl, setPendingUserImageUrl] = useState(null)
   const [loadingStepIndex, setLoadingStepIndex] = useState(0)
   const [loadingPct, setLoadingPct] = useState(0)
   const stepIntervalRef = useRef(null)
@@ -981,6 +909,8 @@ export function ThumbnailGenerator({
   const textareaRef = useRef(null)
   const recreateTextareaRef = useRef(null)
   const editFileInputRef = useRef(null)
+  const modePaneRef = useRef(null)
+  const modePaneFromHeightRef = useRef(null)
 
   const conversationQuery = useThumbnailConversationQuery(conversationId)
   const chatMutation = useThumbnailChatMutation(onConversationCreated)
@@ -993,6 +923,9 @@ export function ThumbnailGenerator({
 
   const handleThumbModeTab = useCallback(
     (id) => {
+      if (modePaneRef.current) {
+        modePaneFromHeightRef.current = modePaneRef.current.offsetHeight
+      }
       setThumbMode(id)
       pushThumbModeHash(conversationId, id)
     },
@@ -1005,6 +938,44 @@ export function ThumbnailGenerator({
     setAnalyzeSourceMode('youtube')
     setEditSourceMode('url')
     setNumRecreateThumbnails(1)
+  }, [thumbMode])
+
+  // Animate mode pane height when tab changes
+  useLayoutEffect(() => {
+    const el = modePaneRef.current
+    const from = modePaneFromHeightRef.current
+    modePaneFromHeightRef.current = null
+    if (!el || from === null || from === undefined) return
+
+    // Reset any in-progress animation first
+    el.style.transition = 'none'
+    el.style.height = ''
+    el.style.overflow = ''
+    void el.offsetHeight
+
+    const to = el.scrollHeight
+    if (from === to) return
+
+    el.style.overflow = 'hidden'
+    el.style.height = `${from}px`
+    void el.offsetHeight
+    el.style.transition = 'height 0.3s cubic-bezier(0.25, 1, 0.5, 1)'
+
+    const rafId = requestAnimationFrame(() => {
+      el.style.height = `${to}px`
+    })
+
+    const cleanup = () => {
+      el.style.height = ''
+      el.style.overflow = ''
+      el.style.transition = ''
+    }
+    el.addEventListener('transitionend', cleanup, { once: true })
+
+    return () => {
+      cancelAnimationFrame(rafId)
+      cleanup()
+    }
   }, [thumbMode])
 
   /** Deep link from dashboard: #coach/thumbnails?prompt=...&prefill=...&focus=battle */
@@ -1157,18 +1128,38 @@ export function ThumbnailGenerator({
     }, 550)
   }, [])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = textareaRef.current
     if (!el) return
+    const prev = el.offsetHeight
+    el.style.transition = 'none'
+    el.style.overflow = 'hidden'
     el.style.height = '0px'
-    el.style.height = `${Math.max(28, Math.min(el.scrollHeight, 140))}px`
+    const target = Math.max(28, Math.min(el.scrollHeight, 140))
+    el.style.height = `${prev}px`
+    void el.offsetHeight
+    el.style.transition = 'height 0.26s cubic-bezier(0.25, 1, 0.5, 1)'
+    requestAnimationFrame(() => {
+      el.style.height = `${target}px`
+      if (target >= 140) el.style.overflow = ''
+    })
   }, [draft])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = recreateTextareaRef.current
     if (!el) return
+    const prev = el.offsetHeight
+    el.style.transition = 'none'
+    el.style.overflow = 'hidden'
     el.style.height = '0px'
-    el.style.height = `${Math.max(28, Math.min(el.scrollHeight, 140))}px`
+    const target = Math.max(28, Math.min(el.scrollHeight, 140))
+    el.style.height = `${prev}px`
+    void el.offsetHeight
+    el.style.transition = 'height 0.26s cubic-bezier(0.25, 1, 0.5, 1)'
+    requestAnimationFrame(() => {
+      el.style.height = `${target}px`
+      if (target >= 140) el.style.overflow = ''
+    })
   }, [recreateDraft])
 
   useEffect(() => {
@@ -1268,7 +1259,12 @@ export function ThumbnailGenerator({
   const pushLocalAssistantMessage = useCallback((userContent, assistant) => {
     setMessages((prev) => [
       ...prev,
-      { id: `user-${Date.now()}`, role: 'user', content: userContent },
+      {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: userContent,
+        imageUrl: assistant.userImageUrl || null,
+      },
       {
         id: assistant.id ?? `assistant-${Date.now()}`,
         role: 'assistant',
@@ -1300,11 +1296,6 @@ export function ThumbnailGenerator({
     if (!file || !file.type.startsWith('image/')) return
     setPromptImageDataUrl(await readFileAsDataUrl(file))
     e.target.value = ''
-  }
-
-  const handleQuickAction = (action) => {
-    if (action?.mode && action.mode !== thumbMode) setThumbMode(action.mode)
-    if (action?.prompt) setDraft(action.prompt)
   }
 
   const handleSubmit = async (e) => {
@@ -1550,9 +1541,11 @@ export function ThumbnailGenerator({
       setSendError('Add an image or YouTube link to analyze.')
       return
     }
-    const userText = `Analyze this thumbnail${analyzeTitle.trim() ? ` for "${analyzeTitle.trim()}"` : ''}.`
+    const titleTrim = analyzeTitle.trim()
+    const userText = `Analyze this thumbnail${titleTrim ? ` for "${titleTrim}"` : ''}.`
     setSendError('')
     setPendingUserMessage(userText)
+    setPendingUserImageUrl(imageUrl)
     setPendingAssistant(true)
     setAnalyzeTitle('')
     setAnalyzeSourceImage(null)
@@ -1564,11 +1557,11 @@ export function ThumbnailGenerator({
       const base64 = extractBase64FromDataUrl(imageUrl)
       const rating = await thumbnailsApi.rate(token, {
         ...(base64 ? { thumbnail_image_base64: base64 } : { thumbnail_image_url: imageUrl }),
-        video_title: analyzeTitle.trim() || undefined,
+        video_title: titleTrim || undefined,
       })
       pushLocalAssistantMessage(userText, {
-        content: buildAnalyzeSummary(rating, analyzeTitle.trim()),
-        imageUrl,
+        content: buildAnalyzeSummary(rating, titleTrim),
+        userImageUrl: imageUrl,
       })
       finishLoading()
     } catch (err) {
@@ -1576,6 +1569,7 @@ export function ThumbnailGenerator({
       setPendingAssistant(false)
     } finally {
       setPendingUserMessage(null)
+      setPendingUserImageUrl(null)
     }
   }
 
@@ -1586,7 +1580,9 @@ export function ThumbnailGenerator({
       role="tabpanel"
       aria-labelledby="coach-tab-thumbnails"
     >
-      <section className="coach-chat-shell">
+      <section
+        className={`coach-chat-shell${isEmptyScreen ? ' coach-chat-shell--thumb-empty' : ''}`}
+      >
         <div
           ref={threadRef}
           className={`coach-thread ${layoutCentered ? 'coach-thread--empty' : ''} coach-thread--thumb-panel ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
@@ -1600,27 +1596,9 @@ export function ThumbnailGenerator({
           )}
 
           {isEmptyScreen && (
-            <div className="coach-empty-state">
+            <div className="coach-empty-state thumb-empty-state">
               <span className="coach-empty-state-kicker">Thumbnail Generator</span>
               <h1>What thumbnail do you need?</h1>
-              <div className="coach-empty-actions" role="group" aria-label="Quick actions">
-                {THUMB_QUICK_ACTIONS.map((action) => {
-                  const Icon = action.Icon
-                  return (
-                    <button
-                      key={action.id}
-                      type="button"
-                      className={`coach-empty-action coach-empty-action--${action.id}`}
-                      onClick={() => handleQuickAction(action)}
-                    >
-                      <span className="coach-empty-action-icon-wrap" aria-hidden>
-                        {Icon ? <Icon /> : null}
-                      </span>
-                      <span className="coach-empty-action-label">{action.label}</span>
-                    </button>
-                  )
-                })}
-              </div>
             </div>
           )}
 
@@ -1632,6 +1610,15 @@ export function ThumbnailGenerator({
               >
                 {msg.role === 'user' ? (
                   <div className="coach-user-message-stack">
+                    {msg.imageUrl && (
+                      <div className="thumb-user-sent-image">
+                        <img
+                          src={msg.imageUrl}
+                          alt="Sent thumbnail"
+                          className="thumb-user-sent-img"
+                        />
+                      </div>
+                    )}
                     <div className="coach-message-bubble">
                       <p>{msg.content}</p>
                     </div>
@@ -1680,6 +1667,15 @@ export function ThumbnailGenerator({
           {pendingUserMessage && (
             <article className="coach-message coach-message--user coach-message--enter">
               <div className="coach-user-message-stack">
+                {pendingUserImageUrl && (
+                  <div className="thumb-user-sent-image">
+                    <img
+                      src={pendingUserImageUrl}
+                      alt="Sent thumbnail"
+                      className="thumb-user-sent-img"
+                    />
+                  </div>
+                )}
                 <div className="coach-message-bubble">
                   <p>{pendingUserMessage}</p>
                 </div>
@@ -1693,7 +1689,7 @@ export function ThumbnailGenerator({
                 className="thumb-gen-skeleton-card"
                 role="status"
                 aria-live="polite"
-                aria-label="Generating thumbnails"
+                aria-label="Generating"
               >
                 <div className="thumb-gen-skeleton-blob" aria-hidden />
                 <div className="thumb-gen-skeleton-shimmer" aria-hidden />
@@ -1703,9 +1699,12 @@ export function ThumbnailGenerator({
                   aria-hidden
                 />
                 <div className="thumb-gen-skeleton-content">
-                  <div className="thumb-gen-skeleton-pct">{loadingPct}%</div>
-                  <div className="thumb-gen-skeleton-label">
-                    {THUMBNAIL_LOADING_STEPS[loadingStepIndex]?.label}
+                  <div className="thumb-gen-skeleton-orb" aria-hidden />
+                  <div className="thumb-gen-skeleton-text">
+                    <div className="thumb-gen-skeleton-label">
+                      {THUMBNAIL_LOADING_STEPS[loadingStepIndex]?.label ?? 'Working on it…'}
+                    </div>
+                    <div className="thumb-gen-skeleton-pct">{loadingPct}%</div>
                   </div>
                 </div>
               </div>
@@ -1793,322 +1792,316 @@ export function ThumbnailGenerator({
                   })()}
               </div>
 
-              {thumbMode === 'prompt' && (
-                <form onSubmit={handleSubmit} className="thumb-gen-mode-form">
-                  <div className="coach-composer-input-wrap thumb-prompt-input-wrap">
-                    {promptImageDataUrl && (
-                      <div className="thumb-source-preview-strip">
-                        <img
-                          src={promptImageDataUrl}
-                          alt=""
-                          className="thumb-source-preview-strip-img"
+              <div ref={modePaneRef}>
+                {thumbMode === 'prompt' && (
+                  <form onSubmit={handleSubmit} className="thumb-gen-mode-form">
+                    <div className="coach-composer-input-wrap thumb-prompt-input-wrap">
+                      {promptImageDataUrl && (
+                        <div className="thumb-source-preview-strip">
+                          <img
+                            src={promptImageDataUrl}
+                            alt=""
+                            className="thumb-source-preview-strip-img"
+                          />
+                          <button
+                            type="button"
+                            className="thumb-source-preview-strip-clear"
+                            onClick={() => setPromptImageDataUrl(null)}
+                          >
+                            Remove image
+                          </button>
+                        </div>
+                      )}
+                      <textarea
+                        ref={textareaRef}
+                        value={draft}
+                        onChange={(e) => setDraft(String(e.target.value).slice(0, 500))}
+                        rows={1}
+                        className="coach-composer-input thumb-prompt-textarea"
+                        maxLength={500}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            handleSubmit(e)
+                          }
+                        }}
+                      />
+                      {!draft && !promptImageDataUrl ? (
+                        <AnimatedComposerHint hints={THUMB_COMPOSER_HINTS} />
+                      ) : null}
+                    </div>
+                    <div className="coach-composer-actions thumb-gen-toolbar">
+                      <div className="thumb-gen-toolbar-tools">
+                        <input
+                          ref={promptFileInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="coach-file-input"
+                          onChange={handlePromptImageChange}
                         />
                         <button
                           type="button"
-                          className="thumb-source-preview-strip-clear"
-                          onClick={() => setPromptImageDataUrl(null)}
+                          className="coach-composer-tool coach-composer-tool--circle thumb-gen-toolbar-attach"
+                          onClick={() => promptFileInputRef.current?.click()}
+                          aria-label="Add image"
+                          title="Add image"
                         >
-                          Remove image
+                          <IconPaperclip />
                         </button>
+                        <PersonaSelector onOpenLibrary={onOpenPersonas} variant="glassCircle" />
+                        <StyleSelector onOpenLibrary={onOpenStyles} variant="glassCircle" />
+                        <ThumbBatchCirclePicker
+                          value={numThumbnails}
+                          onChange={(v) => setNumThumbnails(Number(v))}
+                          disabled={pendingAssistant}
+                        />
                       </div>
-                    )}
-                    <textarea
-                      ref={textareaRef}
-                      value={draft}
-                      onChange={(e) => setDraft(String(e.target.value).slice(0, 500))}
-                      rows={1}
-                      className="coach-composer-input thumb-prompt-textarea"
-                      maxLength={500}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault()
-                          handleSubmit(e)
-                        }
-                      }}
-                    />
-                    {!draft && !promptImageDataUrl ? (
-                      <AnimatedComposerHint hints={THUMB_COMPOSER_HINTS} />
-                    ) : null}
-                  </div>
-                  <div className="coach-composer-actions thumb-gen-toolbar">
-                    <div className="thumb-gen-toolbar-tools">
-                      <input
-                        ref={promptFileInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="coach-file-input"
-                        onChange={handlePromptImageChange}
+                      <button
+                        type="submit"
+                        className="coach-composer-send coach-composer-primary-action is-send"
+                        disabled={pendingAssistant || (!draft.trim() && !promptImageDataUrl)}
+                        aria-label="Generate thumbnails"
+                      >
+                        <IconArrowUp />
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {thumbMode === 'recreate' && (
+                  <form onSubmit={handleRecreateSubmit} className="thumb-gen-mode-form">
+                    <div className="thumb-source-inline-row">
+                      {recreateSourceMode === 'youtube' ? (
+                        <div className="thumb-source-url-row">
+                          <input
+                            type="url"
+                            className="thumb-source-input"
+                            placeholder="Paste a YouTube or image link…"
+                            value={recreateUrlInput}
+                            onChange={(e) => setRecreateUrlInput(e.target.value.slice(0, 280))}
+                          />
+                          {(recreateFetchingPreview || recreatePreviewUrl) && (
+                            <div className="thumb-source-url-preview">
+                              {recreateFetchingPreview ? (
+                                <div
+                                  className="thumb-source-url-preview-loading"
+                                  aria-label="Loading preview"
+                                />
+                              ) : (
+                                <img
+                                  src={recreatePreviewUrl}
+                                  alt="Source thumbnail preview"
+                                  className="thumb-source-url-preview-img"
+                                  onClick={() =>
+                                    openThumbLightbox(recreatePreviewUrl, 'Source thumbnail')
+                                  }
+                                />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          <input
+                            ref={recreateFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="coach-file-input"
+                            onChange={handleRecreateFileChange}
+                          />
+                          <ThumbDropZone
+                            fileInputRef={recreateFileInputRef}
+                            imageDataUrl={recreateSourceImage}
+                            onFileChange={handleRecreateFileChange}
+                            onRemove={() => setRecreateSourceImage(null)}
+                            label="Drop image or click to upload"
+                          />
+                        </>
+                      )}
+                    </div>
+                    <div className="coach-composer-input-wrap thumb-prompt-input-wrap">
+                      <textarea
+                        ref={recreateTextareaRef}
+                        value={recreateDraft}
+                        onChange={(e) => setRecreateDraft(String(e.target.value).slice(0, 600))}
+                        placeholder="Describe what should change (optional)…"
+                        rows={1}
+                        className="coach-composer-input thumb-visible-placeholder"
+                        maxLength={600}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            handleRecreateSubmit(e)
+                          }
+                        }}
                       />
+                    </div>
+                    <div className="coach-composer-actions thumb-gen-toolbar">
+                      <div className="thumb-gen-toolbar-tools">
+                        <PersonaSelector onOpenLibrary={onOpenPersonas} variant="glassCircle" />
+                        <StyleSelector onOpenLibrary={onOpenStyles} variant="glassCircle" />
+                        <ThumbBatchCirclePicker
+                          value={numRecreateThumbnails}
+                          onChange={(v) => setNumRecreateThumbnails(Number(v))}
+                          disabled={pendingAssistant}
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        className="coach-composer-send coach-composer-primary-action is-send"
+                        disabled={
+                          pendingAssistant ||
+                          !(recreateSourceMode === 'upload'
+                            ? recreateSourceImage
+                            : recreatePreviewUrl)
+                        }
+                        aria-label="Recreate thumbnail"
+                      >
+                        <IconArrowUp />
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {thumbMode === 'analyze' && (
+                  <form onSubmit={handleAnalyzeFooterSubmit} className="thumb-gen-mode-form">
+                    <div className="thumb-source-inline-row">
+                      {analyzeSourceMode === 'youtube' ? (
+                        <div className="thumb-source-url-row">
+                          <input
+                            type="url"
+                            className="thumb-source-input"
+                            placeholder="Paste a YouTube or image link…"
+                            value={analyzeUrlInput}
+                            onChange={(e) => setAnalyzeUrlInput(e.target.value.slice(0, 280))}
+                          />
+                          {(analyzeFetchingPreview || analyzePreviewUrl) && (
+                            <div className="thumb-source-url-preview">
+                              {analyzeFetchingPreview ? (
+                                <div
+                                  className="thumb-source-url-preview-loading"
+                                  aria-label="Loading preview"
+                                />
+                              ) : (
+                                <img
+                                  src={analyzePreviewUrl}
+                                  alt="Source thumbnail preview"
+                                  className="thumb-source-url-preview-img"
+                                  onClick={() =>
+                                    openThumbLightbox(analyzePreviewUrl, 'Source thumbnail')
+                                  }
+                                />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          <input
+                            ref={analyzeFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="coach-file-input"
+                            onChange={handleAnalyzeFileChange}
+                          />
+                          <ThumbDropZone
+                            fileInputRef={analyzeFileInputRef}
+                            imageDataUrl={analyzeSourceImage}
+                            onFileChange={handleAnalyzeFileChange}
+                            onRemove={() => setAnalyzeSourceImage(null)}
+                            label="Drop image or click to upload"
+                          />
+                        </>
+                      )}
+                    </div>
+                    <div className="coach-composer-input-wrap thumb-prompt-input-wrap">
+                      <input
+                        type="text"
+                        value={analyzeTitle}
+                        onChange={(e) => setAnalyzeTitle(e.target.value.slice(0, 200))}
+                        placeholder="Video title (optional)…"
+                        className="coach-composer-input thumb-single-line-input thumb-visible-placeholder"
+                        maxLength={200}
+                      />
+                    </div>
+                    <div className="thumb-gen-analyze-submit-row">
+                      <button
+                        type="submit"
+                        className="thumb-gen-analyze-btn"
+                        disabled={
+                          pendingAssistant ||
+                          !(analyzeSourceMode === 'upload' ? analyzeSourceImage : analyzePreviewUrl)
+                        }
+                      >
+                        <IconArrowUp />
+                        Analyze
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {thumbMode === 'edit' && (
+                  <form onSubmit={handleEditSubmit} className="thumb-gen-mode-form">
+                    <div className="thumb-source-inline-row">
+                      {editSourceMode === 'url' ? (
+                        <input
+                          type="url"
+                          value={editUrlInput}
+                          onChange={(e) => {
+                            setEditUrlInput(e.target.value.slice(0, 800))
+                            setEditDataUrl(null)
+                            setEditFooterError('')
+                          }}
+                          placeholder="Paste an image link…"
+                          className="thumb-source-input"
+                        />
+                      ) : (
+                        <>
+                          <input
+                            ref={editFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="coach-file-input"
+                            onChange={handleEditFileChange}
+                          />
+                          <ThumbDropZone
+                            fileInputRef={editFileInputRef}
+                            imageDataUrl={editDataUrl}
+                            onFileChange={handleEditFileChange}
+                            onRemove={() => {
+                              setEditDataUrl(null)
+                              setEditPreviewUrl(null)
+                            }}
+                            label="Drop image or click to upload"
+                          />
+                        </>
+                      )}
+                    </div>
+                    <div className="thumb-gen-analyze-submit-row">
                       <button
                         type="button"
-                        className="coach-composer-tool coach-composer-tool--circle thumb-gen-toolbar-attach"
-                        onClick={() => promptFileInputRef.current?.click()}
-                        aria-label="Add image"
-                        title="Add image"
+                        className="thumb-gen-analyze-btn"
+                        disabled={editSourceMode === 'upload' ? !editDataUrl : !editPreviewUrl}
+                        onClick={handleOpenEditFromFooter}
                       >
-                        <IconPaperclip />
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden
+                        >
+                          <path d="M12 20h9" />
+                          <path d="m16.5 3.5 4 4L7 21l-4 1 1-4Z" />
+                        </svg>
+                        Open editor
                       </button>
-                      <PersonaSelector onOpenLibrary={onOpenPersonas} variant="glassCircle" />
-                      <StyleSelector onOpenLibrary={onOpenStyles} variant="glassCircle" />
-                      <Dropdown
-                        label="Batch"
-                        value={String(numThumbnails)}
-                        onChange={(v) => setNumThumbnails(Number(v))}
-                        options={BATCH_COUNT_OPTIONS}
-                        disabled={pendingAssistant}
-                        size="sm"
-                        align="end"
-                      />
                     </div>
-                    <button
-                      type="submit"
-                      className="coach-composer-send coach-composer-primary-action is-send"
-                      disabled={pendingAssistant || (!draft.trim() && !promptImageDataUrl)}
-                      aria-label="Generate thumbnails"
-                    >
-                      <IconArrowUp />
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {thumbMode === 'recreate' && (
-                <form onSubmit={handleRecreateSubmit} className="thumb-gen-mode-form">
-                  <div className="thumb-source-inline-row">
-                    {recreateSourceMode === 'youtube' ? (
-                      <div className="thumb-source-url-row">
-                        <input
-                          type="url"
-                          className="thumb-source-input"
-                          placeholder="Paste a YouTube or image link…"
-                          value={recreateUrlInput}
-                          onChange={(e) => setRecreateUrlInput(e.target.value.slice(0, 280))}
-                        />
-                        {(recreateFetchingPreview || recreatePreviewUrl) && (
-                          <div className="thumb-source-url-preview">
-                            {recreateFetchingPreview ? (
-                              <div
-                                className="thumb-source-url-preview-loading"
-                                aria-label="Loading preview"
-                              />
-                            ) : (
-                              <img
-                                src={recreatePreviewUrl}
-                                alt="Source thumbnail preview"
-                                className="thumb-source-url-preview-img"
-                                onClick={() =>
-                                  openThumbLightbox(recreatePreviewUrl, 'Source thumbnail')
-                                }
-                              />
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        <input
-                          ref={recreateFileInputRef}
-                          type="file"
-                          accept="image/*"
-                          className="coach-file-input"
-                          onChange={handleRecreateFileChange}
-                        />
-                        <ThumbDropZone
-                          fileInputRef={recreateFileInputRef}
-                          imageDataUrl={recreateSourceImage}
-                          onFileChange={handleRecreateFileChange}
-                          onRemove={() => setRecreateSourceImage(null)}
-                          label="Drop image or click to upload"
-                        />
-                      </>
-                    )}
-                  </div>
-                  <div className="coach-composer-input-wrap thumb-prompt-input-wrap">
-                    <textarea
-                      ref={recreateTextareaRef}
-                      value={recreateDraft}
-                      onChange={(e) => setRecreateDraft(String(e.target.value).slice(0, 600))}
-                      placeholder="Describe what should change (optional)…"
-                      rows={1}
-                      className="coach-composer-input thumb-visible-placeholder"
-                      maxLength={600}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault()
-                          handleRecreateSubmit(e)
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className="coach-composer-actions thumb-gen-toolbar">
-                    <div className="thumb-gen-toolbar-tools">
-                      <PersonaSelector onOpenLibrary={onOpenPersonas} variant="glassCircle" />
-                      <StyleSelector onOpenLibrary={onOpenStyles} variant="glassCircle" />
-                      <Dropdown
-                        label="Batch"
-                        value={String(numRecreateThumbnails)}
-                        onChange={(v) => setNumRecreateThumbnails(Number(v))}
-                        options={BATCH_COUNT_OPTIONS}
-                        disabled={pendingAssistant}
-                        size="sm"
-                        align="end"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      className="coach-composer-send coach-composer-primary-action is-send"
-                      disabled={
-                        pendingAssistant ||
-                        !(recreateSourceMode === 'upload'
-                          ? recreateSourceImage
-                          : recreatePreviewUrl)
-                      }
-                      aria-label="Recreate thumbnail"
-                    >
-                      <IconArrowUp />
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {thumbMode === 'analyze' && (
-                <form onSubmit={handleAnalyzeFooterSubmit} className="thumb-gen-mode-form">
-                  <div className="thumb-source-inline-row">
-                    {analyzeSourceMode === 'youtube' ? (
-                      <div className="thumb-source-url-row">
-                        <input
-                          type="url"
-                          className="thumb-source-input"
-                          placeholder="Paste a YouTube or image link…"
-                          value={analyzeUrlInput}
-                          onChange={(e) => setAnalyzeUrlInput(e.target.value.slice(0, 280))}
-                        />
-                        {(analyzeFetchingPreview || analyzePreviewUrl) && (
-                          <div className="thumb-source-url-preview">
-                            {analyzeFetchingPreview ? (
-                              <div
-                                className="thumb-source-url-preview-loading"
-                                aria-label="Loading preview"
-                              />
-                            ) : (
-                              <img
-                                src={analyzePreviewUrl}
-                                alt="Source thumbnail preview"
-                                className="thumb-source-url-preview-img"
-                                onClick={() =>
-                                  openThumbLightbox(analyzePreviewUrl, 'Source thumbnail')
-                                }
-                              />
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        <input
-                          ref={analyzeFileInputRef}
-                          type="file"
-                          accept="image/*"
-                          className="coach-file-input"
-                          onChange={handleAnalyzeFileChange}
-                        />
-                        <ThumbDropZone
-                          fileInputRef={analyzeFileInputRef}
-                          imageDataUrl={analyzeSourceImage}
-                          onFileChange={handleAnalyzeFileChange}
-                          onRemove={() => setAnalyzeSourceImage(null)}
-                          label="Drop image or click to upload"
-                        />
-                      </>
-                    )}
-                  </div>
-                  <div className="coach-composer-input-wrap thumb-prompt-input-wrap">
-                    <input
-                      type="text"
-                      value={analyzeTitle}
-                      onChange={(e) => setAnalyzeTitle(e.target.value.slice(0, 200))}
-                      placeholder="Video title (optional)…"
-                      className="coach-composer-input thumb-single-line-input thumb-visible-placeholder"
-                      maxLength={200}
-                    />
-                  </div>
-                  <div className="thumb-gen-analyze-submit-row">
-                    <button
-                      type="submit"
-                      className="thumb-gen-analyze-btn"
-                      disabled={
-                        pendingAssistant ||
-                        !(analyzeSourceMode === 'upload' ? analyzeSourceImage : analyzePreviewUrl)
-                      }
-                      aria-label="Analyze thumbnail"
-                    >
-                      Analyze
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {thumbMode === 'edit' && (
-                <form onSubmit={handleEditSubmit} className="thumb-gen-mode-form">
-                  <div className="thumb-source-inline-row">
-                    {editSourceMode === 'url' ? (
-                      <input
-                        type="url"
-                        value={editUrlInput}
-                        onChange={(e) => {
-                          setEditUrlInput(e.target.value.slice(0, 800))
-                          setEditDataUrl(null)
-                          setEditFooterError('')
-                        }}
-                        placeholder="Paste an image link…"
-                        className="thumb-source-input"
-                      />
-                    ) : (
-                      <>
-                        <input
-                          ref={editFileInputRef}
-                          type="file"
-                          accept="image/*"
-                          className="coach-file-input"
-                          onChange={handleEditFileChange}
-                        />
-                        <ThumbDropZone
-                          fileInputRef={editFileInputRef}
-                          imageDataUrl={editDataUrl}
-                          onFileChange={handleEditFileChange}
-                          onRemove={() => {
-                            setEditDataUrl(null)
-                            setEditPreviewUrl(null)
-                          }}
-                          label="Drop image or click to upload"
-                        />
-                      </>
-                    )}
-                  </div>
-                  <div className="thumb-edit-open-wrap">
-                    <button
-                      type="button"
-                      className="thumb-edit-open-cta"
-                      disabled={editSourceMode === 'upload' ? !editDataUrl : !editPreviewUrl}
-                      onClick={handleOpenEditFromFooter}
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                      >
-                        <path d="M12 20h9" />
-                        <path d="m16.5 3.5 4 4L7 21l-4 1 1-4Z" />
-                      </svg>
-                      Open editor
-                    </button>
-                  </div>
-                </form>
-              )}
+                  </form>
+                )}
+              </div>
             </div>
           </div>
         </footer>
