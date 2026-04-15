@@ -1578,59 +1578,61 @@ export function Dashboard({ onLogout, shellManaged }) {
         ref={channelPillRef}
         style={{ left: pillLeft }}
       >
-        {youtube?.connected ? (
-          <div className="dashboard-channel-pill dashboard-channel-pill--connected">
-            <button
-              type="button"
-              className="dashboard-channel-pill-trigger"
-              onClick={() => setChannelMenuOpen((o) => !o)}
-              aria-expanded={channelMenuOpen}
-              aria-haspopup="true"
-              aria-label="Channel menu"
-            >
-              {youtube.profile_image || youtube.avatar ? (
-                <img
-                  src={youtube.profile_image || youtube.avatar}
-                  alt=""
-                  className="dashboard-channel-pill-avatar"
-                />
-              ) : (
-                <span className="dashboard-channel-pill-avatar dashboard-channel-pill-avatar--fallback">
-                  {(youtube.channel_title || youtube.channelName || 'Y')[0]}
+        <div className="dashboard-header-pills">
+          {youtube?.connected ? (
+            <div className="dashboard-channel-pill dashboard-channel-pill--connected">
+              <button
+                type="button"
+                className="dashboard-channel-pill-trigger"
+                onClick={() => setChannelMenuOpen((o) => !o)}
+                aria-expanded={channelMenuOpen}
+                aria-haspopup="true"
+                aria-label="Channel menu"
+              >
+                {youtube.profile_image || youtube.avatar ? (
+                  <img
+                    src={youtube.profile_image || youtube.avatar}
+                    alt=""
+                    className="dashboard-channel-pill-avatar"
+                  />
+                ) : (
+                  <span className="dashboard-channel-pill-avatar dashboard-channel-pill-avatar--fallback">
+                    {(youtube.channel_title || youtube.channelName || 'Y')[0]}
+                  </span>
+                )}
+                <span className="dashboard-channel-pill-name">
+                  {youtube.channel_title || youtube.channelName || 'My Channel'}
                 </span>
-              )}
-              <span className="dashboard-channel-pill-name">
-                {youtube.channel_title || youtube.channelName || 'My Channel'}
-              </span>
-              <span className="dashboard-channel-pill-chevron" aria-hidden>
-                <IconChevronDown />
-              </span>
-            </button>
+                <span className="dashboard-channel-pill-chevron" aria-hidden>
+                  <IconChevronDown />
+                </span>
+              </button>
+              <button
+                type="button"
+                className={`dashboard-channel-pill-refresh ${refreshing ? 'dashboard-channel-pill-refresh--spin' : ''}`}
+                onClick={handleRefreshDashboard}
+                disabled={refreshing}
+                aria-label="Refresh dashboard data"
+                title="Refresh"
+              >
+                <IconRefresh />
+              </button>
+            </div>
+          ) : (
             <button
               type="button"
-              className={`dashboard-channel-pill-refresh ${refreshing ? 'dashboard-channel-pill-refresh--spin' : ''}`}
-              onClick={handleRefreshDashboard}
-              disabled={refreshing}
-              aria-label="Refresh dashboard data"
-              title="Refresh"
+              className="dashboard-channel-pill"
+              onClick={handleConnectYouTube}
+              disabled={youtubeLoading}
+              aria-label="Connect YouTube"
             >
-              <IconRefresh />
+              <span className="dashboard-channel-pill-icon" aria-hidden>
+                <IconPlus />
+              </span>
+              <span className="dashboard-channel-pill-label">Connect YouTube</span>
             </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="dashboard-channel-pill"
-            onClick={handleConnectYouTube}
-            disabled={youtubeLoading}
-            aria-label="Connect YouTube"
-          >
-            <span className="dashboard-channel-pill-icon" aria-hidden>
-              <IconPlus />
-            </span>
-            <span className="dashboard-channel-pill-label">Connect YouTube</span>
-          </button>
-        )}
+          )}
+        </div>
 
         {channelMenuOpen && youtube?.connected && (
           <div className="dashboard-channel-pill-menu" role="menu" aria-label="Channel options">

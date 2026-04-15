@@ -1,8 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { Canvas as FabricCanvas, FabricImage } from 'fabric'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { thumbnailsApi } from '../api/thumbnails'
+import { invalidateCredits } from '../queries/billing/creditsQueries'
+import { useModelTierStateQuery } from '../queries/modelTier/modelTierQueries'
+import { useFeatureCostsQuery } from '../queries/billing/creditsQueries'
+import { celebrate } from '../lib/celebrate'
 import './EditThumbnailDialog.css'
 
 /* ---- SVG icons ---- */
@@ -153,6 +158,11 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
   const [placedImages, setPlacedImages] = useState([])
   const [undoCount, setUndoCount] = useState(0)
 
+  // Face-swap local state — separate from region edit so users can use either.
+  const [faceImage, setFaceImage] = useState(null) // { dataUrl, name }
+  const [faceSwapping, setFaceSwapping] = useState(false)
+  const [faceSwapError, setFaceSwapError] = useState(null)
+
   const containerRef = useRef(null)
   const fabricElRef = useRef(null)
   const fabricRef = useRef(null)
@@ -160,7 +170,14 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
   const drawElRef = useRef(null)
   const maskElRef = useRef(null)
   const fileInputRef = useRef(null)
+  const faceFileInputRef = useRef(null)
   const placedFabRef = useRef([])
+
+  const queryClient = useQueryClient()
+  const { data: tierState } = useModelTierStateQuery()
+  const { data: featureCosts } = useFeatureCostsQuery()
+  const faceSwapCost = featureCosts?.thumbnail_edit_faceswap || 20
+  const tierLabel = tierState?.tiers?.find((t) => t.code === tierState?.selected)?.label || 'Lite'
 
   const isDrawingRef = useRef(false)
   const lastPosRef = useRef(null)
@@ -222,6 +239,10 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
   useEffect(() => {
     const el = fabricElRef.current
     if (!el) return
+    if (!imageUrl) {
+      setError('No image to edit — pick a thumbnail first.')
+      return
+    }
 
     const fc = new FabricCanvas(el, {
       selection: false,
@@ -230,17 +251,31 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     })
     fabricRef.current = fc
 
-    FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' })
+    // `crossOrigin: 'anonymous'` breaks base64 data URLs and same-origin URLs
+    // (fabric sets img.crossOrigin which then fails to load). Only set it when
+    // we truly have a cross-origin http(s) URL that needs CORS for canvas export.
+    const isDataUrl = typeof imageUrl === 'string' && imageUrl.startsWith('data:')
+    const isHttpUrl = typeof imageUrl === 'string' && /^https?:\/\//i.test(imageUrl)
+    const loadOptions = isDataUrl || !isHttpUrl ? undefined : { crossOrigin: 'anonymous' }
+
+    let cancelled = false
+    FabricImage.fromURL(imageUrl, loadOptions)
       .then((img) => {
+        if (cancelled) return
         img.set({ selectable: false, evented: false })
         fc.add(img)
         fc.sendObjectToBack(img)
         bgImgRef.current = img
         resizeCanvases()
       })
-      .catch(() => {})
+      .catch((err) => {
+        if (cancelled) return
+        console.error('[EditThumbnailDialog] failed to load image', err)
+        setError('Could not load this image into the editor. Try re-uploading it.')
+      })
 
     return () => {
+      cancelled = true
       fc.dispose()
       fabricRef.current = null
       bgImgRef.current = null
@@ -469,7 +504,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
       }
     },
     [tool, getPos, drawStroke]
-  )  
+  )
 
   const handlePointerMove = useCallback(
     (e) => {
@@ -515,7 +550,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
       }
     },
     [tool, getPos]
-  )  
+  )
 
   useEffect(() => {
     const el = drawElRef.current
@@ -659,6 +694,73 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
   }
 
   const canApply = !!editPrompt.trim() && hasStroke
+
+  /* ──────────────── Face swap ──────────────── */
+  const handleFaceFileChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      setFaceImage({ dataUrl: reader.result, name: file.name })
+      setFaceSwapError(null)
+    }
+    reader.onerror = () => setFaceSwapError('Could not read face image')
+    reader.readAsDataURL(file)
+    // Allow re-uploading the same file later.
+    e.target.value = ''
+  }
+
+  const handleFaceSwap = async () => {
+    if (!faceImage?.dataUrl) {
+      setFaceSwapError('Upload a face image first.')
+      return
+    }
+    setFaceSwapError(null)
+    setFaceSwapping(true)
+    try {
+      const token = await getAccessTokenOrNull()
+      if (!token) throw new Error('Sign in to use Face Swap')
+      const fc = fabricRef.current
+      if (!fc) throw new Error('Canvas not ready')
+      fc.discardActiveObject()
+      fc.renderAll()
+      // Composite (background + placed images) — what the user actually sees.
+      const compositeB64 = extractBase64(fc.toDataURL({ format: 'png', quality: 1 }))
+      const faceB64 = extractBase64(faceImage.dataUrl)
+      if (!faceB64) throw new Error('Could not encode face image')
+
+      const payload = {
+        thumbnail_image_base64: compositeB64 || undefined,
+        thumbnail_image_url: !compositeB64 ? imageUrl : undefined,
+        face_image_base64: faceB64,
+      }
+      const res = await thumbnailsApi.faceSwap(token, payload)
+      const newUrl = res?.image_url
+      if (!newUrl) throw new Error('No image in response')
+
+      invalidateCredits(queryClient)
+      celebrate({
+        emoji: '🎭',
+        title: 'Face swapped!',
+        subtitle: `Polished with ${res?.tier || tierState?.selected || 'SRX-1'}.`,
+        variant: 'celebrate',
+      })
+      onApply?.(newUrl)
+      onClose?.()
+    } catch (err) {
+      // Server-side error payload may carry a friendly message.
+      const msg =
+        err?.payload?.error?.extra?.message ||
+        err?.payload?.error?.message ||
+        err?.message ||
+        'Face swap failed.'
+      setFaceSwapError(msg)
+      // Plan-gate refresh so balance UI catches a refund if one happened.
+      invalidateCredits(queryClient)
+    } finally {
+      setFaceSwapping(false)
+    }
+  }
 
   /* ================================================================
      Render
@@ -843,6 +945,80 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
               className="etd-file-input"
               onChange={handleFileChange}
             />
+          </div>
+
+          {/* ── Face Swap (Creator+) ─────────────────────────────────── */}
+          <div className="etd-face-swap" role="region" aria-label="Face swap">
+            <div className="etd-face-swap-head">
+              <span className="etd-face-swap-title">
+                <IcoSparkle />
+                Face Swap
+              </span>
+              <span className="etd-face-swap-tier" title="SRX model tier in use">
+                {tierState?.selected || 'SRX-1'} · {tierLabel}
+              </span>
+            </div>
+
+            <div className="etd-face-swap-body">
+              {faceImage ? (
+                <div className="etd-face-chip">
+                  <img src={faceImage.dataUrl} alt="Target face" />
+                  <button
+                    type="button"
+                    className="etd-face-chip-remove"
+                    onClick={() => setFaceImage(null)}
+                    aria-label="Remove face image"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="etd-face-upload"
+                  onClick={() => faceFileInputRef.current?.click()}
+                  title="Upload the face image to swap into this thumbnail"
+                >
+                  <IcoUpload />
+                  <span>Upload face</span>
+                </button>
+              )}
+              <input
+                ref={faceFileInputRef}
+                type="file"
+                accept="image/*"
+                className="etd-file-input"
+                onChange={handleFaceFileChange}
+              />
+
+              <button
+                type="button"
+                className="etd-face-swap-go"
+                onClick={handleFaceSwap}
+                disabled={faceSwapping || !faceImage}
+                title="Swap the face in this thumbnail with your uploaded face"
+              >
+                {faceSwapping ? (
+                  <>
+                    <span className="etd-spinner" aria-hidden />
+                    <span>Swapping…</span>
+                  </>
+                ) : (
+                  <>
+                    <IcoSparkle />
+                    <span>Swap face</span>
+                    <span className="etd-face-swap-cost">{faceSwapCost} cr</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {faceSwapError && (
+              <div className="etd-face-swap-error" role="alert">
+                <IcoWarn />
+                <span>{faceSwapError}</span>
+              </div>
+            )}
           </div>
 
           {/* Prompt */}

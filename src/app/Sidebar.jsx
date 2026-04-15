@@ -1,10 +1,16 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import './Sidebar.css'
 import '../components/ui/ui.css'
 import { useSidebarStore } from '../stores/sidebarStore'
 import { useShallow } from 'zustand/react/shallow'
-import { SidebarButton, ConfirmDialog, FloatingMenu, LiquidGlass } from '../components/ui'
+import { SidebarButton, ConfirmDialog } from '../components/ui'
+import { useCreditsQuery, useSubscriptionQuery } from '../queries/billing/creditsQueries'
+import {
+  useModelTierStateQuery,
+  useSetModelTierMutation,
+} from '../queries/modelTier/modelTierQueries'
+import { openCreditsModal } from '../lib/creditsModalBus'
 import {
   prefetchCoachConversation,
   useCoachConversationsQuery,
@@ -62,6 +68,50 @@ const IconChart = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M3 3v18h18" />
     <path d="m19 9-5 5-4-4-3 3" />
+  </svg>
+)
+const IconStyles = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="7" cy="12" r="2.2" />
+    <circle cx="12" cy="7" r="2.2" />
+    <circle cx="17" cy="12" r="2.2" />
+    <circle cx="12" cy="17" r="2.2" />
+  </svg>
+)
+const IconBilling = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="3" y="6" width="18" height="13" rx="2" />
+    <path d="M3 10h18" />
+    <path d="M7 15h4" />
+  </svg>
+)
+const IconABTest = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M4 20 L7.5 9 L11 20" />
+    <path d="M5 16 h5.2" />
+    <path d="M14 9 h3.5 a2.5 2.5 0 0 1 0 5 H14 z" />
+    <path d="M14 14 h3.8 a2.5 2.5 0 0 1 0 5 H14 z" />
   </svg>
 )
 const IconFolder = () => (
@@ -431,6 +481,7 @@ export function Sidebar({
   user,
   onOpenSettings,
   onOpenPersonas,
+  onOpenStyles,
   onLogout,
   currentScreen = 'dashboard',
   activeTab = 'coach',
@@ -439,27 +490,67 @@ export function Sidebar({
   activeThumbnailConversationId = null,
   onNewChat,
 }) {
-  const { collapsed, mobileOpen, accountDialogOpen } = useSidebarStore(
+  const { collapsed, mobileOpen } = useSidebarStore(
     useShallow((state) => ({
       collapsed: state.collapsed,
       mobileOpen: state.mobileOpen,
-      accountDialogOpen: state.accountDialogOpen,
     }))
   )
+  // Account menu open state — owned locally for zero cross-component coupling.
+  // (Previously lived in sidebarStore but a stale zustand closure could leave
+  // subscribers un-rerendered; this is guaranteed to trigger a re-render.)
+  const [accountDialogOpen, setAccountDialogOpen] = useState(false)
+  const toggleAccountDialog = () => setAccountDialogOpen((o) => !o)
+  // Subscription + credits state drive the sidebar plan label, credits count,
+  // and Go Pro visibility.
+  const { data: subscription } = useSubscriptionQuery()
+  const { data: creditsData } = useCreditsQuery()
+  const { data: tierState } = useModelTierStateQuery()
+  const setTierMutation = useSetModelTierMutation()
+  const currentTier = tierState?.selected || 'SRX-1'
+  const tierOptions =
+    tierState?.tiers && tierState.tiers.length
+      ? tierState.tiers
+      : [
+          { code: 'SRX-1', label: 'Lite', locked: false },
+          { code: 'SRX-2', label: 'Pro', locked: false },
+          { code: 'SRX-3', label: 'Ultra', locked: false },
+        ]
+  const handlePickTier = (code) => {
+    if (!code || code === currentTier) return
+    setTierMutation.mutate(code)
+  }
+  const activeStatuses = ['active', 'trialing', 'past_due']
+  const hasActivePlan = !!(subscription && activeStatuses.includes(subscription.status))
+  const planLabel = (() => {
+    if (!hasActivePlan) return 'Free'
+    const name = subscription.plan_name || subscription.tier || 'Pro'
+    const period =
+      subscription.billing_period === 'year'
+        ? ' · Annual'
+        : subscription.billing_period === 'month'
+          ? ''
+          : ''
+    const trialTag = subscription.is_trial ? ' · Trial' : ''
+    return `${name[0].toUpperCase()}${name.slice(1)}${period}${trialTag}`
+  })()
+  const totalCredits = creditsData
+    ? Number(creditsData.subscription_credits || 0) + Number(creditsData.permanent_credits || 0)
+    : null
+  const creditsLabel = (() => {
+    if (totalCredits == null) return '—'
+    if (totalCredits >= 10_000) {
+      const k = totalCredits / 1000
+      return `${k % 1 === 0 ? k : k.toFixed(1)}K`
+    }
+    return totalCredits.toLocaleString('en-US')
+  })()
   // Store actions are stable refs — read once from getState() to avoid extra subscriptions
-  const [
-    {
-      setCollapsed,
-      toggleCollapsed,
-      setMobileOpen,
-      closeMobile,
-      toggleAccountDialog,
-      setAccountDialogOpen,
-    },
-  ] = useState(() => useSidebarStore.getState())
+  const [{ setCollapsed, toggleCollapsed, setMobileOpen, closeMobile }] = useState(() =>
+    useSidebarStore.getState()
+  )
   const accountMenuPortalRef = useRef(null)
   const userBlockRef = useRef(null)
-  const [accountFlyoutPos, setAccountFlyoutPos] = useState({ top: 0, left: 0, width: 260 })
   const historyMenuRef = useRef(null)
   const [historyMenu, setHistoryMenu] = useState({ conversationId: null, type: null, x: 0, y: 0 })
   const [editingConversationId, setEditingConversationId] = useState(null)
@@ -565,38 +656,25 @@ export function Sidebar({
       (activeTab === 'thumbnails' &&
         (activeThumbnailConversationId == null || activeThumbnailConversationId === '')))
 
-  /* Outside-click and Escape for account menu are handled by FloatingMenu component */
-
-  useLayoutEffect(() => {
+  // Close the inline account panel on Escape + outside click.
+  useEffect(() => {
     if (!accountDialogOpen) return
-    const measure = () => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') setAccountDialogOpen(false)
+    }
+    const onDocClick = (e) => {
       const trigger = userBlockRef.current
-      const menu = accountMenuPortalRef.current
-      if (!trigger || !menu) return
-      const tr = trigger.getBoundingClientRect()
-      const mw = Math.min(260, window.innerWidth - 16)
-      const mh = menu.offsetHeight
-      let left = tr.left
-      if (left + mw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - mw - 8)
-      else left = Math.max(8, left)
-      let top = tr.top - mh - 10
-      if (top < 8) top = tr.bottom + 10
-      if (top + mh > window.innerHeight - 8) top = Math.max(8, window.innerHeight - mh - 8)
-      setAccountFlyoutPos({ top, left, width: mw })
+      const panel = accountMenuPortalRef.current
+      if (trigger?.contains(e.target) || panel?.contains(e.target)) return
+      setAccountDialogOpen(false)
     }
-    measure()
-    const raf = requestAnimationFrame(measure)
-    const ro = new ResizeObserver(() => measure())
-    if (accountMenuPortalRef.current) ro.observe(accountMenuPortalRef.current)
-    window.addEventListener('resize', measure, { passive: true })
-    window.addEventListener('scroll', measure, { passive: true, capture: true })
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onDocClick)
     return () => {
-      cancelAnimationFrame(raf)
-      ro.disconnect()
-      window.removeEventListener('resize', measure)
-      window.removeEventListener('scroll', measure, true)
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onDocClick)
     }
-  }, [accountDialogOpen, collapsed, user?.email])
+  }, [accountDialogOpen])
 
   useEffect(() => {
     if (!historyMenu.conversationId) return
@@ -617,6 +695,16 @@ export function Sidebar({
     setAccountDialogOpen(false)
     closeMobile()
     onOpenPersonas?.()
+  }
+  const handleOpenStyles = () => {
+    setAccountDialogOpen(false)
+    closeMobile()
+    onOpenStyles?.()
+  }
+  const handleOpenBilling = () => {
+    setAccountDialogOpen(false)
+    closeMobile()
+    window.location.hash = 'billing'
   }
   const handleLogoutClick = () => {
     setAccountDialogOpen(false)
@@ -727,86 +815,106 @@ export function Sidebar({
 
   const userInitial = (user?.email?.[0] || 'U').toUpperCase()
 
-  const accountMenuPortal = (
-    <FloatingMenu
+  // Inline account panel — renders DIRECTLY below (or above, depending on
+  // scroll) the account button inside the sidebar footer. No floating portal,
+  // no position math — just a child of the footer with CSS height animation.
+  const accountPanel = (
+    <div
       ref={accountMenuPortalRef}
-      open={accountDialogOpen}
-      style={{
-        top: accountFlyoutPos.top,
-        left: accountFlyoutPos.left,
-        width: accountFlyoutPos.width,
-      }}
-      triggerRef={userBlockRef}
-      onClose={() => setAccountDialogOpen(false)}
+      className={`sidebar-account-panel ${accountDialogOpen ? 'sidebar-account-panel--open' : ''}`}
+      role="menu"
+      aria-hidden={!accountDialogOpen}
       aria-label="Account menu"
     >
+      {/* AI Model tier chips — compact inline picker */}
+      <div className="sidebar-account-tier" role="radiogroup" aria-label="AI model tier">
+        <span className="sidebar-account-tier-label">AI Model</span>
+        <div className="sidebar-account-tier-chips">
+          {tierOptions.map((t) => {
+            const isActive = t.code === currentTier
+            const isLocked = !!t.locked
+            const chipClass = [
+              'sidebar-account-tier-chip',
+              isActive ? 'sidebar-account-tier-chip--active' : '',
+              isLocked ? 'sidebar-account-tier-chip--locked' : '',
+            ]
+              .join(' ')
+              .trim()
+            return (
+              <button
+                key={t.code}
+                type="button"
+                role="radio"
+                aria-checked={isActive}
+                className={chipClass}
+                onClick={() => !isLocked && handlePickTier(t.code)}
+                disabled={isLocked || setTierMutation.isPending}
+                title={t.label ? `${t.code} · ${t.label}` : t.code}
+              >
+                {t.code}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      <div className="sidebar-account-divider" />
       <button
         type="button"
-        className="floating-menu__item"
+        className="sidebar-account-item"
         role="menuitem"
         onClick={() => openSettingsTo('account')}
       >
-        <span className="floating-menu__icon">
+        <span className="sidebar-account-item-icon" aria-hidden>
           <IconSettings />
         </span>
         Settings
       </button>
       <button
         type="button"
-        className="floating-menu__item"
-        role="menuitem"
-        onClick={() => openSettingsTo('personalization')}
-      >
-        <span className="floating-menu__icon">
-          <IconPersonalization />
-        </span>
-        Personalization
-      </button>
-      <button
-        type="button"
-        className="floating-menu__item"
+        className="sidebar-account-item"
         role="menuitem"
         onClick={handleOpenPersonas}
       >
-        <span className="floating-menu__icon">
+        <span className="sidebar-account-item-icon" aria-hidden>
           <IconPersonalization />
         </span>
         Personas
       </button>
       <button
         type="button"
-        className="floating-menu__item"
+        className="sidebar-account-item"
         role="menuitem"
-        onClick={() => openSettingsTo('billing')}
+        onClick={handleOpenStyles}
       >
-        <span className="floating-menu__icon">
-          <IconUser />
+        <span className="sidebar-account-item-icon" aria-hidden>
+          <IconStyles />
+        </span>
+        Styles
+      </button>
+      <button
+        type="button"
+        className="sidebar-account-item"
+        role="menuitem"
+        onClick={handleOpenBilling}
+      >
+        <span className="sidebar-account-item-icon" aria-hidden>
+          <IconBilling />
         </span>
         Billing
       </button>
+      <div className="sidebar-account-divider" />
       <button
         type="button"
-        className="floating-menu__item"
+        className="sidebar-account-item sidebar-account-item--danger"
         role="menuitem"
-        onClick={() => openSettingsTo('help')}
-      >
-        <span className="floating-menu__icon">
-          <IconHelp />
-        </span>
-        Help
-      </button>
-      <div className="floating-menu__divider" />
-      <button
-        type="button"
-        className="floating-menu__item floating-menu__item--danger"
         onClick={handleLogoutClick}
       >
-        <span className="floating-menu__icon">
+        <span className="sidebar-account-item-icon" aria-hidden>
           <IconLogout />
         </span>
         Log out
       </button>
-    </FloatingMenu>
+    </div>
   )
 
   return (
@@ -931,6 +1039,19 @@ export function Sidebar({
                 }}
               />
 
+              <SidebarButton
+                href="#ab-testing"
+                icon={<IconABTest />}
+                label="A/B Testing"
+                active={currentScreen === 'ab-testing'}
+                collapsed={collapsed}
+                onClick={(e) => {
+                  e.preventDefault()
+                  closeMobile()
+                  window.location.hash = 'ab-testing'
+                }}
+              />
+
               {/* Templates — next update
               <SidebarButton
                 href="#templates"
@@ -945,21 +1066,23 @@ export function Sidebar({
                 }}
               /> */}
 
-              <button
-                type="button"
-                className={`sidebar-upgrade-pro ${currentScreen === 'pro' ? 'active' : ''} ${collapsed ? 'sidebar-upgrade-pro--collapsed' : ''}`}
-                onClick={() => {
-                  closeMobile()
-                  window.location.hash = 'pro'
-                }}
-                title="Go Pro"
-                aria-label="Go Pro"
-              >
-                <span className="sidebar-upgrade-pro-icon" aria-hidden>
-                  <IconPro />
-                </span>
-                <span className="sidebar-upgrade-pro-label">Go Pro</span>
-              </button>
+              {!hasActivePlan && (
+                <button
+                  type="button"
+                  className={`sidebar-upgrade-pro ${currentScreen === 'pro' ? 'active' : ''} ${collapsed ? 'sidebar-upgrade-pro--collapsed' : ''}`}
+                  onClick={() => {
+                    closeMobile()
+                    window.location.hash = 'pro'
+                  }}
+                  title="Go Pro"
+                  aria-label="Go Pro"
+                >
+                  <span className="sidebar-upgrade-pro-icon" aria-hidden>
+                    <IconPro />
+                  </span>
+                  <span className="sidebar-upgrade-pro-label">Go Pro</span>
+                </button>
+              )}
             </nav>
           </div>
 
@@ -1036,29 +1159,70 @@ export function Sidebar({
               </div>
             </nav>
 
-            <LiquidGlass className="sidebar-footer">
+            <div className="sidebar-account-wrap">
               <button
                 ref={userBlockRef}
                 type="button"
-                className="sidebar-user-block"
+                className={`sidebar-account-btn ${accountDialogOpen ? 'sidebar-account-btn--open' : ''}`}
                 onClick={toggleAccountDialog}
                 aria-label="Account menu"
                 aria-haspopup="true"
                 aria-expanded={accountDialogOpen}
-                title={collapsed && user?.email ? user.email : undefined}
+                title={collapsed && user?.email ? user.email : 'Account menu'}
               >
-                <span className="sidebar-user-avatar-placeholder">{userInitial}</span>
-                <span className="sidebar-user-info">
-                  <span className="sidebar-user-email">{user?.email || 'User'}</span>
-                  <span className="sidebar-user-plan">Free</span>
+                <span className="sidebar-account-avatar">{userInitial}</span>
+                <span className="sidebar-account-info">
+                  <span className="sidebar-account-email">{user?.email || 'User'}</span>
+                  <span className="sidebar-account-subline">
+                    <span
+                      className={`sidebar-account-plan ${hasActivePlan ? 'sidebar-account-plan--active' : ''} ${subscription?.is_trial ? 'sidebar-account-plan--trial' : ''}`}
+                    >
+                      {planLabel}
+                    </span>
+                    <button
+                      type="button"
+                      className="sidebar-account-credits"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        openCreditsModal()
+                      }}
+                      aria-label={`${totalCredits ?? '—'} credits — buy more`}
+                      title="Buy more credits"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden
+                      >
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                      </svg>
+                      <span className="sidebar-account-credits-num">{creditsLabel}</span>
+                    </button>
+                  </span>
+                </span>
+                <span className="sidebar-account-chevron" aria-hidden>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
                 </span>
               </button>
-            </LiquidGlass>
+
+              {accountPanel}
+            </div>
           </div>
         </div>
       </aside>
-
-      {accountMenuPortal}
 
       <div
         ref={historyMenuRef}

@@ -104,4 +104,10 @@ export const thumbnailsApi = {
   editRegion(accessToken, payload, fetchInit = {}) {
     return request('POST', '/api/thumbnails/edit-region', accessToken, payload, {}, fetchInit)
   },
+  /** Swap the face inside a thumbnail with a target face image.
+   *  payload: { thumbnail_image_base64?, thumbnail_image_url?, face_image_base64?, face_image_url?, extra_hint? }
+   *  Response: { image_url, tier, steps } */
+  faceSwap(accessToken, payload, fetchInit = {}) {
+    return request('POST', '/api/thumbnails/face-swap', accessToken, payload, {}, fetchInit)
+  },
 }

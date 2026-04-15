@@ -9,6 +9,7 @@ import {
 import { getAccessTokenOrNull } from '../../lib/query/authToken'
 import { queryKeys } from '../../lib/query/queryKeys'
 import { queryFreshness } from '../../lib/query/queryConfig'
+import { invalidateCredits } from '../billing/creditsQueries'
 
 /** Warm React Query after a chat turn so the thread is ready when the URL gains ?id= */
 export async function prefetchThumbnailConversationCache(queryClient, conversationId) {
@@ -75,6 +76,13 @@ export function useThumbnailChatMutation(onConversationCreated) {
         onConversationCreated?.(data.conversation_id)
         void refreshThumbnailConversationCache(queryClient, data.conversation_id)
       }
+      // Thumbnail generations debit credits server-side (20 × num_thumbnails) —
+      // refresh the badge so the user sees the drop immediately.
+      invalidateCredits(queryClient)
+    },
+    onError: () => {
+      // Server may have refunded on AI failure — reconcile.
+      invalidateCredits(queryClient)
     },
   })
 }

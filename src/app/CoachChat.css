@@ -2286,6 +2286,13 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
+.coach-composer-send-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-shrink: 0;
+}
+
 .coach-composer-send {
   width: 2.35rem;
   height: 2.35rem;

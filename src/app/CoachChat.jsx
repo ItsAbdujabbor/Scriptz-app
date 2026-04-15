@@ -26,6 +26,7 @@ import { useUserPreferencesQuery } from '../queries/user/preferencesQueries'
 import { useUserProfileQuery } from '../queries/user/profileQueries'
 /* Sidebar.css, SettingsModal.css, Dashboard.css imported by AuthenticatedRoutes */
 import './CoachChat.css'
+import { CostHint } from '../components/CostHint'
 import { TabBar } from '../components/TabBar'
 import { AppShellLayout } from '../components/AppShellLayout'
 import { ChatHistoryLoading } from '../components/ChatHistoryLoading'
@@ -2206,16 +2207,21 @@ export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
                           <IconStop />
                         </button>
                       ) : hasComposerContent ? (
-                        <button
-                          type="submit"
-                          className="coach-composer-send coach-composer-primary-action is-send"
-                          disabled={
-                            (!draft.trim() && attachedImages.length === 0) || isTranscribing
-                          }
-                          aria-label="Send message"
-                        >
-                          <IconArrowUp />
-                        </button>
+                        <div className="coach-composer-send-group">
+                          <CostHint
+                            featureKey={deepThinking ? 'coach_deep_think' : 'coach_message'}
+                          />
+                          <button
+                            type="submit"
+                            className="coach-composer-send coach-composer-primary-action is-send"
+                            disabled={
+                              (!draft.trim() && attachedImages.length === 0) || isTranscribing
+                            }
+                            aria-label="Send message"
+                          >
+                            <IconArrowUp />
+                          </button>
+                        </div>
                       ) : (
                         <button
                           type="button"
@@ -2576,16 +2582,21 @@ export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
                           <IconStop />
                         </button>
                       ) : hasComposerContent ? (
-                        <button
-                          type="submit"
-                          className="coach-composer-send coach-composer-primary-action is-send"
-                          disabled={
-                            (!draft.trim() && attachedImages.length === 0) || isTranscribing
-                          }
-                          aria-label="Send message"
-                        >
-                          <IconArrowUp />
-                        </button>
+                        <div className="coach-composer-send-group">
+                          <CostHint
+                            featureKey={deepThinking ? 'coach_deep_think' : 'coach_message'}
+                          />
+                          <button
+                            type="submit"
+                            className="coach-composer-send coach-composer-primary-action is-send"
+                            disabled={
+                              (!draft.trim() && attachedImages.length === 0) || isTranscribing
+                            }
+                            aria-label="Send message"
+                          >
+                            <IconArrowUp />
+                          </button>
+                        </div>
                       ) : (
                         <button
                           type="button"

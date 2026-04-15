@@ -9,6 +9,8 @@ import { Dashboard } from './app/Dashboard'
 import { CoachChat } from './app/CoachChat'
 import { Optimize } from './app/Optimize'
 import { Pro } from './app/Pro'
+import { ABTesting } from './app/ABTesting'
+import { Billing } from './app/Billing'
 // import { Templates } from './app/Templates' // moved to src/next-update-ideas/Templates
 
 import './app/Sidebar.css'
@@ -33,6 +35,7 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsSection, setSettingsSection] = useState('account')
   const [showPersonasModal, setShowPersonasModal] = useState(false)
+  const [showStylesModal, setShowStylesModal] = useState(false)
 
   const openSettings = useCallback((section) => {
     setSettingsSection(section ?? 'account')
@@ -56,6 +59,7 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
         user={user}
         onOpenSettings={openSettings}
         onOpenPersonas={() => setShowPersonasModal(true)}
+        onOpenStyles={() => setShowStylesModal(true)}
         onLogout={handleLogout}
         currentScreen={screenState.currentScreen}
         activeTab={screenState.activeTab}
@@ -93,6 +97,10 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
         return <Optimize onLogout={onLogout} shellManaged />
       case 'pro':
         return <Pro onLogout={onLogout} shellManaged />
+      case 'ab-testing':
+        return <ABTesting onLogout={onLogout} shellManaged />
+      case 'billing':
+        return <Billing onLogout={onLogout} shellManaged />
       // case 'templates': return <Templates onLogout={onLogout} shellManaged /> // next update
       default:
         return null
@@ -116,6 +124,7 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
       />
 
       {showPersonasModal && <PersonasModalLazy onClose={() => setShowPersonasModal(false)} />}
+      {showStylesModal && <StylesModalLazy onClose={() => setShowStylesModal(false)} />}
     </div>
   )
 }
@@ -127,6 +136,17 @@ function PersonasModalLazy({ onClose }) {
   return (
     <Suspense fallback={null}>
       <PersonasModalModule onClose={onClose} />
+    </Suspense>
+  )
+}
+
+const StylesModalModule = lazy(() =>
+  import('./app/StylesModal').then((m) => ({ default: m.StylesModal }))
+)
+function StylesModalLazy({ onClose }) {
+  return (
+    <Suspense fallback={null}>
+      <StylesModalModule onClose={onClose} />
     </Suspense>
   )
 }

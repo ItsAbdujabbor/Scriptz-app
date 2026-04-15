@@ -4,13 +4,14 @@ import './SettingsModal.css'
 import { useSaveUserPreferencesMutation } from '../queries/user/preferencesQueries'
 import { useUpdateUserProfileMutation } from '../queries/user/profileQueries'
 import { useUserProfileQuery } from '../queries/user/profileQueries'
+import { ModelTierSelector } from '../components/ModelTierSelector'
 
 const THEME_KEY = 'scriptz_theme'
 
 const SECTIONS = [
   { id: 'account', label: 'Account' },
   { id: 'personalization', label: 'Personalization' },
-  { id: 'billing', label: 'Billing' },
+  { id: 'ai-model', label: 'AI Model' },
   { id: 'help', label: 'Help' },
 ]
 
@@ -1001,16 +1002,21 @@ export function SettingsModal({
               </form>
             </div>
 
-            {/* ——— Billing ——— */}
+            {/* ——— AI Model (SRX tier) ——— */}
             <div
-              className={`settings-modal-panel ${activeSection === 'billing' ? 'active' : ''}`}
+              className={`settings-modal-panel ${activeSection === 'ai-model' ? 'active' : ''}`}
               role="tabpanel"
-              aria-hidden={activeSection !== 'billing'}
+              aria-hidden={activeSection !== 'ai-model'}
             >
-              <h3 className="settings-panel-heading">Billing</h3>
-              <p className="settings-panel-desc">Plan and payment.</p>
-              <p className="settings-coming-soon">Coming soon</p>
+              <h3 className="settings-panel-heading">AI Model</h3>
+              <p className="settings-panel-desc">
+                Choose how Scriptz AI thinks for you. The selected tier drives every AI feature in
+                the app.
+              </p>
+              <ModelTierSelector />
             </div>
+
+            {/* Billing was promoted to its own `#billing` page. */}
 
             {/* ——— Help ——— */}
             <div

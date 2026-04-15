@@ -1962,7 +1962,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 0.55rem;
   padding: 0.15rem 0 0.05rem;
+}
+
+/* Wrap cost pill + circular send button together on the prompt/recreate forms */
+.thumb-gen-submit-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-shrink: 0;
 }
 
 .thumb-gen-analyze-btn {

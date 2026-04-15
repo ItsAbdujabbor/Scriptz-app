@@ -253,3 +253,24 @@
     transform: translateY(0) scale(1);
   }
 }
+
+/* ── Locked state (free/starter user) ───────────────────────────────── */
+.persona-selector--locked .persona-selector-trigger--locked {
+  cursor: pointer;
+  border: 1px dashed rgba(167, 139, 250, 0.45);
+  background: rgba(139, 92, 246, 0.08);
+  color: rgba(196, 181, 253, 0.85);
+}
+.persona-selector--locked .persona-selector-trigger--locked:hover {
+  background: rgba(139, 92, 246, 0.18);
+  border-color: rgba(196, 181, 253, 0.6);
+}
+.persona-selector--locked .persona-selector-icon {
+  color: rgba(196, 181, 253, 0.85);
+}
+.persona-selector-label--locked {
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: rgba(196, 181, 253, 0.9);
+}

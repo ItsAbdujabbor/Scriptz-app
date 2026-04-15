@@ -16,6 +16,7 @@ function getScreenFromHash() {
   if (h === 'optimize') return 'optimize'
   if (h === 'pro') return 'pro'
   if (h === 'library' || h === 'templates') return 'templates'
+  if (h === 'ab-testing' || h.startsWith('ab-testing/')) return 'ab-testing'
   return 'dashboard'
 }
 

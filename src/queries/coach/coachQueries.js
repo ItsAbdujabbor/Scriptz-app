@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { coachApi } from '../../api/coach'
+import { invalidateCredits } from '../billing/creditsQueries'
 import {
   chatThreadQueryOptions,
   mergeCoachConversationsListCache,
@@ -75,6 +76,13 @@ export function useSendCoachMessageMutation(channelId) {
       if (data?.conversation_id != null) {
         void refreshCoachConversationCache(queryClient, data.conversation_id)
       }
+      // Coach messages cost credits (2 default, 3 on deep-think) — refresh the
+      // sidebar badge immediately.
+      invalidateCredits(queryClient)
+    },
+    onError: () => {
+      // On error the server might have already debited + refunded — refetch to reconcile.
+      invalidateCredits(queryClient)
     },
   })
 }

@@ -1,5 +1,7 @@
 import './AppShellLayout.css'
 import { useSidebarStore } from '../stores/sidebarStore'
+import { CelebrationOverlay } from './CelebrationOverlay'
+import { HeaderCreditsBadge } from './HeaderCreditsBadge' // kept as an optional override; no longer mounted by default
 
 /**
  * Single authenticated layout: left `Sidebar` + main column.
@@ -7,6 +9,10 @@ import { useSidebarStore } from '../stores/sidebarStore'
  *
  * @param {boolean} [shellOnly] — If true, render only the inner shell row (no outer `pageClassName` wrapper). Use when the page needs siblings (e.g. Coach modals) inside a custom page wrapper.
  * Shell always wraps sidebar + main in `dashboard-shell-unified` (`--split` vs `--merged`) so expand/collapse can animate on one stable node.
+ *
+ * Credits live in the sidebar account pill (not in the header) — this layout
+ * only wires up the Celebration overlay that reacts to subscription /
+ * credit-pack purchase events.
  */
 export function AppShellLayout({
   pageClassName,
@@ -37,8 +43,15 @@ export function AppShellLayout({
         {sidebar}
         {main}
       </div>
+      {/* Global celebration overlay — listens for `app:celebrate` events and
+          shows a centered message + confetti for subscriptions, top-ups, etc. */}
+      <CelebrationOverlay />
     </div>
   )
   if (shellOnly) return shell
   return <div className={pageClassName}>{shell}</div>
 }
+
+// Re-export for any page that still mounts it inline (e.g. none today — kept
+// so the import doesn't orphan).
+export { HeaderCreditsBadge }

@@ -8,31 +8,32 @@
    1. DESIGN TOKENS
    ============================================================ */
 .app-sidebar {
-  /* Sizing */
-  --sidebar-width: 256px;
-  --sidebar-collapsed: 62px;
-  --sidebar-btn-height: 36px;
-  --sidebar-rail-icon: 36px;
+  /* Sizing — compact + appealing */
+  --sidebar-width: 232px;
+  --sidebar-collapsed: 60px;
+  --sidebar-btn-height: 34px;
+  --sidebar-rail-icon: 34px;
   --sidebar-item-radius: 10px;
 
-  /* Surfaces — unified with global tokens */
+  /* Surfaces — softer, warmer */
   --sidebar-bg: transparent;
-  --sidebar-hover: rgba(255, 255, 255, 0.06);
-  --sidebar-active-bg: rgba(124, 58, 237, 0.12);
-  --sidebar-active-shadow: 0 0 0 1px rgba(124, 58, 237, 0.15) inset;
+  --sidebar-hover: rgba(255, 255, 255, 0.05);
+  --sidebar-hover-strong: rgba(255, 255, 255, 0.09);
+  --sidebar-active-bg: rgba(255, 255, 255, 0.07);
+  --sidebar-active-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
   --sidebar-border: rgba(255, 255, 255, 0.07);
   --sidebar-surface: rgba(255, 255, 255, 0.05);
 
   /* Text */
   --text: #ffffff;
-  --text-muted: #8e8e93;
-  --text-dim: #636366;
+  --text-muted: #b0b0b6;
+  --text-dim: #6e6e74;
 
-  /* Accent — deep purple */
-  --accent: #9061f0;
-  --accent-2: #7c3aed;
-  --accent-bg: rgba(124, 58, 237, 0.12);
-  --accent-ring: rgba(124, 58, 237, 0.3);
+  /* Accent — soft lavender (no harsh deep purple) */
+  --accent: #c4b5fd;
+  --accent-2: #a78bfa;
+  --accent-bg: rgba(196, 181, 253, 0.08);
+  --accent-ring: rgba(196, 181, 253, 0.25);
 
   /* Transitions */
   --sidebar-transition: 200ms cubic-bezier(0.33, 1, 0.68, 1);
@@ -213,6 +214,8 @@
 .app-sidebar:not(.collapsed) .sidebar-section-label,
 .app-sidebar:not(.collapsed) .sidebar-user-email,
 .app-sidebar:not(.collapsed) .sidebar-user-plan,
+.app-sidebar:not(.collapsed) .sidebar-account-email,
+.app-sidebar:not(.collapsed) .sidebar-account-plan,
 .app-sidebar:not(.collapsed) .sidebar-history-item-title,
 .app-sidebar:not(.collapsed) .sidebar-history-item-menu {
   transition:
@@ -228,6 +231,8 @@
 .app-sidebar.collapsed .sidebar-section-label,
 .app-sidebar.collapsed .sidebar-user-email,
 .app-sidebar.collapsed .sidebar-user-plan,
+.app-sidebar.collapsed .sidebar-account-email,
+.app-sidebar.collapsed .sidebar-account-plan,
 .app-sidebar.collapsed .sidebar-history-item-title,
 .app-sidebar.collapsed .sidebar-history-item-menu {
   opacity: 0;
@@ -575,7 +580,8 @@
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  padding: 0.35rem 0.5rem;
+  padding: 0.25rem 0.4rem;
+  gap: 0.05rem;
   overflow: hidden;
 }
 
@@ -607,12 +613,12 @@
 
 /* Section labels */
 .sidebar-section-label {
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-dim);
-  padding: 0.6rem 0.55rem 0.3rem;
+  padding: 0.45rem 0.55rem 0.2rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -645,14 +651,14 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.55rem;
   min-height: var(--sidebar-btn-height);
-  padding: 0 0.7rem;
-  font-size: 0.82rem;
+  padding: 0 0.65rem;
+  font-size: 0.8rem;
   font-weight: 500;
   color: var(--text-muted);
   text-decoration: none;
-  border-radius: 999px;
+  border-radius: 8px;
   white-space: nowrap;
   min-width: 0;
   flex-shrink: 0;
@@ -676,13 +682,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: inherit;
+  color: var(--text-muted);
+  transition:
+    color 180ms ease,
+    transform 180ms ease;
 }
 
 .sidebar-link .sidebar-icon svg {
-  width: 16px;
-  height: 16px;
-  stroke-width: 2;
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.85;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -700,21 +709,40 @@
 .sidebar-link:hover {
   color: var(--text);
   background: var(--sidebar-hover);
+  transform: translateX(1px);
+}
+.sidebar-link:hover .sidebar-icon {
+  color: var(--accent);
+  transform: scale(1.06);
 }
 
 .sidebar-link:active {
-  transform: scale(0.98);
+  transform: scale(0.985);
 }
 
 .sidebar-link:focus-visible {
   box-shadow: 0 0 0 2px var(--accent-ring);
 }
 
-/* Active state — soft purple pill */
+/* Active state — soft surface + lavender left accent */
 .sidebar-link.active {
   color: var(--text);
-  background: var(--sidebar-active-bg);
+  background: linear-gradient(90deg, rgba(196, 181, 253, 0.1) 0%, rgba(196, 181, 253, 0.03) 100%);
   box-shadow: var(--sidebar-active-shadow);
+}
+.sidebar-link.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 22%;
+  bottom: 22%;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #ddd6fe 0%, #a78bfa 100%);
+}
+.sidebar-link.active .sidebar-icon {
+  color: var(--accent);
+  transform: scale(1.04);
 }
 
 .sidebar-link.active:visited {
@@ -944,6 +972,17 @@
 /* ============================================================
    10. GO PRO BUTTON
    ============================================================ */
+.sidebar-credits-row {
+  display: flex;
+  padding: 0 0 0.5rem;
+}
+.sidebar-credits-row .credits-badge {
+  width: 100%;
+}
+.app-sidebar.collapsed .sidebar-credits-row {
+  justify-content: center;
+}
+
 .sidebar-upgrade-pro {
   position: relative;
   width: 100%;
@@ -1377,11 +1416,151 @@
   padding: 0.5rem 0.5rem 0.65rem;
 }
 
-/* Override LiquidGlass inside footer */
+/* Override LiquidGlass inside footer (legacy — not used after refactor) */
 .sidebar-footer .liquid-glass,
 .sidebar-footer > :first-child {
   border-radius: 12px !important;
   box-shadow: none !important;
+}
+
+/* ── Unified account button (single container) — compact ───────────── */
+.sidebar-account-btn {
+  flex-shrink: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition:
+    background 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.sidebar-account-btn:hover {
+  background: linear-gradient(
+    150deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.035) 100%
+  );
+  border-color: rgba(196, 181, 253, 0.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 4px 12px rgba(139, 92, 246, 0.12);
+}
+
+.sidebar-account-btn--open {
+  background: linear-gradient(150deg, rgba(139, 92, 246, 0.14) 0%, rgba(99, 102, 241, 0.08) 100%);
+  border-color: rgba(196, 181, 253, 0.32);
+}
+
+.sidebar-account-btn:active {
+  transform: scale(0.99);
+}
+
+.sidebar-account-avatar {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.9) 0%, rgba(99, 102, 241, 0.78) 100%);
+  border: 1.5px solid rgba(167, 139, 250, 0.32);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.sidebar-account-info {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  transition:
+    opacity var(--sidebar-transition-open),
+    visibility var(--sidebar-transition-open),
+    max-width var(--sidebar-transition-open);
+}
+
+.sidebar-account-email {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: rgba(245, 243, 255, 0.94);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-account-plan {
+  font-size: 0.63rem;
+  font-weight: 600;
+  color: rgba(196, 181, 253, 0.68);
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+}
+
+.sidebar-account-plan.sidebar-account-plan--active {
+  color: #c4b5fd;
+  font-weight: 700;
+}
+
+.sidebar-account-plan.sidebar-account-plan--trial {
+  color: #fde68a;
+}
+
+.sidebar-account-chevron {
+  flex-shrink: 0;
+  display: inline-flex;
+  color: rgba(229, 229, 231, 0.4);
+  transition:
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    color 0.18s ease;
+}
+.sidebar-account-chevron svg {
+  width: 14px;
+  height: 14px;
+}
+.sidebar-account-btn:hover .sidebar-account-chevron {
+  color: rgba(196, 181, 253, 0.85);
+}
+.sidebar-account-btn--open .sidebar-account-chevron {
+  transform: rotate(180deg);
+  color: #c4b5fd;
+}
+
+/* Collapsed rail: hide email + plan + chevron, center avatar */
+.app-sidebar.collapsed .sidebar-account-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  justify-content: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+.app-sidebar.collapsed .sidebar-account-info,
+.app-sidebar.collapsed .sidebar-account-chevron {
+  display: none;
 }
 
 .sidebar-user-block {
@@ -1465,6 +1644,293 @@
     width var(--sidebar-transition-open),
     margin var(--sidebar-transition-open),
     padding var(--sidebar-transition-open);
+}
+
+/* Subscribed user — brighter purple to make the active plan visible. */
+.sidebar-user-plan.sidebar-user-plan--active {
+  color: #c4b5fd;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+/* Trial — amber tag */
+.sidebar-user-plan.sidebar-user-plan--trial {
+  color: #fde68a;
+}
+
+/* ══ Account button subline (plan + credits chip) ══ */
+.sidebar-account-subline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.1rem;
+}
+
+.sidebar-account-credits {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.08rem 0.42rem 0.08rem 0.35rem;
+  border-radius: 999px;
+  border: 1px solid rgba(167, 139, 250, 0.28);
+  background: linear-gradient(150deg, rgba(139, 92, 246, 0.16) 0%, rgba(99, 102, 241, 0.1) 100%);
+  color: #e9d5ff;
+  font: inherit;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.1s ease;
+}
+
+.sidebar-account-credits svg {
+  width: 9px;
+  height: 9px;
+  color: #c4b5fd;
+}
+
+.sidebar-account-credits:hover {
+  background: linear-gradient(150deg, rgba(139, 92, 246, 0.28) 0%, rgba(99, 102, 241, 0.2) 100%);
+  border-color: rgba(196, 181, 253, 0.5);
+}
+.sidebar-account-credits:active {
+  transform: scale(0.96);
+}
+
+.sidebar-account-credits-num {
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+}
+
+/* ══ Inline expanding account panel (replaces floating flyout) ══ */
+.sidebar-account-wrap {
+  display: flex;
+  flex-direction: column;
+  margin: 0.15rem 0.35rem 0.35rem;
+}
+
+.sidebar-account-panel {
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-3px) scale(0.98);
+  transform-origin: top center;
+  transition:
+    max-height 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    margin-top 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    padding 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+  padding: 0 0.2rem;
+  border-radius: 14px;
+  /* Liquid glass: translucent background + heavy blur so the app behind shows through */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.025) 100%),
+    rgba(20, 20, 28, 0.42);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  backdrop-filter: blur(22px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, 0);
+}
+
+.sidebar-account-panel.sidebar-account-panel--open {
+  max-height: 420px;
+  opacity: 1;
+  transform: none;
+  margin-top: 0.4rem;
+  padding: 0.35rem 0.3rem;
+  pointer-events: auto;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 12px 40px rgba(0, 0, 0, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Each menu item inside the inline panel — compact */
+.sidebar-account-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.42rem 0.55rem;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: rgba(229, 229, 231, 0.9);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.08s ease,
+    padding-left 0.2s ease;
+}
+
+.sidebar-account-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  padding-left: 0.7rem;
+}
+
+.sidebar-account-item:active {
+  transform: scale(0.99);
+}
+
+.sidebar-account-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: rgba(196, 181, 253, 0.78);
+  transition: color 0.18s ease;
+}
+
+.sidebar-account-item-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.sidebar-account-item:hover .sidebar-account-item-icon {
+  color: #c4b5fd;
+}
+
+.sidebar-account-item--danger {
+  color: #fca5a5;
+}
+.sidebar-account-item--danger .sidebar-account-item-icon {
+  color: #fca5a5;
+}
+.sidebar-account-item--danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fecaca;
+}
+
+.sidebar-account-divider {
+  height: 1px;
+  margin: 0.3rem 0.4rem;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* AI Model tier chips row — inline, compact */
+.sidebar-account-tier {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.35rem 0.5rem 0.45rem;
+}
+.sidebar-account-tier-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(229, 229, 231, 0.55);
+}
+.sidebar-account-tier-chips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.3rem;
+}
+.sidebar-account-tier-chip {
+  padding: 0.32rem 0.2rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(229, 229, 231, 0.85);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.1s ease,
+    color 0.15s ease;
+}
+.sidebar-account-tier-chip:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+  transform: translateY(-1px);
+}
+.sidebar-account-tier-chip--active {
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.35) 0%, rgba(124, 58, 237, 0.22) 100%);
+  border-color: rgba(196, 181, 253, 0.55);
+  color: #fff;
+  box-shadow:
+    0 0 0 1px rgba(196, 181, 253, 0.25) inset,
+    0 2px 10px rgba(124, 58, 237, 0.22);
+}
+.sidebar-account-tier-chip--locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.sidebar-account-tier-chip:disabled {
+  cursor: not-allowed;
+}
+
+/* Collapsed rail: hide the credits chip + panel (rail is icon-only) */
+.app-sidebar.collapsed .sidebar-account-credits,
+.app-sidebar.collapsed .sidebar-account-panel {
+  display: none !important;
+}
+
+/* Stagger entrance of items when opening */
+.sidebar-account-panel--open .sidebar-account-item {
+  animation: sb-account-item-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.sidebar-account-panel--open .sidebar-account-item:nth-child(1) {
+  animation-delay: 0.02s;
+}
+.sidebar-account-panel--open .sidebar-account-item:nth-child(2) {
+  animation-delay: 0.04s;
+}
+.sidebar-account-panel--open .sidebar-account-item:nth-child(3) {
+  animation-delay: 0.06s;
+}
+.sidebar-account-panel--open .sidebar-account-item:nth-child(4) {
+  animation-delay: 0.08s;
+}
+.sidebar-account-panel--open .sidebar-account-item:nth-child(5) {
+  animation-delay: 0.1s;
+}
+.sidebar-account-panel--open .sidebar-account-item:nth-child(7) {
+  animation-delay: 0.14s;
+}
+
+@keyframes sb-account-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-account-panel,
+  .sidebar-account-panel--open .sidebar-account-item {
+    animation: none !important;
+    transition:
+      max-height 0.12s ease,
+      opacity 0.12s ease;
+  }
 }
 
 /* Collapsed footer: avatar-only */

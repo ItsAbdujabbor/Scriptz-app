@@ -8,7 +8,10 @@ import { useYoutubeVideoOptimization } from '../queries/youtube/optimizationQuer
 import { videoThumbnailsApi } from '../api/videoThumbnails'
 import { PersonaSelector } from '../components/PersonaSelector'
 import { StyleSelector } from '../components/StyleSelector'
+import { CostHint } from '../components/CostHint'
+import { ABTestPanel } from '../components/ABTestPanel'
 import { queryKeys } from '../lib/query/queryKeys'
+import { invalidateCredits } from '../queries/billing/creditsQueries'
 import './VideoOptimizeModal.css'
 
 function BatchCirclePicker({ value, onChange, disabled }) {
@@ -60,6 +63,7 @@ const TABS = [
   { id: 'title', label: 'Title' },
   { id: 'thumbnail', label: 'Thumbnails' },
   { id: 'seo', label: 'SEO' },
+  { id: 'ab-tests', label: 'A/B Tests' },
   { id: 'preview', label: 'Preview' },
 ]
 
@@ -329,6 +333,13 @@ export function VideoOptimizeModal({
     }
   }, [open, data?.title_options, data?.default_title_index, video?.title])
 
+  // After any AI mutation completes (success or server error) refresh the
+  // credits badge — the server has already debited (or refunded on failure).
+  const _creditsBadgeRefresh = {
+    onSuccess: () => invalidateCredits(queryClient),
+    onError: () => invalidateCredits(queryClient),
+  }
+
   const titleRecommendationsMutation = useMutation({
     mutationFn: async ({ videoIdea, thumbnailUrl }) => {
       const token = await getValidAccessToken()
@@ -338,6 +349,7 @@ export function VideoOptimizeModal({
         thumbnail_url: thumbnailUrl,
       })
     },
+    ..._creditsBadgeRefresh,
   })
 
   const refineDescriptionMutation = useMutation({
@@ -350,6 +362,7 @@ export function VideoOptimizeModal({
         instruction,
       })
     },
+    ..._creditsBadgeRefresh,
   })
 
   const generateTagsMutation = useMutation({
@@ -362,6 +375,7 @@ export function VideoOptimizeModal({
         title: title || undefined,
       })
     },
+    ..._creditsBadgeRefresh,
   })
 
   const scoreTitleMutation = useMutation({
@@ -370,6 +384,7 @@ export function VideoOptimizeModal({
       if (!token) throw new Error('Not authenticated')
       return youtubeApi.scoreTitle(token, title)
     },
+    ..._creditsBadgeRefresh,
   })
 
   const fetchTitleRecommendations = () => {
@@ -559,6 +574,8 @@ export function VideoOptimizeModal({
       // keep existing thumbnails on error
     } finally {
       if (!ac.signal.aborted) setThumbnailLoading(false)
+      // Credits were debited server-side (or refunded on failure) — refresh badge.
+      invalidateCredits(queryClient)
     }
   }
 
@@ -1042,6 +1059,7 @@ export function VideoOptimizeModal({
                                     ✦
                                   </span>
                                   Score title
+                                  <CostHint featureKey="title_score" />
                                 </>
                               )}
                             </button>
@@ -1111,6 +1129,7 @@ export function VideoOptimizeModal({
                                 : titleRecommendations?.titles?.length
                                   ? 'Fresh ideas'
                                   : 'Generate ideas'}
+                              {!titleRecsLoading && <CostHint featureKey="title_generate_3" />}
                             </button>
                           )}
                         </div>
@@ -1226,6 +1245,7 @@ export function VideoOptimizeModal({
                           <span className="video-opt-thumb-card-action-label">
                             {thumbnailLoading ? 'Stop' : 'Quick generate'}
                           </span>
+                          {!thumbnailLoading && <CostHint featureKey="video_thumbnail_generate" />}
                         </button>
 
                         {/* Start from frame */}
@@ -1634,6 +1654,7 @@ export function VideoOptimizeModal({
                                   <span className="video-opt-btn-spinner" aria-hidden />
                                 ) : null}
                                 Generate
+                                <CostHint featureKey="tag_generate" />
                               </button>
                             ) : tagsGenerated && tagsList.length > 0 && !tagsLoading ? (
                               <button
@@ -1643,6 +1664,7 @@ export function VideoOptimizeModal({
                                 disabled={!video?.id}
                               >
                                 Regenerate
+                                <CostHint featureKey="tag_generate" />
                               </button>
                             ) : null}
                           </span>
@@ -1726,6 +1748,18 @@ export function VideoOptimizeModal({
                           )}
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {/* === A/B TESTS TAB === */}
+                  {activeTab === 'ab-tests' && (
+                    <div className="video-opt-panel video-opt-panel--ab">
+                      <ABTestPanel
+                        video={video}
+                        channelId={channelId}
+                        currentTitle={video?.title}
+                        currentThumbnailUrl={video?.thumbnail_url || video?.thumbnail}
+                      />
                     </div>
                   )}
 

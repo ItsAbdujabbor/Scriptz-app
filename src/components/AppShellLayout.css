@@ -18,3 +18,25 @@
     transition: none;
   }
 }
+
+/* Floating credits slot — rendered by AppShellLayout on every authenticated
+   screen (except Dashboard, which hosts its own inline badge next to the
+   channel pill). Sits at the top-right of the main column. */
+.app-shell-credits-slot {
+  position: fixed;
+  top: calc(1rem + env(safe-area-inset-top, 0px));
+  right: calc(1rem + env(safe-area-inset-right, 0px));
+  z-index: 80;
+  pointer-events: none;
+}
+
+.app-shell-credits-slot > * {
+  pointer-events: auto;
+}
+
+@media (max-width: 680px) {
+  .app-shell-credits-slot {
+    top: 0.5rem;
+    right: 0.5rem;
+  }
+}

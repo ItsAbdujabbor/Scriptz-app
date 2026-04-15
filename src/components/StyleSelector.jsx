@@ -1,11 +1,36 @@
 import { useState, useRef, useEffect } from 'react'
 import { useStylesQuery } from '../queries/styles/styleQueries'
 import { useStyleStore } from '../stores/styleStore'
+import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 import './StyleSelector.css'
+
+function IconLock() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  )
+}
 
 function IconStyle() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="3" y="3" width="18" height="18" rx="2" />
       <path d="M9 3v18" />
       <path d="M15 3v18" />
@@ -17,7 +42,14 @@ function IconStyle() {
 
 function IconChevronDown() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M6 9l6 6 6-6" />
     </svg>
   )
@@ -26,6 +58,8 @@ function IconChevronDown() {
 export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
   const { data, isPending } = useStylesQuery()
   const { selectedStyleId, selectedStyle, setSelectedStyle, clearSelectedStyle } = useStyleStore()
+  const { canUse } = usePlanEntitlements()
+  const locked = !canUse('styles')
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -53,6 +87,32 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
   }
 
   const isGlassCircle = variant === 'glassCircle'
+
+  if (locked) {
+    return (
+      <div
+        ref={ref}
+        className={`style-selector style-selector--locked ${compact ? 'style-selector--compact' : ''} ${isGlassCircle ? 'style-selector--glass-circle' : ''}`}
+      >
+        <button
+          type="button"
+          className={`style-selector-trigger style-selector-trigger--locked ${isGlassCircle ? 'style-selector-trigger--circle' : ''}`}
+          onClick={() => {
+            window.location.hash = 'pro'
+          }}
+          aria-label="Styles — upgrade to Creator to unlock"
+          title="Styles are a Creator+ feature. Click to upgrade."
+        >
+          <span className="style-selector-icon">
+            <IconLock />
+          </span>
+          {!isGlassCircle && (
+            <span className="style-selector-label style-selector-label--locked">Creator+</span>
+          )}
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -90,13 +150,23 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
       </button>
 
       {open && (
-        <div className={`style-selector-dropdown ${isGlassCircle ? 'style-selector-dropdown--glass' : ''}`} role="listbox">
+        <div
+          className={`style-selector-dropdown ${isGlassCircle ? 'style-selector-dropdown--glass' : ''}`}
+          role="listbox"
+        >
           {isPending && <div className="style-selector-loading">Loading…</div>}
           {!isPending && items.length === 0 && (
             <div className="style-selector-empty">
               <p>No styles yet.</p>
               {onOpenLibrary && (
-                <button type="button" className="style-selector-create" onClick={() => { setOpen(false); onOpenLibrary() }}>
+                <button
+                  type="button"
+                  className="style-selector-create"
+                  onClick={() => {
+                    setOpen(false)
+                    onOpenLibrary()
+                  }}
+                >
                   Create your first style
                 </button>
               )}
@@ -138,7 +208,10 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
                 <button
                   type="button"
                   className="style-selector-option style-selector-option--manage"
-                  onClick={() => { setOpen(false); onOpenLibrary() }}
+                  onClick={() => {
+                    setOpen(false)
+                    onOpenLibrary()
+                  }}
                   role="option"
                 >
                   Manage styles

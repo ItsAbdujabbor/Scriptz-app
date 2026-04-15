@@ -756,6 +756,18 @@
   pointer-events: auto;
 }
 
+/* Horizontal row: channel pill + credits badge. Menu drops below this row. */
+.dashboard-header-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  pointer-events: none; /* children opt-in */
+}
+
+.dashboard-header-pills > * {
+  pointer-events: auto;
+}
+
 .dashboard-channel-pill {
   display: inline-flex;
   align-items: center;

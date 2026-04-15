@@ -773,3 +773,213 @@
     width: 70px;
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+   Face Swap panel — sits between the uploads strip and the prompt area
+   ────────────────────────────────────────────────────────────────────── */
+.etd-face-swap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(196, 181, 253, 0.2);
+  border-radius: 14px;
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(139, 92, 246, 0.1) 0%, transparent 60%),
+    rgba(255, 255, 255, 0.025);
+}
+
+.etd-face-swap-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.etd-face-swap-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #f5f3ff;
+  letter-spacing: -0.005em;
+}
+
+.etd-face-swap-title svg {
+  width: 14px;
+  height: 14px;
+  color: #c4b5fd;
+}
+
+.etd-face-swap-tier {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(196, 181, 253, 0.85);
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(167, 139, 250, 0.14);
+  border: 1px solid rgba(196, 181, 253, 0.32);
+}
+
+.etd-face-swap-body {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.etd-face-upload {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px dashed rgba(196, 181, 253, 0.45);
+  border-radius: 10px;
+  background: rgba(139, 92, 246, 0.06);
+  color: #e9d5ff;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.1s ease;
+}
+
+.etd-face-upload svg {
+  width: 14px;
+  height: 14px;
+}
+
+.etd-face-upload:hover {
+  background: rgba(139, 92, 246, 0.14);
+  border-color: rgba(196, 181, 253, 0.7);
+}
+
+.etd-face-upload:active {
+  transform: scale(0.98);
+}
+
+.etd-face-chip {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(196, 181, 253, 0.4);
+  background: rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+}
+
+.etd-face-chip img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.etd-face-chip-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  border: none;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.etd-face-chip-remove:hover {
+  background: rgba(220, 38, 38, 0.85);
+}
+
+.etd-face-swap-go {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(124, 58, 237, 0.32);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.18s ease;
+}
+
+.etd-face-swap-go svg {
+  width: 14px;
+  height: 14px;
+}
+
+.etd-face-swap-go:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4);
+}
+
+.etd-face-swap-go:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.etd-face-swap-go:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.etd-face-swap-cost {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.etd-face-swap-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(252, 165, 165, 0.32);
+  color: #fca5a5;
+  font-size: 0.78rem;
+}
+
+.etd-face-swap-error svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .etd-face-swap-body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .etd-face-swap-go {
+    margin-left: 0;
+    justify-content: center;
+  }
+}

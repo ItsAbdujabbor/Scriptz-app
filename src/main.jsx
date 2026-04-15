@@ -6,6 +6,9 @@ import App from './App.jsx'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { createAppQueryClient } from './lib/query/queryClient'
 import { setAppQueryClient } from './lib/sessionReset'
+import { installPaywallInterceptor } from './lib/paywallInterceptor'
+
+installPaywallInterceptor()
 
 const queryClient = createAppQueryClient()
 setAppQueryClient(queryClient)
@@ -15,5 +18,5 @@ createRoot(document.getElementById('root')).render(
     <QueryClientProvider client={queryClient}>
       <App />
     </QueryClientProvider>
-  </StrictMode>,
+  </StrictMode>
 )

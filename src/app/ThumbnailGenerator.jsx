@@ -19,6 +19,7 @@ import { stripPrefillFromHash } from '../lib/dashboardActionPayload'
 import { extractYoutubeUrl } from '../lib/youtubeUrl'
 import { renderMessageContent } from '../lib/messageRender.jsx'
 import { useThreadScrollToBottom } from '../lib/useThreadScrollToBottom'
+import { CostHint } from '../components/CostHint'
 // import './ScriptGenerator.css' // next update — ScriptGenerator moved to src/next-update-ideas
 import './ThumbnailGenerator.css'
 
@@ -719,9 +720,9 @@ function ThumbnailBatchCard({
           </div>
         </div>
       </div>
-      {showEditDialog && (
+      {showEditDialog && t?.image_url && (
         <EditThumbnailDialog
-          imageUrl={t?.image_url}
+          imageUrl={t.image_url}
           onClose={() => setShowEditDialog(false)}
           onApply={handleEditDialogApply}
         />
@@ -1856,14 +1857,17 @@ export function ThumbnailGenerator({
                           disabled={pendingAssistant}
                         />
                       </div>
-                      <button
-                        type="submit"
-                        className="coach-composer-send coach-composer-primary-action is-send"
-                        disabled={pendingAssistant || (!draft.trim() && !promptImageDataUrl)}
-                        aria-label="Generate thumbnails"
-                      >
-                        <IconArrowUp />
-                      </button>
+                      <div className="thumb-gen-submit-group">
+                        <CostHint featureKey="thumbnail_generate" count={numThumbnails} />
+                        <button
+                          type="submit"
+                          className="coach-composer-send coach-composer-primary-action is-send"
+                          disabled={pendingAssistant || (!draft.trim() && !promptImageDataUrl)}
+                          aria-label="Generate thumbnails"
+                        >
+                          <IconArrowUp />
+                        </button>
+                      </div>
                     </div>
                   </form>
                 )}
@@ -1946,19 +1950,22 @@ export function ThumbnailGenerator({
                           disabled={pendingAssistant}
                         />
                       </div>
-                      <button
-                        type="submit"
-                        className="coach-composer-send coach-composer-primary-action is-send"
-                        disabled={
-                          pendingAssistant ||
-                          !(recreateSourceMode === 'upload'
-                            ? recreateSourceImage
-                            : recreatePreviewUrl)
-                        }
-                        aria-label="Recreate thumbnail"
-                      >
-                        <IconArrowUp />
-                      </button>
+                      <div className="thumb-gen-submit-group">
+                        <CostHint featureKey="thumbnail_recreate" count={1} />
+                        <button
+                          type="submit"
+                          className="coach-composer-send coach-composer-primary-action is-send"
+                          disabled={
+                            pendingAssistant ||
+                            !(recreateSourceMode === 'upload'
+                              ? recreateSourceImage
+                              : recreatePreviewUrl)
+                          }
+                          aria-label="Recreate thumbnail"
+                        >
+                          <IconArrowUp />
+                        </button>
+                      </div>
                     </div>
                   </form>
                 )}
@@ -2025,6 +2032,7 @@ export function ThumbnailGenerator({
                       />
                     </div>
                     <div className="thumb-gen-analyze-submit-row">
+                      <CostHint featureKey="thumbnail_analyze" />
                       <button
                         type="submit"
                         className="thumb-gen-analyze-btn"
@@ -2078,6 +2086,7 @@ export function ThumbnailGenerator({
                       )}
                     </div>
                     <div className="thumb-gen-analyze-submit-row">
+                      <CostHint featureKey="thumbnail_edit_faceswap" />
                       <button
                         type="button"
                         className="thumb-gen-analyze-btn"

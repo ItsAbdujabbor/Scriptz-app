@@ -1,151 +1,149 @@
-# 💰 Scriptz AI — Credit-Based Pricing System
+# 💰 Scriptz AI — OpenAI Thumbnail Cost Analysis
 
-> Last updated: April 12, 2026
-
----
-
-## 🎫 Credit Costs Per Feature
-
-| Action                       | Credits |
-| ---------------------------- | ------- |
-| 🎨 Generate thumbnail        | **20**  |
-| 🔄 Recreate thumbnail        | **20**  |
-| ✏️ Edit & FaceSwap           | **20**  |
-| 🖼️ SEO thumbnails (optimize) | **20**  |
-| 🧪 A/B test thumbnails       | **5**   |
-| 🔍 Analyze thumbnail         | **3**   |
-| 🤖 AI Coach message          | **2**   |
-| 💭 Deep-thinking message     | **3**   |
-| ✍️ Generate 3 titles         | **2**   |
-| 🏷️ Score a title             | **2**   |
-| 📝 SEO description rewrite   | **3**   |
-| 🏷️ Generate tags             | **1**   |
+> Last updated: April 15, 2026
+> Scope: **only OpenAI Images API thumbnail costs**. No other AI features, no infra.
+> Current Scriptz defaults: `gpt-image-1` · `1792x1024` · `medium` quality.
 
 ---
 
-## 💳 Plans
+## 1. Official thumbnail caps per plan
 
-### 🟢 Starter — $19.99/mo (fixed)
+| Plan        | **Thumbnails / month** |
+| ----------- | ---------------------: |
+| 🟢 Starter  |                 **70** |
+| 🟡 Creator  |                **200** |
+| 🔴 Ultimate |                **500** |
 
-**1,700 credits / month** — up to **85 thumbnails**
-
-| Usage option              | Max qty |
-| ------------------------- | ------- |
-| 🎨 Thumbnails only        | **85**  |
-| 🤖 AI Coach messages only | 850     |
-| ✍️ Title generations only | 850     |
-| 🏷️ Tags only              | 1,700   |
-
-- 2 YouTube channels
-- Annual: $13.99/mo ($167.88/yr)
+These are the caps the product promises. All math below is a straight multiply of cap × per-thumbnail unit cost.
 
 ---
 
-### 🟡 Creator — $39.99+/mo (slider)
+## 2. Per-thumbnail unit cost (OpenAI `gpt-image-1`, 1792×1024)
 
-**Up to 180 thumbnails**
+| Quality              |  Unit cost |
+| -------------------- | ---------: |
+| low                  |     $0.016 |
+| **medium (current)** | **$0.063** |
+| high                 |      $0.19 |
 
-| Credits | Thumbnails | Price/mo | Annual |
-| ------- | ---------- | -------- | ------ |
-| 3,600   | **180**    | $39.99   | $27.99 |
-| 5,000   | 250        | $49.99   | $34.99 |
-| 6,000   | 300        | $59.99   | $41.99 |
-
-- 4 YouTube channels
-- Personas & Styles
-- A/B Testing
+If you flip `OPENAI_IMAGE_QUALITY` in `.env`, every row in this document rescales by the ratio above (medium → high ≈ 3×).
 
 ---
 
-### 🔴 Ultimate — $79.99+/mo (slider)
+## 3. Per-plan thumbnail spend & margin
 
-**Up to 450 thumbnails**
+### At `medium` quality — **$0.063 / thumbnail** (current)
 
-| Credits | Thumbnails | Price/mo | Annual |
-| ------- | ---------- | -------- | ------ |
-| 9,000   | **450**    | $79.99   | $55.99 |
-| 12,000  | 600        | $99.99   | $69.99 |
-| 15,000  | 750        | $119.99  | $83.99 |
-| 18,000  | 900        | $139.99  | $97.99 |
+| Plan     | Revenue | Thumbnails cap | OpenAI spend |  **Margin** | **Margin %** |
+| -------- | ------: | -------------: | -----------: | ----------: | -----------: |
+| Starter  |  $19.99 |             70 |    **$4.41** | **+$15.58** |   **78%** ✅ |
+| Creator  |  $39.99 |            200 |   **$12.60** | **+$27.39** |   **68%** ✅ |
+| Ultimate |  $79.99 |            500 |   **$31.50** | **+$48.49** |   **61%** ✅ |
 
-- 10 YouTube channels
-- Unlimited Personas & Styles
-- Priority Support
-- A/B Testing + Advanced Analytics
+Every plan is comfortably profitable at **100% utilisation** (every user hitting the full cap).
 
----
+### At `high` quality — $0.19 / thumbnail (if you flip the flag)
 
-## 🏗️ Infrastructure (Fixed)
+| Plan     | Revenue | Thumbnails cap | OpenAI spend |                     **Margin** |
+| -------- | ------: | -------------: | -----------: | -----------------------------: |
+| Starter  |  $19.99 |             70 |       $13.30 |                +$6.69 (33%) ✅ |
+| Creator  |  $39.99 |            200 |       $38.00 | +$1.99 (5%) ⚠️ near break-even |
+| Ultimate |  $79.99 |            500 |       $95.00 |            **−$15.01** ❌ loss |
 
-| Service       | Cost/mo |
-| ------------- | ------- |
-| ECS Fargate   | $15     |
-| ALB           | $16     |
-| S3+CloudFront | $1.50   |
-| ECR+Route53   | $1.50   |
-| Supabase      | $0      |
-| **Total**     | **$34** |
+### At `low` quality — $0.016 / thumbnail (preview-only)
 
----
-
-## 💸 Real AI Costs Per Credit
-
-| Action       | AI cost | Credits | $/credit |
-| ------------ | ------- | ------- | -------- |
-| Thumbnail    | $0.035  | 20      | $0.00175 |
-| AI message   | $0.002  | 2       | $0.001   |
-| Optimization | $0.003  | 3       | $0.001   |
-| Tag gen      | $0.001  | 1       | $0.001   |
-
-**Avg cost: $0.0014/credit** (thumbnails are most expensive)
+| Plan     | Revenue | Thumbnails cap | OpenAI spend |        Margin |
+| -------- | ------: | -------------: | -----------: | ------------: |
+| Starter  |  $19.99 |             70 |        $1.12 | +$18.87 (94%) |
+| Creator  |  $39.99 |            200 |        $3.20 | +$36.79 (92%) |
+| Ultimate |  $79.99 |            500 |        $8.00 | +$71.99 (90%) |
 
 ---
 
-## 📊 Margins
+## 4. Realistic utilisation — ~30% of cap
 
-| Plan              | Revenue | Max AI cost | Infra share | **Margin**        |
-| ----------------- | ------- | ----------- | ----------- | ----------------- |
-| Starter 1,700cr   | $19.99  | $2.38       | $1.70       | **$15.91 (80%)**  |
-| Creator 3,600cr   | $39.99  | $5.04       | $1.70       | **$33.25 (83%)**  |
-| Creator 6,000cr   | $59.99  | $8.40       | $1.70       | **$49.89 (83%)**  |
-| Ultimate 9,000cr  | $79.99  | $12.60      | $1.70       | **$65.69 (82%)**  |
-| Ultimate 18,000cr | $139.99 | $25.20      | $1.70       | **$113.09 (81%)** |
+Most paying users don't hit 100% of their thumbnail allowance. At 30% utilisation (industry average), OpenAI spend collapses:
 
----
-
-## 📈 Revenue Projections
-
-### 50 users (early stage)
-
-| Mix                                           | Revenue | AI   | Infra | **Profit** |
-| --------------------------------------------- | ------- | ---- | ----- | ---------- |
-| 25 Starter + 20 Creator(4K) + 5 Ultimate(10K) | $1,699  | $168 | $34   | **$1,497** |
-
-### 200 users
-
-| Mix                               | Revenue | AI     | Infra | **Profit** |
-| --------------------------------- | ------- | ------ | ----- | ---------- |
-| 100S + 80C(avg 5K) + 20U(avg 12K) | $7,598  | $1,036 | $50   | **$6,512** |
-
-### 1,000 users
-
-| Mix                                 | Revenue | AI     | Infra | **Profit**  |
-| ----------------------------------- | ------- | ------ | ----- | ----------- |
-| 500S + 400C(avg 5K) + 100U(avg 12K) | $37,990 | $5,180 | $120  | **$32,690** |
+| Plan (medium) | Thumbs @ 30% | OpenAI spend | Gross margin (before infra + Paddle) |
+| ------------- | -----------: | -----------: | -----------------------------------: |
+| Starter       |           21 |        $1.32 |                         $18.67 (93%) |
+| Creator       |           60 |        $3.78 |                         $36.21 (91%) |
+| Ultimate      |          150 |        $9.45 |                         $70.54 (88%) |
 
 ---
 
-## ✅ Summary
+## 5. Annual plans (15% credit bonus)
 
-| Plan        | Credits | Thumbs  | Price          | Channels | Margin |
-| ----------- | ------- | ------- | -------------- | -------- | ------ |
-| 🟢 Starter  | 1,700   | 85      | $19.99         | 2        | 80%    |
-| 🟡 Creator  | 3.6K–6K | 180–300 | $39.99–$59.99  | 4        | 83%    |
-| 🔴 Ultimate | 9K–18K  | 450–900 | $79.99–$139.99 | 10       | 81%    |
+Assuming the same 70/200/500 monthly caps (annual pricing doesn't change the cap — only the credit bonus does, and credit bonuses apply to _other_ features).
 
-### Key design principles:
+| Plan                          | Monthly-equiv revenue | Thumbnails cap | OpenAI @ medium |       **Margin** |
+| ----------------------------- | --------------------: | -------------: | --------------: | ---------------: |
+| Starter annual — $13.99 / mo  |                $13.99 |             70 |           $4.41 |  +$9.58 (68%) ✅ |
+| Creator annual — $27.99 / mo  |                $27.99 |            200 |          $12.60 | +$15.39 (55%) ✅ |
+| Ultimate annual — $55.99 / mo |                $55.99 |            500 |          $31.50 | +$24.49 (44%) ✅ |
 
-- 🎯 **Thumbnails drive pricing** — they're 60% of AI cost
-- 🎚️ **Slider lets users pick** — pay more for more credits
-- 🛡️ **80%+ margins protected** across all tiers
-- 💡 **Clear value** — "85 thumbnails" is easier to sell than "1,700 credits"
+---
+
+## 6. Credit packs (one-time)
+
+Credit packs don't have a hard thumbnail cap, but at 20 credits per thumbnail (SRX-2 Pro):
+
+| Pack     |  Price | Implied thumbnails | OpenAI @ medium |        Margin |
+| -------- | -----: | -----------------: | --------------: | ------------: |
+| 500 cr   |  $7.99 |                 25 |           $1.58 |  +$6.41 (80%) |
+| 1,500 cr | $19.99 |                 75 |           $4.73 | +$15.26 (76%) |
+| 5,000 cr | $49.99 |                250 |          $15.75 | +$34.24 (68%) |
+
+---
+
+## 7. Quick-glance unit economics
+
+| Metric                       |    Starter |    Creator |    Ultimate |
+| ---------------------------- | ---------: | ---------: | ----------: |
+| Revenue                      |     $19.99 |     $39.99 |      $79.99 |
+| Thumbnail cap                |         70 |        200 |         500 |
+| OpenAI @ medium (worst case) |      $4.41 |     $12.60 |      $31.50 |
+| OpenAI @ high (worst case)   |     $13.30 |     $38.00 |      $95.00 |
+| **Margin floor @ medium**    | **$15.58** | **$27.39** |  **$48.49** |
+| **Margin floor @ high**      |  **$6.69** |  **$1.99** | **−$15.01** |
+
+---
+
+## 8. Recommended setting
+
+Keep **`OPENAI_IMAGE_QUALITY=medium`** in `.env`. All three plans stay healthily profitable even when every user maxes their cap, and medium-quality output at `1792×1024` is indistinguishable from high-quality when viewed at YouTube's grid size (320×180).
+
+Use `high` only if you ever add a premium "Ultra-HD thumbnail" feature priced separately (e.g. a $2 one-off pack of 5 high-quality generations).
+
+---
+
+## 9. Enforcing the caps in code
+
+The 70 / 200 / 500 numbers aren't hard-coded in the backend today — they fall out of the plan's `monthly_credits` budget divided by the credit cost per thumbnail. To guarantee these caps exactly, two options:
+
+**Option A — adjust plan credit pools** (in `billing_plans` table):
+
+- Starter: `monthly_credits = 70 × 20 = 1400`
+- Creator: `monthly_credits = 200 × 20 = 4000`
+- Ultimate: `monthly_credits = 500 × 20 = 10000`
+
+**Option B — add a hard `thumbnails_per_month` feature flag** per plan and enforce in the thumbnail endpoints. Cleaner long-term because it separates thumbnail cap from other feature credits.
+
+Pick one when you want these caps to be contractual rather than derived. Neither is required for the cost math above to hold.
+
+---
+
+## 10. How to track real OpenAI spend
+
+- **Per-request:** `app/services/thumbnail_openai/generator.py` logs the prompt + archetype. Aggregate from `usage_events` where `feature_key='thumbnail_generate'`.
+- **Provider truth:** OpenAI Usage dashboard at https://platform.openai.com/usage (filter by the `OPENAI_API_KEY` in `.env`).
+- **In-admin:** set `cost_usd.thumbnail_generate = 0.063` via AppConfig so the Admin Panel's Finance Health card matches these numbers exactly.
+
+---
+
+## 11. Assumptions
+
+- `gpt-image-1` public rate card, April 2026. If OpenAI re-prices, only this doc + `cost_usd.thumbnail_generate` in AppConfig need updating.
+- Size `1792×1024`, quality `medium` (the current `.env` defaults; configurable per-request in `thumbnail_openai/client.py`).
+- 100% utilisation = every user hits their full monthly thumbnail cap. 30% utilisation is the realistic baseline for paid SaaS.
+- Caps (70 / 200 / 500) are product decisions; backend enforcement options are in §9.

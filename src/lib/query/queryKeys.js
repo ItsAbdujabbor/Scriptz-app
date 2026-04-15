@@ -91,6 +91,20 @@ export const queryKeys = {
     ],
     conversation: (conversationId) => ['scripts', 'conversation', conversationId ?? 'new'],
   },
+  billing: {
+    credits: ['billing', 'credits'],
+    featureCosts: ['billing', 'featureCosts'],
+    subscription: ['billing', 'subscription'],
+    plans: ['billing', 'plans'],
+  },
+  modelTier: {
+    state: ['modelTier', 'state'],
+  },
+  abTests: {
+    all: (params = {}) => ['abTests', 'all', params.channelId ?? '', params.statusFilter ?? ''],
+    list: (videoId) => ['abTests', 'list', videoId ?? 'all'],
+    results: (testId) => ['abTests', 'results', testId],
+  },
   thumbnailTemplates: {
     categories: () => ['thumbnailTemplates', 'categories'],
     list: (params) => [
