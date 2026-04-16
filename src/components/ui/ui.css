@@ -31,11 +31,14 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  height: var(--ui-btn-h);
-  min-height: var(--ui-btn-h);
-  max-height: var(--ui-btn-h);
+  /* Locked to the same 34px scale used by .sidebar-upgrade-pro and the
+   * .sidebar-new-chat-pill so every sidebar control is visually aligned. */
+  height: 34px;
+  min-height: 34px;
+  max-height: 34px;
+  flex: 0 0 34px;
   padding: 0 0.75rem;
-  font-size: 0.84rem;
+  font-size: 0.8rem;
   font-weight: 500;
   color: var(--ui-text-muted);
   text-decoration: none;
@@ -51,13 +54,19 @@
   isolation: isolate;
   box-sizing: border-box;
   font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  /* Slow spring on the way OUT — guarantees the press bounce-back is
+   * visible even when navigation immediately changes the route. */
   transition:
     background var(--ui-ease),
     color var(--ui-ease),
-    box-shadow var(--ui-ease);
+    box-shadow var(--ui-ease),
+    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
 }
 
-/* Filled pill behind active — no layout shift, just ::after opacity */
+/* Filled pill behind active — no layout shift, just ::after opacity.
+ * Lives inside the button bounds so the hover surface never grows. */
 .sb-btn::after {
   content: '';
   position: absolute;
@@ -65,10 +74,12 @@
   border-radius: inherit;
   background: var(--ui-surface-active);
   opacity: 0;
-  transform: scale(0.985);
+  transform: scaleX(0.96);
+  transform-origin: left center;
   transition:
     opacity var(--ui-ease),
-    transform var(--ui-ease);
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 180ms ease;
   pointer-events: none;
   z-index: 0;
 }
@@ -112,36 +123,72 @@
 /* --- States --- */
 .sb-btn:hover {
   color: var(--ui-text);
-  background: var(--ui-surface-hover);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.09);
-}
-
-.sb-btn--active {
-  color: var(--ui-text);
+  /* Hover lives entirely inside ::after so the surface is exactly the
+   * button bounds — never grows. */
   background: transparent;
   box-shadow: none;
 }
+.sb-btn:hover::after {
+  opacity: 1;
+  transform: scaleX(1);
+  background: rgba(255, 255, 255, 0.06);
+}
+.sb-btn:hover .sb-btn__icon {
+  color: rgba(255, 255, 255, 0.92);
+}
 
+/* Press — same subtle scale-down used by Dashboard + Optimize cards. */
+.sb-btn:active {
+  transform: scale(0.985);
+  transition: transform 100ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+.sb-btn:active::after {
+  opacity: 1;
+  transform: scaleX(1);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Click ripple — plays on pointerdown even if navigation unmounts the
+ * button, so the press feedback matches Dashboard / Optimize buttons
+ * which stay mounted long enough for :active to register. */
+.sb-btn.is-pressing {
+  animation: sb-btn-press 180ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+@keyframes sb-btn-press {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(0.985);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Active (selected) — soft neutral fill + clean white icon (no purple) */
+.sb-btn--active {
+  color: #ffffff;
+  background: transparent;
+  box-shadow: none;
+}
 .sb-btn--active::after {
   opacity: 1;
-  transform: scale(1);
+  transform: scaleX(1);
+  background: rgba(255, 255, 255, 0.08);
 }
-
 .sb-btn--active .sb-btn__icon {
-  color: var(--ui-accent);
+  color: #ffffff;
 }
-
 .sb-btn--active .sb-btn__label {
   font-weight: 600;
 }
-
-.sb-btn--active:hover {
-  background: transparent;
-  box-shadow: none;
+.sb-btn--active:hover::after {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .sb-btn:focus-visible {
-  box-shadow: 0 0 0 3px var(--ui-ring);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18);
 }
 
 /* --- Collapsed: icon-only circle --- */

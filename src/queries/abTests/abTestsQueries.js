@@ -8,9 +8,10 @@ import { queryKeys } from '../../lib/query/queryKeys'
 import { resultOrNullOnAuthFailure } from '../../lib/query/safeApi'
 
 /** List ALL tests for the user (optionally scoped by channel / status). */
-export function useAllABTestsQuery({ channelId, statusFilter } = {}) {
+export function useAllABTestsQuery({ channelId, statusFilter, enabled = true } = {}) {
   return useQuery({
     queryKey: queryKeys.abTests.all({ channelId, statusFilter }),
+    enabled,
     queryFn: async () => {
       const token = await getAccessTokenOrNull()
       if (!token) return { items: [] }

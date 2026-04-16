@@ -1,5 +1,59 @@
 /* Thumbnail Generator — same coach/script layout, thumbnail-specific blocks */
 
+/* ──────────────────────────────────────────────────────────────────────
+ * Screen chrome for the Thumbnail Generator panel.
+ *
+ * `.coach-main--thumb` is the positioned parent for the ambient
+ * background FX layer (ThumbBackgroundFX). All content above the
+ * background sits at z-index 1+ so the black gradient + dot grid +
+ * falling stars stay behind the chat thread and composer without
+ * bleeding into them.
+ * ──────────────────────────────────────────────────────────────────── */
+.coach-main--thumb {
+  position: relative;
+  overflow: hidden;
+  background: var(--dash-surface-page, #0e0e12);
+}
+
+.coach-main--thumb > *:not(.thumb-bg-fx) {
+  position: relative;
+  z-index: 1;
+}
+
+/* The chat shell itself shouldn't paint a background anymore — it'd
+ * cover the FX layer. */
+.coach-main--thumb .coach-chat-shell {
+  background: transparent;
+}
+
+/* Composer tweaks on the thumb screen — the global composer styles
+ * use a fairly dark halo behind the input so it pops off the page.
+ * On this screen we WANT the dot grid to be visible through the
+ * bottom gap, so we soften the halo and let the composer's own
+ * backdrop-blur handle the frosted look. */
+.coach-main--thumb .coach-composer-wrap::after {
+  display: none;
+}
+
+/* A single liquid-glass composer: still blurred so dots behind it
+ * read as a soft texture, but with a slightly stronger border so
+ * the input bar itself stays clearly defined. */
+.coach-main--thumb .coach-composer {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.coach-main--thumb .coach-composer:focus-within {
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 10px 30px rgba(0, 0, 0, 0.4),
+    0 0 0 3px rgba(139, 92, 246, 0.14);
+}
+
 /* Thumbnail shown in user's sent message (analyze mode) */
 .thumb-user-sent-image {
   align-self: flex-end;
@@ -298,47 +352,73 @@
   overflow: visible !important;
 }
 
+/* ────────────────────────────────────────────────────────────────────────
+ * THUMBNAIL RESULT CARD — liquid-glass container, starfield backdrop,
+ * image presented at full 16:9 with a glowing pill-shaped score badge
+ * and a persistent action row below. Single + grid renders both route
+ * through this card so every mode (generate / recreate / analyze /
+ * edit) looks identical.
+ * ──────────────────────────────────────────────────────────────────── */
+
 .thumb-batch-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
   width: 100%;
 }
+/* Two-up when the batch has 4 items on wider screens */
+@media (min-width: 720px) {
+  .thumb-batch-grid:has(> :nth-child(4)) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 
+/* Static liquid-glass card. No hover transforms, no entry animations,
+ * no decorative motion. A single clean surface so the thumbnail is
+ * the only thing that reads. */
 .thumb-batch-card {
   position: relative;
-  border-radius: 16px;
-  overflow: hidden;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    border-color 0.2s ease;
-  background: #141414;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
-  max-width: 600px;
+  isolation: isolate;
+  max-width: 720px;
   width: 100%;
+  padding: 14px 14px 12px;
+  border-radius: 22px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.015) 100%),
+    rgba(18, 14, 32, 0.82);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 12px 40px rgba(0, 0, 0, 0.45);
 }
 
-.thumb-batch-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
-  border-color: rgba(167, 139, 250, 0.3);
+/* Removed — no decorative layer on the finished card. Kept as a
+ * no-op so any stray `thumb-batch-card-bg` DOM node we still render
+ * stays invisible. */
+.thumb-batch-card-bg {
+  display: none;
 }
 
 .thumb-batch-card-inner {
   position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
+  gap: 12px;
 }
 
+/* ----- Image wrap (16:9 stage) ----- */
 .thumb-batch-img-wrap {
   position: relative;
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
   aspect-ratio: 16 / 9;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
   box-sizing: border-box;
 }
 
@@ -348,7 +428,9 @@
 }
 
 .thumb-batch-img-wrap--viewable:focus-visible {
-  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.65);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 0 0 2px rgba(167, 139, 250, 0.65);
 }
 
 .thumb-batch-img {
@@ -356,167 +438,302 @@
   height: 100%;
   object-fit: cover;
   display: block;
-  border: none;
-  border-radius: 0;
 }
 
-.thumb-batch-score {
+/* ──────────────────────────────────────────────────────────────────────
+ * SCORE PILL — pill-shaped liquid-glass badge with a tier-tinted glow.
+ * Sits in the top-right of the image stage, always-visible.
+ * ──────────────────────────────────────────────────────────────────── */
+.thumb-score-pill {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 10px;
+  right: 10px;
   z-index: 3;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-width: 36px;
-  padding: 6px 10px;
-  border-radius: 12px;
-  font-size: 14px;
+  gap: 4px;
+  height: 26px;
+  padding: 0 11px;
+  border-radius: 999px;
+  font-size: 0.74rem;
   font-weight: 700;
+  letter-spacing: 0.005em;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  color: #ffffff;
+  background: rgba(15, 12, 28, 0.62);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 4px 14px rgba(0, 0, 0, 0.4);
+  isolation: isolate;
 }
 
-.thumb-batch-score-value {
+/* Tier-tinted halo behind the pill. Static — soft permanent glow, no
+ * pulse, so the card reads as "finished" rather than "still
+ * working". */
+.thumb-score-pill__glow {
+  position: absolute;
+  inset: -6px;
+  border-radius: 999px;
+  z-index: -1;
+  pointer-events: none;
+  filter: blur(10px);
+  opacity: 0.6;
+}
+
+/* Pill number (large) + /100 suffix (muted) */
+.thumb-score-pill__num {
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.thumb-score-pill__suffix {
+  font-size: 0.6rem;
+  font-weight: 600;
+  opacity: 0.55;
   line-height: 1;
 }
 
-.thumb-batch-score-loading {
-  font-size: 12px;
-  opacity: 0.9;
+/* Loading dot + "Scoring" label. */
+.thumb-score-pill__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+  animation: thumb-score-pill-dot 1.1s ease-in-out infinite;
+}
+@keyframes thumb-score-pill-dot {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.75);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.thumb-score-pill__label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  opacity: 0.85;
 }
 
-/* Green: high scores (85-100) */
-.thumb-batch-score--high {
-  background: rgba(16, 185, 129, 0.9);
-  color: #fff;
-}
-
-/* Yellow: medium scores (60-84) */
-.thumb-batch-score--medium {
-  background: rgba(234, 179, 8, 0.9);
-  color: #1a1a1a;
-}
-
-/* Red: low scores (0-59) */
-.thumb-batch-score--low {
-  background: rgba(239, 68, 68, 0.9);
-  color: #fff;
-}
-
-/* Loading state */
-.thumb-batch-score--loading {
-  background: rgba(0, 0, 0, 0.7);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-/* Error state - click to retry */
-.thumb-batch-score--error {
-  background: rgba(239, 68, 68, 0.9);
-  color: #fff;
-  cursor: pointer;
-}
-.thumb-batch-score-retry {
-  font-size: 14px;
-  opacity: 0.95;
-}
-
-.thumb-batch-actions-card {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding: 28px 12px 10px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, transparent 100%);
-  z-index: 2;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.thumb-batch-img-wrap:hover .thumb-batch-actions-card,
-.thumb-batch-img-wrap:focus-within .thumb-batch-actions-card {
-  opacity: 1;
-}
-
-.thumb-batch-actions-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.thumb-batch-btn {
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
+.thumb-score-pill__retry {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  border: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 0.9rem;
+  cursor: pointer;
   background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  transition: background 160ms ease;
+}
+.thumb-score-pill__retry:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Tier palettes — glow colour + pill accent. */
+.thumb-score-pill--high {
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #c7f7df;
+}
+.thumb-score-pill--high .thumb-score-pill__glow {
+  background: radial-gradient(
+    closest-side,
+    rgba(16, 185, 129, 0.7) 0%,
+    rgba(16, 185, 129, 0.2) 60%,
+    transparent 100%
+  );
+}
+.thumb-score-pill--high .thumb-score-pill__num {
+  color: #86efac;
+}
+
+.thumb-score-pill--medium {
+  border-color: rgba(234, 179, 8, 0.5);
+  color: #fef3c7;
+}
+.thumb-score-pill--medium .thumb-score-pill__glow {
+  background: radial-gradient(
+    closest-side,
+    rgba(234, 179, 8, 0.65) 0%,
+    rgba(234, 179, 8, 0.2) 60%,
+    transparent 100%
+  );
+}
+.thumb-score-pill--medium .thumb-score-pill__num {
+  color: #fcd34d;
+}
+
+.thumb-score-pill--low {
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fecaca;
+}
+.thumb-score-pill--low .thumb-score-pill__glow {
+  background: radial-gradient(
+    closest-side,
+    rgba(239, 68, 68, 0.65) 0%,
+    rgba(239, 68, 68, 0.2) 60%,
+    transparent 100%
+  );
+}
+.thumb-score-pill--low .thumb-score-pill__num {
+  color: #fca5a5;
+}
+
+.thumb-score-pill--loading {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.thumb-score-pill--loading .thumb-score-pill__glow {
+  background: radial-gradient(
+    closest-side,
+    rgba(167, 139, 250, 0.5) 0%,
+    rgba(167, 139, 250, 0.15) 60%,
+    transparent 100%
+  );
+}
+
+.thumb-score-pill--error {
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fecaca;
+  cursor: pointer;
+}
+.thumb-score-pill--error .thumb-score-pill__glow {
+  background: radial-gradient(
+    closest-side,
+    rgba(239, 68, 68, 0.55) 0%,
+    rgba(239, 68, 68, 0.15) 60%,
+    transparent 100%
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * ACTION ROW — always visible below the image. Glass buttons with icon
+ * + label, same set on every mode.
+ * ──────────────────────────────────────────────────────────────────── */
+.thumb-batch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.thumb-action-btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: rgba(229, 231, 235, 0.92);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 1px 2px rgba(0, 0, 0, 0.25);
   transition:
-    background 0.15s,
-    color 0.15s,
-    transform 0.12s ease;
-}
-.thumb-batch-btn:active:not(:disabled) {
-  transform: scale(0.92);
-}
-
-.thumb-batch-btn:hover:not(:disabled) {
-  background: rgba(139, 92, 246, 0.5);
-  color: #e9d5ff;
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 120ms ease,
+    box-shadow 160ms ease;
 }
 
-.thumb-batch-actions-card .thumb-batch-btn {
-  padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 500;
+.thumb-action-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
 }
 
-.thumb-batch-actions-card .thumb-batch-btn:hover:not(:disabled) {
-  background: rgba(139, 92, 246, 0.55);
+.thumb-action-btn:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
-.thumb-batch-btn--highlight {
-  background: rgba(139, 92, 246, 0.45);
-  color: #e9d5ff;
+.thumb-action-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 2px rgba(167, 139, 250, 0.6);
 }
 
-.thumb-batch-btn--highlight:hover:not(:disabled) {
-  background: rgba(139, 92, 246, 0.65);
+.thumb-action-btn svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
 }
 
-.thumb-batch-btn svg {
-  width: 16px;
-  height: 16px;
+.thumb-action-btn__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.thumb-batch-btn:disabled {
-  opacity: 0.6;
+.thumb-action-btn:disabled {
+  opacity: 0.55;
   cursor: not-allowed;
 }
-.thumb-batch-btn-spinner {
+
+/* Primary = One-click fix — purple glass with a soft glow. */
+.thumb-action-btn--primary {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.35) 0%, rgba(124, 58, 237, 0.3) 100%);
+  border-color: rgba(167, 139, 250, 0.42);
+  color: #ede9fe;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 2px 10px rgba(139, 92, 246, 0.28);
+}
+.thumb-action-btn--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.48) 0%, rgba(124, 58, 237, 0.42) 100%);
+  border-color: rgba(167, 139, 250, 0.6);
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 4px 16px rgba(139, 92, 246, 0.4);
+}
+
+.thumb-action-btn__spinner {
   width: 14px;
   height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #fff;
+  border-top-color: #ffffff;
   border-radius: 50%;
-  animation: thumb-batch-spin 0.6s linear infinite;
+  animation: thumb-action-spin 0.6s linear infinite;
 }
-@keyframes thumb-batch-spin {
+
+@keyframes thumb-action-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* Mobile: compact buttons, hide labels — icons speak enough. */
+@media (max-width: 560px) {
+  .thumb-action-btn {
+    flex: 1 1 0;
+    padding: 0 10px;
+    font-size: 0.72rem;
+  }
+  .thumb-action-btn__label {
+    display: none;
   }
 }
 
@@ -1514,127 +1731,321 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
-/* ── Liquid glass skeleton loading card ── */
-/* ── Generating loader card ── */
-.thumb-gen-skeleton-card {
+/* ──────────────────────────────────────────────────────────────────────
+ * GENERATING LOADER — same footprint as the eventual result card, so
+ * when the thumbnail lands there's zero layout jump. Liquid glass
+ * container, 16:9 animated stage, pill-shaped progress bar at the
+ * bottom-left of the stage, and ghost action-row chips underneath.
+ * ──────────────────────────────────────────────────────────────────── */
+.thumb-gen-loader {
   position: relative;
+  isolation: isolate;
   width: 100%;
-  max-width: 480px;
-  border-radius: 18px;
+  max-width: 720px;
+  padding: 14px 14px 12px;
+  border-radius: 22px;
   overflow: hidden;
-  background: linear-gradient(140deg, #110a28 0%, #1c1040 55%, #0e0820 100%);
-  border: 1px solid rgba(139, 92, 246, 0.18);
-  box-shadow:
-    0 8px 36px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  padding: 1.6rem 1.75rem 1.4rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-/* Ambient glow blobs */
-.thumb-gen-skeleton-blob {
-  position: absolute;
-  inset: -60%;
   background:
-    radial-gradient(ellipse 50% 40% at 25% 35%, rgba(120, 60, 240, 0.3) 0%, transparent 60%),
-    radial-gradient(ellipse 40% 50% at 75% 65%, rgba(80, 40, 200, 0.2) 0%, transparent 60%);
-  animation: thumbBlobDrift 8s ease-in-out infinite;
-  pointer-events: none;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.015) 100%),
+    rgba(18, 14, 32, 0.78);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  border: 1px solid rgba(167, 139, 250, 0.22);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(139, 92, 246, 0.08),
+    0 0 40px rgba(139, 92, 246, 0.08);
+  animation: thumb-gen-loader-in 300ms ease-out both;
 }
 
-/* Shimmer sweep across the card */
-.thumb-gen-skeleton-shimmer {
+@keyframes thumb-gen-loader-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Starfield/glow backdrop — same treatment as the result card. */
+.thumb-gen-loader__bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    105deg,
-    transparent 30%,
-    rgba(255, 255, 255, 0.025) 48%,
-    rgba(255, 255, 255, 0.055) 50%,
-    rgba(255, 255, 255, 0.025) 52%,
-    transparent 70%
-  );
-  background-size: 250% 100%;
-  animation: thumbSkeletonShimmer 3.2s linear infinite;
+  z-index: 0;
   pointer-events: none;
+  opacity: 0.75;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 10%, rgba(139, 92, 246, 0.3) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 80% 90%, rgba(99, 102, 241, 0.22) 0%, transparent 55%),
+    radial-gradient(circle at 18% 30%, rgba(255, 255, 255, 0.35) 0 0.6px, transparent 1.2px),
+    radial-gradient(circle at 72% 22%, rgba(255, 255, 255, 0.3) 0 0.5px, transparent 1px),
+    radial-gradient(circle at 34% 78%, rgba(255, 255, 255, 0.25) 0 0.5px, transparent 1px),
+    radial-gradient(circle at 82% 68%, rgba(255, 255, 255, 0.3) 0 0.5px, transparent 1px);
+  background-size:
+    100% 100%,
+    100% 100%,
+    160px 110px,
+    160px 110px,
+    160px 110px,
+    160px 110px;
+  animation: thumb-gen-loader-stars 14s linear infinite;
 }
 
-/* Progress bar — fills left to right */
-.thumb-gen-skeleton-fill {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  height: 2px;
-  max-width: 100%;
-  background: linear-gradient(
-    90deg,
-    rgba(139, 92, 246, 0.6) 0%,
-    rgba(167, 110, 255, 1) 60%,
-    rgba(210, 170, 255, 0.85) 100%
-  );
-  box-shadow: 0 0 10px rgba(167, 110, 255, 0.55);
-  transition: width 0.1s linear;
-  pointer-events: none;
+@keyframes thumb-gen-loader-stars {
+  from {
+    background-position:
+      0 0,
+      0 0,
+      0 0,
+      0 0,
+      0 0,
+      0 0;
+  }
+  to {
+    background-position:
+      0 0,
+      0 0,
+      -160px 110px,
+      160px -110px,
+      -160px -110px,
+      160px 110px;
+  }
 }
 
-.thumb-gen-skeleton-content {
+/* 16:9 stage — mirrors .thumb-batch-img-wrap in size and rounding */
+.thumb-gen-loader__stage {
   position: relative;
   z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(
+    140deg,
+    rgba(139, 92, 246, 0.18) 0%,
+    rgba(76, 29, 149, 0.22) 55%,
+    rgba(30, 20, 60, 0.35) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
-/* Spinning orb */
-.thumb-gen-skeleton-orb {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.9) 0%, rgba(99, 102, 241, 0.9) 100%);
-  box-shadow:
-    0 0 18px rgba(139, 92, 246, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  animation: thumbOrbPulse 2s ease-in-out infinite;
+/* Diagonal shimmer sweep across the stage. */
+.thumb-gen-loader__shimmer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 32%,
+    rgba(167, 139, 250, 0.15) 48%,
+    rgba(255, 255, 255, 0.12) 50%,
+    rgba(167, 139, 250, 0.15) 52%,
+    transparent 68%
+  );
+  background-size: 240% 100%;
+  mix-blend-mode: screen;
+  animation: thumb-gen-loader-shimmer 1.8s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+}
+
+@keyframes thumb-gen-loader-shimmer {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -40% 0;
+  }
+}
+
+/* Center column — orb + label */
+.thumb-gen-loader__center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  padding: 0 1rem;
+  text-align: center;
+}
+
+.thumb-gen-loader__orb {
+  position: relative;
+  width: 46px;
+  height: 46px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.thumb-gen-skeleton-orb::after {
-  content: '';
-  width: 14px;
-  height: 14px;
+.thumb-gen-loader__orb-ring {
+  position: absolute;
+  inset: 0;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.85);
-  border-top-color: transparent;
-  animation: thumbOrbSpin 0.9s linear infinite;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    rgba(167, 139, 250, 0.9) 22%,
+    rgba(124, 58, 237, 1) 45%,
+    transparent 62%,
+    transparent 100%
+  );
+  animation: thumb-gen-loader-orb-spin 1.2s linear infinite;
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
 }
 
-.thumb-gen-skeleton-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.22rem;
-  min-width: 0;
+.thumb-gen-loader__orb-core {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #c4b5fd 0%, #7c3aed 100%);
+  box-shadow:
+    0 0 22px rgba(139, 92, 246, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  animation: thumb-gen-loader-orb-pulse 2s ease-in-out infinite;
 }
 
-.thumb-gen-skeleton-label {
+@keyframes thumb-gen-loader-orb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes thumb-gen-loader-orb-pulse {
+  0%,
+  100% {
+    transform: scale(0.9);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.thumb-gen-loader__label {
   font-size: 0.82rem;
   font-weight: 600;
-  color: rgba(230, 215, 255, 0.88);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  letter-spacing: -0.005em;
+  color: rgba(237, 233, 254, 0.95);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  max-width: 340px;
+  line-height: 1.35;
 }
 
-.thumb-gen-skeleton-pct {
-  font-size: 0.72rem;
-  font-weight: 500;
-  color: rgba(170, 140, 255, 0.55);
+/* Progress pill — bottom-left of the stage. */
+.thumb-gen-loader__progress {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 26px;
+  padding: 0 11px 0 10px;
+  border-radius: 999px;
+  background: rgba(15, 12, 28, 0.62);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(167, 139, 250, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 4px 14px rgba(0, 0, 0, 0.4);
+  font-size: 0.74rem;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.01em;
+  color: rgba(237, 233, 254, 0.95);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.thumb-gen-loader__progress-fill {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.5) 0%, rgba(167, 139, 250, 0.6) 100%);
+  box-shadow: 0 0 16px rgba(167, 139, 250, 0.45);
+  transition: width 160ms linear;
+}
+
+.thumb-gen-loader__progress-num {
+  letter-spacing: 0.005em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Ghost action row — matches the real action buttons' height so the
+ * total card height doesn't shift when the image arrives. */
+.thumb-gen-loader__actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.thumb-gen-loader__ghost-btn {
+  flex: 1 1 0;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.07) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: thumb-gen-loader-ghost 1.8s ease-in-out infinite;
+}
+.thumb-gen-loader__ghost-btn--wide {
+  flex: 1.6 1 0;
+  background: linear-gradient(
+    90deg,
+    rgba(139, 92, 246, 0.1) 0%,
+    rgba(139, 92, 246, 0.2) 50%,
+    rgba(139, 92, 246, 0.1) 100%
+  );
+  background-size: 200% 100%;
+  border-color: rgba(167, 139, 250, 0.24);
+}
+
+@keyframes thumb-gen-loader-ghost {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb-gen-loader__shimmer,
+  .thumb-gen-loader__bg,
+  .thumb-gen-loader__orb-ring,
+  .thumb-gen-loader__orb-core,
+  .thumb-gen-loader__ghost-btn,
+  .thumb-batch-card-bg {
+    animation: none !important;
+  }
+}
+
+/* Legacy skeleton shell — retained only so unused keyframes don't
+ * break the parse chain below. No longer rendered. */
+.thumb-gen-skeleton-card,
+.thumb-gen-skeleton-blob,
+.thumb-gen-skeleton-shimmer,
+.thumb-gen-skeleton-fill,
+.thumb-gen-skeleton-content,
+.thumb-gen-skeleton-orb,
+.thumb-gen-skeleton-text,
+.thumb-gen-skeleton-label,
+.thumb-gen-skeleton-pct {
+  display: none;
 }
 
 @keyframes thumbBlobDrift {
@@ -1642,28 +2053,13 @@
   100% {
     transform: translate(0, 0) scale(1);
   }
-  40% {
-    transform: translate(5%, -7%) scale(1.05);
-  }
-  70% {
-    transform: translate(-4%, 5%) scale(0.96);
-  }
 }
-
 @keyframes thumbOrbPulse {
   0%,
   100% {
-    box-shadow:
-      0 0 18px rgba(139, 92, 246, 0.55),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  }
-  50% {
-    box-shadow:
-      0 0 28px rgba(139, 92, 246, 0.85),
-      inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    opacity: 1;
   }
 }
-
 @keyframes thumbOrbSpin {
   to {
     transform: rotate(360deg);
@@ -1972,6 +2368,100 @@
   align-items: center;
   gap: 0.55rem;
   flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * ThumbSendPill — pill-shaped send button with the credit cost embedded
+ * inside (zap icon + number) followed by the send arrow. Visual twin of
+ * the "+ Create" button on the A/B Testing screen.
+ * ─────────────────────────────────────────────────────────────────────── */
+.thumb-send-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42rem;
+  height: 34px;
+  padding: 0 0.82rem;
+  border: none;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  color: #ffffff;
+  cursor: pointer;
+  white-space: nowrap;
+  outline: none;
+  background: linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    filter 0.22s ease,
+    opacity 0.14s ease,
+    transform 0.15s ease;
+}
+
+.thumb-send-pill:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.thumb-send-pill:active:not(:disabled) {
+  transform: scale(0.97);
+  filter: brightness(0.97);
+}
+
+.thumb-send-pill:focus-visible {
+  outline: 2px solid rgba(167, 139, 250, 0.7);
+  outline-offset: 2px;
+}
+
+.thumb-send-pill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.thumb-send-pill-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  line-height: 1;
+  padding-right: 0.5rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.24);
+}
+
+.thumb-send-pill-zap {
+  display: inline-grid;
+  place-items: center;
+  width: 12px;
+  height: 12px;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+.thumb-send-pill-zap svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+.thumb-send-pill-num {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.thumb-send-pill-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.thumb-send-pill-icon svg {
+  width: 13px;
+  height: 13px;
+  display: block;
 }
 
 .thumb-gen-analyze-btn {

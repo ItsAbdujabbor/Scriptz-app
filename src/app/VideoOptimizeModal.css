@@ -43,12 +43,31 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.6rem 1rem;
-  background: var(--vo-surface);
-  border-bottom: 1px solid var(--vo-border);
+  /* Match the screen canvas so the header reads as part of the page,
+   * not a separate bar. The divider is drawn by ::after for sharp-fade
+   * ends like the Optimize page. */
+  background: var(--app-canvas-bg);
+  border-bottom: none;
   flex-shrink: 0;
   min-height: 52px;
   position: relative;
   z-index: 10;
+}
+.video-opt-screen-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.12) 15%,
+    rgba(255, 255, 255, 0.12) 85%,
+    transparent 100%
+  );
 }
 
 .video-opt-screen-header-left {
@@ -56,38 +75,58 @@
   z-index: 2;
 }
 
+/* Back button — circular glass chip, icon-only.
+ * Label (Back / ←) is expected to live next to the svg; we center the icon
+ * in a 34px pill and keep any trailing text compact. */
 .video-opt-back-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.38rem 0.75rem;
-  font-size: 0.82rem;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 34px;
+  min-width: 34px;
+  padding: 0 0.95rem 0 0.75rem;
+  font-size: 0.8rem;
   font-weight: 600;
+  letter-spacing: 0.005em;
   font-family: inherit;
-  color: var(--vo-text-muted);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--vo-border);
-  border-radius: var(--vo-radius);
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15);
   transition:
-    background var(--vo-dur) ease,
-    border-color var(--vo-dur) ease,
-    color var(--vo-dur) ease;
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 120ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .video-opt-back-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--vo-border-hover);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
 }
 
 .video-opt-back-btn:active {
   transform: scale(0.96);
-  transition: transform 0.06s ease;
+  transition: transform 80ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.video-opt-back-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.18);
+  outline-offset: 2px;
 }
 
 .video-opt-back-btn svg {
-  transition: transform var(--vo-dur) ease;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  transition: transform 220ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .video-opt-back-btn:hover svg {
@@ -220,21 +259,46 @@
    ============================================================ */
 .video-opt-split {
   display: flex;
+  /* Preview moved to the right — tools panel keeps its natural order in
+   * the DOM (a11y + tab order unchanged) while visually it now sits on
+   * the left. */
+  flex-direction: row-reverse;
   flex: 1;
   min-height: 0;
   overflow: hidden;
 }
 
-/* Left preview sidebar */
+/* Preview sidebar — now on the RIGHT */
 .video-opt-preview-sidebar {
+  position: relative;
   width: 300px;
   min-width: 300px;
   flex-shrink: 0;
-  border-right: 1px solid var(--vo-border);
+  /* Divider is drawn by ::before with a sharp-fade gradient so the top
+   * and bottom ends dissolve into the page background instead of butting
+   * into the header/footer as a visible hard line. */
+  border-left: none;
+  border-right: none;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   background: var(--app-canvas-bg);
+}
+.video-opt-preview-sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.12) 15%,
+    rgba(255, 255, 255, 0.12) 85%,
+    transparent 100%
+  );
 }
 
 .video-opt-preview-sidebar-inner {
@@ -402,8 +466,9 @@
   flex-shrink: 0;
   min-height: 48px;
   z-index: 2;
-  border-bottom: 1px solid var(--vo-border);
-  background: rgba(255, 255, 255, 0.015);
+  /* No divider here — the header already has a sharp-fade line, and the
+   * tab panel flows straight into the content area for a cleaner look. */
+  background: var(--app-canvas-bg);
 }
 
 .video-opt-screen-tabrow .tabbar {

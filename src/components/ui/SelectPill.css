@@ -1,0 +1,119 @@
+/* SelectPill — unified pill dropdown.
+ * Shared surface language with SegmentedTabs so pairs sit together cleanly. */
+.pill-dd {
+  position: relative;
+  display: inline-block;
+}
+
+.pill-dd-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 34px;
+  padding: 0 0.85rem 0 0.95rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 100px;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.08s ease;
+}
+
+.pill-dd-trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+.pill-dd-trigger:active {
+  transform: scale(0.97);
+  transition: transform 0.06s ease;
+}
+
+.pill-dd.is-open .pill-dd-trigger {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.pill-dd-label {
+  line-height: 1.3;
+}
+
+.pill-dd-chevron {
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: transform 0.22s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.pill-dd.is-open .pill-dd-chevron {
+  transform: rotate(180deg);
+  opacity: 0.85;
+}
+
+/* Menu */
+.pill-dd-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  min-width: 160px;
+  padding: 4px;
+  margin: 0;
+  list-style: none;
+  background: rgba(22, 22, 28, 0.88);
+  backdrop-filter: blur(32px) saturate(1.5);
+  -webkit-backdrop-filter: blur(32px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.pill-dd--align-left .pill-dd-menu {
+  left: 0;
+  right: auto;
+}
+
+.pill-dd-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.45rem 0.7rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.72);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    transform 0.08s ease;
+}
+.pill-dd-option:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #ffffff;
+}
+.pill-dd-option:active {
+  transform: scale(0.97);
+  transition: transform 0.06s ease;
+}
+.pill-dd-option.is-active {
+  color: #ffffff;
+}
+.pill-dd-check {
+  flex-shrink: 0;
+  opacity: 0.7;
+}

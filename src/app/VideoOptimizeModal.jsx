@@ -9,7 +9,7 @@ import { videoThumbnailsApi } from '../api/videoThumbnails'
 import { PersonaSelector } from '../components/PersonaSelector'
 import { StyleSelector } from '../components/StyleSelector'
 import { CostHint } from '../components/CostHint'
-import { ABTestPanel } from '../components/ABTestPanel'
+// ABTestPanel removed from Video Optimize — A/B Testing has its own top-level screen.
 import { queryKeys } from '../lib/query/queryKeys'
 import { invalidateCredits } from '../queries/billing/creditsQueries'
 import './VideoOptimizeModal.css'
@@ -63,8 +63,6 @@ const TABS = [
   { id: 'title', label: 'Title' },
   { id: 'thumbnail', label: 'Thumbnails' },
   { id: 'seo', label: 'SEO' },
-  { id: 'ab-tests', label: 'A/B Tests' },
-  { id: 'preview', label: 'Preview' },
 ]
 
 const SCORE_TIERS = [
@@ -157,7 +155,7 @@ export function VideoOptimizeModal({
   const thumbnailBatch = thumbnailsByVideo[videoId] || []
   const uploadedThumbnails = uploadedByVideo[videoId] || []
   const [selectedPreviewThumbnailUrl, setSelectedPreviewThumbnailUrl] = useState(null)
-  const [previewTheme, setPreviewTheme] = useState('dark')
+  // (previewTheme removed with the Preview tab — left sidebar preview uses a fixed dark theme.)
   const [fullSizeImage, setFullSizeImage] = useState(null)
   const fileInputRef = useRef(null)
   const screenRef = useRef(null)
@@ -273,6 +271,7 @@ export function VideoOptimizeModal({
     }
   }, [open, video?.id])
 
+  // eslint-disable-next-line no-unused-vars -- retained for the YouTube preview card UI restored later
   const previewThumbnailUrl =
     selectedPreviewThumbnailUrl ||
     video?.thumbnail_url ||
@@ -306,6 +305,7 @@ export function VideoOptimizeModal({
     }
   }
 
+  // eslint-disable-next-line no-unused-vars -- retained for the YouTube preview card UI restored later
   const previewChannelName =
     channelTitle || data?.channel_title || video?.channel_title || 'Your channel'
 
@@ -1751,176 +1751,9 @@ export function VideoOptimizeModal({
                     </div>
                   )}
 
-                  {/* === A/B TESTS TAB === */}
-                  {activeTab === 'ab-tests' && (
-                    <div className="video-opt-panel video-opt-panel--ab">
-                      <ABTestPanel
-                        video={video}
-                        channelId={channelId}
-                        currentTitle={video?.title}
-                        currentThumbnailUrl={video?.thumbnail_url || video?.thumbnail}
-                      />
-                    </div>
-                  )}
-
-                  {/* === PREVIEW TAB === */}
-                  {activeTab === 'preview' && (
-                    <div
-                      className={`video-opt-preview-mock video-opt-preview-mock--${previewTheme}`}
-                    >
-                      <header className="video-opt-preview-nav">
-                        <div className="video-opt-preview-nav-left">
-                          <button
-                            type="button"
-                            className="video-opt-preview-nav-icon"
-                            title="Home"
-                            aria-label="Home"
-                          >
-                            <svg viewBox="0 0 24 24" width="24" height="24">
-                              <path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            className="video-opt-preview-nav-icon"
-                            title="Search"
-                            aria-label="Search"
-                          >
-                            <svg viewBox="0 0 24 24" width="24" height="24">
-                              <path
-                                fill="currentColor"
-                                d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-                        <div className="video-opt-preview-nav-right">
-                          <button
-                            type="button"
-                            className="video-opt-preview-nav-icon"
-                            title={previewTheme === 'dark' ? 'Switch to light' : 'Switch to dark'}
-                            aria-label="Theme"
-                            onClick={() =>
-                              setPreviewTheme((t) => (t === 'dark' ? 'light' : 'dark'))
-                            }
-                          >
-                            {previewTheme === 'dark' ? (
-                              <svg viewBox="0 0 24 24" width="24" height="24">
-                                <path
-                                  fill="currentColor"
-                                  d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"
-                                />
-                              </svg>
-                            ) : (
-                              <svg viewBox="0 0 24 24" width="24" height="24">
-                                <path
-                                  fill="currentColor"
-                                  d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 0 0 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"
-                                />
-                              </svg>
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            className="video-opt-preview-nav-icon"
-                            title="Refresh preview"
-                            aria-label="Refresh"
-                            onClick={() => setSelectedPreviewThumbnailUrl(null)}
-                          >
-                            <svg viewBox="0 0 24 24" width="24" height="24">
-                              <path
-                                fill="currentColor"
-                                d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-                      </header>
-                      <div className="video-opt-preview-content">
-                        <div className="video-opt-preview-grid">
-                          <div className="video-opt-preview-card video-opt-preview-card--main">
-                            <div className="video-opt-preview-thumb-wrap">
-                              {previewThumbnailUrl ? (
-                                <img
-                                  src={previewThumbnailUrl}
-                                  alt=""
-                                  className="video-opt-preview-thumb"
-                                />
-                              ) : (
-                                <div className="video-opt-preview-thumb-placeholder">
-                                  <span>No thumbnail</span>
-                                </div>
-                              )}
-                              {video?.duration_minutes != null &&
-                                video.duration_minutes > 0 &&
-                                (() => {
-                                  const tot = Math.round(video.duration_minutes * 60)
-                                  const h = Math.floor(tot / 3600)
-                                  const m = Math.floor((tot % 3600) / 60)
-                                  const s = tot % 60
-                                  const pad = (n) => String(n).padStart(2, '0')
-                                  const t = h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`
-                                  return <div className="video-opt-preview-duration">{t}</div>
-                                })()}
-                            </div>
-                            <div className="video-opt-preview-info">
-                              <div className="video-opt-preview-avatar" aria-hidden />
-                              <div className="video-opt-preview-meta">
-                                <h3
-                                  className="video-opt-preview-title"
-                                  title={titleInput || video?.title}
-                                >
-                                  {titleInput || video?.title || 'Untitled'}
-                                </h3>
-                                <div className="video-opt-preview-channel">
-                                  {previewChannelName}
-                                </div>
-                                <div className="video-opt-preview-stats">
-                                  {formatPreviewCount(video?.view_count)}
-                                  {(video?.view_count != null || video?.published_at) && (
-                                    <span className="video-opt-preview-dot">•</span>
-                                  )}
-                                  {formatPreviewTime(video?.published_at)}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          {/* Description preview */}
-                          {descriptionInput && (
-                            <div className="video-opt-preview-desc-card">
-                              <h4 className="video-opt-preview-desc-heading">Description</h4>
-                              <p className="video-opt-preview-desc-text">
-                                {descriptionInput.slice(0, 300)}
-                                {descriptionInput.length > 300 ? '…' : ''}
-                              </p>
-                            </div>
-                          )}
-                          {/* Tags preview */}
-                          {tagsGenerated && tagsList.length > 0 && (
-                            <div className="video-opt-preview-tags-card">
-                              <h4 className="video-opt-preview-tags-heading">Tags</h4>
-                              <div className="video-opt-preview-tags-list">
-                                {tagsList.slice(0, 12).map((t, i) => (
-                                  <span key={i} className="video-opt-preview-tag-pill">
-                                    {t.tag}
-                                  </span>
-                                ))}
-                                {tagsList.length > 12 && (
-                                  <span className="video-opt-preview-tag-pill video-opt-preview-tag-pill--more">
-                                    +{tagsList.length - 12}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <p className="video-opt-preview-hint">
-                        Live preview of your changes. Select a thumbnail in the Thumbnail tab, edit
-                        title in Title tab.
-                      </p>
-                    </div>
-                  )}
+                  {/* A/B Tests + Preview tabs were removed — A/B Testing lives
+                      on its own top-level screen; preview lives permanently
+                      in the left sidebar. */}
                 </motion.div>
               </AnimatePresence>
             )}

@@ -57,6 +57,20 @@ export const thumbnailsApi = {
   generateSync(accessToken, payload) {
     return request('POST', '/api/thumbnails/generate-sync', accessToken, payload)
   },
+  /** Create an empty conversation up-front so the sidebar can show a row
+   *  immediately while the first generation runs in the background. */
+  createConversation(accessToken, params = {}) {
+    const search = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => {
+      if (v != null && v !== '') search.set(k, String(v))
+    })
+    const qs = search.toString()
+    return request(
+      'POST',
+      qs ? `/api/thumbnails/conversations?${qs}` : '/api/thumbnails/conversations',
+      accessToken
+    )
+  },
   listConversations(accessToken, params = {}) {
     const search = new URLSearchParams()
     Object.entries(params).forEach(([k, v]) => {

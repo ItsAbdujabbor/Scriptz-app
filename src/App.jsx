@@ -216,9 +216,18 @@ function App() {
     window.location.hash = 'dashboard'
     setView('dashboard')
   }
-  const onLogout = () => {
-    window.location.hash = ''
-    setView('landing')
+  const onLogout = async () => {
+    // Actually clear the session — tokens, user, cached queries — before
+    // navigating. Previously we only changed the hash, so the user stayed
+    // logged in and the "authenticated" redirect loop (line 227) bounced
+    // them right back to dashboard.
+    try {
+      await logout()
+    } catch {
+      /* ignore — still navigate away */
+    }
+    window.location.hash = 'login'
+    setView('login')
   }
 
   useEffect(() => {

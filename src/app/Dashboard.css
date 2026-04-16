@@ -2587,6 +2587,61 @@ hr.dashboard-card-divider {
   gap: 0.75rem;
 }
 
+/* Rotating tagline — sits BELOW the YouTube-connect card and fills the
+ * empty vertical space until the viewport bottom, centering its text in
+ * the midpoint of that gap. Phrases cross-fade in place with a smooth
+ * spring lift + blur. Gradient matches the landing hero. */
+.dashboard-empty-tagline {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: clamp(4rem, 14vh, 9rem);
+  padding: clamp(1rem, 3vw, 2.5rem) 1rem;
+  text-align: center;
+  pointer-events: none;
+  overflow: hidden;
+}
+.dashboard-empty-tagline-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1rem;
+  font-size: clamp(1.6rem, 3.2vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -0.032em;
+  line-height: 1.1;
+  background: linear-gradient(125deg, #ffffff 0%, #c4b5fd 38%, #818cf8 68%, #6366f1 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  opacity: 0;
+  transform: translateY(12px) scale(0.985);
+  filter: blur(6px);
+  transition:
+    opacity 780ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 780ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform, filter;
+}
+.dashboard-empty-tagline-text.is-active {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-empty-tagline-text {
+    transition-duration: 1ms;
+    transform: none;
+    filter: none;
+  }
+}
+
 .dashboard-yt-connect-banner-head {
   display: flex;
   align-items: flex-start;

@@ -9,7 +9,7 @@
  * Real data only — every metric comes from /api/ab-tests/{id} which refreshes
  * a YouTube Analytics snapshot server-side. No mocks, no simulated numbers.
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars
 
 import { useYoutubeVideosList } from '../queries/youtube/videosQueries'
@@ -35,6 +35,7 @@ import { useCostOf, useCreditsQuery } from '../queries/billing/creditsQueries'
 
 import './Optimize.css'
 import './ABTesting.css'
+import { SegmentedTabs, SelectPill } from '../components/ui'
 
 const TIER_CAP = { 'SRX-1': 2, 'SRX-2': 5, 'SRX-3': 5 }
 
@@ -100,39 +101,43 @@ async function fileToDataUrl(file) {
 export function ABTesting() {
   const route = useSubRoute()
   const { canUse } = usePlanEntitlements()
+  const locked = !canUse('ab_testing')
 
-  if (!canUse('ab_testing')) {
-    return (
-      <div className="abt-page">
-        <div className="abt-locked">
-          <h2>A/B Testing</h2>
-          <p>
-            Compare up to five thumbnail or title variants on a real YouTube video with honest
-            statistical confidence. A/B Testing is part of the Creator plan and above.
-          </p>
-          <button
-            type="button"
-            className="abt-btn abt-btn--primary"
-            onClick={() => {
-              window.location.hash = 'pro'
-            }}
-          >
-            Upgrade to unlock
-          </button>
-        </div>
-      </div>
-    )
+  // Creating / viewing a test is gated — bounce back to list when locked so
+  // the user can't deep-link past the paywall. The CTA in the list
+  // navigates to #pro on click when locked.
+  useEffect(() => {
+    if (locked && (route.view === 'new' || route.view === 'detail')) {
+      if (typeof window !== 'undefined') window.location.hash = 'ab-testing'
+    }
+  }, [locked, route.view])
+  if (locked && (route.view === 'new' || route.view === 'detail')) {
+    return <ExperimentList locked />
   }
 
   if (route.view === 'new') return <CreateExperiment />
   if (route.view === 'detail') return <ExperimentDetail testId={route.testId} />
-  return <ExperimentList />
+  return <ExperimentList locked={locked} />
+}
+
+function ProCrownBadge() {
+  return (
+    <span
+      className="abt-pro-crown"
+      aria-label="Creator plan feature"
+      title="Creator plan and above"
+    >
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+        <path d="M3 19h18v2H3v-2Zm0-2 2-9 5 4 2-7 2 7 5-4 2 9H3Z" />
+      </svg>
+    </span>
+  )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // List view
 // ─────────────────────────────────────────────────────────────────────────────
-function ExperimentList() {
+function ExperimentList({ locked = false }) {
   const [statusFilter, setStatusFilter] = useState('')
   const [viewMode, setViewMode] = useState(() => {
     try {
@@ -149,47 +154,75 @@ function ExperimentList() {
     }
   }, [viewMode])
 
-  const { data, isLoading, isError, error } = useAllABTestsQuery({ statusFilter })
-  const items = data?.items || []
+  // Don't fire the listing query when the user can't use the feature — keep
+  // the header/tabs/filters visible but show the upsell empty state below.
+  const { data, isLoading, isError, error } = useAllABTestsQuery({
+    statusFilter,
+    enabled: !locked,
+  })
+  const items = locked ? [] : data?.items || []
+
+  const handleNewClick = () => {
+    if (locked) {
+      window.location.hash = 'pro'
+      return
+    }
+    goTo('new')
+  }
 
   return (
-    <div className="abt-page">
-      <header className="abt-header">
-        <div>
-          <h1 className="abt-h1">A/B Testing</h1>
+    <div className="abt-page optimize-page">
+      <div className="optimize-top-bar">
+        <div className="optimize-heading-wrap">
+          <h1 className="optimize-heading">A/B Testing</h1>
         </div>
-        <div className="abt-header-actions optimize-filters-bar" style={{ margin: 0 }}>
-          <ViewToggle
+      </div>
+
+      <div className="optimize-divider" aria-hidden />
+
+      <div className="optimize-filters-bar">
+        <div className="abt-filters-left">
+          <SegmentedTabs
             value={viewMode}
             onChange={setViewMode}
+            ariaLabel="View mode"
+            layoutId="abt-view-toggle"
             options={[
               { value: 'grid', label: 'Grid' },
               { value: 'list', label: 'List' },
             ]}
           />
-          <div className="optimize-filters-right">
-            <FilterDropdown
-              value={statusFilter}
-              onChange={setStatusFilter}
-              ariaLabel="Filter by status"
-              options={[
-                { value: '', label: 'All tests' },
-                { value: 'running', label: 'Running' },
-                { value: 'paused', label: 'Paused' },
-                { value: 'completed', label: 'Completed' },
-              ]}
-            />
-            <button type="button" className="abt-btn abt-btn--primary" onClick={() => goTo('new')}>
-              + New experiment
-            </button>
-          </div>
+          <SelectPill
+            value={statusFilter}
+            onChange={setStatusFilter}
+            ariaLabel="Filter by status"
+            options={[
+              { value: '', label: 'All tests' },
+              { value: 'running', label: 'Running' },
+              { value: 'paused', label: 'Paused' },
+              { value: 'completed', label: 'Completed' },
+            ]}
+          />
         </div>
-      </header>
+        <div className="optimize-filters-right">
+          <button
+            type="button"
+            className={`abt-pro-cta ${locked ? 'abt-pro-cta--locked' : ''}`}
+            onClick={handleNewClick}
+            title={locked ? 'Creator plan — upgrade to unlock' : undefined}
+          >
+            + Create
+            {locked && <ProCrownBadge />}
+          </button>
+        </div>
+      </div>
 
-      {isError && (
+      <div className="optimize-divider optimize-divider--below-filters" aria-hidden />
+
+      {isError && !locked && (
         <div className="abt-error">{String(error?.message || 'Could not load experiments.')}</div>
       )}
-      {isLoading && (
+      {isLoading && !locked && (
         <div className={viewMode === 'grid' ? 'abt-grid' : 'abt-list'}>
           {Array.from({ length: viewMode === 'grid' ? 6 : 3 }).map((_, i) => (
             <div
@@ -203,19 +236,30 @@ function ExperimentList() {
       )}
 
       {!isLoading && items.length === 0 && (
-        <div className="abt-empty">
-          <div className="abt-empty-icon" aria-hidden>
-            🧪
-          </div>
-          <h3>No experiments yet</h3>
-          <p>Start one to see real CTR and views per variant.</p>
-          <button type="button" className="abt-btn abt-btn--primary" onClick={() => goTo('new')}>
-            Create your first experiment
-          </button>
+        <div className="optimize-empty-card abt-empty-card">
+          <span className="optimize-empty-icon" aria-hidden>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M9 3v6l-4 8a2 2 0 0 0 1.8 2.9h10.4A2 2 0 0 0 19 17l-4-8V3" />
+              <path d="M9 3h6" />
+              <path d="M9 13h6" />
+            </svg>
+          </span>
+          <h3 className="optimize-empty-title">No experiments yet</h3>
+          <p className="optimize-empty-desc">
+            Run up to five thumbnail or title variants on a real YouTube video and see real CTR +
+            views per variant.
+          </p>
         </div>
       )}
 
-      {!isLoading && items.length > 0 && viewMode === 'grid' && (
+      {!locked && !isLoading && items.length > 0 && viewMode === 'grid' && (
         <div className="abt-grid" role="list">
           {items.map((t) => (
             <ExperimentGridCard key={t.id} test={t} />
@@ -223,7 +267,7 @@ function ExperimentList() {
         </div>
       )}
 
-      {!isLoading && items.length > 0 && viewMode === 'list' && (
+      {!locked && !isLoading && items.length > 0 && viewMode === 'list' && (
         <ul className="abt-list" role="list">
           {items.map((t) => (
             <ExperimentRow key={t.id} test={t} />
@@ -1294,98 +1338,9 @@ function TrendChartN({ trend, slugs }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Sort/filter dropdown — identical structure/animation to Optimize's sort dropdown.
-function FilterDropdown({ value, onChange, options, ariaLabel = 'Filter' }) {
-  const [open, setOpen] = useState(false)
-  const rootRef = useRef(null)
-  useEffect(() => {
-    if (!open) return
-    const onClick = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false)
-    }
-    const onKey = (e) => {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    window.addEventListener('mousedown', onClick)
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('mousedown', onClick)
-      window.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-  const selected = options.find((o) => o.value === value) ?? options[0]
-  return (
-    <div
-      className={`optimize-sort-dropdown${open ? ' optimize-sort-dropdown--open' : ''}`}
-      ref={rootRef}
-    >
-      <button
-        type="button"
-        className="optimize-sort-trigger"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={ariaLabel}
-      >
-        <span className="optimize-sort-label">{selected?.label}</span>
-        <svg
-          className="optimize-sort-chevron"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M6 9l6 6 6-6" />
-        </svg>
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.ul
-            className="optimize-sort-menu"
-            role="listbox"
-            initial={{ opacity: 0, y: 6, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 4, scale: 0.97 }}
-            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-          >
-            {options.map((opt) => (
-              <li key={opt.value} role="option" aria-selected={value === opt.value}>
-                <button
-                  type="button"
-                  className={`optimize-sort-option${value === opt.value ? ' optimize-sort-option--active' : ''}`}
-                  onClick={() => {
-                    onChange(opt.value)
-                    setOpen(false)
-                  }}
-                >
-                  {opt.label}
-                  {value === opt.value && (
-                    <svg
-                      className="optimize-sort-check"
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  )}
-                </button>
-              </li>
-            ))}
-          </motion.ul>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
+// (FilterDropdown replaced by <SelectPill> from components/ui; ViewToggle
+// replaced by <SegmentedTabs>. Both live in components/ui and are reused
+// across Coach, Optimize, and A/B Testing.)
 
 function ConfirmDialog({
   open,
@@ -1452,34 +1407,6 @@ function ToastInline({ tone = 'error', children, onDismiss }) {
           ×
         </button>
       )}
-    </div>
-  )
-}
-
-// Segmented tabs — matches Optimize's .optimize-tabrow / .optimize-tab / sliding indicator.
-function ViewToggle({ value, onChange, options }) {
-  return (
-    <div className="optimize-tabrow">
-      <nav className="optimize-tabs" aria-label="View mode">
-        {options.map((opt) => (
-          <button
-            key={opt.value}
-            type="button"
-            className={`optimize-tab ${value === opt.value ? 'optimize-tab--active' : ''}`}
-            onClick={() => onChange(opt.value)}
-            aria-selected={value === opt.value}
-          >
-            {opt.label}
-            {value === opt.value && (
-              <motion.span
-                className="optimize-tab-indicator"
-                layoutId="abt-view-toggle-indicator"
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              />
-            )}
-          </button>
-        ))}
-      </nav>
     </div>
   )
 }

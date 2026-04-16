@@ -9,7 +9,9 @@ import { StyleSelector } from '../components/StyleSelector'
 import {
   useThumbnailConversationQuery,
   useThumbnailChatMutation,
+  useCreateThumbnailConversationMutation,
 } from '../queries/thumbnails/thumbnailQueries'
+import { useThumbnailChatActivityStore } from '../stores/thumbnailChatActivityStore'
 import { EditThumbnailDialog } from '../components/EditThumbnailDialog'
 import { TabBar } from '../components/TabBar'
 import { Dropdown } from '../components/ui'
@@ -20,6 +22,8 @@ import { extractYoutubeUrl } from '../lib/youtubeUrl'
 import { renderMessageContent } from '../lib/messageRender.jsx'
 import { useThreadScrollToBottom } from '../lib/useThreadScrollToBottom'
 import { CostHint } from '../components/CostHint'
+import { useCostOf } from '../queries/billing/creditsQueries'
+import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 // import './ScriptGenerator.css' // next update — ScriptGenerator moved to src/next-update-ideas
 import './ThumbnailGenerator.css'
 
@@ -61,6 +65,56 @@ function IconArrowUp() {
       <path d="m12 19 0-14" />
       <path d="m5 12 7-7 7 7" />
     </svg>
+  )
+}
+
+function IconZapFilled() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M13 2 3 14h7l-1 8 11-13h-8l1-7z" />
+    </svg>
+  )
+}
+
+/**
+ * Pill-shaped submit button that embeds the credit cost (zap + number)
+ * inside the button itself, followed by the send arrow.
+ *
+ * Visual twin of the "+ Create" button on the A/B Testing screen —
+ * same height, radius, gradient, and spring press.
+ *
+ * Unsubscribed users see only the arrow (no credits chip).
+ */
+function ThumbSendPill({
+  featureKey = null,
+  count = 1,
+  disabled = false,
+  ariaLabel,
+  icon,
+  type = 'submit',
+  ...buttonProps
+}) {
+  const { total } = useCostOf(featureKey || 'thumbnail_generate', count)
+  const { isSubscribed } = usePlanEntitlements()
+  const showCost = Boolean(featureKey) && isSubscribed && total > 0
+  return (
+    <button
+      type={type}
+      {...buttonProps}
+      className={['thumb-send-pill', buttonProps.className].filter(Boolean).join(' ')}
+      disabled={disabled}
+      aria-label={ariaLabel}
+    >
+      {showCost && (
+        <span className="thumb-send-pill-cost" aria-hidden="true">
+          <span className="thumb-send-pill-zap">
+            <IconZapFilled />
+          </span>
+          <span className="thumb-send-pill-num">{total}</span>
+        </span>
+      )}
+      <span className="thumb-send-pill-icon">{icon ?? <IconArrowUp />}</span>
+    </button>
   )
 }
 
@@ -623,8 +677,19 @@ function ThumbnailBatchCard({
     [onReplaceThumbnail, msgId, index, t, label]
   )
 
+  const scoreTier = scoreError
+    ? 'error'
+    : loadingScore
+      ? 'loading'
+      : score != null
+        ? getScoreTier(score)
+        : null
+
   return (
     <div className="thumb-batch-card" data-thumb-slot={index}>
+      {/* Ambient starfield + soft glow — decorative, pointer-events none */}
+      <div className="thumb-batch-card-bg" aria-hidden="true" />
+
       <div className="thumb-batch-card-inner">
         <div
           className="thumb-batch-img-wrap thumb-batch-img-wrap--viewable"
@@ -640,9 +705,11 @@ function ThumbnailBatchCard({
           aria-label={`View ${label} full size`}
         >
           <img src={t.image_url} alt={label} className="thumb-batch-img" />
-          {(score != null || loadingScore || scoreError) && (
+
+          {/* Score pill — glass, glowing, tier-tinted. Sits over the image. */}
+          {scoreTier && (
             <div
-              className={`thumb-batch-score thumb-batch-score--${scoreError ? 'error' : loadingScore ? 'loading' : getScoreTier(score)}`}
+              className={`thumb-score-pill thumb-score-pill--${scoreTier}`}
               title={
                 scoreError ||
                 'AI quality score (CTR potential, visual clarity, contrast, emotional impact)'
@@ -650,76 +717,86 @@ function ThumbnailBatchCard({
               onClick={(e) => e.stopPropagation()}
               onKeyDown={(e) => e.stopPropagation()}
             >
+              <span className="thumb-score-pill__glow" aria-hidden="true" />
               {scoreError ? (
                 <span
-                  className="thumb-batch-score-retry"
+                  className="thumb-score-pill__retry"
                   onClick={retryScore}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => e.key === 'Enter' && retryScore()}
+                  aria-label="Retry score"
                 >
                   ⟳
                 </span>
               ) : loadingScore ? (
-                <span className="thumb-batch-score-loading">…</span>
+                <>
+                  <span className="thumb-score-pill__dot" aria-hidden="true" />
+                  <span className="thumb-score-pill__label">Scoring</span>
+                </>
               ) : (
-                <span className="thumb-batch-score-value">{score}</span>
+                <>
+                  <span className="thumb-score-pill__num">{score}</span>
+                  <span className="thumb-score-pill__suffix">/100</span>
+                </>
               )}
             </div>
           )}
-          <div
-            className="thumb-batch-actions-card"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
+        </div>
+
+        {/* Action row — always visible below the image, same set for every
+         *  mode: Download, One-Click Fix, Edit, Regenerate. */}
+        <div
+          className="thumb-batch-actions"
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            className="thumb-action-btn"
+            onClick={handleDownload}
+            title="Download"
+            aria-label="Download"
           >
-            <div className="thumb-batch-actions-row">
-              <button
-                type="button"
-                className="thumb-batch-btn"
-                onClick={handleDownload}
-                title="Download"
-                aria-label="Download"
-              >
-                <IconDownload />
-              </button>
-              <button
-                type="button"
-                className="thumb-batch-btn thumb-batch-btn--highlight"
-                onClick={handleOneClickFix}
-                disabled={fixing}
-                title="One-click fix (AI improve)"
-                aria-label="One-click fix"
-              >
-                {fixing ? (
-                  <span className="thumb-batch-btn-spinner" aria-hidden />
-                ) : (
-                  <IconSparkle />
-                )}
-              </button>
-              <button
-                type="button"
-                className="thumb-batch-btn"
-                onClick={() => setShowEditDialog(true)}
-                title="AI Edit – select region to change"
-                aria-label="Edit"
-              >
-                <IconEdit />
-              </button>
-              {canRegenerate && (
-                <button
-                  type="button"
-                  className="thumb-batch-btn"
-                  onClick={handleRegenerate}
-                  title="Regenerate"
-                  aria-label="Regenerate"
-                >
-                  <IconRefresh />
-                </button>
-              )}
-            </div>
-          </div>
+            <IconDownload />
+            <span className="thumb-action-btn__label">Download</span>
+          </button>
+          <button
+            type="button"
+            className="thumb-action-btn thumb-action-btn--primary"
+            onClick={handleOneClickFix}
+            disabled={fixing}
+            title="One-click fix (AI improve)"
+            aria-label="One-click fix"
+          >
+            {fixing ? <span className="thumb-action-btn__spinner" aria-hidden /> : <IconSparkle />}
+            <span className="thumb-action-btn__label">{fixing ? 'Fixing…' : 'One-click fix'}</span>
+          </button>
+          <button
+            type="button"
+            className="thumb-action-btn"
+            onClick={() => setShowEditDialog(true)}
+            title="AI Edit — select region to change"
+            aria-label="Edit"
+          >
+            <IconEdit />
+            <span className="thumb-action-btn__label">Edit</span>
+          </button>
+          {canRegenerate && (
+            <button
+              type="button"
+              className="thumb-action-btn"
+              onClick={handleRegenerate}
+              title="Regenerate"
+              aria-label="Regenerate"
+            >
+              <IconRefresh />
+              <span className="thumb-action-btn__label">Regenerate</span>
+            </button>
+          )}
         </div>
       </div>
+
       {showEditDialog && t?.image_url && (
         <EditThumbnailDialog
           imageUrl={t.image_url}
@@ -763,31 +840,40 @@ function ThumbnailGridBlock({
   )
 }
 
-function ThumbnailImageBlock({ imageUrl, onViewImage }) {
+/**
+ * Single-image render (recreate / analyze / edit modes).
+ *
+ * Routes through the same ThumbnailBatchCard the grid uses so every mode
+ * shows an identical card: liquid-glass container, starfield backdrop,
+ * glowing score pill, and the full action row (Download / One-Click Fix
+ * / Edit / Regenerate). No forked layout.
+ */
+function ThumbnailImageBlock({
+  imageUrl,
+  userRequest,
+  msgId,
+  onReplaceThumbnail,
+  onRegenerate,
+  onViewImage,
+  canRegenerate = true,
+}) {
   if (!imageUrl) return null
+  const t = { image_url: imageUrl }
   return (
-    <div className="thumb-msg-img-wrap coach-stream-block" data-thumb-slot={0}>
-      <button
-        type="button"
-        className="thumb-msg-img-btn"
-        onClick={() => onViewImage?.(imageUrl, 'Thumbnail')}
-        aria-label="View full size"
-      >
-        <img src={imageUrl} alt="Generated thumbnail" className="thumb-msg-img" />
-        <div className="thumb-msg-img-overlay">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-          </svg>
-        </div>
-      </button>
+    <div className="thumb-msg-grid-wrap coach-stream-block">
+      <div className="thumb-batch-grid">
+        <ThumbnailBatchCard
+          t={t}
+          index={0}
+          label="Thumbnail"
+          userRequest={userRequest}
+          msgId={msgId}
+          onReplaceThumbnail={onReplaceThumbnail}
+          onRegenerate={onRegenerate}
+          onViewImage={onViewImage}
+          canRegenerate={canRegenerate}
+        />
+      </div>
     </div>
   )
 }
@@ -915,6 +1001,53 @@ export function ThumbnailGenerator({
 
   const conversationQuery = useThumbnailConversationQuery(conversationId)
   const chatMutation = useThumbnailChatMutation(onConversationCreated)
+  const createConversationMutation = useCreateThumbnailConversationMutation()
+  const startPending = useThumbnailChatActivityStore((s) => s.startPending)
+  const clearPending = useThumbnailChatActivityStore((s) => s.clearPending)
+  const markSeen = useThumbnailChatActivityStore((s) => s.markSeen)
+
+  // When the user opens (or returns to) a conversation, stamp "seen now" so
+  // the unread dot clears. Fires on every conversationId change — cheap.
+  useEffect(() => {
+    if (conversationId != null) markSeen(conversationId)
+  }, [conversationId, markSeen])
+
+  /**
+   * Ensure we have a conversation id before running a chat mutation.
+   *
+   * Best-effort: if the eager-create endpoint is unreachable (old backend,
+   * network blip, etc.) we fall through and let the chat endpoint
+   * auto-create one on first submit — the classic path. That way a
+   * sidebar enhancement can never block actual generation.
+   *
+   * On success we:
+   *   1. Navigate into the new conversation immediately (URL flip).
+   *   2. Show the pending spinner in the sidebar row right away.
+   *   3. Let the user leave mid-generation and still see the row update.
+   */
+  const ensureConversationId = useCallback(
+    async (existingId) => {
+      if (existingId) return existingId
+      try {
+        const conv = await createConversationMutation.mutateAsync({
+          channel_id: channelId || undefined,
+        })
+        const id = conv?.id
+        if (id != null) {
+          onConversationCreated?.(id)
+          startPending(id)
+        }
+        return id
+      } catch (err) {
+        // Eager create is a "nice to have" — never block generation on it.
+        if (typeof console !== 'undefined') {
+          console.warn('[thumbnail] eager conversation create failed, using legacy path:', err)
+        }
+        return null
+      }
+    },
+    [channelId, createConversationMutation, onConversationCreated, startPending]
+  )
 
   useEffect(() => {
     const sync = () => setThumbMode(parseThumbModeFromHash())
@@ -1028,7 +1161,29 @@ export function ThumbnailGenerator({
 
   useEffect(() => {
     if (!conversationId) {
+      // Full reset when the user clicks "New Chat" or lands on a blank
+      // chat screen. Mirrors what CoachChat does on newChat events so the
+      // composer is genuinely empty — draft, pending flags, errors, and
+      // any stray image attachments all clear together.
       setMessages([])
+      setDraft('')
+      setSendError('')
+      setPendingUserMessage(null)
+      setPendingAssistant(false)
+      setPendingUserImageUrl(null)
+      setPromptImageDataUrl(null)
+      setRecreateDraft('')
+      setRecreateSourceImage(null)
+      setRecreateUrlInput('')
+      setRecreatePreviewUrl(null)
+      setAnalyzeTitle('')
+      setAnalyzeSourceImage(null)
+      setAnalyzeUrlInput('')
+      setAnalyzePreviewUrl(null)
+      setEditDataUrl(null)
+      setEditPreviewUrl(null)
+      setEditUrlInput('')
+      setEditFooterError('')
       return
     }
     if (conversationQuery.data?.messages?.items) {
@@ -1312,6 +1467,14 @@ export function ThumbnailGenerator({
     setPendingAssistant(true)
     setDraft('')
 
+    // Eagerly create a conversation the first time the user submits in a
+    // brand-new chat — gives the sidebar a row + URL immediately so the
+    // pending spinner is visible even if they navigate away. Best-effort:
+    // if the create call fails we fall through to the legacy path where
+    // the chat endpoint auto-creates the conversation.
+    const activeConversationId = await ensureConversationId(conversationId)
+    if (activeConversationId) startPending(activeConversationId)
+
     try {
       if (promptImageDataUrl) {
         const imageUrl = await runWholeImageEdit({
@@ -1326,7 +1489,7 @@ export function ThumbnailGenerator({
       } else {
         const result = await chatMutation.mutateAsync({
           message: combined,
-          conversation_id: conversationId || undefined,
+          conversation_id: activeConversationId || undefined,
           num_thumbnails: numThumbnails,
           persona_id: selectedPersonaId || undefined,
           style_id: selectedStyleId || undefined,
@@ -1341,10 +1504,19 @@ export function ThumbnailGenerator({
         })
       }
       finishLoading()
+      // Generation succeeded — if the user is still on this conversation,
+      // they've "seen" it. If they left, leave the unread dot alone.
+      if (activeConversationId) {
+        clearPending(activeConversationId)
+        if (Number(conversationId) === Number(activeConversationId)) {
+          markSeen(activeConversationId)
+        }
+      }
     } catch (err) {
       setSendError(err?.message || 'Could not generate thumbnails.')
       setDraft(combined)
       setPendingAssistant(false)
+      if (activeConversationId) clearPending(activeConversationId)
     } finally {
       setPendingUserMessage(null)
     }
@@ -1577,7 +1749,7 @@ export function ThumbnailGenerator({
   return (
     <div
       id="coach-panel-thumbnails"
-      className="coach-main"
+      className="coach-main coach-main--thumb"
       role="tabpanel"
       aria-labelledby="coach-tab-thumbnails"
     >
@@ -1588,13 +1760,7 @@ export function ThumbnailGenerator({
           ref={threadRef}
           className={`coach-thread ${layoutCentered ? 'coach-thread--empty' : ''} coach-thread--thumb-panel ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
         >
-          {isHistoryLoading && (
-            <ChatHistoryLoading
-              kicker="Thumbnail Generator"
-              label="Loading your thumbnail chat…"
-              subtitle="Fetching generations and references."
-            />
-          )}
+          {isHistoryLoading && <ChatHistoryLoading variant="thumbnail" label="Loading chat" />}
 
           {isEmptyScreen && (
             <div className="coach-empty-state thumb-empty-state">
@@ -1626,7 +1792,7 @@ export function ThumbnailGenerator({
                   </div>
                 ) : (
                   <>
-                    {msg.content ? (
+                    {msg.content && !/^Generated\s+\d+\s+thumbnail/i.test(msg.content.trim()) ? (
                       <div className="coach-message-bubble">
                         {renderMessageContent(msg.content, `thumb-msg-${msg.id}`)}
                       </div>
@@ -1634,7 +1800,12 @@ export function ThumbnailGenerator({
                     {msg.imageUrl ? (
                       <ThumbnailImageBlock
                         imageUrl={msg.imageUrl}
+                        userRequest={msg.userRequest}
+                        msgId={msg.id}
+                        onReplaceThumbnail={handleReplaceThumbnail}
+                        onRegenerate={handleRegenerateOne}
                         onViewImage={openThumbLightbox}
+                        canRegenerate
                       />
                     ) : null}
                     {msg.thumbnails?.length > 0 && (
@@ -1645,7 +1816,7 @@ export function ThumbnailGenerator({
                         onReplaceThumbnail={handleReplaceThumbnail}
                         onRegenerate={handleRegenerateOne}
                         onViewImage={openThumbLightbox}
-                        canRegenerate={!msg.isRecreate}
+                        canRegenerate
                       />
                     )}
                   </>
@@ -1687,26 +1858,51 @@ export function ThumbnailGenerator({
           {pendingAssistant && (
             <article className="coach-message coach-message--assistant coach-message--enter">
               <div
-                className="thumb-gen-skeleton-card"
+                className="thumb-gen-loader"
                 role="status"
                 aria-live="polite"
-                aria-label="Generating"
+                aria-label="Generating thumbnail"
               >
-                <div className="thumb-gen-skeleton-blob" aria-hidden />
-                <div className="thumb-gen-skeleton-shimmer" aria-hidden />
-                <div
-                  className="thumb-gen-skeleton-fill"
-                  style={{ width: `${loadingPct}%` }}
-                  aria-hidden
-                />
-                <div className="thumb-gen-skeleton-content">
-                  <div className="thumb-gen-skeleton-orb" aria-hidden />
-                  <div className="thumb-gen-skeleton-text">
-                    <div className="thumb-gen-skeleton-label">
+                {/* Starfield / glow backdrop — same as a real result card */}
+                <div className="thumb-gen-loader__bg" aria-hidden="true" />
+
+                {/* 16:9 stage that mirrors the result card's image wrap */}
+                <div className="thumb-gen-loader__stage">
+                  <div className="thumb-gen-loader__shimmer" aria-hidden="true" />
+
+                  <div className="thumb-gen-loader__center">
+                    <div className="thumb-gen-loader__orb" aria-hidden="true">
+                      <span className="thumb-gen-loader__orb-ring" />
+                      <span className="thumb-gen-loader__orb-core" />
+                    </div>
+                    <div className="thumb-gen-loader__label">
                       {THUMBNAIL_LOADING_STEPS[loadingStepIndex]?.label ?? 'Working on it…'}
                     </div>
-                    <div className="thumb-gen-skeleton-pct">{loadingPct}%</div>
                   </div>
+
+                  {/* Progress pill, bottom-left of the stage */}
+                  <div
+                    className="thumb-gen-loader__progress"
+                    role="progressbar"
+                    aria-valuenow={loadingPct}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                  >
+                    <div
+                      className="thumb-gen-loader__progress-fill"
+                      style={{ width: `${loadingPct}%` }}
+                    />
+                    <span className="thumb-gen-loader__progress-num">{loadingPct}%</span>
+                  </div>
+                </div>
+
+                {/* Ghost action row so the loader occupies the same total
+                 *  height as the eventual result card — no layout jump. */}
+                <div className="thumb-gen-loader__actions" aria-hidden="true">
+                  <span className="thumb-gen-loader__ghost-btn" />
+                  <span className="thumb-gen-loader__ghost-btn thumb-gen-loader__ghost-btn--wide" />
+                  <span className="thumb-gen-loader__ghost-btn" />
+                  <span className="thumb-gen-loader__ghost-btn" />
                 </div>
               </div>
             </article>
@@ -1858,15 +2054,12 @@ export function ThumbnailGenerator({
                         />
                       </div>
                       <div className="thumb-gen-submit-group">
-                        <CostHint featureKey="thumbnail_generate" count={numThumbnails} />
-                        <button
-                          type="submit"
-                          className="coach-composer-send coach-composer-primary-action is-send"
+                        <ThumbSendPill
+                          featureKey="thumbnail_generate"
+                          count={numThumbnails}
                           disabled={pendingAssistant || (!draft.trim() && !promptImageDataUrl)}
-                          aria-label="Generate thumbnails"
-                        >
-                          <IconArrowUp />
-                        </button>
+                          ariaLabel="Generate thumbnails"
+                        />
                       </div>
                     </div>
                   </form>
@@ -1951,20 +2144,17 @@ export function ThumbnailGenerator({
                         />
                       </div>
                       <div className="thumb-gen-submit-group">
-                        <CostHint featureKey="thumbnail_recreate" count={1} />
-                        <button
-                          type="submit"
-                          className="coach-composer-send coach-composer-primary-action is-send"
+                        <ThumbSendPill
+                          featureKey="thumbnail_recreate"
+                          count={1}
                           disabled={
                             pendingAssistant ||
                             !(recreateSourceMode === 'upload'
                               ? recreateSourceImage
                               : recreatePreviewUrl)
                           }
-                          aria-label="Recreate thumbnail"
-                        >
-                          <IconArrowUp />
-                        </button>
+                          ariaLabel="Recreate thumbnail"
+                        />
                       </div>
                     </div>
                   </form>
@@ -2032,18 +2222,14 @@ export function ThumbnailGenerator({
                       />
                     </div>
                     <div className="thumb-gen-analyze-submit-row">
-                      <CostHint featureKey="thumbnail_analyze" />
-                      <button
-                        type="submit"
-                        className="thumb-gen-analyze-btn"
+                      <ThumbSendPill
+                        featureKey="thumbnail_analyze"
                         disabled={
                           pendingAssistant ||
                           !(analyzeSourceMode === 'upload' ? analyzeSourceImage : analyzePreviewUrl)
                         }
-                      >
-                        <IconArrowUp />
-                        Analyze
-                      </button>
+                        ariaLabel="Analyze thumbnail"
+                      />
                     </div>
                   </form>
                 )}
@@ -2086,27 +2272,26 @@ export function ThumbnailGenerator({
                       )}
                     </div>
                     <div className="thumb-gen-analyze-submit-row">
-                      <CostHint featureKey="thumbnail_edit_faceswap" />
-                      <button
+                      <ThumbSendPill
                         type="button"
-                        className="thumb-gen-analyze-btn"
                         disabled={editSourceMode === 'upload' ? !editDataUrl : !editPreviewUrl}
                         onClick={handleOpenEditFromFooter}
-                      >
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden
-                        >
-                          <path d="M12 20h9" />
-                          <path d="m16.5 3.5 4 4L7 21l-4 1 1-4Z" />
-                        </svg>
-                        Open editor
-                      </button>
+                        ariaLabel="Open editor"
+                        icon={
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
+                          >
+                            <path d="M12 20h9" />
+                            <path d="m16.5 3.5 4 4L7 21l-4 1 1-4Z" />
+                          </svg>
+                        }
+                      />
                     </div>
                   </form>
                 )}

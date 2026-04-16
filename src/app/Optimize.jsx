@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars
 import { useAuthStore } from '../stores/authStore'
@@ -14,6 +14,7 @@ import { queryKeys } from '../lib/query/queryKeys'
 import { stripPrefillFromHash } from '../lib/dashboardActionPayload'
 import { AppShellLayout } from '../components/AppShellLayout'
 import { IOSLoading } from '../components/IOSLoading'
+import { SegmentedTabs, SelectPill } from '../components/ui'
 /* Sidebar.css, SettingsModal.css, Dashboard.css imported by AuthenticatedRoutes */
 import './Optimize.css'
 
@@ -138,21 +139,8 @@ export function Optimize({ onLogout, shellManaged }) {
   const [page, setPage] = useState(1)
   const [selectedVideo, setSelectedVideo] = useState(null)
   const [dashPrefillBanner, setDashPrefillBanner] = useState(null)
-  const [sortDropdownOpen, setSortDropdownOpen] = useState(false)
-  const sortDropdownRef = useRef(null)
-
-  const closeSortDropdown = useCallback((e) => {
-    if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target)) {
-      setSortDropdownOpen(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (sortDropdownOpen) {
-      document.addEventListener('mousedown', closeSortDropdown)
-      return () => document.removeEventListener('mousedown', closeSortDropdown)
-    }
-  }, [sortDropdownOpen, closeSortDropdown])
+  // (sortDropdownOpen / closeSortDropdown removed — the <SelectPill> component
+  // handles its own open state and outside-click.)
 
   const userPreferencesQuery = useUserPreferencesQuery()
   const userProfileQuery = useUserProfileQuery()
@@ -469,101 +457,20 @@ export function Optimize({ onLogout, shellManaged }) {
               <div className="optimize-divider" aria-hidden />
 
               <div className="optimize-filters-bar">
-                <div className="optimize-tabrow">
-                  <nav className="optimize-tabs" aria-label="Filter by type">
-                    {VIDEO_TYPE_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        className={`optimize-tab ${videoType === opt.value ? 'optimize-tab--active' : ''}`}
-                        onClick={() => setVideoType(opt.value)}
-                        aria-selected={videoType === opt.value}
-                      >
-                        {opt.label}
-                        {videoType === opt.value && (
-                          <motion.span
-                            className="optimize-tab-indicator"
-                            layoutId="optimize-tab-indicator"
-                            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                          />
-                        )}
-                      </button>
-                    ))}
-                  </nav>
-                </div>
+                <SegmentedTabs
+                  value={videoType}
+                  onChange={setVideoType}
+                  ariaLabel="Filter by type"
+                  layoutId="optimize-video-type-toggle"
+                  options={VIDEO_TYPE_OPTIONS}
+                />
                 <div className="optimize-filters-right">
-                  <div
-                    className={`optimize-sort-dropdown${sortDropdownOpen ? ' optimize-sort-dropdown--open' : ''}`}
-                    ref={sortDropdownRef}
-                  >
-                    <button
-                      type="button"
-                      className="optimize-sort-trigger"
-                      onClick={() => setSortDropdownOpen((o) => !o)}
-                      aria-haspopup="listbox"
-                      aria-expanded={sortDropdownOpen}
-                      aria-label="Sort by"
-                    >
-                      <span className="optimize-sort-label">
-                        {SORT_OPTIONS.find((o) => o.value === sort)?.label ?? 'Sort'}
-                      </span>
-                      <svg
-                        className="optimize-sort-chevron"
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M6 9l6 6 6-6" />
-                      </svg>
-                    </button>
-                    <AnimatePresence>
-                      {sortDropdownOpen && (
-                        <motion.ul
-                          className="optimize-sort-menu"
-                          role="listbox"
-                          initial={{ opacity: 0, y: 6, scale: 0.96 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 4, scale: 0.97 }}
-                          transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                        >
-                          {SORT_OPTIONS.map((opt) => (
-                            <li key={opt.value} role="option" aria-selected={sort === opt.value}>
-                              <button
-                                type="button"
-                                className={`optimize-sort-option${sort === opt.value ? ' optimize-sort-option--active' : ''}`}
-                                onClick={() => {
-                                  setSort(opt.value)
-                                  setSortDropdownOpen(false)
-                                }}
-                              >
-                                {opt.label}
-                                {sort === opt.value && (
-                                  <svg
-                                    className="optimize-sort-check"
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2.5"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  >
-                                    <polyline points="20 6 9 17 4 12" />
-                                  </svg>
-                                )}
-                              </button>
-                            </li>
-                          ))}
-                        </motion.ul>
-                      )}
-                    </AnimatePresence>
-                  </div>
+                  <SelectPill
+                    value={sort}
+                    onChange={setSort}
+                    ariaLabel="Sort by"
+                    options={SORT_OPTIONS}
+                  />
                 </div>
               </div>
 

@@ -1049,6 +1049,39 @@ function ChannelPulseVideoCard({ video, accessToken, onOptimize }) {
   )
 }
 
+// Rotating gradient tagline shown above the YouTube-connect banner when the
+// user has no channel linked. Cycles a short list of value-prop phrases with
+// a smooth cross-fade + subtle lift. Gradient matches the landing hero.
+const DASHBOARD_EMPTY_TAGLINES = [
+  'Thumbnails that actually get clicks',
+  'SEO that ranks your videos higher',
+  'A/B test your way to more views',
+  'AI coaching tuned to your channel',
+  'Turn every upload into a test, not a guess',
+  'Grow your channel smarter',
+  'Your YouTube copilot, ready when you are',
+]
+
+function DashboardEmptyTagline() {
+  const [i, setI] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setI((n) => (n + 1) % DASHBOARD_EMPTY_TAGLINES.length), 3800)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <div className="dashboard-empty-tagline" aria-live="polite">
+      {DASHBOARD_EMPTY_TAGLINES.map((phrase, idx) => (
+        <span
+          key={phrase}
+          className={`dashboard-empty-tagline-text ${idx === i ? 'is-active' : ''}`}
+        >
+          {phrase}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 export function Dashboard({ onLogout, shellManaged }) {
   const {
     user,
@@ -1870,6 +1903,7 @@ export function Dashboard({ onLogout, shellManaged }) {
                 </div>
               </section>
             )}
+            {!youtube?.connected && <DashboardEmptyTagline />}
 
             {/* Channel Overview — linked channel with ID only */}
             {hasChannelData && (

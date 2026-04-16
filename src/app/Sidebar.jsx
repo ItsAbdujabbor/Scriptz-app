@@ -3,7 +3,9 @@ import { useQueryClient } from '@tanstack/react-query'
 import './Sidebar.css'
 import '../components/ui/ui.css'
 import { useSidebarStore } from '../stores/sidebarStore'
+import { useThumbnailChatActivityStore } from '../stores/thumbnailChatActivityStore'
 import { useShallow } from 'zustand/react/shallow'
+import { emitShellEvent } from '../lib/shellEvents'
 import { SidebarButton, ConfirmDialog } from '../components/ui'
 import { useCreditsQuery, useSubscriptionQuery } from '../queries/billing/creditsQueries'
 import {
@@ -13,13 +15,10 @@ import {
 import { openCreditsModal } from '../lib/creditsModalBus'
 import {
   prefetchCoachConversation,
-  useCoachConversationsQuery,
   useDeleteCoachConversationMutation,
   useUpdateCoachConversationMutation,
 } from '../queries/coach/coachQueries'
 // Script queries — next update (moved to src/next-update-ideas/ScriptGenerator)
-// import { prefetchScriptConversation, useScriptConversationsQuery, useDeleteScriptConversationMutation, useUpdateScriptConversationMutation } from '../queries/scripts/scriptQueries'
-const useScriptConversationsQuery = () => ({ data: null, isFetched: true }) // next update stub
 const prefetchScriptConversation = () => {} // next update stub
 const useDeleteScriptConversationMutation = () => ({
   mutateAsync: async () => {},
@@ -388,6 +387,8 @@ const HistoryItem = memo(function HistoryItem({
   updateMutation,
   closeMobile,
   openHistoryMenu,
+  isPending = false,
+  isUnread = false,
 }) {
   const queryClient = useQueryClient()
   const conversationId = conversation?.id
@@ -400,7 +401,10 @@ const HistoryItem = memo(function HistoryItem({
 
   if (isEditing) {
     return (
-      <div className={`sidebar-history-item ${isActive ? 'active' : ''}`} role="listitem">
+      <div
+        className={`sidebar-history-row sidebar-history-row--editing ${isActive ? 'is-active' : ''}`}
+        role="listitem"
+      >
         <form
           className="sidebar-history-edit-form"
           onSubmit={(e) => {
@@ -441,38 +445,91 @@ const HistoryItem = memo(function HistoryItem({
   const isThumbnail = type === 'thumbnail'
   const isScript = type === 'script'
 
+  const rowClassName = [
+    'sidebar-history-row',
+    isActive ? 'is-active' : '',
+    isPending ? 'is-pending' : '',
+    isUnread && !isActive ? 'is-unread' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  const displayTitle =
+    conversation.title ||
+    (isThumbnail ? 'Untitled thumbnails' : isScript ? 'Untitled script' : 'Untitled chat')
+
+  const handleRowClick = () => {
+    closeMobile()
+    if (isThumbnail) goToThumbnailConversation(conversation.id)
+    else if (isScript) goToScriptConversation(conversation.id)
+    else goToCoachConversation(conversation.id)
+  }
+
+  const handleMenuClick = (e) => {
+    // Stop the click from bubbling up to the row (which would navigate).
+    e.stopPropagation()
+    openHistoryMenu(conversation.id, type, e)
+  }
+
+  // Single-piece row: the outer container is itself the clickable
+  // surface (div role=button), and the 3-dot menu is a child span
+  // inside that same surface — not a sibling button. Result: the
+  // selected background covers the whole row as one solid pill, with
+  // the 3-dot sitting visibly *inside* it rather than next to it.
   return (
-    <div className={`sidebar-history-item ${isActive ? 'active' : ''}`} role="listitem">
-      <button
-        type="button"
-        className="sidebar-history-item-main"
-        onPointerEnter={prefetchThread}
-        onFocus={prefetchThread}
-        onClick={() => {
-          closeMobile()
-          if (isThumbnail) goToThumbnailConversation(conversation.id)
-          else if (isScript) goToScriptConversation(conversation.id)
-          else goToCoachConversation(conversation.id)
+    <div
+      role="button"
+      tabIndex={0}
+      className={rowClassName}
+      onClick={handleRowClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          handleRowClick()
+        }
+      }}
+      onPointerEnter={prefetchThread}
+      onFocus={prefetchThread}
+      aria-current={isActive ? 'true' : undefined}
+    >
+      <span
+        className={`sidebar-history-row__icon ${isThumbnail ? 'icon-thumbnail' : isScript ? 'icon-script' : 'icon-coach'}`}
+        aria-hidden="true"
+      >
+        {isThumbnail ? <IconThumbnail /> : isScript ? <IconScript /> : <IconMessage />}
+      </span>
+
+      <span className="sidebar-history-row__title">{displayTitle}</span>
+
+      {isPending ? (
+        <span
+          className="sidebar-history-row__status sidebar-history-row__status--pending"
+          aria-label="Generating"
+          title="Generating…"
+        />
+      ) : isUnread && !isActive ? (
+        <span
+          className="sidebar-history-row__status sidebar-history-row__status--unread"
+          aria-label="New result ready"
+          title="New result ready"
+        />
+      ) : null}
+
+      <span
+        role="button"
+        tabIndex={0}
+        className="sidebar-history-row__menu"
+        aria-label={`Open actions for ${displayTitle}`}
+        onClick={handleMenuClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            handleMenuClick(e)
+          }
         }}
       >
-        <span
-          className={`sidebar-history-item-icon ${isThumbnail ? 'icon-thumbnail' : isScript ? 'icon-script' : 'icon-coach'}`}
-        >
-          {isThumbnail ? <IconThumbnail /> : isScript ? <IconScript /> : <IconMessage />}
-        </span>
-        <span className="sidebar-history-item-title">
-          {conversation.title ||
-            (isThumbnail ? 'Untitled thumbnails' : isScript ? 'Untitled script' : 'Untitled chat')}
-        </span>
-      </button>
-      <button
-        type="button"
-        className="sidebar-history-item-menu"
-        aria-label={`Open actions for ${conversation.title || (isScript ? 'script' : 'chat')}`}
-        onClick={(e) => openHistoryMenu(conversation.id, type, e)}
-      >
         <IconDots />
-      </button>
+      </span>
     </div>
   )
 })
@@ -501,6 +558,19 @@ export function Sidebar({
   // subscribers un-rerendered; this is guaranteed to trigger a re-render.)
   const [accountDialogOpen, setAccountDialogOpen] = useState(false)
   const toggleAccountDialog = () => setAccountDialogOpen((o) => !o)
+  // Press feedback for the New Chat liquid-glass pill (mirrors SidebarButton).
+  const [newChatPressing, setNewChatPressing] = useState(false)
+
+  // History search + pagination
+  const [historySearchOpen, setHistorySearchOpen] = useState(false)
+  const [historySearchQuery, setHistorySearchQuery] = useState('')
+  const [historyVisibleCount, setHistoryVisibleCount] = useState(50)
+  const historySearchInputRef = useRef(null)
+  useEffect(() => {
+    if (historySearchOpen) {
+      requestAnimationFrame(() => historySearchInputRef.current?.focus())
+    }
+  }, [historySearchOpen])
   // Subscription + credits state drive the sidebar plan label, credits count,
   // and Go Pro visibility.
   const { data: subscription } = useSubscriptionQuery()
@@ -582,10 +652,16 @@ export function Sidebar({
     }
   }, [collapsed])
 
-  /* Omit is_active filter so history matches Script/Thumbnail lists (show all conversations). */
-  const coachConversationsQuery = useCoachConversationsQuery({ limit: 50 })
-  const scriptConversationsQuery = useScriptConversationsQuery({ limit: 50 })
+  /* Coach + Scripts chat tabs are hidden for now — only Thumbnails is exposed to
+   * users. We skip the two extra queries to avoid needless network traffic and
+   * only render thumbnail conversations in the history list below. */
+  const coachConversationsQuery = { data: { items: [] }, isFetched: true }
+  const scriptConversationsQuery = { data: { items: [] }, isFetched: true }
   const thumbnailConversationsQuery = useThumbnailConversationsQuery({ limit: 50 })
+  // Pending generations + unread dots are a local concern — sourced from a
+  // persisted zustand store so reload / tab switch preserves the state.
+  const pendingConvs = useThumbnailChatActivityStore((s) => s.pending)
+  const lastSeenAt = useThumbnailChatActivityStore((s) => s.lastSeenAt)
   const updateCoachMutation = useUpdateCoachConversationMutation()
   const deleteCoachMutation = useDeleteCoachConversationMutation()
   const updateScriptMutation = useUpdateScriptConversationMutation()
@@ -593,8 +669,6 @@ export function Sidebar({
   const updateThumbnailMutation = useUpdateThumbnailConversationMutation()
   const deleteThumbnailMutation = useDeleteThumbnailConversationMutation()
 
-  const isScriptsTab = currentScreen === 'coach' && activeTab === 'scripts'
-  const isThumbnailsTab = currentScreen === 'coach' && activeTab === 'thumbnails'
   const coachItems = useMemo(
     () => coachConversationsQuery.data?.items || [],
     [coachConversationsQuery.data]
@@ -647,14 +721,6 @@ export function Sidebar({
 
   /** Empty + still waiting on at least one list — show skeleton. As soon as we have rows, show them (partial OK). */
   const isHistoryLoading = mergedHistoryItems.length === 0 && !allHistoryFetched
-
-  const isNewChatActive =
-    currentScreen === 'coach' &&
-    ((activeTab === 'coach' && !(activeConversationId ?? getCoachConversationIdFromHash())) ||
-      (activeTab === 'scripts' &&
-        (activeScriptConversationId == null || activeScriptConversationId === '')) ||
-      (activeTab === 'thumbnails' &&
-        (activeThumbnailConversationId == null || activeThumbnailConversationId === '')))
 
   // Close the inline account panel on Escape + outside click.
   useEffect(() => {
@@ -718,10 +784,15 @@ export function Sidebar({
     setEditingConversationId(null)
     setEditingConversationType(null)
     setEditingTitle('')
+    // Always land on Thumbnails first — Coach + Scripts are reachable
+    // from the top tab bar inside the screen.
+    goToThumbnailConversation(null)
+    // Force a state reset even when the hash didn't change (user was
+    // already on #coach/thumbnails). `onNewChat` is the inline parent
+    // callback; emitShellEvent is the global bus so any mounted Coach
+    // screen also clears its draft / recording / messages.
     onNewChat?.()
-    if (isThumbnailsTab) goToThumbnailConversation(null)
-    else if (isScriptsTab) goToScriptConversation(null)
-    else goToCoachConversation(null)
+    emitShellEvent('newChat')
   }
 
   const openHistoryMenu = (conversationId, type, event) => {
@@ -997,9 +1068,27 @@ export function Sidebar({
               </div>
             </header>
 
-            <nav className="sidebar-nav sidebar-nav--primary" aria-label="Main navigation">
-              <span className="sidebar-section-label">Main</span>
+            {/* Liquid-glass pill: New Chat — pinned to the top of the rail */}
+            <button
+              type="button"
+              className={`sidebar-new-chat-pill ${collapsed ? 'sidebar-new-chat-pill--collapsed' : ''} ${newChatPressing ? 'is-pressing' : ''}`}
+              onPointerDown={() => {
+                setNewChatPressing(false)
+                requestAnimationFrame(() => setNewChatPressing(true))
+              }}
+              onAnimationEnd={() => setNewChatPressing(false)}
+              onClick={handleNewChat}
+              aria-label="New chat"
+              title="New chat"
+            >
+              <span className="sidebar-new-chat-pill-glow" aria-hidden />
+              <span className="sidebar-new-chat-pill-icon" aria-hidden>
+                <IconPlus />
+              </span>
+              {!collapsed && <span className="sidebar-new-chat-pill-label">New chat</span>}
+            </button>
 
+            <nav className="sidebar-nav sidebar-nav--primary" aria-label="Main navigation">
               <SidebarButton
                 href="#dashboard"
                 icon={<IconDashboard />}
@@ -1010,19 +1099,6 @@ export function Sidebar({
                   e.preventDefault()
                   closeMobile()
                   window.location.hash = 'dashboard'
-                }}
-              />
-
-              <SidebarButton
-                href="#coach"
-                icon={<IconPlus />}
-                label="New Chat"
-                active={isNewChatActive}
-                collapsed={collapsed}
-                aria-label="New chat"
-                onClick={(e) => {
-                  e.preventDefault()
-                  handleNewChat()
                 }}
               />
 
@@ -1090,8 +1166,75 @@ export function Sidebar({
             <nav className="sidebar-nav sidebar-nav--history" aria-label="Chat history">
               <div className="sidebar-divider" aria-hidden />
 
-              <div className="sidebar-history-header">
+              <div
+                className={`sidebar-history-header ${historySearchOpen ? 'is-searching' : ''}`}
+                style={{ position: 'relative' }}
+              >
                 <span className="sidebar-section-label">History</span>
+                <button
+                  type="button"
+                  className="sidebar-history-search-btn"
+                  onClick={() => setHistorySearchOpen(true)}
+                  aria-label="Search chats"
+                  title="Search chats"
+                  style={{
+                    opacity: historySearchOpen ? 0 : 1,
+                    pointerEvents: historySearchOpen ? 'none' : 'auto',
+                  }}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20 20-3.5-3.5" />
+                  </svg>
+                </button>
+                <div className="sidebar-history-search-wrap">
+                  <input
+                    ref={historySearchInputRef}
+                    className="sidebar-history-search-input"
+                    type="text"
+                    placeholder="Search chats…"
+                    value={historySearchQuery}
+                    onChange={(e) => {
+                      setHistorySearchQuery(e.target.value)
+                      setHistoryVisibleCount(50)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        setHistorySearchOpen(false)
+                        setHistorySearchQuery('')
+                      }
+                    }}
+                    aria-label="Search chats"
+                  />
+                  <button
+                    type="button"
+                    className="sidebar-history-search-close"
+                    onClick={() => {
+                      setHistorySearchOpen(false)
+                      setHistorySearchQuery('')
+                      setHistoryVisibleCount(50)
+                    }}
+                    aria-label="Close search"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <path d="M6 6l12 12M18 6l-12 12" />
+                    </svg>
+                  </button>
+                </div>
               </div>
               <div className="sidebar-history-list" role="list">
                 {isHistoryLoading && (
@@ -1100,62 +1243,98 @@ export function Sidebar({
                   </div>
                 )}
 
-                {!isHistoryLoading && (
-                  <>
-                    {mergedHistoryItems.length === 0 ? (
-                      <div className="sidebar-history-empty">
-                        <span className="sidebar-history-empty-icon" aria-hidden>
-                          <IconFolder />
-                        </span>
-                        <span className="sidebar-history-empty-text">
-                          No chats yet. Start a conversation in AI Coach or Thumbnail Generator.
-                        </span>
-                      </div>
-                    ) : (
-                      mergedHistoryItems.map((conversation) => {
-                        const isScript = conversation._type === 'script'
-                        const isThumbnail = conversation._type === 'thumbnail'
-                        const type = isThumbnail ? 'thumbnail' : isScript ? 'script' : 'coach'
-                        const isActive = isThumbnail
-                          ? currentScreen === 'coach' &&
-                            activeTab === 'thumbnails' &&
-                            Number(activeThumbnailConversationId) === Number(conversation.id)
-                          : isScript
+                {!isHistoryLoading &&
+                  (() => {
+                    const q = historySearchQuery.trim().toLowerCase()
+                    const filtered = q
+                      ? mergedHistoryItems.filter((c) => (c.title || '').toLowerCase().includes(q))
+                      : mergedHistoryItems
+                    const visible = filtered.slice(0, historyVisibleCount)
+                    const hasMore = filtered.length > historyVisibleCount
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="sidebar-history-empty">
+                          <span className="sidebar-history-empty-icon" aria-hidden>
+                            <IconFolder />
+                          </span>
+                          <span className="sidebar-history-empty-text">
+                            {q ? 'No matches' : 'No chats yet'}
+                          </span>
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <>
+                        {visible.map((conversation) => {
+                          const isScript = conversation._type === 'script'
+                          const isThumbnail = conversation._type === 'thumbnail'
+                          const type = isThumbnail ? 'thumbnail' : isScript ? 'script' : 'coach'
+                          const isActive = isThumbnail
                             ? currentScreen === 'coach' &&
-                              activeTab === 'scripts' &&
-                              Number(activeScriptConversationId) === Number(conversation.id)
-                            : currentScreen === 'coach' &&
-                              activeTab === 'coach' &&
-                              Number(activeConversationId ?? getCoachConversationIdFromHash()) ===
-                                Number(conversation.id)
-                        const isEditing =
-                          editingConversationId === conversation.id &&
-                          editingConversationType === type
-                        const updateMutation = isThumbnail
-                          ? updateThumbnailMutation
-                          : isScript
-                            ? updateScriptMutation
-                            : updateCoachMutation
-                        return (
-                          <HistoryItem
-                            key={`${type}-${conversation.id}`}
-                            conversation={conversation}
-                            type={type}
-                            isActive={isActive}
-                            isEditing={isEditing}
-                            editingTitle={editingTitle}
-                            setEditingTitle={setEditingTitle}
-                            submitConversationRename={submitConversationRename}
-                            cancelRenamingConversation={cancelRenamingConversation}
-                            updateMutation={updateMutation}
-                            closeMobile={closeMobile}
-                            openHistoryMenu={openHistoryMenu}
-                          />
-                        )
-                      })
-                    )}
-                  </>
-                )}
+                              activeTab === 'thumbnails' &&
+                              Number(activeThumbnailConversationId) === Number(conversation.id)
+                            : isScript
+                              ? currentScreen === 'coach' &&
+                                activeTab === 'scripts' &&
+                                Number(activeScriptConversationId) === Number(conversation.id)
+                              : currentScreen === 'coach' &&
+                                activeTab === 'coach' &&
+                                Number(activeConversationId ?? getCoachConversationIdFromHash()) ===
+                                  Number(conversation.id)
+                          const isEditing =
+                            editingConversationId === conversation.id &&
+                            editingConversationType === type
+                          const updateMutation = isThumbnail
+                            ? updateThumbnailMutation
+                            : isScript
+                              ? updateScriptMutation
+                              : updateCoachMutation
+                          const convKey = String(conversation.id)
+                          const isPending = isThumbnail && Boolean(pendingConvs[convKey])
+                          // Unread: last_message_at is newer than the local
+                          // "last seen" stamp and we're not actively generating
+                          // (a spinner wins over a dot).
+                          let isUnread = false
+                          if (isThumbnail && !isPending) {
+                            const lastTs = conversation.last_message_at
+                              ? Date.parse(conversation.last_message_at)
+                              : 0
+                            const seenTs = lastSeenAt[convKey] || 0
+                            isUnread = Number.isFinite(lastTs) && lastTs > seenTs
+                          }
+                          return (
+                            <HistoryItem
+                              key={`${type}-${conversation.id}`}
+                              conversation={conversation}
+                              type={type}
+                              isActive={isActive}
+                              isEditing={isEditing}
+                              editingTitle={editingTitle}
+                              setEditingTitle={setEditingTitle}
+                              submitConversationRename={submitConversationRename}
+                              cancelRenamingConversation={cancelRenamingConversation}
+                              updateMutation={updateMutation}
+                              closeMobile={closeMobile}
+                              openHistoryMenu={openHistoryMenu}
+                              isPending={isPending}
+                              isUnread={isUnread}
+                            />
+                          )
+                        })}
+                        {hasMore && (
+                          <button
+                            type="button"
+                            className="sidebar-history-load-more"
+                            onClick={() => setHistoryVisibleCount((n) => n + 50)}
+                          >
+                            Load 50 more ({filtered.length - historyVisibleCount} left)
+                          </button>
+                        )}
+                      </>
+                    )
+                  })()}
               </div>
             </nav>
 

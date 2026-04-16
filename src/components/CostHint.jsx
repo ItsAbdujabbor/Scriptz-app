@@ -1,13 +1,13 @@
 /**
- * CostHint — compact credit badge rendered next to AI action buttons.
+ * CostHint — ultra-compact credit badge.
  *
- * Usage stays the same:
- *   <CostHint featureKey="thumbnail_generate" count={numThumbnails} />
+ * Renders as a tiny icon + number chip, always visible. Meant to sit
+ * inline next to (or inside) an AI action button.
  *
- * New visual: a single pill/chip with a lightning icon and the credit number.
- * No "credits" text — the icon carries the meaning. Title attribute still gives
- * full context on hover. Goes into a subtle "insufficient" state when the
- * user's balance < total cost.
+ *   • No "credits" text — just a zap + number.
+ *   • 18px tall, same scale as a small status dot.
+ *   • Full-text explanation in the hover tooltip (title / aria-label).
+ *   • Unsubscribed users see nothing.
  */
 import { useCostOf, useCreditsQuery } from '../queries/billing/creditsQueries'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
@@ -29,10 +29,9 @@ export function CostHint({ featureKey, count = 1, showZero = false, className = 
     ? Number(bal.subscription_credits || 0) + Number(bal.permanent_credits || 0)
     : null
 
-  // Hide entirely for unsubscribed users — they see no credit-related UI until
-  // they start a trial or subscribe.
   if (!isSubscribed) return null
   if (!total && !showZero) return null
+
   const insufficient = remaining !== null && remaining < total
   const pretty = featureKey.replace(/_/g, ' ')
   const titleText = insufficient
@@ -43,16 +42,17 @@ export function CostHint({ featureKey, count = 1, showZero = false, className = 
 
   return (
     <span
-      className={['cost-chip', insufficient ? 'cost-chip--insufficient' : '', className]
+      className={['cost-hint', insufficient ? 'cost-hint--insufficient' : '', className]
         .filter(Boolean)
         .join(' ')}
       title={titleText}
       aria-label={titleText}
+      role="note"
     >
-      <span className="cost-chip-icon" aria-hidden>
+      <span className="cost-hint-icon" aria-hidden>
         <IconZap />
       </span>
-      <span className="cost-chip-value">{total}</span>
+      <span className="cost-hint-num">{total}</span>
     </span>
   )
 }

@@ -1,64 +1,75 @@
-/* CostHint — compact circular cost chip rendered next to AI action buttons.
-   Icon in a round container, number next to it. No "credits" text. */
+/* CostHint — ultra-compact credit chip: tiny zap icon + number.
+ * Always visible so the cost is seen at a glance.
+ * Sized to sit inline inside or next to an action button without
+ * competing visually with the button's label. */
 
-.cost-chip {
+.cost-hint {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 10px 3px 3px;
+  gap: 3px;
+  padding: 0 6px 0 4px;
+  height: 18px;
   border-radius: 999px;
-  background: rgba(139, 92, 246, 0.12);
-  border: 1px solid rgba(167, 139, 250, 0.22);
-  color: #c4b5fd;
-  font-size: 0.72rem;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-size: 0.64rem;
   font-weight: 700;
   line-height: 1;
+  letter-spacing: 0.01em;
   white-space: nowrap;
   user-select: none;
+  vertical-align: middle;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
-    transform 0.12s ease-out;
-}
-.cost-chip:hover {
-  background: rgba(139, 92, 246, 0.18);
-  border-color: rgba(167, 139, 250, 0.36);
+    color 0.15s ease;
 }
 
-.cost-chip-icon {
-  display: grid;
+.cost-hint-icon {
+  display: inline-grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: rgba(167, 139, 250, 0.28);
-  color: #ddd6fe;
+  width: 10px;
+  height: 10px;
   flex-shrink: 0;
+  color: #fde047;
 }
-.cost-chip-icon svg {
+.cost-hint-icon svg {
   width: 10px;
   height: 10px;
   display: block;
 }
 
-.cost-chip-value {
+.cost-hint-num {
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.01em;
-  padding-right: 2px;
+  padding-top: 0.5px; /* optical centering next to the zap */
 }
 
-.cost-chip--insufficient {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(252, 165, 165, 0.3);
+.cost-hint--insufficient {
   color: #fecaca;
+  background: rgba(248, 113, 113, 0.18);
+  border-color: rgba(248, 113, 113, 0.32);
 }
-.cost-chip--insufficient .cost-chip-icon {
-  background: rgba(248, 113, 113, 0.32);
-  color: #fff;
+.cost-hint--insufficient .cost-hint-icon {
+  color: #f87171;
 }
 
-/* Legacy class names — no longer rendered but kept as a safe shim so any
-   stale page that imports the old markup still disappears cleanly. */
-.cost-hint {
+/* Slight dim on touch devices — no hover there, but stay readable. */
+@media (hover: none) {
+  .cost-hint {
+    height: 16px;
+    padding: 0 5px 0 3px;
+    font-size: 0.6rem;
+  }
+  .cost-hint-icon,
+  .cost-hint-icon svg {
+    width: 9px;
+    height: 9px;
+  }
+}
+
+/* Legacy shim — don't render the old chip. */
+.cost-chip {
   display: none;
 }

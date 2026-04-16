@@ -62,6 +62,51 @@ export function useThumbnailConversationQuery(conversationId) {
   })
 }
 
+/**
+ * Create an empty thumbnail conversation up-front so the UI can navigate
+ * into it immediately (showing a pending spinner) while the first
+ * generation request is still running in the background.
+ */
+export function useCreateThumbnailConversationMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params = {}) => {
+      const token = await getAccessTokenOrNull()
+      if (!token) throw new Error('Not authenticated')
+      return thumbnailsApi.createConversation(token, params)
+    },
+    onSuccess: (conv) => {
+      if (!conv?.id) return
+      // Seed the detail cache so the destination screen renders instantly
+      // with an empty thread (no flicker while the chat endpoint runs).
+      // Shape must match ThumbnailConversationDetailResponse exactly:
+      // { conversation, messages: { items, total, ... } }.
+      queryClient.setQueryData(queryKeys.thumbnails.conversation(conv.id), {
+        conversation: conv,
+        messages: {
+          items: [],
+          total: 0,
+          has_more: false,
+          limit: 50,
+          offset: 0,
+          conversation_id: conv.id,
+        },
+      })
+      // Prepend to any cached list so the sidebar shows the row immediately.
+      queryClient.setQueriesData(
+        { queryKey: ['thumbnails', 'conversations'], exact: false },
+        (old) => {
+          if (!old || typeof old !== 'object') return old
+          const items = Array.isArray(old.items) ? old.items : []
+          if (items.some((i) => Number(i.id) === Number(conv.id))) return old
+          return { ...old, items: [conv, ...items], total: (old.total || 0) + 1 }
+        }
+      )
+    },
+  })
+}
+
 export function useThumbnailChatMutation(onConversationCreated) {
   const queryClient = useQueryClient()
 

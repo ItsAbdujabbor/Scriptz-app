@@ -48,9 +48,11 @@ import {
 } from './coach/CoachChatVirtuosoShell.jsx'
 
 const COACH_TABS = [
-  { id: 'coach', label: 'Coach', hash: 'coach' },
-  // { id: 'scripts', label: 'Scripts', hash: 'coach/scripts' }, // next update
   { id: 'thumbnails', label: 'Thumbnails', hash: 'coach/thumbnails' },
+  // Coach tab hidden for now — only Thumbnails is exposed to users.
+  // Re-enable by uncommenting the entry below:
+  // { id: 'coach', label: 'Coach', hash: 'coach' },
+  // { id: 'scripts', label: 'Scripts', hash: 'coach/scripts' }, // next update
 ]
 
 const COMPOSER_HINTS = [
@@ -806,7 +808,10 @@ export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
     return () => window.removeEventListener('hashchange', syncHash)
   }, [])
 
-  const activeTab = hashState.activeTab || 'coach'
+  // Default tab forced to 'thumbnails' while the Coach tab is hidden.
+  // If the URL still points at '#coach' (legacy link), treat it as thumbnails.
+  const rawTab = hashState.activeTab || 'thumbnails'
+  const activeTab = rawTab === 'coach' ? 'thumbnails' : rawTab
   const selectedConversationId = hashState.coachConversationId ?? null
   const selectedScriptConversationId = hashState.scriptConversationId ?? null
   const selectedThumbnailConversationId = hashState.thumbnailConversationId ?? null
@@ -1959,14 +1964,18 @@ export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
     return (
       <>
         <div className="coach-header-shade" aria-hidden="true" />
-        <TabBar
-          tabs={COACH_TABS.map((t) => ({ id: t.id, label: t.label }))}
-          value={activeTab}
-          onChange={handleTabClick}
-          ariaLabel="Tool switcher"
-          variant="modal"
-          className="coach-tabbar coach-tabbar--floating"
-        />
+        {/* TabBar hidden — only Thumbnails is active. Re-enable by
+            restoring COACH_TABS entries and this TabBar JSX. */}
+        {COACH_TABS.length > 1 && (
+          <TabBar
+            tabs={COACH_TABS.map((t) => ({ id: t.id, label: t.label }))}
+            value={activeTab}
+            onChange={handleTabClick}
+            ariaLabel="Tool switcher"
+            variant="modal"
+            className="coach-tabbar coach-tabbar--floating"
+          />
+        )}
         <div className="coach-main-body">
           {/* Scripts tab — next update: <ScriptGenerator> moved to src/next-update-ideas/ScriptGenerator */}
           {activeTab === 'thumbnails' ? (
@@ -1995,11 +2004,7 @@ export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
                   className={`coach-thread ${coachLayoutCentered ? 'coach-thread--empty' : ''} ${showCoachVirtuoso ? 'coach-thread--virtualized' : ''} ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
                 >
                   {isHistoryLoading ? (
-                    <ChatHistoryLoading
-                      kicker="AI Coach"
-                      label="Loading your conversation…"
-                      subtitle="Syncing messages and channel context."
-                    />
+                    <ChatHistoryLoading variant="coach" label="Loading chat" />
                   ) : null}
 
                   {isEmptyScreen ? (
@@ -2334,14 +2339,18 @@ export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
         }
       >
         <div className="coach-header-shade" aria-hidden="true" />
-        <TabBar
-          tabs={COACH_TABS.map((t) => ({ id: t.id, label: t.label }))}
-          value={activeTab}
-          onChange={handleTabClick}
-          ariaLabel="Tool switcher"
-          variant="modal"
-          className="coach-tabbar coach-tabbar--floating"
-        />
+        {/* TabBar hidden — only Thumbnails is active. Re-enable by
+            restoring COACH_TABS entries and this TabBar JSX. */}
+        {COACH_TABS.length > 1 && (
+          <TabBar
+            tabs={COACH_TABS.map((t) => ({ id: t.id, label: t.label }))}
+            value={activeTab}
+            onChange={handleTabClick}
+            ariaLabel="Tool switcher"
+            variant="modal"
+            className="coach-tabbar coach-tabbar--floating"
+          />
+        )}
         <div className="coach-main-body">
           {/* Scripts tab — next update: <ScriptGenerator> moved to src/next-update-ideas/ScriptGenerator */}
           {activeTab === 'thumbnails' ? (
@@ -2370,11 +2379,7 @@ export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
                   className={`coach-thread ${coachLayoutCentered ? 'coach-thread--empty' : ''} ${showCoachVirtuoso ? 'coach-thread--virtualized' : ''} ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
                 >
                   {isHistoryLoading ? (
-                    <ChatHistoryLoading
-                      kicker="AI Coach"
-                      label="Loading your conversation…"
-                      subtitle="Syncing messages and channel context."
-                    />
+                    <ChatHistoryLoading variant="coach" label="Loading chat" />
                   ) : null}
 
                   {isEmptyScreen ? (
