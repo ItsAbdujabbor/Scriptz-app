@@ -188,6 +188,57 @@ const THUMBNAIL_LOADING_STEPS = [
 
 const PCT_TARGETS = [22, 68, 95]
 
+/**
+ * Map a backend error code (from the thumbnails chat route's APIError)
+ * to a user-facing message. Falls back to the backend's own `message`
+ * field when we don't have a tailored copy for the code — that keeps
+ * new server-side codes from silently hiding behind a generic string.
+ */
+function codeToFriendlyMessage(code, backendMsg) {
+  switch (code) {
+    case 'CONTENT_BLOCKED':
+      return (
+        'OpenAI’s safety system blocked this request. Try rephrasing the ' +
+        'prompt or remove the reference image, then generate again.'
+      )
+    case 'PROVIDER_RATE_LIMITED':
+      return 'The image provider is rate-limited right now. Try again in a moment.'
+    case 'PROVIDER_QUOTA_EXCEEDED':
+      return (
+        'The image provider’s account quota is exceeded. Nothing was charged — ' +
+        'please contact support.'
+      )
+    case 'PROVIDER_MISCONFIGURED':
+      return (
+        'The image provider is misconfigured on the server side. Nothing was ' +
+        'charged — please contact support.'
+      )
+    case 'THUMBNAIL_BAD_REQUEST':
+      return 'The image provider rejected the request. Try different wording.'
+    case 'PROVIDER_UNAVAILABLE':
+      return 'The image provider had a temporary glitch. Nothing was charged — try again.'
+    case 'NO_ACTIVE_SUBSCRIPTION':
+    case 'INSUFFICIENT_CREDITS':
+      return backendMsg // billing flow handles these via other UI paths
+    default:
+      return backendMsg || 'Could not generate thumbnails.'
+  }
+}
+
+// Which error codes support a Retry button? `CONTENT_BLOCKED` is
+// retryable in the sense that the user changes the prompt and tries
+// again — the button resends the same draft, which might still fail.
+function isRetryableCode(code, extra) {
+  if (!code) return true // unknown error — give the benefit of the doubt
+  if (extra && extra.retryable === false) return false
+  return [
+    'PROVIDER_UNAVAILABLE',
+    'PROVIDER_RATE_LIMITED',
+    'CONTENT_BLOCKED',
+    'THUMBNAIL_BAD_REQUEST',
+  ].includes(code)
+}
+
 const BATCH_COUNT_OPTIONS = [
   { value: '1', label: '1×', hint: 'Single image' },
   { value: '2', label: '2×', hint: '2 variations' },
@@ -1139,6 +1190,9 @@ export function ThumbnailGenerator({
   const [numThumbnails, setNumThumbnails] = useState(1)
   const [numRecreateThumbnails, setNumRecreateThumbnails] = useState(1)
   const [sendError, setSendError] = useState('')
+  // Structured metadata for the most recent sendError — lets the footer
+  // render a Retry pill only when the error is retryable.
+  const [sendErrorMeta, setSendErrorMeta] = useState(null)
   const [pendingUserMessage, setPendingUserMessage] = useState(null)
   const [pendingAssistant, setPendingAssistant] = useState(false)
   const [pendingUserImageUrl, setPendingUserImageUrl] = useState(null)
@@ -1243,6 +1297,7 @@ export function ThumbnailGenerator({
 
   useEffect(() => {
     setSendError('')
+    setSendErrorMeta(null)
     setRecreateSourceMode('youtube')
     setAnalyzeSourceMode('youtube')
     setEditSourceMode('url')
@@ -1343,6 +1398,7 @@ export function ThumbnailGenerator({
       setMessages([])
       setDraft('')
       setSendError('')
+      setSendErrorMeta(null)
       setPendingUserMessage(null)
       setPendingAssistant(false)
       setPendingUserImageUrl(null)
@@ -1676,6 +1732,7 @@ export function ThumbnailGenerator({
     }
 
     setSendError('')
+    setSendErrorMeta(null)
     // Push the user's message into `messages` synchronously so it appears the
     // instant they hit send — no waiting for the backend, no waiting for an
     // `ensureConversationId` round-trip. The assistant loader fills the slot
@@ -1753,15 +1810,32 @@ export function ThumbnailGenerator({
         }
       }
     } catch (err) {
-      // Prefer the backend's `detail` field (FastAPI error payload) over
-      // err.message — it carries the actual reason (OpenAI auth, quota,
-      // etc.) instead of just "Request failed".
-      const detail = err?.payload?.detail || err?.detail
-      const friendly =
-        typeof detail === 'string'
-          ? detail
-          : detail?.message || err?.message || 'Could not generate thumbnails.'
+      // Parse the structured error payload. The chat route returns either:
+      //   • APIError shape:  { error: { code, message, request_id, extra } }
+      //   • HTTPException:   { detail: <string> | { code, message, ... } }
+      // We prefer the structured code so the footer can pick a tailored
+      // message + decide whether to show a Retry pill.
+      const body = err?.payload
+      const errorObj = body?.error
+      const detailObj = body?.detail && typeof body.detail === 'object' ? body.detail : null
+      const code = errorObj?.code || detailObj?.code || null
+      const extra = errorObj?.extra || detailObj?.extra || {}
+      const backendMsg =
+        errorObj?.message ||
+        detailObj?.message ||
+        (typeof body?.detail === 'string' ? body.detail : null) ||
+        err?.message ||
+        'Could not generate thumbnails.'
+
+      const friendly = codeToFriendlyMessage(code, backendMsg)
+      const retryable = isRetryableCode(code, extra)
       setSendError(friendly)
+      setSendErrorMeta({
+        code,
+        retryable,
+        retryAfterSeconds: extra?.retry_after_seconds ?? null,
+        draft: combined,
+      })
       setDraft(combined)
       setPendingAssistant(false)
       // Roll back the optimistic user message so they can retry.
@@ -1831,6 +1905,7 @@ export function ThumbnailGenerator({
         finishLoading()
       } catch (err) {
         setSendError(err?.message || 'Regeneration failed')
+        setSendErrorMeta(null)
         setPendingAssistant(false)
       } finally {
         setPendingUserMessage(null)
@@ -1863,10 +1938,12 @@ export function ThumbnailGenerator({
       recreateSourceMode === 'upload' ? recreateSourceImage : recreatePreviewUrl
     if (!sourceImageUrl) {
       setSendError('Add the thumbnail to recreate first, then describe what should change.')
+      setSendErrorMeta(null)
       return
     }
     if (!instructions && !selectedPersonaId && !selectedStyleId) {
       setSendError('Add what should change, or pick a persona or style.')
+      setSendErrorMeta(null)
       return
     }
     const selectionHint = buildSelectionHint(selectedPersona, selectedStyle)
@@ -1877,6 +1954,7 @@ export function ThumbnailGenerator({
       .filter(Boolean)
       .join(' ')
     setSendError('')
+    setSendErrorMeta(null)
     setPendingUserMessage(userText)
     setPendingAssistant(true)
     setRecreateDraft('')
@@ -1908,6 +1986,7 @@ export function ThumbnailGenerator({
       finishLoading()
     } catch (err) {
       setSendError(err?.message || 'Could not recreate thumbnail.')
+      setSendErrorMeta(null)
       setPendingAssistant(false)
     } finally {
       setPendingUserMessage(null)
@@ -1969,11 +2048,13 @@ export function ThumbnailGenerator({
     const imageUrl = analyzeSourceMode === 'upload' ? analyzeSourceImage : analyzePreviewUrl
     if (!imageUrl) {
       setSendError('Add an image or YouTube link to analyze.')
+      setSendErrorMeta(null)
       return
     }
     const titleTrim = analyzeTitle.trim()
     const userText = `Analyze this thumbnail${titleTrim ? ` for "${titleTrim}"` : ''}.`
     setSendError('')
+    setSendErrorMeta(null)
     setPendingUserMessage(userText)
     setPendingUserImageUrl(imageUrl)
     setPendingAssistant(true)
@@ -1996,6 +2077,7 @@ export function ThumbnailGenerator({
       finishLoading()
     } catch (err) {
       setSendError(err?.message || 'Could not analyze thumbnail.')
+      setSendErrorMeta(null)
       setPendingAssistant(false)
     } finally {
       setPendingUserMessage(null)
@@ -2226,7 +2308,21 @@ export function ThumbnailGenerator({
           <div className="thumb-gen-footer-chrome">
             {(sendError || (thumbMode === 'edit' && editFooterError)) && (
               <div className="coach-compose-error thumb-gen-footer-error">
-                {sendError || editFooterError}
+                <span className="thumb-gen-footer-error__msg">{sendError || editFooterError}</span>
+                {sendErrorMeta?.retryable && draft.trim() ? (
+                  <button
+                    type="button"
+                    className="thumb-gen-footer-error__retry"
+                    onClick={() => {
+                      setSendError('')
+                      setSendErrorMeta(null)
+                      handleSubmit()
+                    }}
+                    aria-label="Retry generation"
+                  >
+                    Retry
+                  </button>
+                ) : null}
               </div>
             )}
 
