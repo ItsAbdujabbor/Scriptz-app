@@ -1,11 +1,9 @@
 /* ─────────────────────────────────────────────────────────────────────
  * Skeleton — canonical shimmer-skeleton primitives.
  *
- * ONE violet diagonal sweep animates every loading surface in the app.
- * The sweep lives on `.sk::after` (per-block) OR on `.sk-group::after`
- * (a wrapping `<SkeletonGroup>` suppresses children sweeps so a cluster
- * animates as one unified motion — mirrors the original ChatHistoryLoading
- * behaviour).
+ * Each `.sk` block owns its own quiet sweep. Grouped placeholders do NOT
+ * share a single giant sweep — each card animates independently so
+ * dense grids never turn into one huge animated band.
  * ───────────────────────────────────────────────────────────────────── */
 
 @keyframes sk-sweep {
@@ -47,7 +45,9 @@
   }
 }
 
-/* ── Base block ───────────────────────────────────────────────────── */
+/* ── Base block ─────────────────────────────────────────────────────
+ * Quiet per-block shimmer. Slow (2.4s), subtle violet tint. Each block
+ * is self-contained — no grouped mega-sweeps. */
 .sk {
   display: block;
   position: relative;
@@ -56,11 +56,11 @@
   box-sizing: border-box;
   background: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.055) 0%,
-    rgba(255, 255, 255, 0.09) 50%,
-    rgba(255, 255, 255, 0.055) 100%
+    rgba(255, 255, 255, 0.045) 0%,
+    rgba(255, 255, 255, 0.075) 50%,
+    rgba(255, 255, 255, 0.045) 100%
   );
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 10px;
 }
 .sk::after {
@@ -70,47 +70,22 @@
   pointer-events: none;
   background: linear-gradient(
     115deg,
-    transparent 30%,
-    rgba(167, 139, 250, 0.12) 48%,
-    rgba(255, 255, 255, 0.08) 50%,
-    rgba(167, 139, 250, 0.12) 52%,
-    transparent 70%
+    transparent 40%,
+    rgba(167, 139, 250, 0.09) 49%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(167, 139, 250, 0.09) 51%,
+    transparent 60%
   );
   background-size: 220% 100%;
   background-position: 100% 0;
   mix-blend-mode: screen;
-  animation: sk-sweep 1.6s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+  animation: sk-sweep 2.4s cubic-bezier(0.25, 1, 0.5, 1) infinite;
 }
 
-/* ── Group: one sweep owns the whole cluster ──────────────────────── */
+/* ── Group: plain wrapper with a soft fade-in, no shared sweep ───── */
 .sk-group {
   position: relative;
-  isolation: isolate;
-  overflow: hidden;
   animation: sk-fade-in 300ms cubic-bezier(0.25, 1, 0.5, 1) both 80ms;
-}
-.sk-group::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(
-    115deg,
-    transparent 30%,
-    rgba(167, 139, 250, 0.12) 48%,
-    rgba(255, 255, 255, 0.08) 50%,
-    rgba(167, 139, 250, 0.12) 52%,
-    transparent 70%
-  );
-  background-size: 220% 100%;
-  background-position: 100% 0;
-  mix-blend-mode: screen;
-  animation: sk-sweep 1.6s cubic-bezier(0.25, 1, 0.5, 1) infinite;
-  z-index: 1;
-}
-.sk-group .sk::after {
-  animation: none;
-  background: none;
 }
 
 /* ── Presets ──────────────────────────────────────────────────────── */

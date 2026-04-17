@@ -1753,7 +1753,15 @@ export function ThumbnailGenerator({
         }
       }
     } catch (err) {
-      setSendError(err?.message || 'Could not generate thumbnails.')
+      // Prefer the backend's `detail` field (FastAPI error payload) over
+      // err.message — it carries the actual reason (OpenAI auth, quota,
+      // etc.) instead of just "Request failed".
+      const detail = err?.payload?.detail || err?.detail
+      const friendly =
+        typeof detail === 'string'
+          ? detail
+          : detail?.message || err?.message || 'Could not generate thumbnails.'
+      setSendError(friendly)
       setDraft(combined)
       setPendingAssistant(false)
       // Roll back the optimistic user message so they can retry.
