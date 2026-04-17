@@ -1032,7 +1032,7 @@ export function Sidebar({
                 href="#thumbnails"
                 icon={<IconThumbnail />}
                 label="Thumbnails"
-                active={currentScreen === 'coach' && activeTab === 'thumbnail'}
+                active={currentScreen === 'coach' && activeTab === 'thumbnails'}
                 collapsed={collapsed}
                 onClick={(e) => {
                   e.preventDefault()

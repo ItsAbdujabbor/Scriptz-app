@@ -16,6 +16,8 @@ import { useThumbnailChatActivityStore } from '../stores/thumbnailChatActivitySt
 import { EditThumbnailDialog } from '../components/EditThumbnailDialog'
 import { TabBar } from '../components/TabBar'
 import { Dropdown, SegmentedTabs } from '../components/ui'
+// eslint-disable-next-line no-unused-vars
+import { motion } from 'framer-motion'
 import { ChatHistoryLoading } from '../components/ChatHistoryLoading'
 import { AnimatedComposerHint } from '../components/AnimatedComposerHint'
 import { stripPrefillFromHash } from '../lib/dashboardActionPayload'
