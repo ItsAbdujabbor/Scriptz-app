@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useCreatePersonaFromImagesMutation } from '../queries/personas/personaQueries'
 import { onOpenCreatePersonaDialog } from '../lib/personaModalBus'
+import { InlineSpinner } from './ui'
 
 const SLOTS = [
   { key: 'front', label: 'Front', desc: 'Straight-on view of the face' },
@@ -44,7 +45,6 @@ export function CreatePersonaDialog() {
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-     
   }, [open])
 
   // Body scroll lock.
@@ -357,7 +357,14 @@ export function CreatePersonaDialog() {
                 mutation.isPending || !images.front || !images.left || !images.right ? 0.55 : 1,
             }}
           >
-            {mutation.isPending ? 'Generating…' : 'Generate persona'}
+            {mutation.isPending ? (
+              <span className="sk-btn-pending">
+                <InlineSpinner size={12} />
+                Generating…
+              </span>
+            ) : (
+              'Generate persona'
+            )}
             <span
               style={{
                 display: 'inline-flex',

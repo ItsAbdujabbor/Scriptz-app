@@ -13,7 +13,7 @@ import { useUserProfileQuery } from '../queries/user/profileQueries'
 import { queryKeys } from '../lib/query/queryKeys'
 import { stripPrefillFromHash } from '../lib/dashboardActionPayload'
 import { AppShellLayout } from '../components/AppShellLayout'
-import { IOSLoading } from '../components/IOSLoading'
+import { SkeletonCard, SkeletonGroup, InlineSpinner } from '../components/ui'
 import { SegmentedTabs, SelectPill } from '../components/ui'
 /* Sidebar.css, SettingsModal.css, Dashboard.css imported by AuthenticatedRoutes */
 import './Optimize.css'
@@ -555,13 +555,17 @@ export function Optimize({ onLogout, shellManaged }) {
                 {showLoading && (
                   <motion.div
                     key="loading"
-                    className="optimize-state"
+                    className="optimize-state optimize-state--skeleton"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <IOSLoading size="lg" layout="page" message="Loading videos…" />
+                    <SkeletonGroup className="optimize-skeleton-grid" label="Loading videos">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <SkeletonCard key={i} ratio="16 / 9" lines={2} />
+                      ))}
+                    </SkeletonGroup>
                   </motion.div>
                 )}
 
@@ -836,7 +840,7 @@ export function Optimize({ onLogout, shellManaged }) {
 
                     {isFetchingNextPage && (
                       <div className="optimize-loading-more">
-                        <IOSLoading size="sm" />
+                        <InlineSpinner size={14} />
                         <span>Loading more videos…</span>
                       </div>
                     )}

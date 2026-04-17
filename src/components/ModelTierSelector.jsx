@@ -13,6 +13,7 @@ import {
   useModelTierStateQuery,
   useSetModelTierMutation,
 } from '../queries/modelTier/modelTierQueries'
+import { SkeletonCard, SkeletonGroup } from './ui'
 import './ModelTierSelector.css'
 
 function IconLock() {
@@ -54,7 +55,15 @@ export function ModelTierSelector() {
   const [errorMsg, setErrorMsg] = useState(null)
 
   if (isLoading) {
-    return <div className="mts-loading">Loading model tiers…</div>
+    return (
+      <SkeletonGroup className="mts mts-loading" label="Loading model tiers">
+        <div className="mts-grid">
+          <SkeletonCard ratio="7 / 3" lines={2} />
+          <SkeletonCard ratio="7 / 3" lines={2} />
+          <SkeletonCard ratio="7 / 3" lines={2} />
+        </div>
+      </SkeletonGroup>
+    )
   }
   if (isError || !data) {
     return <div className="mts-error">Could not load model tiers.</div>

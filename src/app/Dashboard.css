@@ -11378,6 +11378,16 @@ img.dashboard-youtube-avatar {
   animation: vd-analyze-text-in 2s ease both;
 }
 
+/* Label row for the skeleton-variant loader */
+.vd-analyze__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
 /* Content fade-in when loaded */
 @keyframes vd-content-in {
   from {

@@ -19,6 +19,7 @@ import {
 import { usePersonaStore } from '../stores/personaStore'
 import { CostHint } from '../components/CostHint'
 import { SegmentedTabs } from '../components/ui/SegmentedTabs'
+import { InlineSpinner } from '../components/ui'
 
 const OVERLAY_Z = 2147483647
 const PANEL_BG = 'linear-gradient(180deg, #1a1a1f 0%, #131318 100%)'
@@ -508,7 +509,14 @@ export function PersonasModal({ onClose }) {
                 disabled={createDisabled}
                 style={generatePill(createDisabled)}
               >
-                {createMutation.isPending ? 'Generating…' : 'Generate'}
+                {createMutation.isPending ? (
+                  <span className="sk-btn-pending">
+                    <InlineSpinner size={12} />
+                    Generating…
+                  </span>
+                ) : (
+                  'Generate'
+                )}
                 <CostHint featureKey="persona_generate" />
               </button>
             </div>

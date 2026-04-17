@@ -10,7 +10,7 @@ import { Sidebar } from './Sidebar'
 import { SettingsModal } from './SettingsModal'
 import { DashButton } from '../components/DashButton'
 import { DashSection } from '../components/DashSection'
-import { IOSLoading } from '../components/IOSLoading'
+import { SkeletonCard, SkeletonGroup, SkeletonText, InlineSpinner } from '../components/ui'
 /* Sidebar.css, SettingsModal.css, Dashboard.css imported by AuthenticatedRoutes */
 import { queryKeys } from '../lib/query/queryKeys'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
@@ -668,34 +668,14 @@ function VdLoadingState() {
     return () => clearInterval(id)
   }, [])
   return (
-    <div className="vd-analyze">
-      <div className="vd-analyze__ring">
-        <svg viewBox="0 0 48 48" className="vd-analyze__svg" aria-hidden>
-          <circle
-            cx="24"
-            cy="24"
-            r="20"
-            fill="none"
-            stroke="rgba(255,255,255,0.06)"
-            strokeWidth="3"
-          />
-          <circle
-            cx="24"
-            cy="24"
-            r="20"
-            fill="none"
-            stroke="rgba(255,255,255,0.35)"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeDasharray="30 95.7"
-            className="vd-analyze__arc"
-          />
-        </svg>
+    <SkeletonGroup className="vd-analyze" label={VD_LOADING_TEXTS[textIdx]}>
+      <SkeletonCard ratio="16 / 9" lines={2} />
+      <SkeletonText lines={3} lineHeight={14} />
+      <div className="vd-analyze__label">
+        <InlineSpinner size={12} />
+        <span>{VD_LOADING_TEXTS[textIdx]}</span>
       </div>
-      <span className="vd-analyze__text" key={textIdx}>
-        {VD_LOADING_TEXTS[textIdx]}
-      </span>
-    </div>
+    </SkeletonGroup>
   )
 }
 
@@ -761,17 +741,11 @@ function LowestScoredVideos({ videos, loading, accessToken, onOptimize }) {
 
   if (loading) {
     return (
-      <div className="cpulse-grid">
+      <SkeletonGroup className="cpulse-grid" label="Loading lowest-scored videos">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="cpulse-video-card cpulse-video-card--skeleton">
-            <div className="cpulse-video-thumb cpulse-video-thumb--skeleton" />
-            <div className="cpulse-video-info">
-              <div className="cpulse-skeleton-line" />
-              <div className="cpulse-skeleton-line cpulse-skeleton-line--short" />
-            </div>
-          </div>
+          <SkeletonCard key={i} ratio="16 / 9" lines={2} />
         ))}
-      </div>
+      </SkeletonGroup>
     )
   }
 
@@ -781,17 +755,11 @@ function LowestScoredVideos({ videos, loading, accessToken, onOptimize }) {
 
   if (anyPending && lowest3.length < 3) {
     return (
-      <div className="cpulse-grid">
+      <SkeletonGroup className="cpulse-grid" label="Scoring videos">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="cpulse-video-card cpulse-video-card--skeleton">
-            <div className="cpulse-video-thumb cpulse-video-thumb--skeleton" />
-            <div className="cpulse-video-info">
-              <div className="cpulse-skeleton-line" />
-              <div className="cpulse-skeleton-line cpulse-skeleton-line--short" />
-            </div>
-          </div>
+          <SkeletonCard key={i} ratio="16 / 9" lines={2} />
         ))}
-      </div>
+      </SkeletonGroup>
     )
   }
 
@@ -895,7 +863,9 @@ function ChannelPulseVideoCard({ video, accessToken, onOptimize, preloadedScore 
             <span className={`cpulse-score-badge cpulse-score-badge--${tier}`}>{score}</span>
           )}
           {videoScoreQuery.isPending && (
-            <span className="cpulse-score-badge cpulse-score-badge--loading">…</span>
+            <span className="cpulse-score-badge cpulse-score-badge--loading">
+              <InlineSpinner size={10} />
+            </span>
           )}
         </div>
         <div className="cpulse-video-info">
@@ -2131,9 +2101,11 @@ export function Dashboard({ onLogout, shellManaged }) {
                 className="dashboard-audit-open-section"
               >
                 {auditLoading && (
-                  <div className="dashboard-loading">
-                    <IOSLoading size="md" layout="center" message="Loading audit…" />
-                  </div>
+                  <SkeletonGroup className="dashboard-loading" label="Loading audit">
+                    <SkeletonCard ratio="5 / 2" lines={2} />
+                    <SkeletonCard ratio="16 / 9" lines={2} />
+                    <SkeletonText lines={3} lineHeight={14} />
+                  </SkeletonGroup>
                 )}
                 {!auditLoading && audit && (
                   <div className="audit-v2">

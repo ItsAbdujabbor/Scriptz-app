@@ -497,6 +497,10 @@
  * adding per-element animations. The layout mirrors the real chat so
  * when data lands the swap is a crossfade, not a jump.
  * ──────────────────────────────────────────────────────────────────── */
+/* Layout-only rules for the chat-history skeleton. The shimmer, the
+ * dots animation, and the fade-in all live in the shared Skeleton.css
+ * now; this keeps just the positioning that's specific to the chat
+ * thread layout (centered column, user/assistant row, avatar, etc). */
 .coach-history-loading {
   margin: auto;
   display: flex;
@@ -507,29 +511,13 @@
   width: min(560px, 100%);
   padding: 1rem 1rem 1.25rem;
   box-sizing: border-box;
-  animation: coach-history-loading-in 300ms ease-out both;
-  animation-delay: 80ms;
-}
-
-@keyframes coach-history-loading-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .coach-history-loading__stack {
-  position: relative;
   display: flex;
   flex-direction: column;
   gap: 1.1rem;
   padding: 1rem 0.25rem;
-  isolation: isolate;
-  overflow: hidden;
   border-radius: 18px;
 }
 
@@ -547,16 +535,6 @@
   align-items: flex-start;
 }
 
-.coach-history-loading__avatar {
-  flex-shrink: 0;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(167, 139, 250, 0.22) 0%, rgba(124, 58, 237, 0.18) 100%);
-  border: 1px solid rgba(167, 139, 250, 0.18);
-  margin-top: 2px;
-}
-
 .coach-history-loading__assistant-col {
   display: flex;
   flex-direction: column;
@@ -566,25 +544,9 @@
   flex: 1;
 }
 
-/* Generic bubble surface — three sizes scale the width ramp nicely. */
-.coach-history-loading__bubble {
-  display: block;
-  height: 14px;
-  border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.055) 0%,
-    rgba(255, 255, 255, 0.09) 50%,
-    rgba(255, 255, 255, 0.055) 100%
-  );
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
+/* Keep the violet tint on the user bubble — overrides the neutral
+ * .sk base gradient with a subtle violet wash. */
 .coach-history-loading__bubble--sm {
-  width: 42%;
-  max-width: 180px;
-  height: 28px;
-  border-radius: 14px;
   background: linear-gradient(
     90deg,
     rgba(124, 58, 237, 0.16) 0%,
@@ -592,68 +554,9 @@
     rgba(124, 58, 237, 0.16) 100%
   );
   border-color: rgba(167, 139, 250, 0.18);
+  max-width: 180px;
 }
 
-.coach-history-loading__bubble--md {
-  width: 68%;
-}
-
-.coach-history-loading__bubble--lg {
-  width: 88%;
-}
-
-/* Thumbnail grid skeleton — 2×2, 16:9 tiles, matches the real result card. */
-.coach-history-loading__thumb-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-  margin-top: 0.2rem;
-}
-
-.coach-history-loading__thumb {
-  aspect-ratio: 16 / 9;
-  border-radius: 10px;
-  background: linear-gradient(
-    140deg,
-    rgba(255, 255, 255, 0.045) 0%,
-    rgba(124, 58, 237, 0.08) 55%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-/* Single diagonal shimmer pass over the full skeleton stack.
- * One animation for the whole group — light, GPU-friendly, no stutter. */
-.coach-history-loading__sweep {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(
-    115deg,
-    transparent 30%,
-    rgba(167, 139, 250, 0.12) 48%,
-    rgba(255, 255, 255, 0.08) 50%,
-    rgba(167, 139, 250, 0.12) 52%,
-    transparent 70%
-  );
-  background-size: 220% 100%;
-  background-position: 100% 0;
-  mix-blend-mode: screen;
-  animation: coach-history-sweep 1.6s cubic-bezier(0.25, 1, 0.5, 1) infinite;
-}
-
-@keyframes coach-history-sweep {
-  0% {
-    background-position: 110% 0;
-  }
-  100% {
-    background-position: -30% 0;
-  }
-}
-
-/* Footer row — tiny pulsing dots + a short label. Lives below the
- * skeleton so there's always a human-readable cue for what's happening. */
 .coach-history-loading__footer {
   display: inline-flex;
   align-items: center;
@@ -662,52 +565,12 @@
   color: rgba(156, 163, 175, 0.85);
 }
 
-.coach-history-loading__dots {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.coach-history-loading__dots span {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(167, 139, 250, 0.9);
-  animation: coach-history-dot-pulse 1.2s ease-in-out infinite;
-}
-.coach-history-loading__dots span:nth-child(2) {
-  animation-delay: 0.15s;
-}
-.coach-history-loading__dots span:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
-@keyframes coach-history-dot-pulse {
-  0%,
-  80%,
-  100% {
-    opacity: 0.3;
-    transform: scale(0.75);
-  }
-  40% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
 .coach-history-loading__label {
   margin: 0;
   font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: 0.005em;
   color: rgba(156, 163, 175, 0.9);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .coach-history-loading__sweep,
-  .coach-history-loading__dots span {
-    animation: none;
-  }
 }
 
 .coach-thread-state {

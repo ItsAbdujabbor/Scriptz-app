@@ -12,6 +12,7 @@ import { useMemo } from 'react'
 import { useCreditsQuery } from '../queries/billing/creditsQueries'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 import { openCreditsModal } from '../lib/creditsModalBus'
+import { Skeleton } from './ui'
 import './CreditsBadge.css'
 
 function formatCount(n) {
@@ -64,7 +65,6 @@ export function CreditsBadge({ collapsed = false, onClick }) {
         collapsed ? 'credits-badge--collapsed' : '',
         isLow ? 'credits-badge--low' : '',
         isEmpty ? 'credits-badge--empty' : '',
-        isLoading ? 'credits-badge--loading' : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -83,8 +83,14 @@ export function CreditsBadge({ collapsed = false, onClick }) {
       </span>
       {!collapsed && (
         <span className="credits-badge-body">
-          <span className="credits-badge-count">{formatCount(total)}</span>
-          <span className="credits-badge-label">credits</span>
+          {isLoading && total == null ? (
+            <Skeleton width={40} height={12} radius={6} />
+          ) : (
+            <>
+              <span className="credits-badge-count">{formatCount(total)}</span>
+              <span className="credits-badge-label">credits</span>
+            </>
+          )}
         </span>
       )}
     </button>

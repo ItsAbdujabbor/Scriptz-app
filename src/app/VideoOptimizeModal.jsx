@@ -2,7 +2,14 @@ import { useState, useEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars
 import { youtubeApi } from '../api/youtube'
-import { IOSLoading } from '../components/IOSLoading'
+import {
+  Skeleton,
+  SkeletonCard,
+  SkeletonGroup,
+  SkeletonText,
+  SkeletonThumbGrid,
+  InlineSpinner,
+} from '../components/ui'
 import { TabBar } from '../components/TabBar'
 import { useYoutubeVideoOptimization } from '../queries/youtube/optimizationQueries'
 import { videoThumbnailsApi } from '../api/videoThumbnails'
@@ -1215,7 +1222,24 @@ export function VideoOptimizeModal({
           <div className="video-opt-screen-body">
             {loading && (
               <div className="video-opt-loading">
-                <IOSLoading size="lg" layout="page" message="Generating suggestions…" />
+                <SkeletonGroup label="Generating suggestions">
+                  <SkeletonCard ratio="16 / 9" lines={3} />
+                  <SkeletonText lines={2} lineHeight={14} />
+                  <SkeletonThumbGrid cols={3} count={3} />
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      marginTop: 12,
+                      color: 'rgba(255,255,255,0.6)',
+                      fontSize: 13,
+                    }}
+                  >
+                    <InlineSpinner size={12} />
+                    <span>Generating suggestions…</span>
+                  </div>
+                </SkeletonGroup>
               </div>
             )}
             {error && (
@@ -1438,11 +1462,20 @@ export function VideoOptimizeModal({
                                     )}
                                   </div>
                                   <div
-                                    className={`video-opt-reco-title-wrap ${isLoading ? 'video-opt-reco-title-wrap--shimmer' : ''} ${isPlaceholder ? 'video-opt-reco-title-wrap--blur' : ''}`}
+                                    className={`video-opt-reco-title-wrap ${isPlaceholder ? 'video-opt-reco-title-wrap--blur' : ''}`}
                                   >
-                                    <p className="video-opt-reco-title">
-                                      {item?.title ?? 'Your alternate title lands here'}
-                                    </p>
+                                    {isLoading ? (
+                                      <Skeleton
+                                        height={16}
+                                        width="92%"
+                                        radius={999}
+                                        style={{ margin: '4px 0' }}
+                                      />
+                                    ) : (
+                                      <p className="video-opt-reco-title">
+                                        {item?.title ?? 'Your alternate title lands here'}
+                                      </p>
+                                    )}
                                     {!isPlaceholder && !isLoading && (
                                       <span className="video-opt-reco-use-hint">
                                         Use this title

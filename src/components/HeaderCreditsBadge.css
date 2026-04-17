@@ -110,11 +110,6 @@
   border-color: rgba(251, 191, 36, 0.35);
 }
 
-/* Loading shimmer — subtle */
-.header-credits-badge--loading .header-credits-badge-count {
-  opacity: 0.6;
-}
-
 @media (max-width: 680px) {
   .header-credits-badge-bar {
     display: none;

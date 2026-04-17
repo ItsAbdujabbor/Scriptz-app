@@ -4,6 +4,7 @@ import { usePersonasQuery } from '../queries/personas/personaQueries'
 import { usePersonaStore } from '../stores/personaStore'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 import { useFloatingPosition } from '../lib/useFloatingPosition'
+import { Skeleton, SkeletonGroup } from './ui'
 import './PersonaSelector.css'
 
 function IconLock() {
@@ -200,7 +201,13 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
             role="listbox"
             style={popoverStyle}
           >
-            {isPending && <div className="persona-selector-loading">Loading…</div>}
+            {isPending && (
+              <SkeletonGroup className="persona-selector-loading" label="Loading personas">
+                <Skeleton height={36} radius={10} />
+                <Skeleton height={36} radius={10} />
+                <Skeleton height={36} radius={10} />
+              </SkeletonGroup>
+            )}
             {!isPending && items.length === 0 && (
               <div className="persona-selector-empty">
                 <p>No personas yet.</p>

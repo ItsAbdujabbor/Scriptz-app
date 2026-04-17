@@ -1153,8 +1153,25 @@ export function Sidebar({
               </div>
               <div className="sidebar-history-list" role="list">
                 {isHistoryLoading && (
-                  <div className="sidebar-history-empty">
-                    <span className="sidebar-history-empty-text">Loading…</span>
+                  <div
+                    className="sidebar-history-skeleton sk-group"
+                    role="status"
+                    aria-busy="true"
+                    aria-live="polite"
+                  >
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="sidebar-history-row sidebar-history-row--skeleton">
+                        <span
+                          className="sk"
+                          style={{
+                            width: `${60 + ((i * 13) % 30)}%`,
+                            height: 14,
+                            borderRadius: 999,
+                          }}
+                        />
+                      </div>
+                    ))}
+                    <span className="sk-sr-only">Loading chat history</span>
                   </div>
                 )}
 

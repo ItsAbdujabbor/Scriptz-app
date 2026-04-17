@@ -23,6 +23,7 @@ import { useModelTierStateQuery } from '../queries/modelTier/modelTierQueries'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 import { useCostOf } from '../queries/billing/creditsQueries'
 import { celebrate } from '../lib/celebrate'
+import { InlineSpinner } from './ui'
 import './ABTestPanel.css'
 
 function formatCTR(n) {
@@ -229,7 +230,14 @@ export function ABTestPanel({ video, channelId, currentTitle, currentThumbnailUr
           onClick={handleStart}
           disabled={createMutation.isPending || !videoId}
         >
-          {createMutation.isPending ? 'Starting…' : 'Start A/B test'}
+          {createMutation.isPending ? (
+            <span className="sk-btn-pending">
+              <InlineSpinner size={12} />
+              Starting…
+            </span>
+          ) : (
+            'Start A/B test'
+          )}
         </button>
       </div>
     )
@@ -397,7 +405,14 @@ export function ABTestPanel({ video, channelId, currentTitle, currentThumbnailUr
             onClick={() => completeMutation.mutate(test.id)}
             disabled={completeMutation.isPending}
           >
-            {completeMutation.isPending ? 'Completing…' : 'Mark test complete'}
+            {completeMutation.isPending ? (
+              <span className="sk-btn-pending">
+                <InlineSpinner size={12} />
+                Completing…
+              </span>
+            ) : (
+              'Mark test complete'
+            )}
           </button>
         </div>
       )}

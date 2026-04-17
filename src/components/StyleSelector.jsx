@@ -4,6 +4,7 @@ import { useStylesQuery } from '../queries/styles/styleQueries'
 import { useStyleStore } from '../stores/styleStore'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 import { useFloatingPosition } from '../lib/useFloatingPosition'
+import { Skeleton, SkeletonGroup } from './ui'
 import './StyleSelector.css'
 
 function IconLock() {
@@ -193,7 +194,13 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
             role="listbox"
             style={popoverStyle}
           >
-            {isPending && <div className="style-selector-loading">Loading…</div>}
+            {isPending && (
+              <SkeletonGroup className="style-selector-loading" label="Loading styles">
+                <Skeleton height={36} radius={10} />
+                <Skeleton height={36} radius={10} />
+                <Skeleton height={36} radius={10} />
+              </SkeletonGroup>
+            )}
             {!isPending && items.length === 0 && (
               <div className="style-selector-empty">
                 <p>No styles yet.</p>

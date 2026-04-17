@@ -18,6 +18,7 @@ import { useStyleStore } from '../stores/styleStore'
 import { thumbnailsApi } from '../api/thumbnails'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { extractYoutubeUrl } from '../lib/youtubeUrl'
+import { InlineSpinner, SkeletonCard, SkeletonGroup } from '../components/ui'
 
 const OVERLAY_Z = 2147483647
 const PANEL_BG = 'linear-gradient(180deg, #1a1a1f 0%, #131318 100%)'
@@ -457,7 +458,14 @@ export function StylesModal({ onClose }) {
                     disabled={createMutation.isPending || !createImage}
                     style={submitBtn(createMutation.isPending || !createImage)}
                   >
-                    {createMutation.isPending ? 'Creating…' : 'Create style'}
+                    {createMutation.isPending ? (
+                      <span className="sk-btn-pending">
+                        <InlineSpinner size={12} />
+                        Creating…
+                      </span>
+                    ) : (
+                      'Create style'
+                    )}
                   </button>
                   <button type="button" onClick={clearCreateForm} style={ghostBtn}>
                     Cancel
@@ -554,7 +562,14 @@ export function StylesModal({ onClose }) {
                         !extractYoutubeUrl(createYoutubeUrl)
                     )}
                   >
-                    {createFromUrlMutation.isPending ? 'Creating…' : 'Create style'}
+                    {createFromUrlMutation.isPending ? (
+                      <span className="sk-btn-pending">
+                        <InlineSpinner size={12} />
+                        Creating…
+                      </span>
+                    ) : (
+                      'Create style'
+                    )}
                   </button>
                   <button type="button" onClick={clearCreateForm} style={ghostBtn}>
                     Cancel
@@ -572,7 +587,27 @@ export function StylesModal({ onClose }) {
             gap: 14,
           }}
         >
-          {isPending && <div style={{ ...emptyState, gridColumn: '1 / -1' }}>Loading…</div>}
+          {isPending && (
+            <div
+              style={{
+                gridColumn: '1 / -1',
+              }}
+            >
+              <SkeletonGroup label="Loading styles">
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                    gap: 14,
+                  }}
+                >
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <SkeletonCard key={i} ratio="1 / 1" lines={1} />
+                  ))}
+                </div>
+              </SkeletonGroup>
+            </div>
+          )}
           {!isPending && filteredItems.length === 0 && !showCreate && (
             <div style={{ ...emptyState, gridColumn: '1 / -1' }}>
               {styleTab === 'personal'

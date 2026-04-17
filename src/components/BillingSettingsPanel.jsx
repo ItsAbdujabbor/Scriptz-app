@@ -24,6 +24,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { resultOrNullOnAuthFailure } from '../lib/query/safeApi'
 import { openCreditsModal } from '../lib/creditsModalBus'
+import { InlineSpinner, SkeletonCard, SkeletonGroup, SkeletonList, Skeleton } from './ui'
 import './BillingSettingsPanel.css'
 
 function fmt(n) {
@@ -109,6 +110,21 @@ export function BillingSettingsPanel({ active }) {
   const usedPct = subscription?.plan_credits
     ? Math.round(((used ?? 0) / subscription.plan_credits) * 100)
     : null
+
+  // ── First mount: while subscription + credits are both still loading ──
+  if (active && subscription === undefined && credits === undefined) {
+    return (
+      <>
+        <h3 className="settings-panel-heading">Billing</h3>
+        <p className="settings-panel-desc">Plan and payment.</p>
+        <SkeletonGroup label="Loading billing">
+          <SkeletonCard ratio="5 / 2" lines={2} />
+          <Skeleton height={18} width="40%" radius={999} style={{ marginTop: 12 }} />
+          <SkeletonList count={3} rowHeight={48} gap={8} />
+        </SkeletonGroup>
+      </>
+    )
+  }
 
   // ── Free / unsubscribed view ──────────────────────────────────────────
   if (!isSubscribed) {
@@ -308,7 +324,14 @@ export function BillingSettingsPanel({ active }) {
                 onClick={() => cancelMutation.mutate()}
                 disabled={cancelMutation.isPending}
               >
-                {cancelMutation.isPending ? 'Cancelling…' : 'Yes, cancel'}
+                {cancelMutation.isPending ? (
+                  <span className="sk-btn-pending">
+                    <InlineSpinner size={12} />
+                    Cancelling…
+                  </span>
+                ) : (
+                  'Yes, cancel'
+                )}
               </button>
             </div>
           </div>

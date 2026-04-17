@@ -13,6 +13,7 @@ import { useCreditsQuery, useSubscriptionQuery } from '../queries/billing/credit
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 import { onOpenCreditsModal } from '../lib/creditsModalBus'
 import { CreditPacksModal } from './CreditPacksModal'
+import { Skeleton } from './ui'
 import './HeaderCreditsBadge.css'
 
 function IconZap() {
@@ -82,7 +83,6 @@ export function HeaderCreditsBadge({ onClick }) {
           'header-credits-badge',
           isLow ? 'header-credits-badge--low' : '',
           isEmpty ? 'header-credits-badge--empty' : '',
-          isLoading ? 'header-credits-badge--loading' : '',
           isTrial ? 'header-credits-badge--trial' : '',
         ]
           .filter(Boolean)
@@ -100,7 +100,11 @@ export function HeaderCreditsBadge({ onClick }) {
         <span className="header-credits-badge-icon" aria-hidden>
           <IconZap />
         </span>
-        <span className="header-credits-badge-count">{formatCount(total)}</span>
+        {isLoading && total == null ? (
+          <Skeleton width={32} height={12} radius={6} />
+        ) : (
+          <span className="header-credits-badge-count">{formatCount(total)}</span>
+        )}
         {usedPct != null && usedPct > 0 && (
           <span className="header-credits-badge-bar" aria-hidden>
             <span className="header-credits-badge-bar-fill" style={{ width: `${usedPct}%` }} />

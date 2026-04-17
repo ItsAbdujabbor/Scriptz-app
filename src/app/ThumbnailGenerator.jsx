@@ -15,7 +15,7 @@ import {
 import { useThumbnailChatActivityStore } from '../stores/thumbnailChatActivityStore'
 import { EditThumbnailDialog } from '../components/EditThumbnailDialog'
 import { TabBar } from '../components/TabBar'
-import { Dropdown, SegmentedTabs } from '../components/ui'
+import { Dropdown, SegmentedTabs, Skeleton, SkeletonGroup, InlineSpinner } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion'
 import { ChatHistoryLoading } from '../components/ChatHistoryLoading'
@@ -736,7 +736,7 @@ function ThumbnailBatchCard({ t, index, label, onViewImage, onEditImage }) {
                 </span>
               ) : loadingScore ? (
                 <>
-                  <span className="thumb-score-pill__dot" aria-hidden="true" />
+                  <InlineSpinner size={10} />
                   <span className="thumb-score-pill__label">Scoring</span>
                 </>
               ) : (
@@ -2131,48 +2131,41 @@ export function ThumbnailGenerator({
                 className="thumb-gen-loader"
                 role="status"
                 aria-live="polite"
-                aria-label="Generating thumbnail"
+                aria-busy="true"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={loadingPct}
+                aria-label={`Generating thumbnail, ${loadingPct}% complete`}
               >
-                {/* Starfield / glow backdrop — same as a real result card */}
-                <div className="thumb-gen-loader__bg" aria-hidden="true" />
-
-                {/* 16:9 stage that mirrors the result card's image wrap */}
-                <div className="thumb-gen-loader__stage">
-                  <div className="thumb-gen-loader__shimmer" aria-hidden="true" />
+                {/* Full 16:9 card that fills with violet progress left → right. */}
+                <div
+                  className="thumb-gen-loader__stage"
+                  style={{ '--thumb-gen-pct': `${loadingPct}%` }}
+                >
+                  <div className="thumb-gen-loader__fill" aria-hidden="true" />
+                  <div className="thumb-gen-loader__shine" aria-hidden="true" />
+                  <div className="thumb-gen-loader__grid" aria-hidden="true" />
 
                   <div className="thumb-gen-loader__center">
-                    <div className="thumb-gen-loader__orb" aria-hidden="true">
-                      <span className="thumb-gen-loader__orb-ring" />
-                      <span className="thumb-gen-loader__orb-core" />
-                    </div>
+                    <div className="thumb-gen-loader__pct">{loadingPct}%</div>
                     <div className="thumb-gen-loader__label">
                       {THUMBNAIL_LOADING_STEPS[loadingStepIndex]?.label ?? 'Working on it…'}
                     </div>
-                  </div>
-
-                  {/* Progress pill, bottom-left of the stage */}
-                  <div
-                    className="thumb-gen-loader__progress"
-                    role="progressbar"
-                    aria-valuenow={loadingPct}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                  >
-                    <div
-                      className="thumb-gen-loader__progress-fill"
-                      style={{ width: `${loadingPct}%` }}
-                    />
-                    <span className="thumb-gen-loader__progress-num">{loadingPct}%</span>
+                    <div className="thumb-gen-loader__dots" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span />
+                    </div>
                   </div>
                 </div>
 
-                {/* Ghost action row so the loader occupies the same total
-                 *  height as the eventual result card — no layout jump. */}
+                {/* Ghost action row keeps total height stable when the
+                 * loader swaps for the real result card. */}
                 <div className="thumb-gen-loader__actions" aria-hidden="true">
-                  <span className="thumb-gen-loader__ghost-btn" />
-                  <span className="thumb-gen-loader__ghost-btn thumb-gen-loader__ghost-btn--wide" />
-                  <span className="thumb-gen-loader__ghost-btn" />
-                  <span className="thumb-gen-loader__ghost-btn" />
+                  <Skeleton width={72} height={26} radius={999} />
+                  <Skeleton width={120} height={26} radius={999} />
+                  <Skeleton width={72} height={26} radius={999} />
+                  <Skeleton width={72} height={26} radius={999} />
                 </div>
               </div>
             </article>

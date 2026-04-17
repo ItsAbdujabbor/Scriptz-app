@@ -415,6 +415,24 @@
   text-align: center;
 }
 
+.optimize-state--skeleton {
+  padding: 1rem 0;
+  text-align: left;
+}
+
+.optimize-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+  padding: 0.5rem 0;
+}
+@media (max-width: 720px) {
+  .optimize-skeleton-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+  }
+}
+
 .optimize-state-loading,
 .optimize-state-empty,
 .optimize-state-error {

@@ -114,12 +114,6 @@
   margin-left: 0.25rem;
 }
 
-/* Loading shimmer */
-.credits-badge--loading .credits-badge-count,
-.credits-badge--loading .credits-badge-label {
-  opacity: 0.5;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .credits-badge {
     transition: none;

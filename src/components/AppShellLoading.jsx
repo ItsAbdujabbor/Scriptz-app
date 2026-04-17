@@ -1,7 +1,7 @@
 import { useAuthStore } from '../stores/authStore'
 import { getCoachHashState } from '../lib/coachHashRoute'
 import { AppShellLayout } from './AppShellLayout'
-import { IOSLoading } from './IOSLoading'
+import { PageSkeleton, SkeletonCard, SkeletonGroup, SkeletonText } from './ui'
 import { Sidebar } from '../app/Sidebar'
 import '../app/Sidebar.css'
 import '../app/Dashboard.css'
@@ -9,10 +9,16 @@ import '../app/CoachChat.css'
 // import '../app/Templates.css' // next update — Templates moved to src/next-update-ideas
 import './AppShellLoading.css'
 
-function RouteSpinner({ label: _label = 'Loading…' }) {
+function RouteSpinner({ label = 'Loading page' }) {
   return (
     <div className="route-loading-pane">
-      <IOSLoading size="lg" layout="center" />
+      <PageSkeleton label={label}>
+        <SkeletonGroup label={label}>
+          <SkeletonCard ratio="16 / 6" lines={2} />
+          <SkeletonCard ratio="16 / 9" lines={2} />
+          <SkeletonText lines={2} lineHeight={14} />
+        </SkeletonGroup>
+      </PageSkeleton>
     </div>
   )
 }

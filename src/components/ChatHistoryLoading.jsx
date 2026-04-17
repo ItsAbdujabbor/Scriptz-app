@@ -4,58 +4,48 @@
  * and a 2×2 thumbnail grid — so the transition into the real content
  * feels instant rather than a jarring swap.
  *
- * A single diagonal shimmer sweeps across all skeleton surfaces,
- * anchored to the container so the highlight stays aligned even as
- * bubble widths vary. Subtle by default; no flashy spinner.
+ * Rebuilt on top of the shared `Skeleton` primitives in `ui/Skeleton.jsx`
+ * so the violet diagonal sweep matches every other loading state in the
+ * app. External API unchanged — {label, variant}.
  *
  * `variant="coach"` drops the thumbnail grid (for non-image chats).
  */
+import { Skeleton, SkeletonCircle, SkeletonGroup, SkeletonThumbGrid, InlineSpinner } from './ui'
+
 export function ChatHistoryLoading({ label = 'Loading chat', variant = 'thumbnail' }) {
   return (
-    <div
-      className={`coach-history-loading coach-history-loading--${variant}`}
-      role="status"
-      aria-live="polite"
-      aria-busy="true"
-    >
-      <div className="coach-history-loading__stack" aria-hidden="true">
+    <div className={`coach-history-loading coach-history-loading--${variant}`}>
+      <SkeletonGroup className="coach-history-loading__stack" label={label || 'Loading chat'}>
         {/* User bubble — right-aligned, short */}
         <div className="coach-history-loading__row coach-history-loading__row--user">
-          <span className="coach-history-loading__bubble coach-history-loading__bubble--sm" />
+          <Skeleton
+            className="coach-history-loading__bubble coach-history-loading__bubble--sm"
+            width="42%"
+            height={28}
+            radius={14}
+          />
         </div>
 
-        {/* Assistant bubble — left-aligned, a title line + a description line */}
+        {/* Assistant bubble — left-aligned, a title line + thumb grid or text */}
         <div className="coach-history-loading__row coach-history-loading__row--assistant">
-          <span className="coach-history-loading__avatar" />
+          <SkeletonCircle size={26} />
           <div className="coach-history-loading__assistant-col">
-            <span className="coach-history-loading__bubble coach-history-loading__bubble--md" />
+            <Skeleton height={14} width="68%" radius={999} />
             {variant === 'thumbnail' ? (
-              <div className="coach-history-loading__thumb-grid">
-                <span className="coach-history-loading__thumb" />
-                <span className="coach-history-loading__thumb" />
-                <span className="coach-history-loading__thumb" />
-                <span className="coach-history-loading__thumb" />
-              </div>
+              <SkeletonThumbGrid cols={2} count={4} />
             ) : (
               <>
-                <span className="coach-history-loading__bubble coach-history-loading__bubble--lg" />
-                <span className="coach-history-loading__bubble coach-history-loading__bubble--md" />
+                <Skeleton height={14} width="88%" radius={999} />
+                <Skeleton height={14} width="62%" radius={999} />
               </>
             )}
           </div>
         </div>
-
-        {/* Diagonal shimmer sweep — absolutely positioned over the stack */}
-        <div className="coach-history-loading__sweep" />
-      </div>
+      </SkeletonGroup>
 
       {label ? (
         <div className="coach-history-loading__footer">
-          <span className="coach-history-loading__dots">
-            <span />
-            <span />
-            <span />
-          </span>
+          <InlineSpinner size={12} />
           <span className="coach-history-loading__label">{label}</span>
         </div>
       ) : null}

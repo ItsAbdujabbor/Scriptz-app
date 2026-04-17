@@ -35,7 +35,15 @@ import { useCostOf, useCreditsQuery } from '../queries/billing/creditsQueries'
 
 import './Optimize.css'
 import './ABTesting.css'
-import { SegmentedTabs, SelectPill } from '../components/ui'
+import {
+  SegmentedTabs,
+  SelectPill,
+  InlineSpinner,
+  SkeletonCard,
+  SkeletonGroup,
+  SkeletonText,
+  SkeletonVideoRow,
+} from '../components/ui'
 
 const TIER_CAP = { 'SRX-1': 2, 'SRX-2': 5, 'SRX-3': 5 }
 
@@ -223,16 +231,18 @@ function ExperimentList({ locked = false }) {
         <div className="abt-error">{String(error?.message || 'Could not load experiments.')}</div>
       )}
       {isLoading && !locked && (
-        <div className={viewMode === 'grid' ? 'abt-grid' : 'abt-list'}>
-          {Array.from({ length: viewMode === 'grid' ? 6 : 3 }).map((_, i) => (
-            <div
-              key={i}
-              className={
-                viewMode === 'grid' ? 'abt-grid-card abt-skeleton' : 'abt-row abt-skeleton'
-              }
-            />
-          ))}
-        </div>
+        <SkeletonGroup
+          className={viewMode === 'grid' ? 'abt-grid' : 'abt-list'}
+          label="Loading A/B experiments"
+        >
+          {Array.from({ length: viewMode === 'grid' ? 6 : 3 }).map((_, i) =>
+            viewMode === 'grid' ? (
+              <SkeletonCard key={i} ratio="16 / 9" lines={2} />
+            ) : (
+              <SkeletonVideoRow key={i} />
+            )
+          )}
+        </SkeletonGroup>
       )}
 
       {!isLoading && items.length === 0 && (
@@ -445,7 +455,13 @@ function CreateExperiment() {
       <section className="abt-step">
         <h3 className="abt-step-h">1. Pick a video</h3>
         {!channelId && <div className="abt-warn">Connect a YouTube channel first in Settings.</div>}
-        {videosQ.isLoading && <div className="abt-muted">Loading videos…</div>}
+        {videosQ.isLoading && (
+          <SkeletonGroup className="abt-video-grid" label="Loading videos">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} ratio="16 / 9" lines={1} />
+            ))}
+          </SkeletonGroup>
+        )}
         {videos.length > 0 && (
           <div className="abt-video-grid">
             {videos.slice(0, 12).map((v) => (
@@ -628,7 +644,14 @@ function CreateExperiment() {
           disabled={!canSubmit || createMut.isPending}
           onClick={handleSubmit}
         >
-          {createMut.isPending ? 'Starting…' : 'Start experiment'}
+          {createMut.isPending ? (
+            <span className="sk-btn-pending">
+              <InlineSpinner size={12} />
+              Starting…
+            </span>
+          ) : (
+            'Start experiment'
+          )}
         </button>
       </div>
     </div>
@@ -793,7 +816,21 @@ function ExperimentDetail({ testId }) {
   if (isLoading) {
     return (
       <div className="abt-page">
-        <div className="abt-muted">Loading experiment…</div>
+        <SkeletonGroup label="Loading experiment">
+          <SkeletonCard ratio="5 / 2" lines={2} />
+          <SkeletonText lines={2} lineHeight={14} />
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: 12,
+              marginTop: 16,
+            }}
+          >
+            <SkeletonCard ratio="16 / 9" lines={2} />
+            <SkeletonCard ratio="16 / 9" lines={2} />
+          </div>
+        </SkeletonGroup>
       </div>
     )
   }
@@ -836,7 +873,14 @@ function ExperimentDetail({ testId }) {
             onClick={() => refetch()}
             disabled={isFetching}
           >
-            {isFetching ? 'Refreshing…' : 'Refresh'}
+            {isFetching ? (
+              <span className="sk-btn-pending">
+                <InlineSpinner size={12} />
+                Refreshing…
+              </span>
+            ) : (
+              'Refresh'
+            )}
           </button>
           {tier === 'SRX-3' && (
             <button
@@ -846,7 +890,14 @@ function ExperimentDetail({ testId }) {
               disabled={insightsMut.isPending}
               title={`Charges ${insightsCost} credits on Ultra`}
             >
-              {insightsMut.isPending ? 'Analyzing…' : `💡 AI Insights (${insightsCost} cr)`}
+              {insightsMut.isPending ? (
+                <span className="sk-btn-pending">
+                  <InlineSpinner size={12} />
+                  Analyzing…
+                </span>
+              ) : (
+                `💡 AI Insights (${insightsCost} cr)`
+              )}
             </button>
           )}
           {results.status !== 'completed' && results.active_variation !== 'A' && (
@@ -857,7 +908,14 @@ function ExperimentDetail({ testId }) {
               disabled={restoreMut.isPending}
               title="Re-apply the original title + thumbnail to YouTube"
             >
-              {restoreMut.isPending ? 'Restoring…' : '🛡️ Restore original'}
+              {restoreMut.isPending ? (
+                <span className="sk-btn-pending">
+                  <InlineSpinner size={12} />
+                  Restoring…
+                </span>
+              ) : (
+                '🛡️ Restore original'
+              )}
             </button>
           )}
           {results.status === 'running' && (
@@ -971,7 +1029,14 @@ function ExperimentDetail({ testId }) {
             onClick={() => handlePromote(winnerSlug)}
             disabled={promoteMut.isPending}
           >
-            {promoteMut.isPending ? 'Applying…' : `Apply winner (${winnerSlug}) to YouTube`}
+            {promoteMut.isPending ? (
+              <span className="sk-btn-pending">
+                <InlineSpinner size={12} />
+                Applying…
+              </span>
+            ) : (
+              `Apply winner (${winnerSlug}) to YouTube`
+            )}
           </button>
         )}
       </section>
@@ -1047,7 +1112,14 @@ function ExperimentDetail({ testId }) {
                 onClick={handleAddVariant}
                 disabled={addVariantMut.isPending}
               >
-                {addVariantMut.isPending ? 'Saving…' : 'Add variant'}
+                {addVariantMut.isPending ? (
+                  <span className="sk-btn-pending">
+                    <InlineSpinner size={12} />
+                    Saving…
+                  </span>
+                ) : (
+                  'Add variant'
+                )}
               </button>
             </div>
           )}
@@ -1209,7 +1281,14 @@ function VariantCardFull({
           onClick={onPromote}
           disabled={promoting}
         >
-          {promoting ? 'Applying…' : 'Apply to YouTube'}
+          {promoting ? (
+            <span className="sk-btn-pending">
+              <InlineSpinner size={12} />
+              Applying…
+            </span>
+          ) : (
+            'Apply to YouTube'
+          )}
         </button>
       </div>
     </div>
