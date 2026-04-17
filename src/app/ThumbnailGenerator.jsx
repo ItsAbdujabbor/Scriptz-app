@@ -2022,6 +2022,24 @@ export function ThumbnailGenerator({
         >
           {isHistoryLoading && <ChatHistoryLoading variant="thumbnail" label="Loading chat" />}
 
+          {!isHistoryLoading && conversationQuery.isError && conversationId != null ? (
+            <div className="coach-thread-state coach-thread-error">
+              <p className="coach-thread-error__msg">
+                Could not load this chat.{' '}
+                {conversationQuery.error?.message
+                  ? `(${conversationQuery.error.message})`
+                  : 'Please try again.'}
+              </p>
+              <button
+                type="button"
+                className="coach-thread-error__retry"
+                onClick={() => conversationQuery.refetch()}
+              >
+                Retry
+              </button>
+            </div>
+          ) : null}
+
           {isEmptyScreen && (
             <motion.div
               className="coach-empty-state thumb-empty-state"
