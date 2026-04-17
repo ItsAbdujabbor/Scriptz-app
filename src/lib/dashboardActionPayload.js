@@ -86,7 +86,7 @@ export function prefillForDashboardHashHref(href) {
   const base = path.replace(/^\/+/, '')
   const params = new URLSearchParams(qs)
   if (base === 'optimize') return optimizePrefill('titles & thumbnails', null)
-  if (base === 'coach/thumbnails')
+  if (base === 'thumbnails')
     return thumbPrefill({ pillar: 'CTR / packaging', score: null, videoTitle: null })
   if (base === 'coach/scripts') {
     const focus = params.get('focus')

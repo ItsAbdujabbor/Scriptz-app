@@ -5,6 +5,7 @@ import { useCurrentScreen } from './lib/useCurrentScreen'
 import { emitShellEvent } from './lib/shellEvents'
 import { Sidebar } from './app/Sidebar'
 import { SharedSettingsModal } from './app/SharedSettingsModal'
+import { CreatePersonaDialog } from './components/CreatePersonaDialog'
 import { Dashboard } from './app/Dashboard'
 import { CoachChat } from './app/CoachChat'
 import { Optimize } from './app/Optimize'
@@ -125,6 +126,13 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
 
       {showPersonasModal && <PersonasModalLazy onClose={() => setShowPersonasModal(false)} />}
       {showStylesModal && <StylesModalLazy onClose={() => setShowStylesModal(false)} />}
+
+      {/* Always-mounted create-persona dialog. Listens for the
+       * `app:open-create-persona-dialog` window event from anywhere in the
+       * app (currently the "Create persona from images" button inside
+       * PersonasModal). Mounted at this level — same as SharedSettingsModal
+       * — so it renders independently of any modal it's launched from. */}
+      <CreatePersonaDialog />
     </div>
   )
 }

@@ -8,31 +8,30 @@ import { queryKeys } from '../lib/query/queryKeys'
 import { celebrate } from '../lib/celebrate'
 import '../landing/sections/pricing/pricing.css'
 
-// Canonical credits per plan. Display numbers are per-month and show the "up to"
-// headline capacity on each tier's default SRX model:
-//   • Starter / Creator — default SRX-2 Pro: 20 cr/thumb, 8 cr/SEO
-//   • Ultimate          — default SRX-3 Ultra: 35 cr/thumb, 15 cr/SEO
-// Users can spend credits any way they want — the split is for display only.
+// Canonical credits per plan. Thumbnails shown are marketing figures:
+//   • Starter:  1,500 cr → 50 thumbnails/month
+//   • Creator:  4,000 cr → 150 thumbnails/month
+//   • Ultimate: 10,000 cr → 450 thumbnails/month
 // Yearly credits = monthly × 12 × 1.15 (~15% bonus).
 const CREATOR_TIERS = [
   {
-    credits: 7000,
-    thumbs: 350,
-    seos: 875,
+    credits: 4000,
+    thumbs: 150,
+    seos: 1000,
     price: '$39.99',
     annual: '$27.99',
-    yearlyCredits: 71400,
+    yearlyCredits: 55200,
   },
 ]
 
 const ULTIMATE_TIERS = [
   {
-    credits: 15000,
-    thumbs: 750,
-    seos: 1875,
+    credits: 10000,
+    thumbs: 450,
+    seos: 2500,
     price: '$79.99',
     annual: '$55.99',
-    yearlyCredits: 153000,
+    yearlyCredits: 138000,
   },
 ]
 
@@ -44,75 +43,138 @@ function formatNumber(n) {
   return Number(n || 0).toLocaleString('en-US')
 }
 
-const STARTER_CREDITS = 3000
-const STARTER_YEARLY_CREDITS = 30600
-const STARTER_THUMBS = 150
+const STARTER_CREDITS = 1500
+const STARTER_YEARLY_CREDITS = 20700
+const STARTER_THUMBS = 50
 const STARTER_SEOS = 375
 
-function starterFeatures(annual) {
+const PLAN_SPECS = {
+  starter: {
+    channels: 2,
+    personas: false,
+    ab: false,
+    abPredict: false,
+    ultra: false,
+    priority: false,
+  },
+  creator: {
+    channels: 4,
+    personas: true,
+    ab: true,
+    abPredict: false,
+    ultra: false,
+    priority: false,
+  },
+  ultimate: {
+    channels: 10,
+    personas: true,
+    ab: true,
+    abPredict: true,
+    ultra: true,
+    priority: true,
+  },
+}
+
+const FEATURE_INFO = {
+  credits: 'Monthly credit allowance you spend on thumbnails, SEO, ideas and every AI feature.',
+  channels: 'Connect multiple YouTube channels and switch between them inside one account.',
+  pro: 'Balanced general-purpose AI model powering thumbnails, titles and optimization.',
+  thumb: 'Generate on-brand YouTube thumbnails from a short prompt or a reference image.',
+  edit: 'Edit any generated thumbnail and swap your face in with a single click.',
+  styles: 'Save, reuse and share visual styles so thumbnails stay consistent across videos.',
+  seo: 'Improve titles, descriptions and tags to rank higher in YouTube search.',
+  titleScore: 'Score existing titles and brainstorm new high-click ideas in seconds.',
+  thumbAnalyze: 'Score existing thumbnails for clarity, emotion and click-through potential.',
+  dashboard: 'Channel health snapshot with growth, best posting times and performance insights.',
+  personas: 'Create AI personas tuned to your voice, audience and content niche.',
+  ab: 'Run head-to-head thumbnail or title experiments to pick the winning variant.',
+  ultra: 'Our top-tier model with richer imagery and deeper strategic insights.',
+  abPredict: 'Forecast which A/B variant will win before you publish, using past data.',
+  priority: 'Jump the support queue with faster responses from our team.',
+}
+
+function buildFeatures({ tier, credits, yearlyCredits, annual }) {
+  const spec = PLAN_SPECS[tier]
   const creditText = annual
-    ? `${formatCredits(STARTER_YEARLY_CREDITS)} credits per year (~15% bonus)`
-    : `${formatCredits(STARTER_CREDITS)} credits per month`
+    ? `${formatCredits(yearlyCredits)} credits per year (~15% bonus)`
+    : `${formatCredits(credits)} credits per month`
+  // Ordering rule: always-on features first, tier-exclusive ones last, so X
+  // rows naturally cluster at the bottom AND the order stays identical across
+  // all plans.
   return [
-    { on: true, text: creditText },
-    { on: true, text: 'SRX-2 Pro model' },
-    { on: true, text: '2 YouTube channels' },
-    { on: true, text: 'AI Thumbnail Generator' },
-    { on: true, text: 'Edit & FaceSwap' },
-    { on: true, text: 'Styles library' },
-    { on: true, text: 'AI Coach Chat' },
-    { on: true, text: 'Video SEO Optimizer' },
-    { on: true, text: 'Title Scoring & Ideas' },
-    { on: true, text: 'Thumbnail Analyzer' },
-    { on: true, text: 'Dashboard Analytics' },
-    { on: false, text: 'A/B Testing' },
-    { on: false, text: 'Custom Personas' },
-    { on: false, text: 'Priority Support' },
+    { key: 'credits', on: true, text: creditText, info: FEATURE_INFO.credits },
+    {
+      key: 'channels',
+      on: true,
+      text: `${spec.channels} YouTube channels`,
+      info: FEATURE_INFO.channels,
+    },
+    { key: 'pro', on: true, text: 'SRX-2 Pro model', info: FEATURE_INFO.pro },
+    { key: 'thumb', on: true, text: 'AI Thumbnail Generator', info: FEATURE_INFO.thumb },
+    { key: 'edit', on: true, text: 'Edit & FaceSwap', info: FEATURE_INFO.edit },
+    { key: 'styles', on: true, text: 'Styles library', info: FEATURE_INFO.styles },
+    { key: 'seo', on: true, text: 'Video SEO Optimizer', info: FEATURE_INFO.seo },
+    { key: 'titleScore', on: true, text: 'Title Scoring & Ideas', info: FEATURE_INFO.titleScore },
+    { key: 'thumbAnalyze', on: true, text: 'Thumbnail Analyzer', info: FEATURE_INFO.thumbAnalyze },
+    { key: 'dashboard', on: true, text: 'Dashboard Analytics', info: FEATURE_INFO.dashboard },
+    { key: 'personas', on: spec.personas, text: 'Custom Personas', info: FEATURE_INFO.personas },
+    { key: 'ab', on: spec.ab, text: 'A/B Testing', info: FEATURE_INFO.ab },
+    { key: 'ultra', on: spec.ultra, text: 'SRX-3 Ultra model', info: FEATURE_INFO.ultra },
+    {
+      key: 'abPredict',
+      on: spec.abPredict,
+      text: 'Predictive A/B Insights',
+      info: FEATURE_INFO.abPredict,
+    },
+    { key: 'priority', on: spec.priority, text: 'Priority Support', info: FEATURE_INFO.priority },
   ]
 }
 
-function creatorFeatures(tier, annual) {
-  const creditText = annual
-    ? `${formatCredits(tier.yearlyCredits)} credits per year (~15% bonus)`
-    : `${formatCredits(tier.credits)} credits per month`
-  return [
-    { on: true, text: creditText },
-    { on: true, text: 'SRX-2 Pro model' },
-    { on: true, text: '4 YouTube channels' },
-    { on: true, text: 'AI Thumbnail Generator' },
-    { on: true, text: 'Edit & FaceSwap' },
-    { on: true, text: 'Custom Personas & Styles' },
-    { on: true, text: 'A/B Testing (up to 5 variants)' },
-    { on: true, text: 'AI Coach Chat' },
-    { on: true, text: 'Video SEO Optimizer' },
-    { on: true, text: 'Title Scoring & Ideas' },
-    { on: true, text: 'Thumbnail Analyzer' },
-    { on: true, text: 'Dashboard Analytics' },
-    { on: false, text: 'SRX-3 Ultra model' },
-    { on: false, text: 'Predictive A/B insights' },
-    { on: false, text: 'Priority Support' },
-  ]
+function InfoIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </svg>
+  )
 }
 
-function ultimateFeatures(tier, annual) {
-  const creditText = annual
-    ? `${formatCredits(tier.yearlyCredits)} credits per year (~15% bonus)`
-    : `${formatCredits(tier.credits)} credits per month`
-  return [
-    { on: true, text: creditText },
-    { on: true, text: 'SRX-3 Ultra model' },
-    { on: true, text: '10 YouTube channels' },
-    { on: true, text: 'AI Thumbnail Generator' },
-    { on: true, text: 'Edit & FaceSwap' },
-    { on: true, text: 'Unlimited Personas & Styles' },
-    { on: true, text: 'A/B Testing + Predictive Insights' },
-    { on: true, text: 'AI Coach Chat' },
-    { on: true, text: 'Video SEO Optimizer' },
-    { on: true, text: 'Title Scoring & Ideas' },
-    { on: true, text: 'Thumbnail Analyzer' },
-    { on: true, text: 'Dashboard + Advanced Insights' },
-    { on: true, text: 'Priority Support' },
-  ]
+function FeatureRow({ feat, openInfoId, setOpenInfoId, rowId }) {
+  const open = openInfoId === rowId
+  return (
+    <li className={`pri-feat ${feat.on ? 'on' : 'off'}`}>
+      <span className={feat.on ? 'chk' : 'crs'} />
+      <span className="pri-feat-text">{feat.text}</span>
+      <button
+        type="button"
+        className="pri-feat-info"
+        aria-label={`About ${feat.text}`}
+        aria-expanded={open}
+        onClick={(e) => {
+          e.stopPropagation()
+          setOpenInfoId(open ? null : rowId)
+        }}
+      >
+        <InfoIcon />
+      </button>
+      {open ? (
+        <div className="pri-feat-tip" role="tooltip">
+          {feat.info}
+        </div>
+      ) : null}
+    </li>
+  )
 }
 
 export function ProPricingContent({ onStartTrial }) {
@@ -166,26 +228,43 @@ export function ProPricingContent({ onStartTrial }) {
   const creator = CREATOR_TIERS[0]
   const ultimate = ULTIMATE_TIERS[0]
 
+  // Only one info popover open at a time across all plan cards.
+  const [openInfoId, setOpenInfoId] = useState(null)
+  useEffect(() => {
+    if (!openInfoId) return
+    const onDown = (e) => {
+      if (e.target.closest('.pri-feat')) return
+      setOpenInfoId(null)
+    }
+    const onKey = (e) => {
+      if (e.key === 'Escape') setOpenInfoId(null)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [openInfoId])
+
   const starterPrice = annual ? '$13.99' : '$19.99'
   const creatorPrice = annual ? creator.annual : creator.price
   const ultimatePrice = annual ? ultimate.annual : ultimate.price
 
-  const ctaLabelFor = (tier, defaultLabel) => {
+  const PLAN_NAMES = { starter: 'Starter', creator: 'Creator', ultimate: 'Ultimate' }
+
+  const ctaLabelFor = (tier) => {
     if (checkoutLoading === tier) return 'Opening checkout…'
     const isCurrent =
-      activeTier === tier &&
-      // match billing period when user is subscribed
-      ((annual && isAnnualActive) || (!annual && !isAnnualActive))
-    if (isCurrent) return '✓ Current plan'
-    // Different billing period of same tier — offer switch
+      activeTier === tier && ((annual && isAnnualActive) || (!annual && !isAnnualActive))
+    if (isCurrent) return 'Current plan'
     if (activeTier === tier) return annual ? 'Switch to yearly' : 'Switch to monthly'
-    // User has a DIFFERENT plan — offer up/downgrade
     if (activeTier) {
       const rank = { starter: 0, creator: 1, ultimate: 2 }
       const dir = (rank[tier] ?? 0) > (rank[activeTier] ?? 0) ? 'Upgrade to' : 'Switch to'
-      return `${dir} ${defaultLabel.replace('Get ', '')}`
+      return `${dir} ${PLAN_NAMES[tier]}`
     }
-    return defaultLabel
+    return 'Start free trial'
   }
 
   const isCurrentTier = (tier) =>
@@ -357,7 +436,7 @@ export function ProPricingContent({ onStartTrial }) {
                 onClick={() => handleCta('starter')}
                 disabled={checkoutLoading === 'starter' || isCurrentTier('starter')}
               >
-                {ctaLabelFor('starter', 'Start free trial')}
+                {ctaLabelFor('starter')}
               </button>
               {!hasActiveSub && (
                 <button
@@ -371,14 +450,24 @@ export function ProPricingContent({ onStartTrial }) {
               )}
             </div>
 
-            <ul className="pri-feats pro-feats">
-              {starterFeatures(annual).map((f, i) => (
-                <li key={i} className={`pri-feat ${f.on ? 'on' : 'off'}`}>
-                  <span className={f.on ? 'chk' : 'crs'} />
-                  {f.text}
-                </li>
-              ))}
-            </ul>
+            <div className="pro-feats-card">
+              <ul className="pri-feats pro-feats">
+                {buildFeatures({
+                  tier: 'starter',
+                  credits: STARTER_CREDITS,
+                  yearlyCredits: STARTER_YEARLY_CREDITS,
+                  annual,
+                }).map((f) => (
+                  <FeatureRow
+                    key={f.key}
+                    feat={f}
+                    rowId={`starter:${f.key}`}
+                    openInfoId={openInfoId}
+                    setOpenInfoId={setOpenInfoId}
+                  />
+                ))}
+              </ul>
+            </div>
           </div>
 
           {/* ── CREATOR ── */}
@@ -417,7 +506,7 @@ export function ProPricingContent({ onStartTrial }) {
                 onClick={() => handleCta('creator')}
                 disabled={checkoutLoading === 'creator' || isCurrentTier('creator')}
               >
-                {ctaLabelFor('creator', 'Start free trial')}
+                {ctaLabelFor('creator')}
               </button>
               {!hasActiveSub && (
                 <button
@@ -431,14 +520,24 @@ export function ProPricingContent({ onStartTrial }) {
               )}
             </div>
 
-            <ul className="pri-feats pro-feats">
-              {creatorFeatures(creator, annual).map((f, i) => (
-                <li key={i} className={`pri-feat ${f.on ? 'on' : 'off'}`}>
-                  <span className={f.on ? 'chk' : 'crs'} />
-                  {f.text}
-                </li>
-              ))}
-            </ul>
+            <div className="pro-feats-card">
+              <ul className="pri-feats pro-feats">
+                {buildFeatures({
+                  tier: 'creator',
+                  credits: creator.credits,
+                  yearlyCredits: creator.yearlyCredits,
+                  annual,
+                }).map((f) => (
+                  <FeatureRow
+                    key={f.key}
+                    feat={f}
+                    rowId={`creator:${f.key}`}
+                    openInfoId={openInfoId}
+                    setOpenInfoId={setOpenInfoId}
+                  />
+                ))}
+              </ul>
+            </div>
           </div>
 
           {/* ── ULTIMATE ── */}
@@ -476,7 +575,7 @@ export function ProPricingContent({ onStartTrial }) {
                 onClick={() => handleCta('ultimate')}
                 disabled={checkoutLoading === 'ultimate' || isCurrentTier('ultimate')}
               >
-                {ctaLabelFor('ultimate', 'Start free trial')}
+                {ctaLabelFor('ultimate')}
               </button>
               {!hasActiveSub && (
                 <button
@@ -490,14 +589,24 @@ export function ProPricingContent({ onStartTrial }) {
               )}
             </div>
 
-            <ul className="pri-feats pro-feats">
-              {ultimateFeatures(ultimate, annual).map((f, i) => (
-                <li key={i} className={`pri-feat ${f.on ? 'on' : 'off'}`}>
-                  <span className={f.on ? 'chk' : 'crs'} />
-                  {f.text}
-                </li>
-              ))}
-            </ul>
+            <div className="pro-feats-card">
+              <ul className="pri-feats pro-feats">
+                {buildFeatures({
+                  tier: 'ultimate',
+                  credits: ultimate.credits,
+                  yearlyCredits: ultimate.yearlyCredits,
+                  annual,
+                }).map((f) => (
+                  <FeatureRow
+                    key={f.key}
+                    feat={f}
+                    rowId={`ultimate:${f.key}`}
+                    openInfoId={openInfoId}
+                    setOpenInfoId={setOpenInfoId}
+                  />
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       </div>

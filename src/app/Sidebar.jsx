@@ -8,10 +8,6 @@ import { useShallow } from 'zustand/react/shallow'
 import { emitShellEvent } from '../lib/shellEvents'
 import { SidebarButton, ConfirmDialog } from '../components/ui'
 import { useCreditsQuery, useSubscriptionQuery } from '../queries/billing/creditsQueries'
-import {
-  useModelTierStateQuery,
-  useSetModelTierMutation,
-} from '../queries/modelTier/modelTierQueries'
 import { openCreditsModal } from '../lib/creditsModalBus'
 import {
   prefetchCoachConversation,
@@ -338,9 +334,7 @@ function goToScriptConversation(conversationId = null) {
 }
 
 function goToThumbnailConversation(conversationId = null) {
-  window.location.hash = conversationId
-    ? `#coach/thumbnails?id=${conversationId}`
-    : '#coach/thumbnails'
+  window.location.hash = conversationId ? `#thumbnails?id=${conversationId}` : '#thumbnails'
 }
 
 const IconScript = () => (
@@ -539,7 +533,7 @@ export function Sidebar({
   onOpenSettings,
   onOpenPersonas,
   onOpenStyles,
-  onLogout,
+  onLogout: _onLogout,
   currentScreen = 'dashboard',
   activeTab = 'coach',
   activeConversationId = null,
@@ -575,21 +569,6 @@ export function Sidebar({
   // and Go Pro visibility.
   const { data: subscription } = useSubscriptionQuery()
   const { data: creditsData } = useCreditsQuery()
-  const { data: tierState } = useModelTierStateQuery()
-  const setTierMutation = useSetModelTierMutation()
-  const currentTier = tierState?.selected || 'SRX-1'
-  const tierOptions =
-    tierState?.tiers && tierState.tiers.length
-      ? tierState.tiers
-      : [
-          { code: 'SRX-1', label: 'Lite', locked: false },
-          { code: 'SRX-2', label: 'Pro', locked: false },
-          { code: 'SRX-3', label: 'Ultra', locked: false },
-        ]
-  const handlePickTier = (code) => {
-    if (!code || code === currentTier) return
-    setTierMutation.mutate(code)
-  }
   const activeStatuses = ['active', 'trialing', 'past_due']
   const hasActivePlan = !!(subscription && activeStatuses.includes(subscription.status))
   const planLabel = (() => {
@@ -767,17 +746,6 @@ export function Sidebar({
     closeMobile()
     onOpenStyles?.()
   }
-  const handleOpenBilling = () => {
-    setAccountDialogOpen(false)
-    closeMobile()
-    window.location.hash = 'billing'
-  }
-  const handleLogoutClick = () => {
-    setAccountDialogOpen(false)
-    closeMobile()
-    onLogout?.()
-  }
-
   const handleNewChat = () => {
     closeMobile()
     setHistoryMenu({ conversationId: null, type: null, x: 0, y: 0 })
@@ -788,7 +756,7 @@ export function Sidebar({
     // from the top tab bar inside the screen.
     goToThumbnailConversation(null)
     // Force a state reset even when the hash didn't change (user was
-    // already on #coach/thumbnails). `onNewChat` is the inline parent
+    // already on #thumbnails). `onNewChat` is the inline parent
     // callback; emitShellEvent is the global bus so any mounted Coach
     // screen also clears its draft / recording / messages.
     onNewChat?.()
@@ -897,38 +865,6 @@ export function Sidebar({
       aria-hidden={!accountDialogOpen}
       aria-label="Account menu"
     >
-      {/* AI Model tier chips — compact inline picker */}
-      <div className="sidebar-account-tier" role="radiogroup" aria-label="AI model tier">
-        <span className="sidebar-account-tier-label">AI Model</span>
-        <div className="sidebar-account-tier-chips">
-          {tierOptions.map((t) => {
-            const isActive = t.code === currentTier
-            const isLocked = !!t.locked
-            const chipClass = [
-              'sidebar-account-tier-chip',
-              isActive ? 'sidebar-account-tier-chip--active' : '',
-              isLocked ? 'sidebar-account-tier-chip--locked' : '',
-            ]
-              .join(' ')
-              .trim()
-            return (
-              <button
-                key={t.code}
-                type="button"
-                role="radio"
-                aria-checked={isActive}
-                className={chipClass}
-                onClick={() => !isLocked && handlePickTier(t.code)}
-                disabled={isLocked || setTierMutation.isPending}
-                title={t.label ? `${t.code} · ${t.label}` : t.code}
-              >
-                {t.code}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-      <div className="sidebar-account-divider" />
       <button
         type="button"
         className="sidebar-account-item"
@@ -938,7 +874,7 @@ export function Sidebar({
         <span className="sidebar-account-item-icon" aria-hidden>
           <IconSettings />
         </span>
-        Settings
+        Account
       </button>
       <button
         type="button"
@@ -961,29 +897,6 @@ export function Sidebar({
           <IconStyles />
         </span>
         Styles
-      </button>
-      <button
-        type="button"
-        className="sidebar-account-item"
-        role="menuitem"
-        onClick={handleOpenBilling}
-      >
-        <span className="sidebar-account-item-icon" aria-hidden>
-          <IconBilling />
-        </span>
-        Billing
-      </button>
-      <div className="sidebar-account-divider" />
-      <button
-        type="button"
-        className="sidebar-account-item sidebar-account-item--danger"
-        role="menuitem"
-        onClick={handleLogoutClick}
-      >
-        <span className="sidebar-account-item-icon" aria-hidden>
-          <IconLogout />
-        </span>
-        Log out
       </button>
     </div>
   )
@@ -1195,24 +1108,26 @@ export function Sidebar({
                   </svg>
                 </button>
                 <div className="sidebar-history-search-wrap">
-                  <input
-                    ref={historySearchInputRef}
-                    className="sidebar-history-search-input"
-                    type="text"
-                    placeholder="Search chats…"
-                    value={historySearchQuery}
-                    onChange={(e) => {
-                      setHistorySearchQuery(e.target.value)
-                      setHistoryVisibleCount(50)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') {
-                        setHistorySearchOpen(false)
-                        setHistorySearchQuery('')
-                      }
-                    }}
-                    aria-label="Search chats"
-                  />
+                  <div className="sidebar-history-search-field">
+                    <input
+                      ref={historySearchInputRef}
+                      className="sidebar-history-search-input"
+                      type="text"
+                      placeholder="Search chats…"
+                      value={historySearchQuery}
+                      onChange={(e) => {
+                        setHistorySearchQuery(e.target.value)
+                        setHistoryVisibleCount(50)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          setHistorySearchOpen(false)
+                          setHistorySearchQuery('')
+                        }
+                      }}
+                      aria-label="Search chats"
+                    />
+                  </div>
                   <button
                     type="button"
                     className="sidebar-history-search-close"

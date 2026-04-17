@@ -92,6 +92,8 @@ function getView() {
   if (h === 'optimizing') return 'dashboard'
   if (h === 'dashboard') return 'dashboard'
   if (h === 'coach' || h.startsWith('coach/')) return 'coach'
+  if (h === 'thumbnails' || h.startsWith('thumbnails/') || h.startsWith('thumbnails?'))
+    return 'coach'
   if (h === 'optimize') return 'optimize'
   if (h === 'pro') return 'pro'
   if (h === 'ab-testing' || h.startsWith('ab-testing/')) return 'ab-testing'

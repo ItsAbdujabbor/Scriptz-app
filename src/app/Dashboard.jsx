@@ -22,7 +22,7 @@ import {
 } from '../queries/dashboard/dashboardQueries'
 import { useUserPreferencesQuery } from '../queries/user/preferencesQueries'
 import { useUserProfileQuery } from '../queries/user/profileQueries'
-import { useYoutubeVideosList } from '../queries/youtube/videosQueries'
+import { useYoutubeVideosPage } from '../queries/youtube/videosQueries'
 import {
   getAreaAction,
   getAuditAreaGuidance,
@@ -714,7 +714,103 @@ function getScoreColor(s) {
   return '#FF453A'
 }
 
-function ChannelPulseVideoCard({ video, accessToken, onOptimize }) {
+/**
+ * Fetches scores for all videos (up to 10), sorts by lowest score,
+ * and renders the bottom 3 as cards. Shows skeleton while scoring.
+ */
+function LowestScoredVideos({ videos, loading, accessToken, onOptimize }) {
+  // Score each video with individual useQuery calls. React hooks must be
+  // called unconditionally so we always call 10 hooks (padded with nulls).
+  const padded = [...(videos || [])].slice(0, 10)
+  while (padded.length < 10) padded.push(null)
+
+  const scores = padded.map((v) => {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    return useQuery({
+      queryKey: ['channelPulse', 'videoScore', v?.id || '__empty__'],
+      queryFn: () =>
+        youtubeApi.scoreVideo(accessToken, {
+          video_id: v.id,
+          title: v.title || '',
+          description: v.description || '',
+          tags: v.tags || [],
+          view_count: Number(v.view_count ?? 0),
+          like_count: Number(v.like_count ?? 0),
+          comment_count: Number(v.comment_count ?? 0),
+          thumbnail_url: v.thumbnail_url || null,
+        }),
+      enabled: !!accessToken && !!v?.id,
+      staleTime: queryFreshness.weekly,
+      retry: 1,
+    })
+  })
+
+  const allScored = videos?.length > 0 && scores.slice(0, videos.length).every((q) => !q.isPending)
+  const anyPending = loading || !allScored
+
+  // Build scored list and pick the 3 lowest
+  const scored = []
+  if (videos?.length) {
+    for (let i = 0; i < Math.min(videos.length, 10); i++) {
+      const s = scores[i].data?.score
+      if (s != null) scored.push({ video: videos[i], score: s })
+    }
+  }
+  scored.sort((a, b) => a.score - b.score)
+  const lowest3 = scored.slice(0, 3)
+
+  if (loading) {
+    return (
+      <div className="cpulse-grid">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="cpulse-video-card cpulse-video-card--skeleton">
+            <div className="cpulse-video-thumb cpulse-video-thumb--skeleton" />
+            <div className="cpulse-video-info">
+              <div className="cpulse-skeleton-line" />
+              <div className="cpulse-skeleton-line cpulse-skeleton-line--short" />
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (!videos?.length) {
+    return <div className="dashboard-shell-empty">No videos found for this channel.</div>
+  }
+
+  if (anyPending && lowest3.length < 3) {
+    return (
+      <div className="cpulse-grid">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="cpulse-video-card cpulse-video-card--skeleton">
+            <div className="cpulse-video-thumb cpulse-video-thumb--skeleton" />
+            <div className="cpulse-video-info">
+              <div className="cpulse-skeleton-line" />
+              <div className="cpulse-skeleton-line cpulse-skeleton-line--short" />
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className="cpulse-grid">
+      {lowest3.map(({ video, score }) => (
+        <ChannelPulseVideoCard
+          key={video.id}
+          video={video}
+          accessToken={accessToken}
+          onOptimize={onOptimize}
+          preloadedScore={score}
+        />
+      ))}
+    </div>
+  )
+}
+
+function ChannelPulseVideoCard({ video, accessToken, onOptimize, preloadedScore }) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogClosing, setDialogClosing] = useState(false)
 
@@ -731,13 +827,13 @@ function ChannelPulseVideoCard({ video, accessToken, onOptimize }) {
         comment_count: Number(video.comment_count ?? 0),
         thumbnail_url: video.thumbnail_url || null,
       }),
-    enabled: !!accessToken && !!video.id,
+    enabled: !!accessToken && !!video.id && preloadedScore == null,
     staleTime: queryFreshness.weekly,
     placeholderData: (prev) => prev,
     retry: 1,
   })
 
-  const score = videoScoreQuery.data?.score ?? null
+  const score = preloadedScore ?? videoScoreQuery.data?.score ?? null
   const breakdown = videoScoreQuery.data?.breakdown ?? null
   const feedback = videoScoreQuery.data?.feedback ?? null
   const tier = scoreTier(score)
@@ -806,12 +902,6 @@ function ChannelPulseVideoCard({ video, accessToken, onOptimize }) {
           <p className="cpulse-video-title" title={video.title}>
             {video.title || 'Untitled'}
           </p>
-          {desc && (
-            <p className="cpulse-video-desc">
-              {desc.slice(0, 100)}
-              {desc.length > 100 ? '…' : ''}
-            </p>
-          )}
           <div className="cpulse-video-meta">
             {views > 0 && (
               <span className="cpulse-video-stat">
@@ -831,6 +921,16 @@ function ChannelPulseVideoCard({ video, accessToken, onOptimize }) {
             )}
             {formattedDate && <span className="cpulse-video-stat">{formattedDate}</span>}
           </div>
+          <button
+            type="button"
+            className="cpulse-improve-btn"
+            onClick={(e) => {
+              e.stopPropagation()
+              onOptimize?.(video)
+            }}
+          >
+            Improve thumbnail
+          </button>
         </div>
       </div>
 
@@ -1221,15 +1321,15 @@ export function Dashboard({ onLogout, shellManaged }) {
   const growthQuery = useDashboardGrowth(channelId)
   const snapshotQuery = useDashboardSnapshot(channelId, snapshotRange.from, snapshotRange.to)
 
-  const recentVideosQuery = useYoutubeVideosList({
+  const recentVideosQuery = useYoutubeVideosPage({
     channelId,
     page: 1,
-    perPage: 3,
+    perPage: 10,
     sort: 'published_at',
     videoType: 'videos',
     enabled: hasChannelData,
   })
-  const recentVideos = recentVideosQuery.data?.items ?? []
+  const recentVideosAll = recentVideosQuery.data?.items ?? []
 
   const [pulseAccessToken, setPulseAccessToken] = useState(null)
   useEffect(() => {
@@ -2006,41 +2106,19 @@ export function Dashboard({ onLogout, shellManaged }) {
             {hasChannelData && (
               <DashSection
                 icon="videos"
-                title="Recent videos"
+                title="SEO improvement ideas"
                 meta={
                   <span className="dashboard-command-status dashboard-command-status--live">
-                    YouTube linked
+                    Lowest scored from your last 10 videos
                   </span>
                 }
               >
-                {recentVideosQuery.isPending && (
-                  <div className="cpulse-grid">
-                    {[0, 1, 2].map((i) => (
-                      <div key={i} className="cpulse-video-card cpulse-video-card--skeleton">
-                        <div className="cpulse-video-thumb cpulse-video-thumb--skeleton" />
-                        <div className="cpulse-video-info">
-                          <div className="cpulse-skeleton-line" />
-                          <div className="cpulse-skeleton-line cpulse-skeleton-line--short" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {!recentVideosQuery.isPending && recentVideos.length > 0 && (
-                  <div className="cpulse-grid">
-                    {recentVideos.map((video) => (
-                      <ChannelPulseVideoCard
-                        key={video.id}
-                        video={video}
-                        accessToken={pulseAccessToken}
-                        onOptimize={handlePulseOptimize}
-                      />
-                    ))}
-                  </div>
-                )}
-                {!recentVideosQuery.isPending && recentVideos.length === 0 && (
-                  <div className="dashboard-shell-empty">No videos found for this channel.</div>
-                )}
+                <LowestScoredVideos
+                  videos={recentVideosAll}
+                  loading={recentVideosQuery.isPending}
+                  accessToken={pulseAccessToken}
+                  onOptimize={handlePulseOptimize}
+                />
               </DashSection>
             )}
 
@@ -2194,12 +2272,12 @@ export function Dashboard({ onLogout, shellManaged }) {
               >
                 <div className="dashboard-thumb-workshop-grid">
                   <a
-                    href={`#${hashWithPrefill('coach/thumbnails', thumbPrefill({ pillar: 'CTR', score: thumbnailAuditScore, videoTitle: null }))}`}
+                    href={`#${hashWithPrefill('thumbnails', thumbPrefill({ pillar: 'CTR', score: thumbnailAuditScore, videoTitle: null }))}`}
                     className="dashboard-thumb-workshop-card"
                     onClick={(e) => {
                       e.preventDefault()
                       window.location.hash = hashWithPrefill(
-                        'coach/thumbnails',
+                        'thumbnails',
                         thumbPrefill({
                           pillar: 'CTR',
                           score: thumbnailAuditScore,

@@ -38,6 +38,13 @@
   letter-spacing: -0.025em;
 }
 
+.optimize-video-count {
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--dash-text-soft);
+  letter-spacing: 0.01em;
+}
+
 /* ── Prefill banner ── */
 .optimize-dash-prefill {
   display: flex;
@@ -131,6 +138,30 @@
 
 .optimize-search-input::placeholder {
   color: var(--dash-text-soft);
+}
+
+.optimize-search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  margin-right: 2px;
+  padding: 0;
+  color: var(--dash-text-soft);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition:
+    color var(--dash-dur-fast) ease,
+    background var(--dash-dur-fast) ease;
+}
+
+.optimize-search-clear:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .optimize-search-btn {
@@ -669,57 +700,38 @@
   display: block;
 }
 
-/* ── Pagination ── */
-.optimize-pagination {
+/* ── Infinite scroll ── */
+.optimize-scroll-sentinel {
+  height: 1px;
+  width: 100%;
+  pointer-events: none;
+}
+
+.optimize-loading-more {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--dash-space-md);
-  padding: 1.25rem 0;
-  margin-top: var(--dash-space-sm);
-}
-
-.optimize-page-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.4rem 0.9rem;
+  gap: 0.5rem;
+  padding: 1.5rem 0;
   font-size: 0.82rem;
-  font-weight: 600;
-  font-family: inherit;
-  color: var(--dash-text-muted);
-  background: var(--dash-surface-card);
-  border: 1px solid var(--dash-surface-border);
-  border-radius: var(--dash-radius-sm);
-  cursor: pointer;
-  transition:
-    background var(--dash-dur-fast) ease,
-    border-color var(--dash-dur-fast) ease;
-}
-
-.optimize-page-btn svg {
-  opacity: 0.5;
-}
-
-.optimize-page-btn:hover:not(:disabled) {
-  background: var(--dash-surface-card-hover);
-  border-color: var(--dash-surface-border-hover);
-}
-
-.optimize-page-btn:active:not(:disabled) {
-  transform: scale(0.97);
-  transition: transform 0.08s ease;
-}
-
-.optimize-page-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.optimize-page-info {
-  font-size: 0.82rem;
+  font-weight: 500;
   color: var(--dash-text-soft);
-  font-variant-numeric: tabular-nums;
+}
+
+.optimize-end-of-list {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem 0 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--dash-text-soft);
+  opacity: 0.6;
+}
+
+/* ── Error state icon ── */
+.optimize-empty-icon--error {
+  color: var(--dash-color-negative, #ef4444);
 }
 
 /* ── Responsive ── */

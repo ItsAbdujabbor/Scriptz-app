@@ -13,9 +13,15 @@
     inset 0 -1px 0 rgba(0, 0, 0, 0.15);
   flex-shrink: 0;
   box-sizing: border-box;
+  /* Clip the framer-motion indicator + its box-shadow inside the pill so
+   * mid-transition it never bleeds past the rounded border. */
+  overflow: hidden;
+  position: relative;
+  isolation: isolate;
 }
 
 .seg-tabs-list {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 1px;
@@ -62,10 +68,36 @@
   z-index: 1;
 }
 
-/* framer-motion sliding indicator — pill shape, soft white fill. */
+.seg-tab-icon {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  margin-right: 6px;
+  opacity: 0.85;
+  transition: opacity 0.18s ease;
+}
+
+.seg-tab-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.seg-tab--active .seg-tab-icon {
+  opacity: 1;
+}
+
+/* CSS-only sliding indicator. Positioned by JS-measured width + transform.
+ * Only animates when `value` changes (ResizeObserver re-measures size, but
+ * the transition runs on transform/width — re-measuring to the same value
+ * is a no-op so the indicator stays still on idle re-renders). */
 .seg-tab-indicator {
   position: absolute;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  height: 100%;
+  width: 0;
   border-radius: 100px;
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.11) 100%);
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -73,4 +105,20 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.24),
     0 2px 6px rgba(0, 0, 0, 0.28);
   z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform, width;
+  transition:
+    transform 0.34s cubic-bezier(0.32, 0.72, 0, 1),
+    width 0.34s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.18s ease;
+}
+
+.seg-tab-indicator--ready {
+  opacity: 1;
+}
+
+/* The buttons need to sit ABOVE the indicator so labels stay readable. */
+.seg-tab {
+  z-index: 1;
 }

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { personasApi } from '../../api/personas'
+import { invalidateCredits } from '../billing/creditsQueries'
 import { queryFreshness } from '../../lib/query/queryConfig'
 import { queryKeys } from '../../lib/query/queryKeys'
 import { getAccessTokenOrNull } from '../../lib/query/authToken'
@@ -63,6 +64,13 @@ export function useCreatePersonaFromImagesMutation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.personas.list() })
+      // 45 credits were just debited — refresh the badge immediately so the
+      // user doesn't have to wait for the 30s poll.
+      invalidateCredits(queryClient)
+    },
+    onError: () => {
+      // Backend refunds on failure; reflect that in the UI right away.
+      invalidateCredits(queryClient)
     },
   })
 }

@@ -13,6 +13,7 @@ function getScreenFromHash() {
   const h = normalizeHashRoute(typeof window !== 'undefined' ? window.location.hash : '')
   if (h === 'dashboard') return 'dashboard'
   if (h === 'coach' || h.startsWith('coach/')) return 'coach'
+  if (h === 'thumbnails' || h.startsWith('thumbnails/')) return 'coach'
   if (h === 'optimize') return 'optimize'
   if (h === 'pro') return 'pro'
   if (h === 'library' || h === 'templates') return 'templates'

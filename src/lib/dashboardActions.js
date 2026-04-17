@@ -24,7 +24,7 @@ export function getAreaAction(areaName) {
   if (a.includes('ctr') || a.includes('thumbnail')) {
     return {
       label: 'Open Thumbnail Generator',
-      hash: 'coach/thumbnails?focus=packaging',
+      hash: 'thumbnails?focus=packaging',
     }
   }
   if (a.includes('consistency')) {
@@ -72,7 +72,7 @@ export function getAuditAreaGuidance(name, score, label) {
     return {
       diagnosis: 'CTR is behind — impressions are not turning into enough clicks.',
       action: 'Test 2 thumbnails: one face-led, one bold text-led.',
-      href: 'coach/thumbnails?focus=ctr',
+      href: 'thumbnails?focus=ctr',
       tone: 'warn',
     }
   }
@@ -88,7 +88,7 @@ export function getAuditAreaGuidance(name, score, label) {
     return {
       diagnosis: 'Thumbnail signal is weak — the packaging is not matching your niche yet.',
       action: 'Remix a winning layout from your best videos.',
-      href: 'coach/thumbnails?focus=style',
+      href: 'thumbnails?focus=style',
       tone: 'warn',
     }
   }
@@ -161,7 +161,7 @@ export function computeNextBestAction({ audit, growth, snapshot }) {
       diagnosis: g.diagnosis,
       action: g.action,
       ctaLabel: 'Open Thumbnail Generator',
-      hash: 'coach/thumbnails?focus=ctr',
+      hash: 'thumbnails?focus=ctr',
       prefillPrompt: thumbPrefill({ pillar: 'CTR', score: Number(ctr.score), videoTitle: null }),
       impact: 'Better CTR multiplies the impressions you already earn.',
     }
@@ -175,7 +175,7 @@ export function computeNextBestAction({ audit, growth, snapshot }) {
       diagnosis: g.diagnosis,
       action: g.action,
       ctaLabel: 'Create thumbnails',
-      hash: 'coach/thumbnails?focus=style',
+      hash: 'thumbnails?focus=style',
       prefillPrompt: thumbPrefill({
         pillar: 'Thumbnails',
         score: Number(thumbs.score),
@@ -347,14 +347,14 @@ export function getGrowthStatInsight(key) {
   if (key === 'v7') {
     return {
       tip: '7-day pulse · quick check on momentum.',
-      href: 'coach/thumbnails',
+      href: 'thumbnails',
       cta: 'Go',
     }
   }
   if (key === 'v30') {
     return {
       tip: '30-day trend line · smoother than weekly noise.',
-      href: 'coach/thumbnails',
+      href: 'thumbnails',
       cta: 'Go',
     }
   }
@@ -380,7 +380,7 @@ export function fixLineToAction(line, area) {
   if (t.includes('thumbnail') || a.includes('ctr') || a.includes('thumbnail')) {
     return {
       label: 'Thumbnails',
-      hash: 'coach/thumbnails?focus=ctr',
+      hash: 'thumbnails?focus=ctr',
       prefill: thumbPrefill({ pillar: 'CTR', score: null, videoTitle: null }),
     }
   }

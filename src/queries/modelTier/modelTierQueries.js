@@ -38,5 +38,11 @@ export function useSetModelTierMutation() {
       // Server returns the full fresh state — patch it in to skip a refetch.
       queryClient.setQueryData(queryKeys.modelTier.state, fresh)
     },
+    onError: (err) => {
+      // 403 = plan upgrade required — redirect to pricing page.
+      if (err?.status === 403) {
+        window.location.hash = 'pro'
+      }
+    },
   })
 }

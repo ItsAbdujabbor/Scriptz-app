@@ -9,9 +9,9 @@
  *   • Esc closes
  */
 import { useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
 
+import { Dialog } from './ui'
 import { useAuthStore } from '../stores/authStore'
 import { useCreditsQuery, invalidateCredits } from '../queries/billing/creditsQueries'
 import { getPlans, startCheckout } from '../api/billing'
@@ -76,19 +76,9 @@ export function CreditPacksModal({ open, onClose }) {
     }
   }, [open])
 
-  // Esc closes.
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open, onClose])
-
   const packs = useMemo(() => markBest(catalog?.packs || []), [catalog])
 
-  if (!open || typeof document === 'undefined') return null
+  if (!open) return null
 
   const total = credits
     ? Number(credits.subscription_credits || 0) + Number(credits.permanent_credits || 0)
@@ -134,15 +124,15 @@ export function CreditPacksModal({ open, onClose }) {
     }
   }
 
-  return createPortal(
-    <div className="credits-modal-backdrop" onClick={onClose}>
-      <div
-        className="credits-modal-card"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="credits-modal-title"
-        onClick={(e) => e.stopPropagation()}
-      >
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      size="lg"
+      ariaLabelledBy="credits-modal-title"
+      className="credits-modal-card"
+    >
+      <div className="credits-modal-body">
         <header className="credits-modal-head">
           <div>
             <h2 id="credits-modal-title" className="credits-modal-title">
@@ -243,7 +233,6 @@ export function CreditPacksModal({ open, onClose }) {
           </button>
         </footer>
       </div>
-    </div>,
-    document.body
+    </Dialog>
   )
 }

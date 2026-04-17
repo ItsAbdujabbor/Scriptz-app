@@ -136,7 +136,7 @@ export function buildContentStrategyRoadmap(ideas, limit = 3) {
 }
 
 export function thumbnailBattleHref(promptTitle) {
-  const base = 'coach/thumbnails'
+  const base = 'thumbnails'
   if (!promptTitle) return `${base}?focus=battle`
   return `${base}?prompt=${encodeURIComponent(promptTitle)}&focus=battle`
 }

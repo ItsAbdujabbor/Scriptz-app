@@ -10792,6 +10792,36 @@ img.dashboard-youtube-avatar {
   opacity: 0.7;
 }
 
+.cpulse-improve-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: auto;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #fff;
+  background: rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: var(--dash-radius-sm, 8px);
+  cursor: pointer;
+  width: fit-content;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.cpulse-improve-btn:hover {
+  background: rgba(139, 92, 246, 0.35);
+  border-color: rgba(139, 92, 246, 0.5);
+}
+
+.cpulse-improve-btn:active {
+  transform: scale(0.97);
+  transition: transform 0.06s ease;
+}
+
 .cpulse-video-tip {
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.5);

@@ -1,71 +1,50 @@
-/* Settings modal — Liquid glass, matches main sidebar palette */
-.settings-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity 0.22s ease,
-    visibility 0.22s ease;
-}
-.settings-modal-backdrop.visible {
-  opacity: 1;
-  visibility: visible;
-}
-
+/* Settings modal — Liquid glass, matches main sidebar palette.
+ * Outer chrome (overlay, animation, base panel framing) lives in
+ * Dialog.css. This file only defines settings-specific tokens, the
+ * darker panel background, and the two-pane internal body layout. */
 .settings-modal-dialog {
   --settings-bg: #09090b;
   --settings-surface: rgba(255, 255, 255, 0.045);
   --settings-surface-2: rgba(255, 255, 255, 0.075);
   --settings-border: rgba(255, 255, 255, 0.08);
-  --settings-divider: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.05) 10%,
-    rgba(167, 139, 250, 0.18) 50%,
-    rgba(255, 255, 255, 0.05) 90%,
-    transparent 100%
-  );
+  --settings-divider: rgba(255, 255, 255, 0.06);
   --settings-text: #f5f5f6;
   --settings-text-muted: rgba(255, 255, 255, 0.64);
   --settings-accent: #9061f0;
   --settings-accent-bg: rgba(167, 139, 250, 0.13);
   --settings-accent-ring: rgba(139, 92, 246, 0.22);
 
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) scale(0.97);
-  width: min(920px, calc(100vw - 2rem));
-  min-height: 560px;
-  height: 82vh;
-  max-height: calc(100vh - 2rem);
+  /* Override the base Dialog panel surface — Settings uses a flat near-
+   * black background instead of the default gradient, and a tighter
+   * border radius (16 vs 18) to match the original look. */
   background: var(--settings-bg);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid var(--settings-border);
+  border-color: var(--settings-border);
   border-radius: 16px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 24px 64px rgba(0, 0, 0, 0.45),
-    0 0 0 1px rgba(0, 0, 0, 0.2);
+  /* Fixed height keeps the two-pane layout from collapsing. */
+  height: 82vh;
+  min-height: 560px;
+  max-height: calc(100vh - 2rem);
+  /* The internal body uses flex-column for the header + two-pane split. */
+  overflow: hidden;
+}
+
+/* OUTER shell: stacks the header above the two-pane body. */
+.settings-modal-dialog > .settings-modal-body {
   display: flex;
   flex-direction: column;
-  opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity 0.22s ease,
-    visibility 0.22s ease,
-    transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+  height: 100%;
 }
-.settings-modal-backdrop.visible .settings-modal-dialog {
-  opacity: 1;
-  visibility: visible;
-  transform: translate(-50%, -50%) scale(1);
+
+/* INNER pane: puts the left nav next to the content. */
+.settings-modal-dialog > .settings-modal-body > .settings-modal-body {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: auto;
+  overflow: hidden;
 }
 
 .settings-modal-header {
@@ -121,14 +100,6 @@
 .settings-modal-close svg {
   width: 16px;
   height: 16px;
-}
-
-.settings-modal-body {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  flex-shrink: 1;
 }
 
 /* Sidebar — identical to main app sidebar (liquid glass) */
@@ -1616,16 +1587,796 @@ body.theme-light .settings-theme-option.active {
   margin-top: 0.75rem;
 }
 
-@media (max-width: 560px) {
+/* Mobile rules moved to the bottom of this file so they cascade over every
+   desktop override (DIALOG CHROME + DASHBOARD-CARD PARITY blocks below). */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DIALOG CHROME — mirrors the Dashboard "milestones dialog" (.ms-dialog)
+   ───────────────────────────────────────────────────────────────────────
+   Same dashboard-card background, 22 px radius, 40 px backdrop blur,
+   spring entrance animation, and circular white-glass close button.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.settings-modal-dialog {
+  background: rgba(22, 22, 26, 0.95);
+  backdrop-filter: blur(40px) saturate(160%);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 22px;
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.3),
+    0 24px 80px rgba(0, 0, 0, 0.55),
+    0 8px 24px rgba(0, 0, 0, 0.3);
+  animation: settings-modal-dialog-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  overflow: hidden;
+}
+
+@keyframes settings-modal-dialog-in {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.005);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
   .settings-modal-dialog {
+    animation: none;
+  }
+}
+
+/* Header — clean iOS-style, sharp hairline divider (edge-to-edge) */
+.settings-modal-dialog .settings-modal-header {
+  padding: 1rem 1.25rem 0.7rem;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-radius: 22px 22px 0 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.settings-modal-dialog .settings-modal-header::after {
+  display: none;
+}
+.settings-modal-dialog .settings-modal-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #fff;
+  background: none;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+}
+
+/* Close button — circular glass pill, scale(0.9) press (matches .ms-dialog__close) */
+.settings-modal-dialog .settings-modal-close {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  box-shadow: none;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.08s ease;
+}
+.settings-modal-dialog .settings-modal-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.9);
+  border-color: transparent;
+}
+.settings-modal-dialog .settings-modal-close:active {
+  transform: scale(0.9);
+}
+.settings-modal-dialog .settings-modal-close svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Left nav — full-height column: section list grows, Logout pinned at the
+   bottom. Sharp edge-to-edge divider on the right (no gradient). */
+.settings-modal-dialog .settings-modal-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0.6rem 0.5rem;
+  background: transparent;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+
+/* Hide the mobile SegmentedTabs tabbar on desktop. */
+.settings-modal-dialog .settings-modal-tabbar {
+  display: none;
+}
+.settings-modal-dialog .settings-modal-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.1rem;
+}
+
+/* Each section row — mirrors .sidebar-history-row: 36 px tall, 10 px radius,
+   neutral text, soft grey hover, violet-gradient active state with inset
+   highlight + inset border ring. */
+.settings-modal-dialog .settings-modal-nav-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  flex: 0 0 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 0.7rem;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(229, 229, 231, 0.75);
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 160ms cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 160ms cubic-bezier(0.25, 1, 0.5, 1),
+    color 160ms cubic-bezier(0.25, 1, 0.5, 1),
+    transform 80ms ease;
+}
+.settings-modal-dialog .settings-modal-nav-item:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.04) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+.settings-modal-dialog .settings-modal-nav-item:active {
+  transform: scale(0.99);
+}
+.settings-modal-dialog .settings-modal-nav-item.active {
+  color: #ffffff;
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.32) 0%, rgba(124, 58, 237, 0.28) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12),
+    inset 0 0 0 1px rgba(167, 139, 250, 0.28);
+  font-weight: 600;
+}
+.settings-modal-dialog .settings-modal-nav-item.active:hover {
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.38) 0%, rgba(124, 58, 237, 0.34) 100%);
+}
+
+/* Logout pill — pinned to the bottom of the rail. Red glass to signal the
+   destructive action without being jarring. */
+.settings-modal-dialog .settings-modal-logout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.55rem 0.9rem;
+  height: 36px;
+  min-height: 36px;
+  border: 1px solid rgba(248, 113, 113, 0.18);
+  border-radius: 10px;
+  background: rgba(248, 113, 113, 0.06);
+  color: rgba(252, 165, 165, 0.9);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 80ms ease;
+}
+.settings-modal-dialog .settings-modal-logout:hover {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #fecaca;
+}
+.settings-modal-dialog .settings-modal-logout:active {
+  transform: scale(0.97);
+}
+.settings-modal-dialog .settings-modal-logout svg {
+  flex-shrink: 0;
+}
+
+/* Mobile-only footer: the red Log out pill lives inside the content pane
+   so it's part of the scrollable screen, not the tabbar. */
+.settings-modal-dialog .settings-modal-mobile-footer {
+  display: none;
+}
+.settings-modal-dialog .settings-modal-logout-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  height: 40px;
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.22);
+  border-radius: 10px;
+  color: rgba(252, 165, 165, 0.9);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 80ms ease;
+}
+.settings-modal-dialog .settings-modal-logout-inline:hover {
+  background: rgba(248, 113, 113, 0.14);
+  border-color: rgba(248, 113, 113, 0.32);
+  color: #fecaca;
+}
+.settings-modal-dialog .settings-modal-logout-inline:active {
+  transform: scale(0.98);
+}
+.settings-modal-dialog .settings-modal-logout-inline svg {
+  flex-shrink: 0;
+}
+
+/* Content pane: subtle fade from top so the active panel feels elevated */
+.settings-modal-dialog .settings-modal-content {
+  padding: 1.35rem 1.6rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, transparent 100%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DASHBOARD-CARD PARITY — every surface inside the dialog now uses the
+   same #18181c card with the same border / radius as the Dashboard
+   screens. Inputs, buttons, toggles, selects, and collapsibles share a
+   single visual language with crisp focus rings and a consistent
+   scale(0.97) press feedback.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.settings-modal-dialog {
+  --set-card: #18181c;
+  --set-card-hover: #1f1f23;
+  --set-card-border: rgba(255, 255, 255, 0.07);
+  --set-card-border-hover: rgba(255, 255, 255, 0.12);
+  --set-card-radius: 14px;
+  --set-card-radius-sm: 10px;
+  --set-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --set-press: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Section heading + description — match dashboard card-section-head sizing */
+.settings-modal-dialog .settings-panel-heading {
+  margin: 0 0 0.3rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.015em;
+}
+.settings-modal-dialog .settings-panel-desc {
+  margin: 0 0 1.1rem;
+  font-size: 0.85rem;
+  color: rgba(229, 229, 231, 0.7);
+  line-height: 1.45;
+}
+.settings-modal-dialog .settings-subheading {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 1.4rem 0 0.6rem;
+}
+.settings-modal-dialog .settings-subheading:first-of-type {
+  margin-top: 0;
+}
+
+/* CARDS — every "blocky" surface element picks up the dashboard card look */
+.settings-modal-dialog .settings-block,
+.settings-modal-dialog .settings-youtube-card,
+.settings-modal-dialog .settings-youtube-channel-card,
+.settings-modal-dialog .settings-youtube-connect-block,
+.settings-modal-dialog .settings-help-section,
+.settings-modal-dialog .settings-help-faq,
+.settings-modal-dialog .settings-help-faq-item,
+.settings-modal-dialog .settings-collapsible,
+.settings-modal-dialog .settings-danger-block {
+  background: var(--set-card);
+  border: 1px solid var(--set-card-border);
+  border-radius: var(--set-card-radius);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  color: #e5e5e7;
+}
+
+/* Simple info block (email row) */
+.settings-modal-dialog .settings-block {
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 0.9rem;
+}
+.settings-modal-dialog .settings-account-email {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.88rem;
+}
+.settings-modal-dialog .settings-account-email strong {
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.settings-modal-dialog .settings-account-email span {
+  color: #fff;
+  font-weight: 500;
+  margin-left: 0;
+}
+
+/* Help — Resources / Legal / FAQ cards */
+.settings-modal-dialog .settings-help-section {
+  padding: 1rem 1.1rem;
+  margin-bottom: 0.9rem;
+}
+.settings-modal-dialog .settings-help-section-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 0.7rem;
+}
+.settings-modal-dialog .settings-help-links {
+  gap: 0.2rem;
+}
+.settings-modal-dialog .settings-help-link {
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  color: #e5e5e7;
+  background: transparent;
+  font-weight: 500;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    transform 120ms var(--set-press);
+}
+.settings-modal-dialog .settings-help-link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+.settings-modal-dialog .settings-help-link:active {
+  transform: scale(0.985);
+}
+
+.settings-modal-dialog .settings-help-faq {
+  padding: 1rem 1.1rem;
+  margin-top: 0.5rem;
+}
+.settings-modal-dialog .settings-help-faq::before {
+  display: none; /* inner top border no longer needed — it's its own card */
+}
+.settings-modal-dialog .settings-help-faq-item {
+  padding: 0.85rem 0.95rem;
+  margin-bottom: 0.55rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+.settings-modal-dialog .settings-help-faq-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.settings-modal-dialog .settings-help-faq-item:last-child {
+  margin-bottom: 0;
+}
+.settings-modal-dialog .settings-help-faq-item strong {
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.settings-modal-dialog .settings-help-faq-item p {
+  color: rgba(229, 229, 231, 0.7);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+/* YouTube card blocks */
+.settings-modal-dialog .settings-youtube-card,
+.settings-modal-dialog .settings-youtube-connect-block {
+  padding: 1rem 1.1rem;
+  margin-bottom: 0.85rem;
+}
+.settings-modal-dialog .settings-youtube-channel-card {
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.5rem;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 120ms var(--set-press);
+}
+.settings-modal-dialog .settings-youtube-channel-card:hover {
+  background: var(--set-card-hover);
+  border-color: var(--set-card-border-hover);
+}
+.settings-modal-dialog .settings-youtube-channel-card.active {
+  background: linear-gradient(180deg, rgba(167, 139, 250, 0.12) 0%, rgba(124, 58, 237, 0.06) 100%);
+  border-color: rgba(167, 139, 250, 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(167, 139, 250, 0.2);
+}
+
+/* Collapsible (Change password) */
+.settings-modal-dialog .settings-collapsible {
+  padding: 0;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+.settings-modal-dialog .settings-collapsible-header {
+  padding: 0.85rem 1.1rem;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
+}
+.settings-modal-dialog .settings-collapsible-header:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.settings-modal-dialog .settings-collapsible-header.expanded {
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--set-card-border);
+}
+.settings-modal-dialog .settings-collapsible-content.expanded {
+  padding: 1rem 1.1rem 1.1rem;
+}
+
+/* Danger block */
+.settings-modal-dialog .settings-danger-block {
+  padding: 1rem 1.1rem;
+  margin-bottom: 0.85rem;
+  border-color: rgba(248, 113, 113, 0.18);
+  background: linear-gradient(180deg, rgba(127, 29, 29, 0.08) 0%, rgba(24, 24, 28, 1) 40%);
+}
+.settings-modal-dialog .settings-danger-title {
+  color: #fca5a5;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+}
+.settings-modal-dialog .settings-danger-desc {
+  color: rgba(229, 229, 231, 0.7);
+  margin: 0 0 0.75rem;
+}
+
+/* INPUTS, TEXTAREA, SELECT — consistent glass with violet focus ring */
+.settings-modal-dialog .settings-input,
+.settings-modal-dialog .settings-form input[type='password'],
+.settings-modal-dialog .settings-form input[type='text'],
+.settings-modal-dialog .settings-form input[type='email'],
+.settings-modal-dialog .settings-textarea,
+.settings-modal-dialog .settings-select {
+  width: 100%;
+  max-width: 100%;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.88rem;
+  font-family: inherit;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--set-card-border);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+.settings-modal-dialog .settings-input:focus,
+.settings-modal-dialog .settings-form input:focus,
+.settings-modal-dialog .settings-textarea:focus,
+.settings-modal-dialog .settings-select:focus {
+  outline: none;
+  border-color: rgba(167, 139, 250, 0.45);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 0 2px rgba(139, 92, 246, 0.22);
+}
+.settings-modal-dialog .settings-input::placeholder,
+.settings-modal-dialog .settings-form input::placeholder,
+.settings-modal-dialog .settings-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.36);
+}
+
+/* BUTTONS — unified look with press feedback */
+.settings-modal-dialog .settings-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.1rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: inherit;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 140ms var(--set-press);
+}
+.settings-modal-dialog .settings-btn:not(:disabled):active {
+  transform: scale(0.96);
+}
+
+/* Primary — violet liquid glass (mirrors Pro page CTA) */
+.settings-modal-dialog .settings-btn-primary {
+  color: #fff;
+  background: linear-gradient(
+    180deg,
+    rgba(192, 170, 255, 0.8) 0%,
+    rgba(139, 92, 246, 0.85) 55%,
+    rgba(91, 33, 182, 0.9) 100%
+  );
+  border: 1px solid rgba(221, 214, 254, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 4px 16px rgba(124, 58, 237, 0.42);
+}
+.settings-modal-dialog .settings-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  border-color: rgba(237, 233, 254, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+    0 6px 22px rgba(124, 58, 237, 0.55);
+}
+
+/* Ghost — subtle glass, hover brightens */
+.settings-modal-dialog .settings-btn-ghost {
+  color: #e5e5e7;
+  background:
+    radial-gradient(140% 100% at 50% 110%, rgba(255, 255, 255, 0.07) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+}
+.settings-modal-dialog .settings-btn-ghost:hover:not(:disabled) {
+  color: #fff;
+  background:
+    radial-gradient(140% 100% at 50% 110%, rgba(255, 255, 255, 0.1) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+/* Secondary — same glass family, slightly dimmer */
+.settings-modal-dialog .settings-btn-secondary {
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.settings-modal-dialog .settings-btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+/* Danger — crimson glass */
+.settings-modal-dialog .settings-btn-danger {
+  color: #fecaca;
+  background: linear-gradient(180deg, rgba(248, 113, 113, 0.25) 0%, rgba(127, 29, 29, 0.35) 100%);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 4px 14px rgba(127, 29, 29, 0.3);
+}
+.settings-modal-dialog .settings-btn-danger:hover:not(:disabled) {
+  color: #fff;
+  filter: brightness(1.08);
+  border-color: rgba(248, 113, 113, 0.5);
+}
+
+.settings-modal-dialog .settings-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(0.1);
+}
+
+/* Checkbox pill */
+.settings-modal-dialog .settings-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--set-card-border);
+  border-radius: 10px;
+  color: #e5e5e7;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+.settings-modal-dialog .settings-checkbox-label:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--set-card-border-hover);
+}
+.settings-modal-dialog .settings-checkbox-label input[type='checkbox'] {
+  accent-color: #a78bfa;
+}
+
+/* Messages — success / error toast inside the modal */
+.settings-modal-dialog .settings-message {
+  border-radius: 10px;
+  padding: 0.65rem 0.9rem;
+  margin-bottom: 0.85rem;
+}
+.settings-modal-dialog .settings-message--success {
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.18) 0%, rgba(16, 185, 129, 0.08) 100%);
+  border: 1px solid rgba(110, 231, 183, 0.28);
+  color: #bbf7d0;
+}
+.settings-modal-dialog .settings-message--error {
+  background: linear-gradient(180deg, rgba(248, 113, 113, 0.16) 0%, rgba(127, 29, 29, 0.1) 100%);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  color: #fecaca;
+}
+
+/* Profile grid (Personalization summary cards) */
+.settings-modal-dialog .settings-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.settings-modal-dialog .settings-profile-item {
+  background: var(--set-card);
+  border: 1px solid var(--set-card-border);
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+}
+.settings-modal-dialog .settings-profile-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 0.3rem;
+}
+.settings-modal-dialog .settings-profile-value {
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MOBILE — complete override block. Placed at end of file so every rule
+   above (desktop chrome, dashboard-card parity, etc.) is overridden.
+   Layout:
+     ┌─────────────────────────────┐
+     │ header  (title + close)     │
+     ├─────────────────────────────┤
+     │ tabbar  (SegmentedTabs)     │   horizontal bar, edge-to-edge divider
+     ├─────────────────────────────┤
+     │ content (active panel)      │
+     │   …panels…                  │
+     │   footer → red Log-out pill │
+     └─────────────────────────────┘
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 720px) {
+  /* Dialog takes most of the viewport */
+  .settings-modal-dialog {
+    width: calc(100vw - 1.5rem);
+    max-width: calc(100vw - 1.5rem);
+    height: calc(100dvh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    min-height: 0;
+    border-radius: 18px;
+  }
+
+  /* Outer body: column (header → tabbar → inner body) */
+  .settings-modal-dialog > .settings-modal-body {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  /* Header */
+  .settings-modal-dialog .settings-modal-header {
+    padding: 0.85rem 1rem 0.7rem;
+    flex-shrink: 0;
+  }
+
+  /* ─── TOP TABBAR ─── */
+  .settings-modal-dialog .settings-modal-tabbar {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    padding: 0.55rem 0.75rem;
+    background: transparent;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  /* SegmentedTabs fills the strip and scrolls horizontally if it overflows */
+  .settings-modal-dialog .settings-modal-tabbar .seg-tabs {
+    display: flex;
+    flex: 1 1 auto;
     width: 100%;
-    height: 90vh;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
   }
-  .settings-modal-sidebar {
-    width: 160px;
-    padding: 0.75rem 0.35rem;
+  .settings-modal-dialog .settings-modal-tabbar .seg-tabs::-webkit-scrollbar {
+    display: none;
   }
-  .settings-overview-cards {
+  .settings-modal-dialog .settings-modal-tabbar .seg-tabs-list {
+    flex: 0 0 auto;
+    min-width: 100%;
+  }
+
+  /* ─── INNER BODY ─── */
+  /* Inner body is a flex row; hide the sidebar and let content take it all */
+  .settings-modal-dialog > .settings-modal-body > .settings-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    overflow: hidden;
+  }
+  .settings-modal-dialog .settings-modal-sidebar {
+    display: none;
+  }
+
+  /* ─── CONTENT (SCROLLABLE) ─── */
+  .settings-modal-dialog .settings-modal-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 1rem 1rem 1.5rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* ─── IN-CONTENT FOOTER WITH LOGOUT PILL ─── */
+  .settings-modal-dialog .settings-modal-mobile-footer {
+    display: flex;
+    justify-content: stretch;
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  /* Collapse multi-column grids on phones */
+  .settings-overview-cards,
+  .settings-form-row-2,
+  .settings-form-row-3 {
     grid-template-columns: 1fr;
   }
   .settings-script-voice-option {
@@ -1637,8 +2388,28 @@ body.theme-light .settings-theme-option.active {
     justify-content: flex-end;
     align-items: center;
   }
-  .settings-form-row-2,
-  .settings-form-row-3 {
-    grid-template-columns: 1fr;
+}
+
+/* Extra-small phones: tighten paddings further */
+@media (max-width: 420px) {
+  .settings-modal-dialog {
+    width: calc(100vw - 0.75rem);
+    max-width: calc(100vw - 0.75rem);
+    border-radius: 14px;
+  }
+  .settings-modal-dialog .settings-modal-header {
+    padding: 0.75rem 0.85rem 0.6rem;
+  }
+  .settings-modal-dialog .settings-modal-title {
+    font-size: 1rem;
+  }
+  .settings-modal-dialog .settings-modal-tabbar {
+    padding: 0.5rem 0.6rem;
+  }
+  .settings-modal-dialog .settings-modal-content {
+    padding: 0.85rem 0.85rem 1.25rem;
+  }
+  .settings-modal-dialog .settings-help-faq-item {
+    padding: 0.75rem 0.85rem;
   }
 }

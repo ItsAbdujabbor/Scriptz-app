@@ -8,11 +8,102 @@ import { useYoutubeVideoOptimization } from '../queries/youtube/optimizationQuer
 import { videoThumbnailsApi } from '../api/videoThumbnails'
 import { PersonaSelector } from '../components/PersonaSelector'
 import { StyleSelector } from '../components/StyleSelector'
-import { CostHint } from '../components/CostHint'
+import { useCostOf } from '../queries/billing/creditsQueries'
+import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
+import {
+  useModelTierStateQuery,
+  useSetModelTierMutation,
+} from '../queries/modelTier/modelTierQueries'
 // ABTestPanel removed from Video Optimize — A/B Testing has its own top-level screen.
 import { queryKeys } from '../lib/query/queryKeys'
 import { invalidateCredits } from '../queries/billing/creditsQueries'
 import './VideoOptimizeModal.css'
+
+function IconZapFilled() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M13 2 3 14h7l-1 8 11-13h-8l1-7z" />
+    </svg>
+  )
+}
+
+function IconArrowUp() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.1"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m12 19 0-14" />
+      <path d="m5 12 7-7 7 7" />
+    </svg>
+  )
+}
+
+/**
+ * CreditBadge — inline zap + number chip, same visual as ThumbSendPill cost.
+ * Use inside buttons to show how many credits an action costs.
+ */
+function CreditBadge({ featureKey, count = 1 }) {
+  const { total } = useCostOf(featureKey, count)
+  const { isSubscribed } = usePlanEntitlements()
+  if (!isSubscribed || !total) return null
+  return (
+    <span className="vo-credit-badge" aria-hidden="true">
+      <span className="vo-credit-badge-zap">
+        <IconZapFilled />
+      </span>
+      <span className="vo-credit-badge-num">{total}</span>
+    </span>
+  )
+}
+
+/**
+ * VOSendPill — pill-shaped send button with embedded credit cost (zap + number)
+ * followed by the send arrow. Matches the ThumbSendPill from ThumbnailGenerator.
+ */
+function VOSendPill({
+  featureKey = null,
+  count = 1,
+  disabled = false,
+  loading = false,
+  ariaLabel,
+  onClick,
+}) {
+  const { total } = useCostOf(featureKey || 'thumbnail_generate', count)
+  const { isSubscribed } = usePlanEntitlements()
+  const showCost = Boolean(featureKey) && isSubscribed && total > 0
+  return (
+    <button
+      type="button"
+      className={`vo-send-pill ${loading ? 'vo-send-pill--loading' : ''}`}
+      disabled={disabled}
+      onClick={onClick}
+      aria-label={ariaLabel}
+    >
+      {showCost && !loading && (
+        <span className="vo-send-pill-cost" aria-hidden="true">
+          <span className="vo-send-pill-zap">
+            <IconZapFilled />
+          </span>
+          <span className="vo-send-pill-num">{total}</span>
+        </span>
+      )}
+      <span className="vo-send-pill-icon">
+        {loading ? (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="6" width="12" height="12" rx="2" />
+          </svg>
+        ) : (
+          <IconArrowUp />
+        )}
+      </span>
+    </button>
+  )
+}
 
 function BatchCirclePicker({ value, onChange, disabled }) {
   const [open, setOpen] = useState(false)
@@ -65,6 +156,173 @@ const TABS = [
   { id: 'seo', label: 'SEO' },
 ]
 
+const TIER_LABELS = { 'SRX-1': 'Lite', 'SRX-2': 'Pro', 'SRX-3': 'Ultra' }
+const TIER_COLORS = {
+  'SRX-1': {
+    color: '#a3e635',
+    bg: 'rgba(163,230,53,0.13)',
+    border: 'rgba(163,230,53,0.25)',
+    activeBg: 'rgba(163,230,53,0.2)',
+    activeBorder: 'rgba(163,230,53,0.4)',
+  },
+  'SRX-2': {
+    color: '#c4b5fd',
+    bg: 'rgba(167,139,250,0.13)',
+    border: 'rgba(167,139,250,0.25)',
+    activeBg: 'rgba(167,139,250,0.22)',
+    activeBorder: 'rgba(196,181,253,0.45)',
+  },
+  'SRX-3': {
+    color: '#fbbf24',
+    bg: 'rgba(251,191,36,0.13)',
+    border: 'rgba(251,191,36,0.25)',
+    activeBg: 'rgba(251,191,36,0.2)',
+    activeBorder: 'rgba(251,191,36,0.4)',
+  },
+}
+
+function VOModelDropdown({ tierOptions, currentTier, onPickTier, isPending }) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    const onClick = (e) => {
+      if (!wrapRef.current?.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onClick)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onClick)
+    }
+  }, [open])
+
+  const activeLabel = TIER_LABELS[currentTier] || 'Lite'
+  const activeColors = TIER_COLORS[currentTier] || TIER_COLORS['SRX-1']
+
+  return (
+    <div className="thumb-model-dropdown vo-model-dropdown" ref={wrapRef}>
+      <button
+        type="button"
+        className={`thumb-model-trigger ${open ? 'thumb-model-trigger--open' : ''}`}
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+      >
+        <span className="thumb-model-trigger-code">{currentTier}</span>
+        <span
+          className="thumb-model-trigger-tag"
+          style={{
+            background: activeColors.activeBg,
+            borderColor: activeColors.activeBorder,
+            color: activeColors.color,
+          }}
+        >
+          {activeLabel}
+        </span>
+        <svg
+          className="thumb-model-trigger-chevron"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="thumb-model-menu" role="listbox" aria-label="Select AI model">
+          <div className="thumb-model-menu-header">AI Model</div>
+          {tierOptions.map((t) => {
+            const isActive = t.code === currentTier
+            const isLocked = !!t.locked
+            const label = TIER_LABELS[t.code] || ''
+            const colors = TIER_COLORS[t.code] || TIER_COLORS['SRX-1']
+            return (
+              <button
+                key={t.code}
+                type="button"
+                role="option"
+                aria-selected={isActive}
+                className={[
+                  'thumb-model-option',
+                  isActive ? 'thumb-model-option--active' : '',
+                  isLocked ? 'thumb-model-option--locked' : '',
+                ]
+                  .join(' ')
+                  .trim()}
+                onClick={() => {
+                  if (isLocked) {
+                    setOpen(false)
+                    window.location.hash = 'pro'
+                  } else {
+                    onPickTier(t.code)
+                    setOpen(false)
+                  }
+                }}
+                disabled={isPending}
+              >
+                <span className="thumb-model-option-left">
+                  <span className="thumb-model-option-code">{t.code}</span>
+                  <span
+                    className="thumb-model-option-tag"
+                    style={{
+                      background: isActive ? colors.activeBg : colors.bg,
+                      borderColor: isActive ? colors.activeBorder : colors.border,
+                      color: colors.color,
+                    }}
+                  >
+                    {label}
+                  </span>
+                </span>
+                {isActive && (
+                  <svg
+                    className="thumb-model-option-check"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <path d="m5 13 4 4L19 7" />
+                  </svg>
+                )}
+                {isLocked && (
+                  <span className="thumb-model-option-upgrade">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <rect x="3" y="11" width="18" height="11" rx="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                    Upgrade
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const SCORE_TIERS = [
   {
     id: 'great',
@@ -103,6 +361,28 @@ const SCORE_TIERS = [
 function getScoreTier(score) {
   const n = Math.max(0, Math.min(100, Math.round(score)))
   return SCORE_TIERS.find((t) => n >= t.min && n <= t.max) || SCORE_TIERS[3]
+}
+
+function VOModelDropdownWired() {
+  const { data: tierState } = useModelTierStateQuery()
+  const setTierMutation = useSetModelTierMutation()
+  const currentTier = tierState?.selected || 'SRX-1'
+  const tierOptions =
+    tierState?.tiers && tierState.tiers.length
+      ? tierState.tiers
+      : [
+          { code: 'SRX-1', label: 'Lite', locked: false },
+          { code: 'SRX-2', label: 'Pro', locked: false },
+          { code: 'SRX-3', label: 'Ultra', locked: false },
+        ]
+  return (
+    <VOModelDropdown
+      tierOptions={tierOptions}
+      currentTier={currentTier}
+      onPickTier={(code) => setTierMutation.mutate(code)}
+      isPending={setTierMutation.isPending}
+    />
+  )
 }
 
 export function VideoOptimizeModal({
@@ -163,7 +443,6 @@ export function VideoOptimizeModal({
   const recsAbortRef = useRef(null)
   const refineAbortRef = useRef(null)
   const tagsAbortRef = useRef(null)
-  const thumbAbortRef = useRef(null)
   const DESC_MAX = 5000
   const TAGS_MAX_CHARS = 500
 
@@ -452,23 +731,6 @@ export function VideoOptimizeModal({
     )
   }
 
-  const handleRecreateDescription = () => {
-    if (!video?.id || !titleInput?.trim()) return
-    const instruction = `Write a completely new YouTube description optimized for the YouTube algorithm. Title: "${titleInput.trim()}". Structure it exactly like this: 1) FIRST 2 LINES: Hook with primary keyword + curiosity gap (this shows in search results), 2) VALUE SUMMARY: 2-3 sentences explaining what viewers will learn/gain, 3) KEY POINTS: Bullet points or short paragraphs with related keywords, 4) CTA SECTION: Subscribe, like, comment prompt with a specific question, 5) LINKS/SOCIAL: Placeholder for channel links. Use natural keyword density — include the primary topic keyword 3-4 times and related long-tail phrases. Total length: 1000-1500 characters.`
-    const baseDescription = descriptionInput?.trim() || `Video about: ${titleInput.trim()}`
-    setRefineLoading(true)
-    refineDescriptionMutation
-      .mutateAsync({ videoId: video.id, description: baseDescription, instruction })
-      .then((res) => {
-        if (res?.description != null) {
-          setDescriptionInput(res.description)
-          showSeoNotice('Description recreated.')
-        }
-      })
-      .catch(() => showSeoNotice('Could not recreate. Try again.', 'error'))
-      .finally(() => setRefineLoading(false))
-  }
-
   const handleCopyDescription = async () => {
     if (!descriptionInput?.trim()) return
     try {
@@ -538,21 +800,17 @@ export function VideoOptimizeModal({
   }, [open, videoId, getValidAccessToken])
 
   const handleGenerateThumbnails = async () => {
-    if (thumbnailLoading) {
-      thumbAbortRef.current?.abort()
-      setThumbnailLoading(false)
-      return
-    }
+    if (thumbnailLoading) return
     const url = getYoutubeUrl()
     const userPrompt = thumbnailPrompt.trim()
     const contextPrompt = `Create a better, more click-worthy version of the current thumbnail for this video. Keep the same style and subject but make it more eye-catching.`
     const prompt = userPrompt || contextPrompt
     if (!url && !prompt) return
-    const ac = new AbortController()
-    thumbAbortRef.current = ac
     const message = url ? `${url} ${prompt}` : prompt
     setThumbnailLoading(true)
     setThumbnailPrompt('')
+    // Credits are charged immediately on the backend — no refund on cancel.
+    invalidateCredits(queryClient)
     try {
       const token = await getValidAccessToken()
       if (!token) throw new Error('Not authenticated')
@@ -564,7 +822,6 @@ export function VideoOptimizeModal({
         persona_id: undefined,
         style_id: undefined,
       })
-      if (ac.signal.aborted) return
       const thumbs = res?.thumbnails || []
       setThumbnailsByVideo((prev) => ({
         ...prev,
@@ -573,8 +830,7 @@ export function VideoOptimizeModal({
     } catch (_) {
       // keep existing thumbnails on error
     } finally {
-      if (!ac.signal.aborted) setThumbnailLoading(false)
-      // Credits were debited server-side (or refunded on failure) — refresh badge.
+      setThumbnailLoading(false)
       invalidateCredits(queryClient)
     }
   }
@@ -953,6 +1209,7 @@ export function VideoOptimizeModal({
               variant="modal"
               className="video-opt-tabs"
             />
+            {activeTab === 'thumbnail' && <VOModelDropdownWired />}
           </div>
 
           <div className="video-opt-screen-body">
@@ -1059,7 +1316,7 @@ export function VideoOptimizeModal({
                                     ✦
                                   </span>
                                   Score title
-                                  <CostHint featureKey="title_score" />
+                                  <CreditBadge featureKey="title_score" />
                                 </>
                               )}
                             </button>
@@ -1129,7 +1386,7 @@ export function VideoOptimizeModal({
                                 : titleRecommendations?.titles?.length
                                   ? 'Fresh ideas'
                                   : 'Generate ideas'}
-                              {!titleRecsLoading && <CostHint featureKey="title_generate_3" />}
+                              {!titleRecsLoading && <CreditBadge featureKey="title_generate_3" />}
                             </button>
                           )}
                         </div>
@@ -1224,7 +1481,7 @@ export function VideoOptimizeModal({
                           type="button"
                           className={`video-opt-thumb-card video-opt-thumb-card--action ${thumbnailLoading ? 'video-opt-thumb-card--action-active' : ''}`}
                           onClick={handleGenerateThumbnails}
-                          disabled={!thumbnailLoading && !video?.id}
+                          disabled={thumbnailLoading || !video?.id}
                         >
                           {thumbnailLoading ? (
                             <span className="video-opt-btn-spinner" aria-hidden />
@@ -1243,9 +1500,11 @@ export function VideoOptimizeModal({
                             </svg>
                           )}
                           <span className="video-opt-thumb-card-action-label">
-                            {thumbnailLoading ? 'Stop' : 'Quick generate'}
+                            {thumbnailLoading ? 'Generating…' : 'Quick generate'}
                           </span>
-                          {!thumbnailLoading && <CostHint featureKey="video_thumbnail_generate" />}
+                          {!thumbnailLoading && (
+                            <CreditBadge featureKey="video_thumbnail_generate" />
+                          )}
                         </button>
 
                         {/* Start from frame */}
@@ -1564,19 +1823,12 @@ export function VideoOptimizeModal({
                             <>
                               <button
                                 type="button"
-                                className="video-opt-details-refine-pill video-opt-details-refine-pill--primary"
-                                onClick={handleRecreateDescription}
-                                disabled={!video?.id || !titleInput?.trim()}
-                              >
-                                Recreate from scratch
-                              </button>
-                              <button
-                                type="button"
                                 className="video-opt-details-refine-pill"
                                 onClick={handleRegenerateDescription}
                                 disabled={!descriptionInput?.trim()}
                               >
                                 Regenerate
+                                <CreditBadge featureKey="description_rewrite" />
                               </button>
                               <div
                                 className="video-opt-details-refine-dropdown-wrap"
@@ -1590,6 +1842,7 @@ export function VideoOptimizeModal({
                                   aria-haspopup="true"
                                 >
                                   Refine
+                                  <CreditBadge featureKey="description_rewrite" />
                                   <svg
                                     width="12"
                                     height="12"
@@ -1643,20 +1896,26 @@ export function VideoOptimizeModal({
                               {tagsList.length ? tagsList.map((t) => t.tag).join(',').length : 0}/
                               {TAGS_MAX_CHARS}
                             </span>
-                            {(!tagsGenerated || tagsList.length === 0) && !tagsLoading ? (
+                            {tagsLoading ? (
+                              <button
+                                type="button"
+                                className="video-opt-details-generate-tags-btn video-opt-details-generate-tags-btn--stop"
+                                onClick={handleGenerateTags}
+                              >
+                                <span className="video-opt-btn-spinner" aria-hidden />
+                                Stop
+                              </button>
+                            ) : !tagsGenerated || tagsList.length === 0 ? (
                               <button
                                 type="button"
                                 className="video-opt-details-generate-tags-btn"
                                 onClick={handleGenerateTags}
                                 disabled={!video?.id}
                               >
-                                {tagsLoading ? (
-                                  <span className="video-opt-btn-spinner" aria-hidden />
-                                ) : null}
                                 Generate
-                                <CostHint featureKey="tag_generate" />
+                                <CreditBadge featureKey="tag_generate" />
                               </button>
-                            ) : tagsGenerated && tagsList.length > 0 && !tagsLoading ? (
+                            ) : (
                               <button
                                 type="button"
                                 className="video-opt-details-generate-tags-btn"
@@ -1664,9 +1923,9 @@ export function VideoOptimizeModal({
                                 disabled={!video?.id}
                               >
                                 Regenerate
-                                <CostHint featureKey="tag_generate" />
+                                <CreditBadge featureKey="tag_generate" />
                               </button>
-                            ) : null}
+                            )}
                           </span>
                         </div>
                         <div className="video-opt-details-tags-container">
@@ -1809,32 +2068,14 @@ export function VideoOptimizeModal({
                     onChange={setThumbBatchCount}
                     disabled={thumbnailLoading}
                   />
-                  <button
-                    type="button"
-                    className={`video-opt-float-send ${thumbnailLoading ? 'video-opt-float-send--loading' : ''}`}
+                  <VOSendPill
+                    featureKey="video_thumbnail_generate"
+                    count={thumbBatchCount}
+                    loading={thumbnailLoading}
+                    disabled={thumbnailLoading || !videoId}
                     onClick={handleGenerateThumbnails}
-                    disabled={!thumbnailLoading && !videoId}
-                  >
-                    {thumbnailLoading ? (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                        <rect x="6" y="6" width="12" height="12" rx="2" />
-                      </svg>
-                    ) : (
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M12 19V5" />
-                        <path d="M5 12l7-7 7 7" />
-                      </svg>
-                    )}
-                  </button>
+                    ariaLabel="Generate thumbnails"
+                  />
                 </div>
               </div>
             </div>
@@ -1861,32 +2102,13 @@ export function VideoOptimizeModal({
                   rows={1}
                 />
                 <div className="video-opt-float-actions">
-                  <button
-                    type="button"
-                    className={`video-opt-float-send ${refineLoading ? 'video-opt-float-send--loading' : ''}`}
+                  <VOSendPill
+                    featureKey="description_rewrite"
+                    loading={refineLoading}
+                    disabled={!detailsCommand.trim() && !refineLoading}
                     onClick={handleDetailsCommandSubmit}
-                    disabled={!detailsCommand.trim() || refineLoading}
-                  >
-                    {refineLoading ? (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                        <rect x="6" y="6" width="12" height="12" rx="2" />
-                      </svg>
-                    ) : (
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M12 19V5" />
-                        <path d="M5 12l7-7 7 7" />
-                      </svg>
-                    )}
-                  </button>
+                    ariaLabel="Refine description"
+                  />
                 </div>
               </div>
             </div>

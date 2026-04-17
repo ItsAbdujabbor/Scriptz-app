@@ -1,8 +1,8 @@
-import { useEffect } from 'react'
+import { Dialog } from './Dialog'
 
 /**
- * Centered confirmation dialog with backdrop blur.
- * Handles Escape key and backdrop click to close.
+ * Small confirmation dialog. Built on the unified <Dialog> chrome —
+ * only the title / description / action buttons live here.
  */
 export default function ConfirmDialog({
   open,
@@ -14,26 +14,15 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }) {
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e) => {
-      if (e.key === 'Escape') onCancel?.()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open, onCancel])
-
-  if (!open) return null
-
   return (
-    <div className="confirm-dialog-backdrop" onClick={onCancel} role="presentation">
-      <div
-        className="confirm-dialog"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
-      >
+    <Dialog
+      open={open}
+      onClose={onCancel}
+      size="sm"
+      ariaLabelledBy="confirm-dialog-title"
+      className="confirm-dialog"
+    >
+      <div className="confirm-dialog-body">
         <h3 id="confirm-dialog-title" className="confirm-dialog__title">
           {title}
         </h3>
@@ -55,6 +44,6 @@ export default function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

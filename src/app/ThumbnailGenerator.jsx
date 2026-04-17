@@ -10,20 +10,26 @@ import {
   useThumbnailConversationQuery,
   useThumbnailChatMutation,
   useCreateThumbnailConversationMutation,
+  useThumbnailRatingQuery,
 } from '../queries/thumbnails/thumbnailQueries'
 import { useThumbnailChatActivityStore } from '../stores/thumbnailChatActivityStore'
 import { EditThumbnailDialog } from '../components/EditThumbnailDialog'
 import { TabBar } from '../components/TabBar'
-import { Dropdown } from '../components/ui'
+import { Dropdown, SegmentedTabs } from '../components/ui'
 import { ChatHistoryLoading } from '../components/ChatHistoryLoading'
 import { AnimatedComposerHint } from '../components/AnimatedComposerHint'
 import { stripPrefillFromHash } from '../lib/dashboardActionPayload'
+import { useFloatingPosition } from '../lib/useFloatingPosition'
 import { extractYoutubeUrl } from '../lib/youtubeUrl'
 import { renderMessageContent } from '../lib/messageRender.jsx'
 import { useThreadScrollToBottom } from '../lib/useThreadScrollToBottom'
 import { CostHint } from '../components/CostHint'
 import { useCostOf } from '../queries/billing/creditsQueries'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
+import {
+  useModelTierStateQuery,
+  useSetModelTierMutation,
+} from '../queries/modelTier/modelTierQueries'
 // import './ScriptGenerator.css' // next update — ScriptGenerator moved to src/next-update-ideas
 import './ThumbnailGenerator.css'
 
@@ -91,6 +97,7 @@ function ThumbSendPill({
   disabled = false,
   ariaLabel,
   icon,
+  label,
   type = 'submit',
   ...buttonProps
 }) {
@@ -101,7 +108,13 @@ function ThumbSendPill({
     <button
       type={type}
       {...buttonProps}
-      className={['thumb-send-pill', buttonProps.className].filter(Boolean).join(' ')}
+      className={[
+        'thumb-send-pill',
+        label ? 'thumb-send-pill--with-label' : null,
+        buttonProps.className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
       disabled={disabled}
       aria-label={ariaLabel}
     >
@@ -113,6 +126,7 @@ function ThumbSendPill({
           <span className="thumb-send-pill-num">{total}</span>
         </span>
       )}
+      {label ? <span className="thumb-send-pill-label">{label}</span> : null}
       <span className="thumb-send-pill-icon">{icon ?? <IconArrowUp />}</span>
     </button>
   )
@@ -184,7 +198,7 @@ function parseThumbModeFromHash() {
   const hash = window.location.hash || ''
   const normalized = hash.replace(/^#/, '').replace(/^\/+/, '')
   const [routePart, search = ''] = normalized.split('?')
-  if (routePart !== 'coach/thumbnails') return 'prompt'
+  if (routePart !== 'thumbnails') return 'prompt'
   const params = new URLSearchParams(search)
   const v = params.get('view')
   if (v === 'recreate' || v === 'analyze' || v === 'edit') return v
@@ -198,11 +212,57 @@ function pushThumbModeHash(conversationId, mode) {
   if (conversationId != null) params.set('id', String(conversationId))
   if (mode !== 'prompt') params.set('view', mode)
   const qs = params.toString()
-  const path = qs ? `coach/thumbnails?${qs}` : 'coach/thumbnails'
+  const path = qs ? `thumbnails?${qs}` : 'thumbnails'
   const nextHash = `#${path}`
   if (window.location.hash !== nextHash) {
     window.location.hash = nextHash
   }
+}
+
+// iOS-style cubic-bezier for layout/size transitions and screen fade-ins.
+// (0.32, 0.72, 0, 1) is the standard approximation Apple uses across iOS.
+const IOS_EASE = [0.32, 0.72, 0, 1]
+const IOS_RESIZE_TRANSITION = { duration: 0.42, ease: IOS_EASE }
+
+/**
+ * SmoothHeight — wraps children in a container that animates its height
+ * with a measured value. Unlike framer-motion's `layout="size"` (which
+ * scales via transform and looks "snappy" on small height deltas), this
+ * animates the actual CSS height so the resize feels equally smooth
+ * whether the delta is 20px or 200px (Link↔Upload vs mode swaps).
+ *
+ * The inner content sits in a measured wrapper; a ResizeObserver tracks
+ * its scrollHeight and feeds the value to a framer-motion `animate`.
+ * Re-measuring to the same value is a no-op so the wrapper does not
+ * animate on idle re-renders.
+ */
+function SmoothHeight({ children, className = '' }) {
+  const innerRef = useRef(null)
+  const [height, setHeight] = useState('auto')
+
+  useLayoutEffect(() => {
+    const el = innerRef.current
+    if (!el) return
+    setHeight(el.scrollHeight)
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => {
+      const h = el.scrollHeight
+      setHeight((prev) => (prev === h ? prev : h))
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  return (
+    <motion.div
+      className={className}
+      animate={{ height }}
+      transition={IOS_RESIZE_TRANSITION}
+      style={{ overflow: 'hidden' }}
+    >
+      <div ref={innerRef}>{children}</div>
+    </motion.div>
+  )
 }
 
 const THUMB_GEN_SUB_TABS = [
@@ -282,20 +342,33 @@ const THUMB_GEN_SUB_TABS = [
 function ThumbBatchCirclePicker({ value, onChange, disabled }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
+  const triggerRef = useRef(null)
+  const { popoverRef, style: popoverStyle } = useFloatingPosition({
+    triggerRef,
+    open,
+    placement: 'top-center',
+    offset: 10,
+  })
 
   useEffect(() => {
     const onDoc = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+      // Popover is portaled to <body>, so the trigger wrapper `ref` doesn't
+      // contain it. Treat clicks inside either the trigger or the popover
+      // as "inside" so they don't dismiss.
+      const inTrigger = ref.current?.contains(e.target)
+      const inPopover = popoverRef.current?.contains(e.target)
+      if (!inTrigger && !inPopover) setOpen(false)
     }
     if (open) {
       document.addEventListener('click', onDoc)
       return () => document.removeEventListener('click', onDoc)
     }
-  }, [open])
+  }, [open, popoverRef])
 
   return (
     <div ref={ref} className={`thumb-batch-circle-picker ${disabled ? 'is-disabled' : ''}`}>
       <button
+        ref={triggerRef}
         type="button"
         className="thumb-batch-circle-trigger"
         disabled={disabled}
@@ -309,29 +382,38 @@ function ThumbBatchCirclePicker({ value, onChange, disabled }) {
           {value}×
         </span>
       </button>
-      {open && !disabled && (
-        <div className="thumb-batch-circle-popover" role="listbox" aria-label="Concept count">
-          <p className="thumb-batch-circle-popover-title">Concepts per run</p>
-          {[1, 2, 3, 4].map((n) => (
-            <button
-              key={n}
-              type="button"
-              role="option"
-              className={`thumb-batch-circle-option ${n === value ? 'is-active' : ''}`}
-              aria-selected={n === value}
-              onClick={() => {
-                onChange(n)
-                setOpen(false)
-              }}
-            >
-              <span className="thumb-batch-circle-option-n">{n}×</span>
-              <span className="thumb-batch-circle-option-hint">
-                {n === 1 ? 'Single idea' : `${n} variations`}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
+      {open &&
+        !disabled &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            className="thumb-batch-circle-popover thumb-batch-circle-popover--floating"
+            role="listbox"
+            aria-label="Concept count"
+            style={popoverStyle}
+          >
+            <p className="thumb-batch-circle-popover-title">Concepts per run</p>
+            {[1, 2, 3, 4].map((n) => (
+              <button
+                key={n}
+                type="button"
+                role="option"
+                className={`thumb-batch-circle-option ${n === value ? 'is-active' : ''}`}
+                aria-selected={n === value}
+                onClick={() => {
+                  onChange(n)
+                  setOpen(false)
+                }}
+              >
+                <span className="thumb-batch-circle-option-n">{n}×</span>
+                <span className="thumb-batch-circle-option-hint">
+                  {n === 1 ? 'Single idea' : `${n} variations`}
+                </span>
+              </button>
+            ))}
+          </div>,
+          document.body
+        )}
     </div>
   )
 }
@@ -533,16 +615,6 @@ function buildAnalyzeSummary(rating, videoTitle) {
   return bits.join(' ')
 }
 
-async function pollJobUntilDone(thumbnailsApi, token, jobId, intervalMs = 2000, maxAttempts = 60) {
-  for (let i = 0; i < maxAttempts; i++) {
-    const job = await thumbnailsApi.getJob(token, jobId)
-    if (job?.status === 'done') return job
-    if (job?.status === 'failed') throw new Error(job?.error || 'Improvement failed')
-    await new Promise((r) => setTimeout(r, intervalMs))
-  }
-  throw new Error('Improvement timed out')
-}
-
 function getScoreTier(score) {
   if (score == null) return null
   const n = Number(score)
@@ -551,131 +623,62 @@ function getScoreTier(score) {
   return 'low'
 }
 
-function ThumbnailBatchCard({
-  t,
-  index,
-  label,
-  userRequest,
-  msgId,
-  onReplaceThumbnail,
-  onRegenerate,
-  onViewImage,
-  canRegenerate = true,
-}) {
-  const [score, setScore] = useState(null)
-  const [ratingId, setRatingId] = useState(null)
-  const [loadingScore, setLoadingScore] = useState(false)
-  const [scoreError, setScoreError] = useState(null)
-  const [fixing, setFixing] = useState(false)
-  const [showEditDialog, setShowEditDialog] = useState(false)
-  const ratedUrlRef = useRef(null)
-
-  const fetchScore = useCallback(async () => {
-    if (!t?.image_url) return
-    setScoreError(null)
-    setLoadingScore(true)
-    try {
-      const token = await getAccessTokenOrNull()
-      if (!token) {
-        setScoreError('Sign in to score')
-        return
-      }
-      const base64 = extractBase64FromDataUrl(t.image_url)
-      const payload = base64
-        ? { thumbnail_image_base64: base64 }
-        : { thumbnail_image_url: t.image_url }
-      const res = await thumbnailsApi.rate(token, payload)
-      setScore(Math.round(res?.overall_score ?? 0))
-      setRatingId(res?.rating_id ?? null)
-      ratedUrlRef.current = t.image_url
-    } catch (err) {
-      setScoreError(err?.message || 'Score failed')
-      setScore(null)
-      setRatingId(null)
-    } finally {
-      setLoadingScore(false)
-    }
-  }, [t?.image_url])
-
-  const retryScore = useCallback(() => {
-    setScoreError(null)
-    ratedUrlRef.current = null
-    fetchScore()
-  }, [fetchScore])
-
-  useEffect(() => {
-    if (!t?.image_url) return
-    if (ratedUrlRef.current === t.image_url) return
-    fetchScore()
-  }, [t?.image_url, fetchScore])
-
-  const handleOneClickFix = async () => {
-    if (!ratingId && !t?.image_url) return
-    setFixing(true)
-    try {
-      const token = await getAccessTokenOrNull()
-      if (!token) throw new Error('Not authenticated')
-      let rid = ratingId
-      if (!rid) {
-        const base64 = extractBase64FromDataUrl(t.image_url)
-        const payload = base64
-          ? { thumbnail_image_base64: base64 }
-          : { thumbnail_image_url: t.image_url }
-        const rateRes = await thumbnailsApi.rate(token, payload)
-        rid = rateRes?.rating_id
-        setScore(Math.round(rateRes?.overall_score ?? 0))
-        setRatingId(rid)
-      }
-      if (!rid) throw new Error('Could not rate thumbnail')
-      const improveRes = await thumbnailsApi.improve(token, { rating_id: rid })
-      const job = await pollJobUntilDone(thumbnailsApi, token, improveRes?.job_id)
-      const result = job?.result_json
-      const improved = result?.improved_thumbnail || result?.improved
-      const imageUrl = improved?.image_url || result?.image_url
-      if (imageUrl) {
-        ratedUrlRef.current = imageUrl
-        const newRating = result?.new_rating
-        if (newRating?.overall_score != null) setScore(Math.round(newRating.overall_score))
-        onReplaceThumbnail?.(msgId, index, {
-          ...t,
-          image_url: imageUrl,
-          title: label,
-        })
-      }
-    } catch (err) {
-      console.error('One-click fix failed', err)
-    } finally {
-      setFixing(false)
-    }
+/**
+ * Small tier-appropriate icon shown left of the score number. Uses a clean
+ * stroke-style svg (matches the rest of the app's lucide-like iconography).
+ *   high   → upward trend arrow
+ *   medium → horizontal dash
+ *   low    → downward trend arrow
+ */
+function ScoreTierIcon({ tier }) {
+  const common = {
+    width: 14,
+    height: 14,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2.4,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    'aria-hidden': true,
   }
-
-  const handleDownload = () => {
-    if (!t?.image_url) return
-    const a = document.createElement('a')
-    a.href = t.image_url
-    a.download = `thumbnail-${label.replace(/\s+/g, '-')}.png`
-    a.target = '_blank'
-    a.rel = 'noopener noreferrer'
-    a.click()
+  if (tier === 'high') {
+    return (
+      <svg {...common}>
+        <polyline points="3 17 10 10 14 14 21 7" />
+        <polyline points="14 7 21 7 21 14" />
+      </svg>
+    )
   }
-
-  const handleRegenerate = () => {
-    onRegenerate?.(userRequest)
+  if (tier === 'low') {
+    return (
+      <svg {...common}>
+        <polyline points="3 7 10 14 14 10 21 17" />
+        <polyline points="14 17 21 17 21 10" />
+      </svg>
+    )
   }
-
-  const handleEditDialogApply = useCallback(
-    (newImageUrl) => {
-      onReplaceThumbnail?.(msgId, index, {
-        ...t,
-        image_url: newImageUrl,
-        title: label,
-      })
-      ratedUrlRef.current = newImageUrl
-      setScore(null)
-      setRatingId(null)
-    },
-    [onReplaceThumbnail, msgId, index, t, label]
+  // medium / default
+  return (
+    <svg {...common}>
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
   )
+}
+
+function ThumbnailBatchCard({ t, index, label, onViewImage, onEditImage }) {
+  // Rating is cached per-image in React Query (staleTime: Infinity) — a
+  // thumbnail is scored exactly once per session no matter how many times
+  // the card mounts or the user navigates away and back. Re-rating is
+  // opt-in via `refetch()` from the error-state retry button.
+  const ratingQuery = useThumbnailRatingQuery(t?.image_url)
+  const score =
+    ratingQuery.data?.overall_score != null ? Math.round(ratingQuery.data.overall_score) : null
+  const loadingScore = ratingQuery.isPending && !!t?.image_url
+  const scoreError = ratingQuery.isError ? ratingQuery.error?.message || 'Score failed' : null
+  const retryScore = useCallback(() => {
+    ratingQuery.refetch()
+  }, [ratingQuery])
 
   const scoreTier = scoreError
     ? 'error'
@@ -736,74 +739,47 @@ function ThumbnailBatchCard({
                 </>
               ) : (
                 <>
+                  <span className="thumb-score-pill__icon" aria-hidden="true">
+                    <ScoreTierIcon tier={scoreTier} />
+                  </span>
                   <span className="thumb-score-pill__num">{score}</span>
-                  <span className="thumb-score-pill__suffix">/100</span>
                 </>
               )}
             </div>
           )}
-        </div>
 
-        {/* Action row — always visible below the image, same set for every
-         *  mode: Download, One-Click Fix, Edit, Regenerate. */}
-        <div
-          className="thumb-batch-actions"
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
-          <button
-            type="button"
-            className="thumb-action-btn"
-            onClick={handleDownload}
-            title="Download"
-            aria-label="Download"
-          >
-            <IconDownload />
-            <span className="thumb-action-btn__label">Download</span>
-          </button>
-          <button
-            type="button"
-            className="thumb-action-btn thumb-action-btn--primary"
-            onClick={handleOneClickFix}
-            disabled={fixing}
-            title="One-click fix (AI improve)"
-            aria-label="One-click fix"
-          >
-            {fixing ? <span className="thumb-action-btn__spinner" aria-hidden /> : <IconSparkle />}
-            <span className="thumb-action-btn__label">{fixing ? 'Fixing…' : 'One-click fix'}</span>
-          </button>
-          <button
-            type="button"
-            className="thumb-action-btn"
-            onClick={() => setShowEditDialog(true)}
-            title="AI Edit — select region to change"
-            aria-label="Edit"
-          >
-            <IconEdit />
-            <span className="thumb-action-btn__label">Edit</span>
-          </button>
-          {canRegenerate && (
+          {/* One-click open in the AI region editor. Floats on the
+           *  bottom-right of the image; click passes the rendered
+           *  thumbnail URL up so the parent can mount the editor dialog
+           *  pre-loaded with this image. */}
+          {t?.image_url && onEditImage ? (
             <button
               type="button"
-              className="thumb-action-btn"
-              onClick={handleRegenerate}
-              title="Regenerate"
-              aria-label="Regenerate"
+              className="thumb-edit-btn"
+              onClick={(e) => {
+                e.stopPropagation()
+                onEditImage(t.image_url)
+              }}
+              onKeyDown={(e) => e.stopPropagation()}
+              aria-label="Open in editor"
+              title="Open in editor"
             >
-              <IconRefresh />
-              <span className="thumb-action-btn__label">Regenerate</span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4L16.5 3.5Z" />
+              </svg>
             </button>
-          )}
+          ) : null}
         </div>
       </div>
-
-      {showEditDialog && t?.image_url && (
-        <EditThumbnailDialog
-          imageUrl={t.image_url}
-          onClose={() => setShowEditDialog(false)}
-          onApply={handleEditDialogApply}
-        />
-      )}
     </div>
   )
 }
@@ -815,6 +791,7 @@ function ThumbnailGridBlock({
   onReplaceThumbnail,
   onRegenerate,
   onViewImage,
+  onEditImage,
   canRegenerate = true,
 }) {
   if (!thumbnails?.length) return null
@@ -832,6 +809,7 @@ function ThumbnailGridBlock({
             onReplaceThumbnail={onReplaceThumbnail}
             onRegenerate={onRegenerate}
             onViewImage={onViewImage}
+            onEditImage={onEditImage}
             canRegenerate={canRegenerate}
           />
         ))}
@@ -855,6 +833,7 @@ function ThumbnailImageBlock({
   onReplaceThumbnail,
   onRegenerate,
   onViewImage,
+  onEditImage,
   canRegenerate = true,
 }) {
   if (!imageUrl) return null
@@ -871,6 +850,7 @@ function ThumbnailImageBlock({
           onReplaceThumbnail={onReplaceThumbnail}
           onRegenerate={onRegenerate}
           onViewImage={onViewImage}
+          onEditImage={onEditImage}
           canRegenerate={canRegenerate}
         />
       </div>
@@ -897,7 +877,7 @@ function buildMessagesFromApi(apiMessages = []) {
   })
 }
 
-function ThumbnailLightbox({ url, title, onClose }) {
+function ThumbnailLightbox({ url, onClose }) {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') onClose()
@@ -916,23 +896,196 @@ function ThumbnailLightbox({ url, title, onClose }) {
       aria-label="Thumbnail preview"
     >
       <div className="thumb-gen-lightbox-inner" onClick={(e) => e.stopPropagation()}>
-        <div className="thumb-gen-lightbox-chrome">
-          <span className="thumb-gen-lightbox-title">{title || 'Thumbnail'}</span>
-          <button
-            type="button"
-            className="thumb-gen-lightbox-close"
-            onClick={onClose}
-            aria-label="Close"
+        <img src={url} alt="" className="thumb-gen-lightbox-img" />
+        <button
+          type="button"
+          className="thumb-gen-lightbox-close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
           >
-            ×
-          </button>
-        </div>
-        <div className="thumb-gen-lightbox-stage">
-          <img src={url} alt="" className="thumb-gen-lightbox-img" />
-        </div>
+            <path d="m18 6-12 12" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
       </div>
     </div>,
     document.body
+  )
+}
+
+const TIER_LABELS = { 'SRX-1': 'Lite', 'SRX-2': 'Pro', 'SRX-3': 'Ultra' }
+const TIER_COLORS = {
+  'SRX-1': {
+    color: '#a3e635',
+    bg: 'rgba(163,230,53,0.13)',
+    border: 'rgba(163,230,53,0.25)',
+    activeBg: 'rgba(163,230,53,0.2)',
+    activeBorder: 'rgba(163,230,53,0.4)',
+  },
+  'SRX-2': {
+    color: '#c4b5fd',
+    bg: 'rgba(167,139,250,0.13)',
+    border: 'rgba(167,139,250,0.25)',
+    activeBg: 'rgba(167,139,250,0.22)',
+    activeBorder: 'rgba(196,181,253,0.45)',
+  },
+  'SRX-3': {
+    color: '#fbbf24',
+    bg: 'rgba(251,191,36,0.13)',
+    border: 'rgba(251,191,36,0.25)',
+    activeBg: 'rgba(251,191,36,0.2)',
+    activeBorder: 'rgba(251,191,36,0.4)',
+  },
+}
+
+function ThumbModelDropdown({ tierOptions, currentTier, onPickTier, isPending }) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    const onClick = (e) => {
+      if (!wrapRef.current?.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onClick)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onClick)
+    }
+  }, [open])
+
+  const activeLabel = TIER_LABELS[currentTier] || 'Lite'
+  const activeColors = TIER_COLORS[currentTier] || TIER_COLORS['SRX-1']
+
+  return (
+    <div className="thumb-model-dropdown" ref={wrapRef}>
+      <button
+        type="button"
+        className={`thumb-model-trigger ${open ? 'thumb-model-trigger--open' : ''}`}
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+      >
+        <span className="thumb-model-trigger-code">{currentTier}</span>
+        <span
+          className="thumb-model-trigger-tag"
+          style={{
+            background: activeColors.activeBg,
+            borderColor: activeColors.activeBorder,
+            color: activeColors.color,
+          }}
+        >
+          {activeLabel}
+        </span>
+        <svg
+          className="thumb-model-trigger-chevron"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="thumb-model-menu" role="listbox" aria-label="Select AI model">
+          <div className="thumb-model-menu-header">AI Model</div>
+          {tierOptions.map((t) => {
+            const isActive = t.code === currentTier
+            const isLocked = !!t.locked
+            const label = TIER_LABELS[t.code] || ''
+            const colors = TIER_COLORS[t.code] || TIER_COLORS['SRX-1']
+            return (
+              <button
+                key={t.code}
+                type="button"
+                role="option"
+                aria-selected={isActive}
+                className={[
+                  'thumb-model-option',
+                  isActive ? 'thumb-model-option--active' : '',
+                  isLocked ? 'thumb-model-option--locked' : '',
+                ]
+                  .join(' ')
+                  .trim()}
+                onClick={() => {
+                  if (isLocked) {
+                    setOpen(false)
+                    window.location.hash = 'pro'
+                  } else {
+                    onPickTier(t.code)
+                    setOpen(false)
+                  }
+                }}
+                disabled={isPending}
+              >
+                <span className="thumb-model-option-left">
+                  <span className="thumb-model-option-code">{t.code}</span>
+                  <span
+                    className="thumb-model-option-tag"
+                    style={{
+                      background: isActive ? colors.activeBg : colors.bg,
+                      borderColor: isActive ? colors.activeBorder : colors.border,
+                      color: colors.color,
+                    }}
+                  >
+                    {label}
+                  </span>
+                </span>
+                {isActive && (
+                  <svg
+                    className="thumb-model-option-check"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <path d="m5 13 4 4L19 7" />
+                  </svg>
+                )}
+                {isLocked && (
+                  <span className="thumb-model-option-upgrade">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <rect x="3" y="11" width="18" height="11" rx="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                    Upgrade
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -943,7 +1096,20 @@ export function ThumbnailGenerator({
   conversationId,
   onConversationCreated,
 }) {
+  const { data: tierState } = useModelTierStateQuery()
+  const setTierMutation = useSetModelTierMutation()
+  const currentTier = tierState?.selected || 'SRX-1'
+  const tierOptions =
+    tierState?.tiers && tierState.tiers.length
+      ? tierState.tiers
+      : [
+          { code: 'SRX-1', label: 'Lite', locked: false },
+          { code: 'SRX-2', label: 'Pro', locked: false },
+          { code: 'SRX-3', label: 'Ultra', locked: false },
+        ]
+
   const [lightbox, setLightbox] = useState(null)
+  const [copiedMessageId, setCopiedMessageId] = useState(null)
   const [thumbMode, setThumbMode] = useState(() => parseThumbModeFromHash())
   const [recreateDraft, setRecreateDraft] = useState('')
   const [recreateSourceMode, setRecreateSourceMode] = useState('youtube')
@@ -999,12 +1165,19 @@ export function ThumbnailGenerator({
   const modePaneRef = useRef(null)
   const modePaneFromHeightRef = useRef(null)
 
-  const conversationQuery = useThumbnailConversationQuery(conversationId)
-  const chatMutation = useThumbnailChatMutation(onConversationCreated)
-  const createConversationMutation = useCreateThumbnailConversationMutation()
   const startPending = useThumbnailChatActivityStore((s) => s.startPending)
   const clearPending = useThumbnailChatActivityStore((s) => s.clearPending)
   const markSeen = useThumbnailChatActivityStore((s) => s.markSeen)
+  // Reactive — flips to false the moment `clearPending` is called so the
+  // polling `refetchInterval` cleans itself up.
+  const isCurrentConversationPending = useThumbnailChatActivityStore((s) =>
+    conversationId == null ? false : Boolean(s.pending?.[String(conversationId)])
+  )
+  const conversationQuery = useThumbnailConversationQuery(conversationId, {
+    pollWhilePending: isCurrentConversationPending,
+  })
+  const chatMutation = useThumbnailChatMutation(onConversationCreated)
+  const createConversationMutation = useCreateThumbnailConversationMutation()
 
   // When the user opens (or returns to) a conversation, stamp "seen now" so
   // the unread dot clears. Fires on every conversationId change — cheap.
@@ -1112,7 +1285,7 @@ export function ThumbnailGenerator({
     }
   }, [thumbMode])
 
-  /** Deep link from dashboard: #coach/thumbnails?prompt=...&prefill=...&focus=battle */
+  /** Deep link from dashboard: #thumbnails?prompt=...&prefill=...&focus=battle */
   const thumbDashStableRef = useRef('')
   useEffect(() => {
     const applyFromHash = () => {
@@ -1120,7 +1293,7 @@ export function ThumbnailGenerator({
       const hash = (typeof window !== 'undefined' && window.location.hash) || ''
       const normalized = hash.replace(/^#/, '').replace(/^\/+/, '')
       const [routePart, search = ''] = normalized.split('?')
-      if (routePart !== 'coach/thumbnails') return
+      if (routePart !== 'thumbnails') return
       const params = new URLSearchParams(search)
       const prompt = params.get('prompt')
       const focus = params.get('focus')
@@ -1187,11 +1360,38 @@ export function ThumbnailGenerator({
       return
     }
     if (conversationQuery.data?.messages?.items) {
-      setMessages(buildMessagesFromApi(conversationQuery.data.messages.items))
+      const serverMessages = buildMessagesFromApi(conversationQuery.data.messages.items)
+      // Poll-safe merge: if the server has fewer messages than we currently
+      // show (because we've already pushed optimistic local messages that
+      // the backend hasn't persisted yet), keep the local state. Otherwise
+      // the server is authoritative.
+      setMessages((current) => (serverMessages.length >= current.length ? serverMessages : current))
     } else {
       setMessages([])
     }
   }, [conversationId, conversationQuery.data])
+
+  // Auto-recovery: if we're polling because a generation was in flight AND the
+  // server response now contains an assistant message with thumbnails (proof
+  // the backend finished and persisted the result), drop the pending flag and
+  // the local "generating…" state. This is what lets a user submit, close the
+  // tab, come back, and still see the thumbnails with no stuck spinner.
+  useEffect(() => {
+    if (!isCurrentConversationPending) return
+    const items = conversationQuery.data?.messages?.items
+    if (!Array.isArray(items) || items.length === 0) return
+    const hasAssistantThumbs = items.some((m) => {
+      if (m?.role !== 'assistant') return false
+      const thumbs = m?.extra_data?.thumbnails
+      return Array.isArray(thumbs) && thumbs.length > 0
+    })
+    if (hasAssistantThumbs) {
+      clearPending(conversationId)
+      setPendingAssistant(false)
+      setPendingUserMessage(null)
+      markSeen(conversationId)
+    }
+  }, [isCurrentConversationPending, conversationQuery.data, conversationId, clearPending, markSeen])
 
   const isHistoryLoading =
     conversationId != null && (conversationQuery.isPending || conversationQuery.isPlaceholderData)
@@ -1201,6 +1401,9 @@ export function ThumbnailGenerator({
   const { showScrollToBottom, scrollToBottom } = useThreadScrollToBottom(threadRef, {
     enabled: !isHistoryLoading,
     deps: [messages.length, pendingUserMessage, pendingAssistant, thumbMode],
+    // Only surface the button after the user has scrolled up by more than a
+    // full viewport — a small scroll doesn't warrant a jump-to-bottom CTA.
+    minScrollUp: (el) => el.clientHeight * 1.1,
   })
 
   useEffect(() => {
@@ -1210,6 +1413,14 @@ export function ThumbnailGenerator({
   const openThumbLightbox = useCallback((url, title) => {
     if (!url) return
     setLightbox({ url, title: title || 'Thumbnail' })
+  }, [])
+
+  // Open the AI region editor pre-loaded with an existing generated
+  // thumbnail — invoked from the small pencil button on each card.
+  const openEditorForThumbnail = useCallback((url) => {
+    if (!url) return
+    setEditDialogUrl(url)
+    setShowEditDialog(true)
   }, [])
 
   useEffect(() => {
@@ -1463,7 +1674,20 @@ export function ThumbnailGenerator({
     }
 
     setSendError('')
-    setPendingUserMessage(combined)
+    // Push the user's message into `messages` synchronously so it appears the
+    // instant they hit send — no waiting for the backend, no waiting for an
+    // `ensureConversationId` round-trip. The assistant loader fills the slot
+    // below it while the chat mutation runs.
+    const optimisticUserId = `user-optimistic-${Date.now()}`
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: optimisticUserId,
+        role: 'user',
+        content: combined,
+        imageUrl: promptImageDataUrl || null,
+      },
+    ])
     setPendingAssistant(true)
     setDraft('')
 
@@ -1481,10 +1705,19 @@ export function ThumbnailGenerator({
           imageUrl: promptImageDataUrl,
           prompt: `${combined} ${buildSelectionHint(selectedPersona, selectedStyle)}`.trim(),
         })
-        pushLocalAssistantMessage(combined, {
-          content: '',
-          imageUrl,
-        })
+        // Append only the assistant — the user message is already rendered
+        // from the optimistic push above.
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `assistant-${Date.now()}`,
+            role: 'assistant',
+            content: '',
+            thumbnails: [],
+            imageUrl,
+            userRequest: combined,
+          },
+        ])
         setPromptImageDataUrl(null)
       } else {
         const result = await chatMutation.mutateAsync({
@@ -1496,12 +1729,17 @@ export function ThumbnailGenerator({
           channel_id: channelId || undefined,
         })
         const thumbs = result?.thumbnails || []
-        pushLocalAssistantMessage(combined, {
-          id: result?.message_id,
-          content: thumbs.length > 0 ? '' : result?.content || 'Could not generate thumbnails.',
-          thumbnails: thumbs,
-          userRequest: combined,
-        })
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: result?.message_id ?? `assistant-${Date.now()}`,
+            role: 'assistant',
+            content: thumbs.length > 0 ? '' : result?.content || 'Could not generate thumbnails.',
+            thumbnails: thumbs,
+            imageUrl: null,
+            userRequest: combined,
+          },
+        ])
       }
       finishLoading()
       // Generation succeeded — if the user is still on this conversation,
@@ -1516,22 +1754,31 @@ export function ThumbnailGenerator({
       setSendError(err?.message || 'Could not generate thumbnails.')
       setDraft(combined)
       setPendingAssistant(false)
+      // Roll back the optimistic user message so they can retry.
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticUserId))
       if (activeConversationId) clearPending(activeConversationId)
-    } finally {
-      setPendingUserMessage(null)
     }
   }
 
-  const handleCopyMessage = async (msg) => {
-    try {
-      let text = msg.content || ''
-      if (msg.thumbnails?.length) {
-        text +=
-          '\n\n' +
-          msg.thumbnails.map((t) => `${t.title}: ${t.image_url?.slice(0, 80)}...`).join('\n\n')
-      }
-      if (navigator.clipboard?.writeText && text) await navigator.clipboard.writeText(text)
-    } catch (_) {}
+  const handleCopyMessage = (msg) => {
+    let text = msg.content || ''
+    if (msg.thumbnails?.length) {
+      text +=
+        '\n\n' +
+        msg.thumbnails.map((t) => `${t.title}: ${t.image_url?.slice(0, 80)}...`).join('\n\n')
+    }
+    if (!text) return
+    // Optimistic checkmark — flips instantly, clipboard write is fire-and-forget.
+    const id = msg.id
+    setCopiedMessageId(id)
+    window.setTimeout(() => {
+      setCopiedMessageId((current) => (current === id ? null : current))
+    }, 2000)
+    Promise.resolve()
+      .then(() => navigator.clipboard?.writeText?.(text))
+      .catch(() => {
+        setCopiedMessageId((current) => (current === id ? null : current))
+      })
   }
 
   const handleReplaceThumbnail = useCallback((msgId, thumbIndex, newThumbnail) => {
@@ -1753,9 +2000,20 @@ export function ThumbnailGenerator({
       role="tabpanel"
       aria-labelledby="coach-tab-thumbnails"
     >
-      <section
+      <motion.section
         className={`coach-chat-shell${isEmptyScreen ? ' coach-chat-shell--thumb-empty' : ''}`}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.42, ease: IOS_EASE }}
       >
+        {/* AI model tier dropdown — always pinned top-left */}
+        <ThumbModelDropdown
+          tierOptions={tierOptions}
+          currentTier={currentTier}
+          onPickTier={(code) => setTierMutation.mutate(code)}
+          isPending={setTierMutation.isPending}
+        />
+
         <div
           ref={threadRef}
           className={`coach-thread ${layoutCentered ? 'coach-thread--empty' : ''} coach-thread--thumb-panel ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
@@ -1763,10 +2021,15 @@ export function ThumbnailGenerator({
           {isHistoryLoading && <ChatHistoryLoading variant="thumbnail" label="Loading chat" />}
 
           {isEmptyScreen && (
-            <div className="coach-empty-state thumb-empty-state">
+            <motion.div
+              className="coach-empty-state thumb-empty-state"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: IOS_EASE, delay: 0.12 }}
+            >
               <span className="coach-empty-state-kicker">Thumbnail Generator</span>
               <h1>What thumbnail do you need?</h1>
-            </div>
+            </motion.div>
           )}
 
           {!isHistoryLoading &&
@@ -1805,6 +2068,7 @@ export function ThumbnailGenerator({
                         onReplaceThumbnail={handleReplaceThumbnail}
                         onRegenerate={handleRegenerateOne}
                         onViewImage={openThumbLightbox}
+                        onEditImage={openEditorForThumbnail}
                         canRegenerate
                       />
                     ) : null}
@@ -1816,20 +2080,24 @@ export function ThumbnailGenerator({
                         onReplaceThumbnail={handleReplaceThumbnail}
                         onRegenerate={handleRegenerateOne}
                         onViewImage={openThumbLightbox}
+                        onEditImage={openEditorForThumbnail}
                         canRegenerate
                       />
                     )}
                   </>
                 )}
                 {msg.role !== 'assistant' || !msg.thumbnails?.length ? (
-                  <div className="coach-message-actions">
+                  <div
+                    className={`coach-message-actions ${msg.role === 'user' ? 'coach-message-actions--user' : ''}`}
+                  >
                     <button
                       type="button"
-                      className="coach-message-action"
+                      className={`coach-message-action ${copiedMessageId === msg.id ? 'is-copied' : ''}`}
                       onClick={() => handleCopyMessage(msg)}
-                      aria-label="Copy"
+                      aria-label={copiedMessageId === msg.id ? 'Copied' : 'Copy'}
+                      title={copiedMessageId === msg.id ? 'Copied!' : 'Copy'}
                     >
-                      <IconCopy />
+                      {copiedMessageId === msg.id ? <IconCheck /> : <IconCopy />}
                     </button>
                   </div>
                 ) : null}
@@ -1911,8 +2179,11 @@ export function ThumbnailGenerator({
           <div ref={messagesEndRef} />
         </div>
 
-        <footer
+        <motion.footer
           ref={composerFooterRef}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.46, ease: IOS_EASE, delay: 0.06 }}
           className="coach-composer-wrap coach-composer-wrap--thumb-tools"
         >
           {/* Scroll-to-bottom — same pattern as ScriptGenerator */}
@@ -1938,16 +2209,26 @@ export function ThumbnailGenerator({
               </div>
             )}
 
-            {/* Single glass composer pill — tabbar at top, mode content below */}
+            {/* Single glass composer pill — tabbar at top, mode content below.
+             * The tabbar row is a plain `<div>` (no layout animation) so the
+             * Prompt/Recreate/Analyze/Edit indicator doesn't twitch when the
+             * mode-pane below resizes. The form pane itself wraps in a
+             * motion.div with `layout="size"` so only its bounding box
+             * grows/shrinks when the user toggles Link/Upload — the controls
+             * inside swap instantly without morphing. */}
             <div className="coach-composer script-gen-composer thumb-gen-glass-composer">
               <div className="thumb-gen-tab-row">
-                <TabBar
-                  tabs={THUMB_GEN_SUB_TABS}
+                <SegmentedTabs
                   value={thumbMode}
                   onChange={handleThumbModeTab}
                   ariaLabel="Thumbnail modes"
-                  variant="modal"
-                  className="chat-subtabbar thumb-gen-subtabbar"
+                  layoutId="thumb-gen-mode-toggle"
+                  className="thumb-gen-mode-segtabs"
+                  options={THUMB_GEN_SUB_TABS.map((t) => ({
+                    value: t.id,
+                    label: t.label,
+                    icon: t.icon,
+                  }))}
                 />
                 {thumbMode !== 'prompt' &&
                   (() => {
@@ -1965,31 +2246,22 @@ export function ThumbnailGenerator({
                           ? setAnalyzeSourceMode
                           : setEditSourceMode
                     return (
-                      <div
-                        className="thumb-source-mode-tabs"
-                        role="tablist"
-                        aria-label="Source type"
-                      >
-                        <button
-                          type="button"
-                          className={`thumb-source-mode-tab ${srcMode === linkVal ? 'is-active' : ''}`}
-                          onClick={() => setSrcMode(linkVal)}
-                        >
-                          Link
-                        </button>
-                        <button
-                          type="button"
-                          className={`thumb-source-mode-tab ${srcMode === 'upload' ? 'is-active' : ''}`}
-                          onClick={() => setSrcMode('upload')}
-                        >
-                          Upload
-                        </button>
-                      </div>
+                      <SegmentedTabs
+                        value={srcMode}
+                        onChange={setSrcMode}
+                        ariaLabel="Source type"
+                        layoutId={`thumb-source-mode-${thumbMode}`}
+                        className="thumb-source-segtabs"
+                        options={[
+                          { value: linkVal, label: 'Link' },
+                          { value: 'upload', label: 'Upload' },
+                        ]}
+                      />
                     )
                   })()}
               </div>
 
-              <div ref={modePaneRef}>
+              <SmoothHeight className="thumb-gen-mode-pane">
                 {thumbMode === 'prompt' && (
                   <form onSubmit={handleSubmit} className="thumb-gen-mode-form">
                     <div className="coach-composer-input-wrap thumb-prompt-input-wrap">
@@ -2277,6 +2549,7 @@ export function ThumbnailGenerator({
                         disabled={editSourceMode === 'upload' ? !editDataUrl : !editPreviewUrl}
                         onClick={handleOpenEditFromFooter}
                         ariaLabel="Open editor"
+                        label="Edit"
                         icon={
                           <svg
                             viewBox="0 0 24 24"
@@ -2295,11 +2568,11 @@ export function ThumbnailGenerator({
                     </div>
                   </form>
                 )}
-              </div>
+              </SmoothHeight>
             </div>
           </div>
-        </footer>
-      </section>
+        </motion.footer>
+      </motion.section>
       {showEditDialog && editDialogUrl && (
         <EditThumbnailDialog
           imageUrl={editDialogUrl}
@@ -2307,11 +2580,27 @@ export function ThumbnailGenerator({
             setShowEditDialog(false)
             setEditDialogUrl(null)
           }}
-          onApply={async (newUrl) => {
-            pushLocalAssistantMessage('Edit this thumbnail.', {
-              content: 'Here is the edited thumbnail.',
-              imageUrl: newUrl,
-            })
+          onApply={async (result) => {
+            // Editor returns either a single URL (batch = 1) or an array
+            // (batch > 1). Grid render matches the normal multi-thumbnail
+            // response shape so cards look identical in the chat.
+            const urls = Array.isArray(result) ? result : [result]
+            if (urls.length <= 1) {
+              pushLocalAssistantMessage('Edit this thumbnail.', {
+                content: '',
+                imageUrl: urls[0] || null,
+              })
+            } else {
+              pushLocalAssistantMessage('Edit this thumbnail.', {
+                content: '',
+                thumbnails: urls.map((image_url, i) => ({
+                  title: `${i + 1}x`,
+                  image_url,
+                  emotion: '',
+                  psychology_angle: '',
+                })),
+              })
+            }
             setShowEditDialog(false)
             setEditDialogUrl(null)
             setEditDataUrl(null)
@@ -2320,13 +2609,7 @@ export function ThumbnailGenerator({
           }}
         />
       )}
-      {lightbox ? (
-        <ThumbnailLightbox
-          url={lightbox.url}
-          title={lightbox.title}
-          onClose={() => setLightbox(null)}
-        />
-      ) : null}
+      {lightbox ? <ThumbnailLightbox url={lightbox.url} onClose={() => setLightbox(null)} /> : null}
     </div>
   )
 }

@@ -13,9 +13,16 @@
   color: rgba(255, 255, 255, 0.9);
   font-size: 13px;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   transition:
-    border-color 0.15s,
-    background 0.15s;
+    transform 0.14s cubic-bezier(0.33, 1, 0.68, 1),
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.style-selector-trigger:active:not(:disabled) {
+  transform: scale(0.94);
+  transition: transform 0.08s ease;
 }
 
 .style-selector-trigger:hover {
@@ -95,31 +102,63 @@
   animation: style-selector-pop-in 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* Floating variant — portaled + JS-positioned. See PersonaSelector.css. */
+.style-selector-dropdown--floating {
+  position: fixed;
+  bottom: auto;
+  margin-bottom: 0;
+  z-index: 2000;
+}
+
 .style-selector-loading,
 .style-selector-empty {
-  padding: 16px;
+  padding: 18px 16px 16px;
   color: rgba(255, 255, 255, 0.6);
   font-size: 13px;
   text-align: center;
 }
 
 .style-selector-empty p {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
+  color: rgba(255, 255, 255, 0.62);
 }
 
+/* Mirrors .persona-selector-create — same canonical primary CTA. */
 .style-selector-create {
-  padding: 8px 14px;
-  border: 1px solid rgba(139, 92, 246, 0.6);
-  border-radius: 8px;
-  background: rgba(139, 92, 246, 0.15);
-  color: #9061f0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%);
+  color: #ffffff;
+  font: inherit;
   font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
   cursor: pointer;
-  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 6px 18px rgba(124, 58, 237, 0.32);
+  transition:
+    transform 0.14s cubic-bezier(0.33, 1, 0.68, 1),
+    filter 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .style-selector-create:hover {
-  background: rgba(139, 92, 246, 0.25);
+  filter: brightness(1.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 8px 22px rgba(124, 58, 237, 0.4);
+}
+
+.style-selector-create:active {
+  transform: scale(0.96);
+  transition: transform 0.08s ease;
 }
 
 .style-selector-option {
@@ -226,6 +265,45 @@
   width: 24px;
   height: 15px;
   border-radius: 6px;
+}
+
+/* One-click reset — small X overlay on the trigger when a style is selected.
+ * Mirrors .persona-selector-reset so both toolbar selectors behave alike. */
+.style-selector-reset {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  background: rgba(12, 10, 22, 0.9);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.12s cubic-bezier(0.33, 1, 0.68, 1);
+  z-index: 2;
+}
+.style-selector-reset svg {
+  width: 9px;
+  height: 9px;
+  display: block;
+}
+.style-selector-reset:hover {
+  background: rgba(239, 68, 68, 0.85);
+  border-color: rgba(248, 113, 113, 0.95);
+  color: #ffffff;
+}
+.style-selector-reset:active {
+  transform: scale(0.88);
 }
 
 .style-selector-dropdown--glass {

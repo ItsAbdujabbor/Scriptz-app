@@ -48,7 +48,16 @@ export function useThumbnailConversationsQuery(params = {}) {
   })
 }
 
-export function useThumbnailConversationQuery(conversationId) {
+/**
+ * @param {number|string|null} conversationId
+ * @param {{ pollWhilePending?: boolean }} [options] — when `pollWhilePending`
+ *   is true, re-fetches the conversation every 4 seconds. Used so that a
+ *   generation started by this tab finishes and shows up in the thread even
+ *   if the user navigates away mid-request (the backend persists messages on
+ *   completion; we just need to pick them up when polling ticks over).
+ */
+export function useThumbnailConversationQuery(conversationId, options = {}) {
+  const { pollWhilePending = false } = options
   return useQuery({
     queryKey: queryKeys.thumbnails.conversation(conversationId),
     enabled: !!conversationId,
@@ -58,6 +67,11 @@ export function useThumbnailConversationQuery(conversationId) {
       return thumbnailsApi.getConversation(token, conversationId)
     },
     ...chatThreadQueryOptions,
+    refetchInterval: pollWhilePending ? 4000 : false,
+    refetchIntervalInBackground: pollWhilePending,
+    // When pending we want the latest server truth — ignore the short
+    // staleTime that otherwise suppresses mount-time refetches.
+    refetchOnMount: pollWhilePending ? 'always' : true,
     placeholderData: (prev) => prev,
   })
 }
@@ -170,5 +184,61 @@ export function useDeleteThumbnailConversationMutation() {
         queryClient.removeQueries({ queryKey: queryKeys.thumbnails.conversation(conversationId) })
       }
     },
+  })
+}
+
+/**
+ * Cheap, non-cryptographic fingerprint of a large string (usually a data URL).
+ * Good enough to uniquely identify a thumbnail in the rating cache — and it
+ * keeps the React Query key under a few dozen bytes instead of hundreds of KB.
+ */
+function fingerprintImageUrl(url) {
+  if (!url) return ''
+  let h = 0
+  for (let i = 0; i < url.length; i += 1) {
+    h = (h * 31 + url.charCodeAt(i)) | 0
+  }
+  // Base36 encoding + length gives good separation with no collisions in
+  // practice for our volumes.
+  return `${url.length.toString(36)}:${(h >>> 0).toString(36)}`
+}
+
+function extractBase64FromDataUrl(url) {
+  if (!url || typeof url !== 'string') return null
+  const comma = url.indexOf(',')
+  if (!url.startsWith('data:') || comma === -1) return null
+  return url.slice(comma + 1)
+}
+
+/**
+ * Rate a thumbnail exactly once per distinct image URL for the lifetime of
+ * the session. The rating is cached in React Query with
+ * `staleTime: Infinity`, so re-rendering, revisiting a conversation, or
+ * mounting the same thumbnail elsewhere never triggers a second /rate call
+ * (and never double-charges credits).
+ *
+ * Returns ``{ data: { rating_id, overall_score, ... }, isPending, error }``
+ * — same shape the component used before, just centrally cached.
+ */
+export function useThumbnailRatingQuery(imageUrl) {
+  const fingerprint = fingerprintImageUrl(imageUrl)
+  return useQuery({
+    queryKey: queryKeys.thumbnails.rating(fingerprint),
+    enabled: !!imageUrl,
+    queryFn: async () => {
+      const token = await getAccessTokenOrNull()
+      if (!token) throw new Error('Not authenticated')
+      const base64 = extractBase64FromDataUrl(imageUrl)
+      const payload = base64
+        ? { thumbnail_image_base64: base64 }
+        : { thumbnail_image_url: imageUrl }
+      return thumbnailsApi.rate(token, payload)
+    },
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: 1,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
 }

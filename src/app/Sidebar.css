@@ -218,13 +218,11 @@
 .app-sidebar:not(.collapsed) .sidebar-account-plan,
 .app-sidebar:not(.collapsed) .sidebar-history-row__title,
 .app-sidebar:not(.collapsed) .sidebar-history-row__menu {
+  opacity: 1;
+  transform: translateX(0);
   transition:
-    opacity var(--sidebar-transition-open),
-    visibility var(--sidebar-transition-open),
-    max-width var(--sidebar-transition-open),
-    width var(--sidebar-transition-open),
-    margin var(--sidebar-transition-open),
-    padding var(--sidebar-transition-open);
+    opacity 280ms cubic-bezier(0.33, 1, 0.68, 1) 80ms,
+    transform 280ms cubic-bezier(0.33, 1, 0.68, 1) 80ms;
 }
 
 .app-sidebar.collapsed .sidebar-label,
@@ -236,21 +234,18 @@
 .app-sidebar.collapsed .sidebar-history-row__title,
 .app-sidebar.collapsed .sidebar-history-row__menu {
   opacity: 0;
-  visibility: hidden;
+  transform: translateX(-6px);
   pointer-events: none;
-  width: 0;
-  min-width: 0;
-  height: 0;
-  overflow: hidden;
-  margin: 0;
-  padding: 0;
   transition:
-    opacity var(--sidebar-transition-close),
-    visibility var(--sidebar-transition-close),
-    max-width var(--sidebar-transition-close),
-    width var(--sidebar-transition-close),
-    margin var(--sidebar-transition-close),
-    padding var(--sidebar-transition-close);
+    opacity 180ms cubic-bezier(0.33, 1, 0.68, 1),
+    transform 180ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+/* Parents clip overflowing text when collapsed so width:0 isn't needed. */
+.app-sidebar.collapsed .sidebar-account-btn,
+.app-sidebar.collapsed .sidebar-user-block,
+.app-sidebar.collapsed .sidebar-history-row {
+  overflow: hidden;
 }
 
 .app-sidebar.collapsed .sidebar-divider {
@@ -1210,13 +1205,14 @@
    11. HISTORY SECTION
    ============================================================ */
 .sidebar-history-header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  padding: 0.35rem 0.4rem 0.18rem;
+  padding: 0.4rem 0.5rem 0.25rem;
   flex-shrink: 0;
-  min-height: 28px;
+  min-height: 34px;
 }
 
 .sidebar-history-header .sidebar-section-label {
@@ -1234,9 +1230,9 @@
 .sidebar-history-search-btn {
   display: inline-grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
   background: transparent;
   border: 0;
   color: var(--text-muted);
@@ -1247,23 +1243,23 @@
     transform 80ms cubic-bezier(0.4, 0, 0.6, 1);
 }
 .sidebar-history-search-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.07);
   color: #fff;
 }
 .sidebar-history-search-btn:active {
   transform: scale(0.92);
 }
 .sidebar-history-search-btn svg {
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
   stroke-width: 2;
 }
 
 /* Inline search input — replaces the "History" label when active */
 .sidebar-history-search-wrap {
   position: absolute;
-  left: 0.4rem;
-  right: 0.4rem;
+  left: 0.5rem;
+  right: 0.5rem;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1279,25 +1275,55 @@
   transform: none;
   pointer-events: auto;
 }
+
+/* Input with an inline search icon on the left */
+.sidebar-history-search-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.sidebar-history-search-field::before {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translateY(-50%);
+  background-color: var(--text-dim);
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>")
+    center / contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>")
+    center / contain no-repeat;
+  pointer-events: none;
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
+}
+.sidebar-history-search-field:focus-within::before {
+  opacity: 1;
+  background-color: #fff;
+}
+
 .sidebar-history-search-input {
   flex: 1;
   min-width: 0;
-  height: 24px;
-  padding: 0 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 7px;
+  height: 28px;
+  padding: 0 10px 0 26px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 0;
+  border-radius: 999px;
   color: #fff;
   font: inherit;
   font-size: 0.78rem;
   outline: none;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
+  box-shadow: none;
+  transition: background 0.15s ease;
 }
 .sidebar-history-search-input:focus {
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: none;
 }
 .sidebar-history-search-input::placeholder {
   color: var(--text-dim);
@@ -1305,9 +1331,9 @@
 .sidebar-history-search-close {
   display: inline-grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
   background: transparent;
   border: 0;
   color: var(--text-muted);
@@ -1319,15 +1345,15 @@
   flex-shrink: 0;
 }
 .sidebar-history-search-close:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.07);
   color: #fff;
 }
 .sidebar-history-search-close:active {
   transform: scale(0.92);
 }
 .sidebar-history-search-close svg {
-  width: 11px;
-  height: 11px;
+  width: 12px;
+  height: 12px;
   stroke-width: 2.2;
 }
 
@@ -1335,8 +1361,8 @@
 .sidebar-history-list {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  padding: 0.15rem 0.2rem 0.8rem;
+  gap: 3px;
+  padding: 0.25rem 0.3rem 0.8rem;
   flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
@@ -1442,7 +1468,10 @@
   align-items: center;
   gap: 0.5rem;
   width: 100%;
-  height: 34px;
+  /* Lock the row height so flex can never compress rows as the list grows. */
+  flex: 0 0 36px;
+  height: 36px;
+  min-height: 36px;
   padding: 0 0.35rem 0 0.7rem;
   box-sizing: border-box;
   border: none;
@@ -1459,7 +1488,8 @@
 }
 
 .sidebar-history-row:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.04) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   color: var(--text);
 }
 
@@ -1476,8 +1506,9 @@
 .sidebar-history-row.is-active {
   background: linear-gradient(180deg, rgba(139, 92, 246, 0.32) 0%, rgba(124, 58, 237, 0.28) 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    inset 0 0 0 1px rgba(167, 139, 250, 0.22);
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12),
+    inset 0 0 0 1px rgba(167, 139, 250, 0.28);
   color: #ffffff;
 }
 
@@ -1600,13 +1631,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 7px;
   cursor: pointer;
   color: rgba(156, 163, 175, 0.75);
   opacity: 0;
   transition:
     opacity 140ms ease,
     color 140ms ease,
+    background 140ms ease,
     transform 120ms ease;
 }
 .sidebar-history-row__menu svg {
@@ -1621,11 +1653,16 @@
 
 .sidebar-history-row__menu:hover {
   color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.sidebar-history-row.is-active .sidebar-history-row__menu,
+.sidebar-history-row.is-active .sidebar-history-row__menu {
+  color: #ffffff;
+  background: transparent;
+}
 .sidebar-history-row.is-active .sidebar-history-row__menu:hover {
   color: #ffffff;
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .sidebar-history-row__menu:active {
@@ -2049,7 +2086,7 @@
 }
 
 .sidebar-account-panel.sidebar-account-panel--open {
-  max-height: 420px;
+  max-height: 360px;
   opacity: 1;
   transform: none;
   margin-top: 0.4rem;
@@ -2130,64 +2167,6 @@
   height: 1px;
   margin: 0.3rem 0.4rem;
   background: rgba(255, 255, 255, 0.07);
-}
-
-/* AI Model tier chips row — inline, compact */
-.sidebar-account-tier {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.35rem 0.5rem 0.45rem;
-}
-.sidebar-account-tier-label {
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(229, 229, 231, 0.55);
-}
-.sidebar-account-tier-chips {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.3rem;
-}
-.sidebar-account-tier-chip {
-  padding: 0.32rem 0.2rem;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(229, 229, 231, 0.85);
-  font: inherit;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    transform 0.1s ease,
-    color 0.15s ease;
-}
-.sidebar-account-tier-chip:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.09);
-  color: #fff;
-  transform: translateY(-1px);
-}
-.sidebar-account-tier-chip--active {
-  background: linear-gradient(135deg, rgba(167, 139, 250, 0.35) 0%, rgba(124, 58, 237, 0.22) 100%);
-  border-color: rgba(196, 181, 253, 0.55);
-  color: #fff;
-  box-shadow:
-    0 0 0 1px rgba(196, 181, 253, 0.25) inset,
-    0 2px 10px rgba(124, 58, 237, 0.22);
-}
-.sidebar-account-tier-chip--locked {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-.sidebar-account-tier-chip:disabled {
-  cursor: not-allowed;
 }
 
 /* Collapsed rail: hide the credits chip + panel (rail is icon-only) */
@@ -2658,21 +2637,21 @@
 .sidebar-history-filter {
   display: flex;
   align-items: center;
-  gap: 0.2rem;
-  padding: 0 0.5rem 0.4rem;
+  gap: 4px;
+  padding: 0 0.5rem 0.45rem;
   flex-shrink: 0;
 }
 
 .sidebar-history-filter-btn {
   flex: 1;
   min-width: 0;
-  height: 26px;
-  padding: 0 0.45rem;
+  height: 28px;
+  padding: 0 0.55rem;
   border: 1px solid transparent;
   background: transparent;
-  border-radius: 7px;
+  border-radius: 999px;
   color: var(--text-dim);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -2682,18 +2661,21 @@
   transition:
     background var(--sidebar-transition),
     color var(--sidebar-transition),
-    border-color var(--sidebar-transition);
+    border-color var(--sidebar-transition),
+    box-shadow var(--sidebar-transition);
 }
 
 .sidebar-history-filter-btn:hover {
   color: var(--text);
-  background: var(--sidebar-hover);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.07);
 }
 
 .sidebar-history-filter-btn.active {
-  color: var(--accent);
-  background: var(--accent-bg);
-  border-color: rgba(139, 92, 246, 0.2);
+  color: #fff;
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.28) 0%, rgba(124, 58, 237, 0.22) 100%);
+  border-color: rgba(167, 139, 250, 0.3);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -2712,22 +2694,19 @@
   flex: 0 0 var(--sidebar-btn-height);
   padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  /* Liquid glass surface: vertical internal sheen with both top AND bottom
-   * highlights — the bottom-light gives the pill a "scooped" depth like
-   * frosted glass with light leaking from underneath. */
+  border: 1px solid rgba(255, 255, 255, 0.12);
   background:
-    radial-gradient(140% 100% at 50% 110%, rgba(255, 255, 255, 0.07) 0%, transparent 60%),
+    radial-gradient(140% 100% at 50% 110%, rgba(255, 255, 255, 0.11) 0%, transparent 60%),
     linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.09) 0%,
-      rgba(255, 255, 255, 0.03) 45%,
-      rgba(255, 255, 255, 0.02) 75%,
-      rgba(255, 255, 255, 0.05) 100%
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(255, 255, 255, 0.05) 45%,
+      rgba(255, 255, 255, 0.04) 75%,
+      rgba(255, 255, 255, 0.08) 100%
     );
   backdrop-filter: blur(22px) saturate(1.6);
   -webkit-backdrop-filter: blur(22px) saturate(1.6);
-  color: var(--text-2, rgba(229, 229, 231, 0.9));
+  color: rgba(245, 245, 247, 0.96);
   font-family: inherit;
   font-size: 0.78rem;
   font-weight: 600;
@@ -2735,13 +2714,11 @@
   cursor: pointer;
   overflow: hidden;
   isolation: isolate;
-  /* INTERNAL shadows only — symmetric top + bottom highlight + soft inner
-   * radial brightening. No external glow, no color. */
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 8px 16px -8px rgba(255, 255, 255, 0.06),
-    inset 0 -8px 16px -8px rgba(255, 255, 255, 0.05);
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 8px 16px -8px rgba(255, 255, 255, 0.1),
+    inset 0 -8px 16px -8px rgba(255, 255, 255, 0.08);
   transition:
     background 0.2s ease,
     border-color 0.2s ease,
@@ -2750,23 +2727,62 @@
     transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
   will-change: transform;
 }
+/* Static top-gloss highlight — a thin curved reflection across the upper
+   half of the pill, like real frosted glass catching light. */
+.sidebar-new-chat-pill::before {
+  content: '';
+  position: absolute;
+  inset: 1px 1px auto 1px;
+  height: 48%;
+  border-radius: 999px 999px 60% 60% / 999px 999px 100% 100%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 100%);
+  opacity: 0.9;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 0.25s ease;
+}
+
+/* Traveling shine stripe — sweeps across on hover. */
+.sidebar-new-chat-pill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.16) 50%,
+    transparent 100%
+  );
+  transform: translateX(-130%);
+  pointer-events: none;
+  z-index: 0;
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .sidebar-new-chat-pill:hover {
   background:
-    radial-gradient(140% 100% at 50% 110%, rgba(255, 255, 255, 0.1) 0%, transparent 60%),
+    radial-gradient(140% 100% at 50% 110%, rgba(255, 255, 255, 0.12) 0%, transparent 60%),
     linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.13) 0%,
-      rgba(255, 255, 255, 0.05) 45%,
-      rgba(255, 255, 255, 0.04) 75%,
-      rgba(255, 255, 255, 0.08) 100%
+      rgba(255, 255, 255, 0.15) 0%,
+      rgba(255, 255, 255, 0.06) 45%,
+      rgba(255, 255, 255, 0.05) 75%,
+      rgba(255, 255, 255, 0.09) 100%
     );
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.18);
   color: #fff;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.24),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.16),
-    inset 0 10px 18px -8px rgba(255, 255, 255, 0.1),
-    inset 0 -10px 18px -8px rgba(255, 255, 255, 0.08);
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 10px 18px -8px rgba(255, 255, 255, 0.12),
+    inset 0 -10px 18px -8px rgba(255, 255, 255, 0.1);
+}
+.sidebar-new-chat-pill:hover::before {
+  opacity: 0.95;
+}
+.sidebar-new-chat-pill:hover::after {
+  transform: translateX(130%);
 }
 .sidebar-new-chat-pill:active {
   transform: scale(0.96);

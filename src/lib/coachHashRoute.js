@@ -20,13 +20,13 @@ export function getCoachHashState() {
 
   let activeTab = 'coach'
   if (routePart === 'coach/scripts') activeTab = 'scripts'
-  else if (routePart === 'coach/thumbnails') activeTab = 'thumbnails'
+  else if (routePart === 'thumbnails') activeTab = 'thumbnails'
 
   const coachConversationId = activeTab === 'coach' && routePart === 'coach' ? conversationId : null
   const scriptConversationId =
     activeTab === 'scripts' && routePart === 'coach/scripts' ? conversationId : null
   const thumbnailConversationId =
-    activeTab === 'thumbnails' && routePart === 'coach/thumbnails' ? conversationId : null
+    activeTab === 'thumbnails' && routePart === 'thumbnails' ? conversationId : null
 
   return {
     route: routePart,

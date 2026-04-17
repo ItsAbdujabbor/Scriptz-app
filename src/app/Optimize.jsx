@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars
 import { useAuthStore } from '../stores/authStore'
@@ -25,6 +25,7 @@ const SORT_OPTIONS = [
   { value: 'engagement', label: 'Engagement' },
 ]
 const VIDEO_TYPE_OPTIONS = [
+  { value: 'all', label: 'All' },
   { value: 'videos', label: 'Videos' },
   { value: 'shorts', label: 'Shorts' },
 ]
@@ -134,13 +135,10 @@ export function Optimize({ onLogout, shellManaged }) {
   const [youtubeOAuthError, setYoutubeOAuthError] = useState(null)
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [videoType, setVideoType] = useState('videos')
+  const [videoType, setVideoType] = useState('all')
   const [sort, setSort] = useState('published_at')
-  const [page, setPage] = useState(1)
   const [selectedVideo, setSelectedVideo] = useState(null)
   const [dashPrefillBanner, setDashPrefillBanner] = useState(null)
-  // (sortDropdownOpen / closeSortDropdown removed — the <SelectPill> component
-  // handles its own open state and outside-click.)
 
   const userPreferencesQuery = useUserPreferencesQuery()
   const userProfileQuery = useUserProfileQuery()
@@ -193,7 +191,6 @@ export function Optimize({ onLogout, shellManaged }) {
 
   const videosQuery = useYoutubeVideosList({
     channelId,
-    page,
     perPage: PER_PAGE,
     search: searchQuery,
     sort,
@@ -201,12 +198,35 @@ export function Optimize({ onLogout, shellManaged }) {
     enabled: !!youtube?.connected,
   })
 
-  const videos = videosQuery.data?.items ?? []
-  const videosLoading = videosQuery.isPending
+  const videos = useMemo(
+    () => videosQuery.data?.pages?.flatMap((p) => p.items) ?? [],
+    [videosQuery.data]
+  )
+  const totalVideos = videosQuery.data?.pages?.[0]?.total ?? 0
+  const videosLoading = videosQuery.isLoading
   const videosError = videosQuery.isError
     ? videosQuery.error?.message || 'Failed to load videos'
     : null
-  const totalPages = videosQuery.data?.total_pages ?? 1
+  const isFetchingNextPage = videosQuery.isFetchingNextPage
+  const hasNextPage = videosQuery.hasNextPage
+  const fetchNextPage = videosQuery.fetchNextPage
+
+  // ── Infinite scroll via IntersectionObserver ──
+  const sentinelRef = useRef(null)
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage()
+        }
+      },
+      { rootMargin: '400px' }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   // No auto-prefetch — user triggers AI generation manually inside the optimize screen
   const prefetchVideoOptimization = () => {}
@@ -263,11 +283,6 @@ export function Optimize({ onLogout, shellManaged }) {
     }
   }, [bootstrapYouTube, getValidAccessToken])
 
-  useEffect(() => {
-    // When filters change, show the first page of the new result set.
-    setPage(1) // eslint-disable-line react-hooks/set-state-in-effect
-  }, [youtube?.connected, searchQuery, videoType, sort])
-
   // Auto-open a video from hash param: #optimize?video_id=XYZ
   const deepLinkHandledRef = useRef(false)
   useEffect(() => {
@@ -280,7 +295,7 @@ export function Optimize({ onLogout, shellManaged }) {
     // Try to find in loaded list first
     const match = videos.find((v) => v.id === videoId)
     if (match) {
-      setSelectedVideo(match)
+      setSelectedVideo(match) // eslint-disable-line react-hooks/set-state-in-effect
       deepLinkHandledRef.current = true
     } else if (!videosLoading && videos.length > 0) {
       // Video not in current page — open with minimal data, modal fetches the rest
@@ -393,6 +408,11 @@ export function Optimize({ onLogout, shellManaged }) {
               <div className="optimize-top-bar">
                 <div className="optimize-heading-wrap">
                   <h1 className="optimize-heading">Optimize</h1>
+                  {totalVideos > 0 && !videosLoading && (
+                    <span className="optimize-video-count">
+                      {totalVideos} {totalVideos === 1 ? 'video' : 'videos'}
+                    </span>
+                  )}
                 </div>
                 <div className="optimize-search-wrap">
                   <span className="optimize-search-icon" aria-hidden>
@@ -419,6 +439,30 @@ export function Optimize({ onLogout, shellManaged }) {
                     onChange={(e) => setSearchInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   />
+                  {searchInput && (
+                    <button
+                      type="button"
+                      className="optimize-search-clear"
+                      onClick={() => {
+                        setSearchInput('')
+                        setSearchQuery('')
+                      }}
+                      aria-label="Clear search"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M18 6 6 18M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="optimize-search-btn"
@@ -530,7 +574,30 @@ export function Optimize({ onLogout, shellManaged }) {
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.3 }}
                   >
-                    <p>{videosError}</p>
+                    <div className="optimize-empty-card">
+                      <span className="optimize-empty-icon optimize-empty-icon--error" aria-hidden>
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="m15 9-6 6M9 9l6 6" />
+                        </svg>
+                      </span>
+                      <h3 className="optimize-empty-title">Data temporarily unavailable</h3>
+                      <p className="optimize-empty-desc">{videosError}</p>
+                      <button
+                        type="button"
+                        className="optimize-empty-action"
+                        onClick={() => videosQuery.refetch()}
+                      >
+                        Try again
+                      </button>
+                    </div>
                   </motion.div>
                 )}
 
@@ -564,7 +631,12 @@ export function Optimize({ onLogout, shellManaged }) {
                           </h3>
                           <p className="optimize-empty-desc">
                             Try a different search term or clear the search to see all your{' '}
-                            {videoType === 'shorts' ? 'Shorts' : 'videos'}.
+                            {videoType === 'shorts'
+                              ? 'Shorts'
+                              : videoType === 'videos'
+                                ? 'videos'
+                                : 'content'}
+                            .
                           </p>
                           <button
                             type="button"
@@ -593,7 +665,13 @@ export function Optimize({ onLogout, shellManaged }) {
                             </svg>
                           </span>
                           <h3 className="optimize-empty-title">
-                            No {videoType === 'shorts' ? 'Shorts' : 'videos'} yet
+                            No{' '}
+                            {videoType === 'shorts'
+                              ? 'Shorts'
+                              : videoType === 'videos'
+                                ? 'videos'
+                                : 'videos'}{' '}
+                            yet
                           </h3>
                           <p className="optimize-empty-desc">
                             {videoType === 'shorts'
@@ -626,7 +704,7 @@ export function Optimize({ onLogout, shellManaged }) {
                           key={v.id}
                           className="optimize-video-card"
                           variants={cardVariants}
-                          custom={i}
+                          custom={i % PER_PAGE}
                           onClick={() => {
                             prefetchVideoOptimization(v.id)
                             setSelectedVideo(v)
@@ -752,57 +830,21 @@ export function Optimize({ onLogout, shellManaged }) {
                         </motion.article>
                       ))}
                     </motion.div>
-                    {totalPages > 1 && (
-                      <motion.div
-                        className="optimize-pagination"
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3, duration: 0.3 }}
-                      >
-                        <button
-                          type="button"
-                          className="optimize-page-btn"
-                          disabled={page <= 1 || videosLoading}
-                          onClick={() => setPage(page - 1)}
-                        >
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M15 18l-6-6 6-6" />
-                          </svg>
-                          Previous
-                        </button>
-                        <span className="optimize-page-info">
-                          Page {page} of {totalPages}
-                        </span>
-                        <button
-                          type="button"
-                          className="optimize-page-btn"
-                          disabled={page >= totalPages || videosLoading}
-                          onClick={() => setPage(page + 1)}
-                        >
-                          Next
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M9 18l6-6-6-6" />
-                          </svg>
-                        </button>
-                      </motion.div>
+
+                    {/* Infinite scroll sentinel */}
+                    <div ref={sentinelRef} className="optimize-scroll-sentinel" aria-hidden />
+
+                    {isFetchingNextPage && (
+                      <div className="optimize-loading-more">
+                        <IOSLoading size="sm" />
+                        <span>Loading more videos…</span>
+                      </div>
+                    )}
+
+                    {!hasNextPage && videos.length > PER_PAGE && (
+                      <div className="optimize-end-of-list">
+                        <span>You&rsquo;ve seen all {totalVideos} videos</span>
+                      </div>
                     )}
                   </motion.div>
                 )}

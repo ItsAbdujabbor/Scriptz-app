@@ -217,7 +217,7 @@ function thumbPrefillFromTemplate(t) {
 }
 
 function thumbnailGeneratorHref(t) {
-  return `#coach/thumbnails?prefill=${encodeURIComponent(thumbPrefillFromTemplate(t))}`
+  return `#thumbnails?prefill=${encodeURIComponent(thumbPrefillFromTemplate(t))}`
 }
 
 function TemplateLightbox({ item, onClose, onNavigate }) {

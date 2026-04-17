@@ -1,1078 +1,1402 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+/**
+ * EditThumbnailDialog — compact, centered AI editor for an existing thumbnail.
+ *
+ * Layout (top → bottom):
+ *   1. Gradient title pill + close X.
+ *   2. Thumbnail + painted-mask overlay (Fabric-free canvas drawing).
+ *   3. Toolbar row (Edit tab only):
+ *        left  → Rect · Brush · Eraser · Brush-size · Colour
+ *        right → Undo · Redo · Clear
+ *   4. Pill tabbar (Edit | Face swap).
+ *   5. Floating-glass input bar (matches Optimize Video) with batch
+ *      picker and send. Face-swap tab shows `<PersonaSelector>` in the
+ *      action row.
+ *
+ * All inline-styled + portaled so no global CSS can break it.
+ *
+ * Mask exports: if the user painted something, we build a B&W PNG
+ * (white where painted, black elsewhere) at the image's natural
+ * resolution. If nothing is painted we fall back to a full-white mask
+ * — i.e. "edit the whole image" — so the AI always has something to
+ * work with.
+ */
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Canvas as FabricCanvas, FabricImage } from 'fabric'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { thumbnailsApi } from '../api/thumbnails'
 import { invalidateCredits } from '../queries/billing/creditsQueries'
-import { useModelTierStateQuery } from '../queries/modelTier/modelTierQueries'
-import { useFeatureCostsQuery } from '../queries/billing/creditsQueries'
-import { celebrate } from '../lib/celebrate'
-import './EditThumbnailDialog.css'
+import { usePersonaStore } from '../stores/personaStore'
+import { PersonaSelector } from './PersonaSelector'
 
-/* ---- SVG icons ---- */
-const IcoSparkle = () => (
-  <svg
-    viewBox="0 0 20 20"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.6"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M10 2v3M10 15v3M2 10h3M15 10h3M4.2 4.2l2.1 2.1M13.7 13.7l2.1 2.1M4.2 15.8l2.1-2.1M13.7 6.3l2.1-2.1" />
-    <circle cx="10" cy="10" r="3" />
-  </svg>
-)
-const IcoRect = () => (
-  <svg
-    viewBox="0 0 20 20"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.75"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect x="2.5" y="4.5" width="15" height="11" rx="1.5" strokeDasharray="3 2" />
-  </svg>
-)
-const IcoBrush = () => (
-  <svg
-    viewBox="0 0 20 20"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.75"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M3 14.5c.8-1.2 2.2-1.8 3.5-1.3 1.3.5 2.8.1 3.8-.9L16 6.5a2 2 0 0 0-2.5-2.5l-5.7 5.7c-1 1-1.4 2.5-.9 3.8.5 1.3-.1 2.7-1.3 3.5" />
-    <circle cx="3.5" cy="15.5" r="1.5" fill="currentColor" stroke="none" />
-  </svg>
-)
-const IcoEraser = () => (
-  <svg
-    viewBox="0 0 20 20"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.75"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="m14 6-7.5 7.5M4 16h12" />
-    <path d="M4.5 13.5 10 8l4.5 4.5-3.5 3.5H7.5L4.5 13.5Z" />
-  </svg>
-)
-const IcoMove = () => (
-  <svg
-    viewBox="0 0 20 20"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.75"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M10 2v16M2 10h16M6 6l-4 4 4 4M14 6l4 4-4 4" />
-  </svg>
-)
-const IcoUpload = () => (
-  <svg
-    viewBox="0 0 20 20"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.75"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M3 14v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2" />
-    <path d="M10 3v10M6 7l4-4 4 4" />
-  </svg>
-)
-const IcoClear = () => (
-  <svg
-    viewBox="0 0 20 20"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.75"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M3 6h14M8 6V4h4v2M16 6l-1 10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1L4 6" />
-  </svg>
-)
-const IcoUndo = () => (
-  <svg
-    viewBox="0 0 20 20"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.75"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M4 8H13a4 4 0 0 1 0 8H7" />
-    <path d="M4 8l3-3M4 8l3 3" />
-  </svg>
-)
-const IcoClose = () => (
-  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-    <path d="M5 5l10 10M15 5 5 15" />
-  </svg>
-)
-const IcoWarn = () => (
-  <svg
-    viewBox="0 0 16 16"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-    strokeLinecap="round"
-  >
-    <circle cx="8" cy="8" r="6.5" />
-    <path d="M8 5v3.5M8 11h.01" />
-  </svg>
-)
+const Z_INDEX = 2147483647
+const PRIMARY_GRADIENT = 'linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)'
+const MASK_CSS_OPACITY = 0.4
+const MASK_THRESHOLD = 10
+const UNDO_CAP = 20
 
-/* ---- Helpers ---- */
-function extractBase64(dataUrl) {
-  if (!dataUrl?.startsWith('data:')) return null
-  const i = dataUrl.indexOf(';base64,')
-  return i >= 0 ? dataUrl.slice(i + 8) : null
-}
-
-const TOOLS = [
-  { id: 'rect', label: 'Rectangle', shortcut: 'R', Ico: IcoRect },
-  { id: 'brush', label: 'Brush', shortcut: 'B', Ico: IcoBrush },
-  { id: 'eraser', label: 'Eraser', shortcut: 'E', Ico: IcoEraser },
-  { id: 'image', label: 'Move images', shortcut: 'I', Ico: IcoMove },
+const COLOR_SWATCHES = [
+  '#EF4444', // red
+  '#F59E0B', // amber
+  '#10B981', // emerald
+  '#06B6D4', // cyan
+  '#A78BFA', // violet
+  '#FFFFFF', // white
 ]
 
-/* ================================================================
-   Component
-   ================================================================ */
+/* ── Icons ────────────────────────────────────────────────────────── */
+function Svg({ path, size = 16, strokeWidth = 2 }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      width={size}
+      height={size}
+      aria-hidden
+    >
+      {path}
+    </svg>
+  )
+}
+const IconX = (p) => (
+  <Svg
+    {...p}
+    strokeWidth={2.4}
+    path={
+      <>
+        <path d="m18 6-12 12" />
+        <path d="m6 6 12 12" />
+      </>
+    }
+  />
+)
+const IconSparkle = ({ size = 14 }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size} aria-hidden>
+    <path d="M13 2 3 14h7l-1 8 11-13h-8l1-7z" />
+  </svg>
+)
+const IconWand = (p) => (
+  <Svg
+    {...p}
+    path={
+      <>
+        <path d="m15 4 2 2" />
+        <path d="M9 10l-6 6 2 2 6-6" />
+        <path d="m15 4 4 4-9 9-4-4 9-9z" />
+      </>
+    }
+  />
+)
+const IconFace = (p) => (
+  <Svg
+    {...p}
+    path={
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+        <circle cx="9" cy="10" r="0.7" fill="currentColor" />
+        <circle cx="15" cy="10" r="0.7" fill="currentColor" />
+      </>
+    }
+  />
+)
+const IconArrowUp = (p) => (
+  <Svg
+    {...p}
+    strokeWidth={2.4}
+    path={
+      <>
+        <line x1="12" y1="5" x2="12" y2="19" />
+        <polyline points="19 12 12 5 5 12" />
+      </>
+    }
+  />
+)
+const IconRect = (p) => (
+  <Svg {...p} path={<rect x="4" y="6" width="16" height="12" rx="1.5" strokeDasharray="2.5 2" />} />
+)
+const IconBrush = (p) => (
+  <Svg
+    {...p}
+    path={
+      <>
+        <path d="M3 14.5c.8-1.2 2.2-1.8 3.5-1.3 1.3.5 2.8.1 3.8-.9L16 6.5a2 2 0 0 0-2.5-2.5l-5.7 5.7c-1 1-1.4 2.5-.9 3.8.5 1.3-.1 2.7-1.3 3.5" />
+        <circle cx="3.5" cy="15.5" r="1.5" fill="currentColor" stroke="none" />
+      </>
+    }
+  />
+)
+const IconEraser = (p) => (
+  <Svg
+    {...p}
+    path={
+      <>
+        <path d="m14 6-7.5 7.5M4 16h12" />
+        <path d="M4.5 13.5 10 8l4.5 4.5-3.5 3.5H7.5L4.5 13.5Z" />
+      </>
+    }
+  />
+)
+const IconUndo = (p) => (
+  <Svg
+    {...p}
+    path={
+      <>
+        <path d="M3 7v6h6" />
+        <path d="M3.51 13A9 9 0 1 0 6 5.3L3 7.5" />
+      </>
+    }
+  />
+)
+const IconRedo = (p) => (
+  <Svg
+    {...p}
+    path={
+      <>
+        <path d="M21 7v6h-6" />
+        <path d="M20.49 13A9 9 0 1 1 18 5.3L21 7.5" />
+      </>
+    }
+  />
+)
+const IconTrash = (p) => (
+  <Svg
+    {...p}
+    path={
+      <>
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      </>
+    }
+  />
+)
+
+/* ── Helpers ──────────────────────────────────────────────────────── */
+function extractBase64FromDataUrl(url) {
+  if (!url || typeof url !== 'string') return null
+  const comma = url.indexOf(',')
+  if (!url.startsWith('data:') || comma === -1) return null
+  return url.slice(comma + 1)
+}
+
+async function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const el = new Image()
+    el.crossOrigin = url.startsWith('data:') ? '' : 'anonymous'
+    el.onload = () => resolve(el)
+    el.onerror = () => reject(new Error('Could not load image.'))
+    el.src = url
+  })
+}
+
+function hexToRgba(hex, alpha = 1) {
+  const m = hex.replace('#', '')
+  const v =
+    m.length === 3
+      ? m
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : m
+  const r = parseInt(v.slice(0, 2), 16)
+  const g = parseInt(v.slice(2, 4), 16)
+  const b = parseInt(v.slice(4, 6), 16)
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
+/* ── Batch picker (matches VideoOptimize) ─────────────────────────── */
+function BatchPicker({ value, onChange, disabled }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    if (open) {
+      document.addEventListener('click', onDoc)
+      return () => document.removeEventListener('click', onDoc)
+    }
+  }, [open])
+  return (
+    <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
+      <CircleBtn
+        onClick={() => !disabled && setOpen((o) => !o)}
+        disabled={disabled}
+        title="Variants per run"
+        label={`${value}×`}
+      />
+      {open && !disabled && (
+        <Popover>
+          {[1, 2, 3, 4].map((n) => (
+            <button
+              key={n}
+              type="button"
+              role="option"
+              aria-selected={n === value}
+              onClick={() => {
+                onChange(n)
+                setOpen(false)
+              }}
+              style={popoverOptionStyle(n === value)}
+            >
+              {n}
+            </button>
+          ))}
+        </Popover>
+      )}
+    </div>
+  )
+}
+
+/* ── Reusable circle button + popover ─────────────────────────────── */
+function CircleBtn({ onClick, disabled, active, title, children, label, danger }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      aria-label={title}
+      aria-pressed={active ? true : undefined}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 34,
+        height: 34,
+        flexShrink: 0,
+        padding: 0,
+        color: active ? '#ffffff' : danger ? 'rgba(255,180,180,0.85)' : 'rgba(255,255,255,0.78)',
+        background: active ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.04)',
+        border: `1px solid ${active ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.1)'}`,
+        borderRadius: '50%',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.4 : 1,
+        fontFamily: 'inherit',
+        fontSize: '0.72rem',
+        fontWeight: 700,
+        letterSpacing: '0.005em',
+        transition:
+          'background 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.12s cubic-bezier(0.33, 1, 0.68, 1)',
+      }}
+      onPointerDown={(e) => {
+        e.currentTarget.style.transform = 'scale(0.9)'
+      }}
+      onPointerUp={(e) => {
+        e.currentTarget.style.transform = ''
+      }}
+      onPointerLeave={(e) => {
+        e.currentTarget.style.transform = ''
+      }}
+    >
+      {children}
+      {label}
+    </button>
+  )
+}
+
+function Popover({ children }) {
+  return (
+    <div
+      role="listbox"
+      style={{
+        position: 'absolute',
+        bottom: 'calc(100% + 6px)',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        display: 'flex',
+        gap: 4,
+        padding: 4,
+        background: 'rgba(14, 14, 18, 0.88)',
+        border: '0.5px solid rgba(255,255,255,0.1)',
+        borderRadius: 14,
+        boxShadow: '0 10px 32px rgba(0,0,0,0.55)',
+        backdropFilter: 'blur(22px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(22px) saturate(180%)',
+        zIndex: 10,
+        animation: 'etd-popover-in 0.18s cubic-bezier(0.32, 0.72, 0, 1) both',
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function popoverOptionStyle(isActive) {
+  return {
+    width: 28,
+    height: 28,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: 'none',
+    borderRadius: 999,
+    fontSize: '0.72rem',
+    fontWeight: 700,
+    fontFamily: 'inherit',
+    color: isActive ? '#ffffff' : 'rgba(255,255,255,0.6)',
+    background: isActive ? 'rgba(255,255,255,0.14)' : 'transparent',
+    cursor: 'pointer',
+    transition: 'background 0.15s ease, color 0.15s ease',
+  }
+}
+
+/* ── Component ────────────────────────────────────────────────────── */
 export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
-  const [tool, setTool] = useState('rect')
-  const [brushSize, setBrushSize] = useState(28)
+  const [tab, setTab] = useState('edit') // 'edit' | 'face'
   const [editPrompt, setEditPrompt] = useState('')
-  const [applying, setApplying] = useState(false)
+  const [batch, setBatch] = useState(1)
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-  const [hasStroke, setHasStroke] = useState(false)
-  const [rectPreviewActive, setRectPreviewActive] = useState(false)
-  const [placedImages, setPlacedImages] = useState([])
-  const [undoCount, setUndoCount] = useState(0)
 
-  // Face-swap local state — separate from region edit so users can use either.
-  const [faceImage, setFaceImage] = useState(null) // { dataUrl, name }
-  const [faceSwapping, setFaceSwapping] = useState(false)
-  const [faceSwapError, setFaceSwapError] = useState(null)
+  // Drawing state
+  const [tool, setTool] = useState('brush') // 'rect' | 'brush' | 'eraser'
+  const [brushSize, setBrushSize] = useState(32)
+  const [color, setColor] = useState(COLOR_SWATCHES[0])
+  const [hasDrawn, setHasDrawn] = useState(false)
+  const [undoDepth, setUndoDepth] = useState(0)
+  const [redoDepth, setRedoDepth] = useState(0)
+  const [sizePopoverOpen, setSizePopoverOpen] = useState(false)
+  const [colorPopoverOpen, setColorPopoverOpen] = useState(false)
 
-  const containerRef = useRef(null)
-  const fabricElRef = useRef(null)
-  const fabricRef = useRef(null)
-  const bgImgRef = useRef(null)
-  const drawElRef = useRef(null)
-  const maskElRef = useRef(null)
-  const fileInputRef = useRef(null)
-  const faceFileInputRef = useRef(null)
-  const placedFabRef = useRef([])
-
+  const editTextareaRef = useRef(null)
   const queryClient = useQueryClient()
-  const { data: tierState } = useModelTierStateQuery()
-  const { data: featureCosts } = useFeatureCostsQuery()
-  const faceSwapCost = featureCosts?.thumbnail_edit_faceswap || 20
-  const tierLabel = tierState?.tiers?.find((t) => t.code === tierState?.selected)?.label || 'Lite'
+  const selectedPersona = usePersonaStore((s) => s.selectedPersona)
 
-  const isDrawingRef = useRef(false)
-  const lastPosRef = useRef(null)
-  const rectStartRef = useRef(null)
-  const dashOffRef = useRef(0)
-  const animFrameRef = useRef(null)
+  // Canvas refs
+  const maskCanvasRef = useRef(null) // full natural resolution mask canvas
+  const stageRef = useRef(null) // the wrapper whose rect we measure
+  const baseSnapshotRef = useRef(null) // ImageData before the in-progress stroke
   const undoStackRef = useRef([])
+  const redoStackRef = useRef([])
+  const drawingRef = useRef(null) // { tool, points, size, color, startX, startY }
+  const imageRef = useRef(null) // loaded HTMLImageElement
+  const sizePopoverRef = useRef(null)
+  const colorPopoverRef = useRef(null)
 
-  /* ---- canvas sizing ---- */
-  const resizeCanvases = useCallback(() => {
-    const container = containerRef.current
-    const drawEl = drawElRef.current
-    const maskEl = maskElRef.current
-    const fc = fabricRef.current
-    if (!container || !drawEl || !maskEl) return
-
-    const { width, height } = container.getBoundingClientRect()
-    if (!width || !height) return
-    const dpr = window.devicePixelRatio || 1
-
-    // Draw canvas — DPR aware
-    const wp = Math.round(width * dpr)
-    const hp = Math.round(height * dpr)
-    if (drawEl.width !== wp || drawEl.height !== hp) {
-      drawEl.width = wp
-      drawEl.height = hp
-      drawEl.style.width = `${width}px`
-      drawEl.style.height = `${height}px`
-    }
-
-    // Mask canvas — same logical size (no DPR needed for mask export)
-    if (maskEl.width !== wp || maskEl.height !== hp) {
-      maskEl.width = wp
-      maskEl.height = hp
-      const mc = maskEl.getContext('2d')
-      mc.fillStyle = '#000'
-      mc.fillRect(0, 0, wp, hp)
-    }
-
-    // Fabric canvas
-    if (fc) {
-      fc.setDimensions({ width, height })
-      const img = bgImgRef.current
-      if (img) {
-        const scale = Math.min(width / img.width, height / img.height)
-        img.set({
-          scaleX: scale,
-          scaleY: scale,
-          left: (width - img.width * scale) / 2,
-          top: (height - img.height * scale) / 2,
-        })
-        img.setCoords()
-        fc.renderAll()
-      }
-    }
-  }, [])
-
-  /* ---- init fabric ---- */
-  useEffect(() => {
-    const el = fabricElRef.current
-    if (!el) return
-    if (!imageUrl) {
-      setError('No image to edit — pick a thumbnail first.')
-      return
-    }
-
-    const fc = new FabricCanvas(el, {
-      selection: false,
-      isDrawingMode: false,
-      enableRetinaScaling: true,
-    })
-    fabricRef.current = fc
-
-    // `crossOrigin: 'anonymous'` breaks base64 data URLs and same-origin URLs
-    // (fabric sets img.crossOrigin which then fails to load). Only set it when
-    // we truly have a cross-origin http(s) URL that needs CORS for canvas export.
-    const isDataUrl = typeof imageUrl === 'string' && imageUrl.startsWith('data:')
-    const isHttpUrl = typeof imageUrl === 'string' && /^https?:\/\//i.test(imageUrl)
-    const loadOptions = isDataUrl || !isHttpUrl ? undefined : { crossOrigin: 'anonymous' }
-
-    let cancelled = false
-    FabricImage.fromURL(imageUrl, loadOptions)
-      .then((img) => {
-        if (cancelled) return
-        img.set({ selectable: false, evented: false })
-        fc.add(img)
-        fc.sendObjectToBack(img)
-        bgImgRef.current = img
-        resizeCanvases()
-      })
-      .catch((err) => {
-        if (cancelled) return
-        console.error('[EditThumbnailDialog] failed to load image', err)
-        setError('Could not load this image into the editor. Try re-uploading it.')
-      })
-
-    return () => {
-      cancelled = true
-      fc.dispose()
-      fabricRef.current = null
-      bgImgRef.current = null
-    }
-  }, [imageUrl, resizeCanvases])
-
-  /* ---- resize observer ---- */
-  useEffect(() => {
-    resizeCanvases()
-    const ro = new ResizeObserver(() => resizeCanvases())
-    if (containerRef.current) ro.observe(containerRef.current)
-    return () => ro.disconnect()
-  }, [resizeCanvases])
-
-  /* ---- tool → fabric interactivity ---- */
-  useEffect(() => {
-    const fc = fabricRef.current
-    if (!fc) return
-    const img = tool === 'image'
-    fc.selection = img
-    fc.getObjects().forEach((obj) => {
-      if (obj !== bgImgRef.current) {
-        obj.set({ selectable: img, evented: img })
-      }
-    })
-    fc.renderAll()
-  }, [tool])
-
-  /* ---- keyboard ---- */
+  /* ── Effects ─────────────────────────────────────────────────── */
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') {
-        onClose?.()
-        return
+      if (e.key === 'Escape' && !busy) onClose?.()
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleSubmit()
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        handleUndo()
       }
-      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return
-      const map = {
-        b: 'brush',
-        B: 'brush',
-        e: 'eraser',
-        E: 'eraser',
-        r: 'rect',
-        R: 'rect',
-        i: 'image',
-        I: 'image',
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
+        e.preventDefault()
+        handleRedo()
       }
-      if (map[e.key]) setTool(map[e.key])
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') handleUndo()
     }
-    window.addEventListener('keydown', onKey)
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onClose, busy, tab, editPrompt, selectedPersona, batch])
+
+  useEffect(() => {
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
-      window.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
     }
-  }, [onClose]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  /* ---- coord helper ---- */
-  const getPos = useCallback((e) => {
-    const rect = drawElRef.current?.getBoundingClientRect()
-    if (!rect) return null
-    const dpr = window.devicePixelRatio || 1
-    const cx = e.touches?.[0]?.clientX ?? e.clientX
-    const cy = e.touches?.[0]?.clientY ?? e.clientY
-    return { x: (cx - rect.left) * dpr, y: (cy - rect.top) * dpr }
-  }, [])
-
-  /* ---- drawing ---- */
-  const drawStroke = useCallback(
-    (from, to) => {
-      const drawEl = drawElRef.current
-      const maskEl = maskElRef.current
-      if (!drawEl || !maskEl) return
-      const dc = drawEl.getContext('2d')
-      const mc = maskEl.getContext('2d')
-      const size = brushSize * (window.devicePixelRatio || 1)
-
-      if (tool === 'eraser') {
-        dc.globalCompositeOperation = 'destination-out'
-        dc.strokeStyle = 'rgba(255,255,255,1)'
-        dc.fillStyle = 'rgba(255,255,255,1)'
-        mc.strokeStyle = '#000'
-        mc.fillStyle = '#000'
-      } else {
-        dc.globalCompositeOperation = 'source-over'
-        dc.strokeStyle = 'rgba(139,92,246,0.55)'
-        dc.fillStyle = 'rgba(139,92,246,0.55)'
-        mc.strokeStyle = '#fff'
-        mc.fillStyle = '#fff'
-      }
-
-      ;[
-        [dc, size],
-        [mc, size],
-      ].forEach(([ctx, s]) => {
-        ctx.lineWidth = s
-        ctx.lineCap = 'round'
-        ctx.lineJoin = 'round'
-        if (from) {
-          ctx.beginPath()
-          ctx.moveTo(from.x, from.y)
-          ctx.lineTo(to.x, to.y)
-          ctx.stroke()
-        } else {
-          ctx.beginPath()
-          ctx.arc(to.x, to.y, s / 2, 0, Math.PI * 2)
-          ctx.fill()
-        }
-      })
-      dc.globalCompositeOperation = 'source-over'
-      setHasStroke(true)
-    },
-    [tool, brushSize]
-  )
-
-  /* ---- rect fill (commit) ---- */
-  const commitRect = (start, end) => {
-    const drawEl = drawElRef.current
-    const maskEl = maskElRef.current
-    if (!drawEl || !maskEl) return
-    const x = Math.min(start.x, end.x)
-    const y = Math.min(start.y, end.y)
-    const w = Math.max(4, Math.abs(end.x - start.x))
-    const h = Math.max(4, Math.abs(end.y - start.y))
-    drawEl.getContext('2d').fillStyle = 'rgba(139,92,246,0.4)'
-    drawEl.getContext('2d').fillRect(x, y, w, h)
-    maskEl.getContext('2d').fillStyle = '#fff'
-    maskEl.getContext('2d').fillRect(x, y, w, h)
-    setHasStroke(true)
-  }
-
-  /* ---- animated rect preview ---- */
-  const drawRectPreview = useCallback((start, cur) => {
-    const drawEl = drawElRef.current
-    const maskEl = maskElRef.current
-    if (!drawEl) return
-    const dc = drawEl.getContext('2d')
-    dc.clearRect(0, 0, drawEl.width, drawEl.height)
-    if (maskEl) {
-      dc.save()
-      dc.drawImage(maskEl, 0, 0)
-      dc.globalCompositeOperation = 'source-in'
-      dc.fillStyle = 'rgba(139,92,246,0.4)'
-      dc.fillRect(0, 0, drawEl.width, drawEl.height)
-      dc.restore()
-      dc.globalCompositeOperation = 'source-over'
-    }
-    const x = Math.min(start.x, cur.x)
-    const y = Math.min(start.y, cur.y)
-    const w = Math.max(2, Math.abs(cur.x - start.x))
-    const h = Math.max(2, Math.abs(cur.y - start.y))
-    dc.fillStyle = 'rgba(139,92,246,0.18)'
-    dc.fillRect(x, y, w, h)
-    const dpr = window.devicePixelRatio || 1
-    dc.strokeStyle = 'rgba(167,139,250,0.9)'
-    dc.lineWidth = 1.5 * dpr
-    dc.setLineDash([6 * dpr, 3 * dpr])
-    dc.lineDashOffset = -dashOffRef.current
-    dc.strokeRect(x, y, w, h)
-    dc.setLineDash([])
   }, [])
 
   useEffect(() => {
-    if (!rectPreviewActive) return
-    const tick = () => {
-      dashOffRef.current = (dashOffRef.current + 0.5) % 20
-      if (rectStartRef.current && lastPosRef.current) {
-        drawRectPreview(rectStartRef.current, lastPosRef.current)
-      }
-      animFrameRef.current = requestAnimationFrame(tick)
-    }
-    animFrameRef.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(animFrameRef.current)
-  }, [rectPreviewActive, drawRectPreview])
+    if (tab === 'edit') editTextareaRef.current?.focus()
+  }, [tab])
 
-  /* ---- undo ---- */
-  const saveUndoSnapshot = () => {
-    const drawEl = drawElRef.current
-    const maskEl = maskElRef.current
-    if (!drawEl || !maskEl) return
-    undoStackRef.current.push({ draw: drawEl.toDataURL(), mask: maskEl.toDataURL() })
-    if (undoStackRef.current.length > 20) undoStackRef.current.shift()
-    setUndoCount(undoStackRef.current.length)
-  }
-
-  const handleUndo = useCallback(() => {
-    const snap = undoStackRef.current.pop()
-    setUndoCount(undoStackRef.current.length)
-    if (!snap) return
-    const restore = (canvas, src) => {
-      const img = new Image()
-      img.onload = () => {
+  // Load the image + size the canvas to its natural dimensions.
+  useEffect(() => {
+    let cancelled = false
+    if (!imageUrl) return
+    loadImage(imageUrl)
+      .then((img) => {
+        if (cancelled) return
+        imageRef.current = img
+        const canvas = maskCanvasRef.current
+        if (!canvas) return
+        canvas.width = img.naturalWidth || img.width || 1536
+        canvas.height = img.naturalHeight || img.height || 864
         const ctx = canvas.getContext('2d')
         ctx.clearRect(0, 0, canvas.width, canvas.height)
-        ctx.drawImage(img, 0, 0)
-      }
-      img.src = src
+        undoStackRef.current = []
+        redoStackRef.current = []
+        setUndoDepth(0)
+        setRedoDepth(0)
+        setHasDrawn(false)
+      })
+      .catch(() => {
+        /* image failed — drawing will no-op, edit still works as full-mask */
+      })
+    return () => {
+      cancelled = true
     }
-    restore(drawElRef.current, snap.draw)
-    restore(maskElRef.current, snap.mask)
-    setTimeout(() => {
-      const maskEl = maskElRef.current
-      if (!maskEl) return
-      const d = maskEl.getContext('2d').getImageData(0, 0, maskEl.width, maskEl.height).data
-      setHasStroke([...d].some((v, i) => i % 4 === 0 && v > 10))
-    }, 60)
+  }, [imageUrl])
+
+  // Outside-click for popovers.
+  useEffect(() => {
+    if (!sizePopoverOpen && !colorPopoverOpen) return
+    const onDoc = (e) => {
+      if (sizePopoverOpen && sizePopoverRef.current && !sizePopoverRef.current.contains(e.target)) {
+        setSizePopoverOpen(false)
+      }
+      if (
+        colorPopoverOpen &&
+        colorPopoverRef.current &&
+        !colorPopoverRef.current.contains(e.target)
+      ) {
+        setColorPopoverOpen(false)
+      }
+    }
+    document.addEventListener('click', onDoc)
+    return () => document.removeEventListener('click', onDoc)
+  }, [sizePopoverOpen, colorPopoverOpen])
+
+  /* ── Canvas drawing primitives ────────────────────────────────── */
+  const getCanvasCoords = useCallback((e) => {
+    const canvas = maskCanvasRef.current
+    if (!canvas) return null
+    const rect = canvas.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return null
+    const clientX = e.clientX ?? (e.touches && e.touches[0]?.clientX)
+    const clientY = e.clientY ?? (e.touches && e.touches[0]?.clientY)
+    if (clientX == null || clientY == null) return null
+    return {
+      x: ((clientX - rect.left) / rect.width) * canvas.width,
+      y: ((clientY - rect.top) / rect.height) * canvas.height,
+    }
   }, [])
 
-  /* ---- pointer events ---- */
-  const handlePointerDown = useCallback(
-    (e) => {
-      if (tool === 'image') return
-      e.preventDefault()
-      saveUndoSnapshot()
-      const pos = getPos(e)
-      if (!pos) return
-      if (tool === 'rect') {
-        rectStartRef.current = pos
-        lastPosRef.current = pos
-        setRectPreviewActive(true)
-      } else {
-        isDrawingRef.current = true
-        lastPosRef.current = pos
-        drawStroke(null, pos)
-      }
-    },
-    [tool, getPos, drawStroke]
-  )
+  const snapshotCanvas = useCallback(() => {
+    const canvas = maskCanvasRef.current
+    if (!canvas) return null
+    const ctx = canvas.getContext('2d')
+    return ctx.getImageData(0, 0, canvas.width, canvas.height)
+  }, [])
 
-  const handlePointerMove = useCallback(
-    (e) => {
-      if (tool === 'image') return
-      const pos = getPos(e)
-      if (!pos) return
-      if (tool === 'rect' && rectStartRef.current) {
-        lastPosRef.current = pos
-      } else if (isDrawingRef.current) {
-        drawStroke(lastPosRef.current, pos)
-        lastPosRef.current = pos
-      }
-    },
-    [tool, getPos, drawStroke]
-  )
+  const restoreSnapshot = useCallback((data) => {
+    const canvas = maskCanvasRef.current
+    if (!canvas || !data) return
+    canvas.getContext('2d').putImageData(data, 0, 0)
+  }, [])
 
-  const handlePointerUp = useCallback(
-    (e) => {
-      if (tool === 'image') return
-      if (tool === 'rect' && rectStartRef.current) {
-        const end = lastPosRef.current || getPos(e) || rectStartRef.current
-        commitRect(rectStartRef.current, end)
-        rectStartRef.current = null
-        lastPosRef.current = null
-        setRectPreviewActive(false)
-        // Redraw draw canvas from committed mask
-        const drawEl = drawElRef.current
-        const maskEl = maskElRef.current
-        if (drawEl && maskEl) {
-          const dc = drawEl.getContext('2d')
-          dc.clearRect(0, 0, drawEl.width, drawEl.height)
-          dc.save()
-          dc.drawImage(maskEl, 0, 0)
-          dc.globalCompositeOperation = 'source-in'
-          dc.fillStyle = 'rgba(139,92,246,0.4)'
-          dc.fillRect(0, 0, drawEl.width, drawEl.height)
-          dc.restore()
-          dc.globalCompositeOperation = 'source-over'
-        }
-      } else {
-        isDrawingRef.current = false
-        lastPosRef.current = null
-      }
-    },
-    [tool, getPos]
-  )
-
-  useEffect(() => {
-    const el = drawElRef.current
-    if (!el) return
-    el.addEventListener('pointerdown', handlePointerDown, { passive: false })
-    el.addEventListener('pointermove', handlePointerMove, { passive: true })
-    el.addEventListener('pointerup', handlePointerUp)
-    el.addEventListener('pointerleave', handlePointerUp)
-    return () => {
-      el.removeEventListener('pointerdown', handlePointerDown)
-      el.removeEventListener('pointermove', handlePointerMove)
-      el.removeEventListener('pointerup', handlePointerUp)
-      el.removeEventListener('pointerleave', handlePointerUp)
-    }
-  }, [handlePointerDown, handlePointerMove, handlePointerUp])
-
-  /* ---- clear ---- */
-  const handleClear = () => {
-    const drawEl = drawElRef.current
-    const maskEl = maskElRef.current
-    if (!drawEl || !maskEl) return
-    saveUndoSnapshot()
-    drawEl.getContext('2d').clearRect(0, 0, drawEl.width, drawEl.height)
-    const mc = maskEl.getContext('2d')
-    mc.fillStyle = '#000'
-    mc.fillRect(0, 0, maskEl.width, maskEl.height)
-    setHasStroke(false)
-    rectStartRef.current = null
-    setRectPreviewActive(false)
-  }
-
-  /* ---- image upload ---- */
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    e.target.value = ''
-    const dataUrl = await new Promise((res, rej) => {
-      const r = new FileReader()
-      r.onload = (ev) => res(ev.target.result)
-      r.onerror = rej
-      r.readAsDataURL(file)
-    })
-    const fc = fabricRef.current
-    if (!fc) return
-    const img = await FabricImage.fromURL(dataUrl, { crossOrigin: 'anonymous' })
-    const maxW = fc.width * 0.55
-    const maxH = fc.height * 0.55
-    const scale = Math.min(maxW / img.width, maxH / img.height, 1)
-    img.set({
-      left: (fc.width - img.width * scale) / 2,
-      top: (fc.height - img.height * scale) / 2,
-      scaleX: scale,
-      scaleY: scale,
-      selectable: true,
-      evented: true,
-      borderColor: 'rgba(139,92,246,0.8)',
-      cornerColor: '#8b5cf6',
-      cornerStyle: 'circle',
-      transparentCorners: false,
-    })
-    fc.add(img)
-    fc.setActiveObject(img)
-    fc.renderAll()
-    const id = Date.now()
-    placedFabRef.current.push({ id, obj: img })
-    setPlacedImages((prev) => [...prev, { id, name: file.name, dataUrl }])
-    setTool('image')
-  }
-
-  const removePlacedImage = (id) => {
-    const fc = fabricRef.current
-    if (!fc) return
-    const idx = placedFabRef.current.findIndex((i) => i.id === id)
-    if (idx >= 0) {
-      fc.remove(placedFabRef.current[idx].obj)
-      fc.renderAll()
-      placedFabRef.current.splice(idx, 1)
-    }
-    setPlacedImages((prev) => prev.filter((i) => i.id !== id))
-  }
-
-  /* ---- check mask ---- */
-  const hasMaskSelection = () => {
-    const maskEl = maskElRef.current
-    if (!maskEl) return false
-    const d = maskEl.getContext('2d').getImageData(0, 0, maskEl.width, maskEl.height).data
-    for (let i = 0; i < d.length; i += 4) if (d[i] > 10) return true
-    return false
-  }
-
-  /* ---- apply ---- */
-  const handleApply = async () => {
-    const prompt = editPrompt.trim()
-    if (!prompt) {
-      setError('Describe what to change.')
+  const paintBrushSegment = useCallback((ctx, p1, p2, size, rgba, erase) => {
+    ctx.globalCompositeOperation = erase ? 'destination-out' : 'source-over'
+    ctx.strokeStyle = rgba
+    ctx.fillStyle = rgba
+    ctx.lineWidth = size
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    if (!p2 || (p1.x === p2.x && p1.y === p2.y)) {
+      ctx.beginPath()
+      ctx.arc(p1.x, p1.y, size / 2, 0, Math.PI * 2)
+      ctx.fill()
       return
     }
-    if (!hasMaskSelection()) {
-      setError('Draw or drag a rectangle to select the area to edit.')
-      return
+    ctx.beginPath()
+    ctx.moveTo(p1.x, p1.y)
+    ctx.lineTo(p2.x, p2.y)
+    ctx.stroke()
+  }, [])
+
+  const paintRectPreview = useCallback((ctx, x1, y1, x2, y2, rgba) => {
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.fillStyle = rgba
+    const x = Math.min(x1, x2)
+    const y = Math.min(y1, y2)
+    const w = Math.abs(x2 - x1)
+    const h = Math.abs(y2 - y1)
+    ctx.fillRect(x, y, w, h)
+  }, [])
+
+  const pushUndoSnapshot = useCallback((snap) => {
+    if (!snap) return
+    undoStackRef.current.push(snap)
+    if (undoStackRef.current.length > UNDO_CAP) {
+      undoStackRef.current.shift()
     }
+    redoStackRef.current = []
+    setUndoDepth(undoStackRef.current.length)
+    setRedoDepth(0)
+  }, [])
+
+  /* ── Pointer handlers ─────────────────────────────────────────── */
+  const onPointerDown = (e) => {
+    if (busy || tab !== 'edit') return
+    const pos = getCanvasCoords(e)
+    if (!pos) return
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    const canvas = maskCanvasRef.current
+    const ctx = canvas.getContext('2d')
+    const scale = canvas.width / canvas.getBoundingClientRect().width
+    const effectiveSize = brushSize * scale
+    const rgba = hexToRgba(color, 1)
+    baseSnapshotRef.current = snapshotCanvas()
+    drawingRef.current = {
+      tool,
+      size: effectiveSize,
+      color: rgba,
+      startX: pos.x,
+      startY: pos.y,
+      lastX: pos.x,
+      lastY: pos.y,
+    }
+    if (tool === 'brush' || tool === 'eraser') {
+      paintBrushSegment(ctx, pos, null, effectiveSize, rgba, tool === 'eraser')
+    }
+    // rect waits for move
+  }
+
+  const onPointerMove = (e) => {
+    if (!drawingRef.current) return
+    const pos = getCanvasCoords(e)
+    if (!pos) return
+    const { tool: t, size, color: rgba, startX, startY, lastX, lastY } = drawingRef.current
+    const canvas = maskCanvasRef.current
+    const ctx = canvas.getContext('2d')
+    if (t === 'rect') {
+      restoreSnapshot(baseSnapshotRef.current)
+      paintRectPreview(ctx, startX, startY, pos.x, pos.y, rgba)
+    } else {
+      paintBrushSegment(ctx, { x: lastX, y: lastY }, pos, size, rgba, t === 'eraser')
+      drawingRef.current.lastX = pos.x
+      drawingRef.current.lastY = pos.y
+    }
+  }
+
+  const onPointerUp = () => {
+    if (!drawingRef.current) return
+    const snap = baseSnapshotRef.current
+    drawingRef.current = null
+    baseSnapshotRef.current = null
+    if (snap) pushUndoSnapshot(snap)
+    setHasDrawn(true)
+  }
+
+  /* ── History actions ──────────────────────────────────────────── */
+  const handleUndo = useCallback(() => {
+    if (undoStackRef.current.length === 0) return
+    const current = snapshotCanvas()
+    const prev = undoStackRef.current.pop()
+    if (current) {
+      redoStackRef.current.push(current)
+      if (redoStackRef.current.length > UNDO_CAP) redoStackRef.current.shift()
+    }
+    restoreSnapshot(prev)
+    setUndoDepth(undoStackRef.current.length)
+    setRedoDepth(redoStackRef.current.length)
+    setHasDrawn(undoStackRef.current.length > 0)
+  }, [snapshotCanvas, restoreSnapshot])
+
+  const handleRedo = useCallback(() => {
+    if (redoStackRef.current.length === 0) return
+    const current = snapshotCanvas()
+    const next = redoStackRef.current.pop()
+    if (current) {
+      undoStackRef.current.push(current)
+      if (undoStackRef.current.length > UNDO_CAP) undoStackRef.current.shift()
+    }
+    restoreSnapshot(next)
+    setUndoDepth(undoStackRef.current.length)
+    setRedoDepth(redoStackRef.current.length)
+    setHasDrawn(true)
+  }, [snapshotCanvas, restoreSnapshot])
+
+  const handleClear = useCallback(() => {
+    const canvas = maskCanvasRef.current
+    if (!canvas) return
+    const snap = snapshotCanvas()
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    if (snap) pushUndoSnapshot(snap)
+    setHasDrawn(false)
+  }, [snapshotCanvas, pushUndoSnapshot])
+
+  /* ── Mask export ──────────────────────────────────────────────── */
+  async function exportMaskBase64() {
+    const canvas = maskCanvasRef.current
+    // Fallback: no canvas or nothing drawn → full-white mask ("edit whole image")
+    if (!canvas || !hasDrawn) {
+      const img = imageRef.current || (await loadImage(imageUrl))
+      const out = document.createElement('canvas')
+      out.width = img.naturalWidth || img.width || 1536
+      out.height = img.naturalHeight || img.height || 864
+      const ctx = out.getContext('2d')
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, out.width, out.height)
+      return out.toDataURL('image/png').split(',')[1]
+    }
+    const out = document.createElement('canvas')
+    out.width = canvas.width
+    out.height = canvas.height
+    const ctx = out.getContext('2d')
+    ctx.fillStyle = '#000000'
+    ctx.fillRect(0, 0, out.width, out.height)
+    const maskCtx = canvas.getContext('2d')
+    const maskData = maskCtx.getImageData(0, 0, canvas.width, canvas.height)
+    const outData = ctx.getImageData(0, 0, out.width, out.height)
+    for (let i = 0; i < maskData.data.length; i += 4) {
+      if (maskData.data[i + 3] > MASK_THRESHOLD) {
+        outData.data[i] = 255
+        outData.data[i + 1] = 255
+        outData.data[i + 2] = 255
+        outData.data[i + 3] = 255
+      }
+    }
+    ctx.putImageData(outData, 0, 0)
+    return out.toDataURL('image/png').split(',')[1]
+  }
+
+  /* ── Submit ───────────────────────────────────────────────────── */
+  async function callEditOnce(token, maskB64) {
+    const imageB64 = extractBase64FromDataUrl(imageUrl)
+    const res = await thumbnailsApi.editRegion(token, {
+      thumbnail_image_base64: imageB64 || undefined,
+      thumbnail_image_url: imageB64 ? undefined : imageUrl,
+      mask_base64: maskB64,
+      edit_prompt: editPrompt.trim(),
+    })
+    return res?.image_url || null
+  }
+
+  async function callFaceSwapOnce(token) {
+    const imageB64 = extractBase64FromDataUrl(imageUrl)
+    const faceB64 = extractBase64FromDataUrl(selectedPersona.image_url)
+    const res = await thumbnailsApi.faceSwap(token, {
+      thumbnail_image_base64: imageB64 || undefined,
+      thumbnail_image_url: imageB64 ? undefined : imageUrl,
+      face_image_base64: faceB64 || undefined,
+      face_image_url: faceB64 ? undefined : selectedPersona.image_url,
+      extra_hint: editPrompt.trim() || undefined,
+    })
+    return res?.image_url || null
+  }
+
+  async function handleSubmit() {
+    if (busy) return
+    if (!imageUrl) return setError('No thumbnail to edit.')
+    if (tab === 'edit' && !editPrompt.trim()) {
+      return setError('Describe the change you want.')
+    }
+    if (tab === 'face' && !selectedPersona?.image_url) {
+      return setError('Select a persona to swap the face with.')
+    }
+
     setError(null)
-    setApplying(true)
+    setBusy(true)
     try {
       const token = await getAccessTokenOrNull()
-      if (!token) throw new Error('Sign in to use AI edit')
-      const fc = fabricRef.current
-      if (!fc) throw new Error('Canvas not ready')
+      if (!token) throw new Error('Sign in required.')
 
-      // Deselect objects for clean export
-      fc.discardActiveObject()
-      fc.renderAll()
+      let maskB64 = null
+      if (tab === 'edit') maskB64 = await exportMaskBase64()
 
-      // Export composite (thumbnail + placed images)
-      const compositeB64 = extractBase64(fc.toDataURL({ format: 'png', quality: 1 }))
+      const oneCall =
+        tab === 'edit' ? () => callEditOnce(token, maskB64) : () => callFaceSwapOnce(token)
 
-      // Export mask
-      const maskEl = maskElRef.current
-      if (!maskEl) throw new Error('Mask not ready')
-      const maskB64 = extractBase64(maskEl.toDataURL('image/png'))
-      if (!maskB64) throw new Error('Could not export mask')
-
-      const payload = {
-        thumbnail_image_base64: compositeB64 || undefined,
-        thumbnail_image_url: !compositeB64 ? imageUrl : undefined,
-        mask_base64: maskB64,
-        edit_prompt: prompt,
+      const settled = await Promise.allSettled(Array.from({ length: batch }, () => oneCall()))
+      const urls = settled.filter((r) => r.status === 'fulfilled' && r.value).map((r) => r.value)
+      if (urls.length === 0) {
+        const firstErr = settled.find((r) => r.status === 'rejected')
+        throw new Error(firstErr?.reason?.message || 'No image returned.')
       }
-
-      const res = await thumbnailsApi.editRegion(token, payload)
-      const newUrl = res?.image_url
-      if (newUrl) {
-        onApply?.(newUrl)
-        onClose?.()
-      } else throw new Error('No image in response')
-    } catch (err) {
-      setError(err?.message || 'Edit failed. Please try again.')
-    } finally {
-      setApplying(false)
-    }
-  }
-
-  const canApply = !!editPrompt.trim() && hasStroke
-
-  /* ──────────────── Face swap ──────────────── */
-  const handleFaceFileChange = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      setFaceImage({ dataUrl: reader.result, name: file.name })
-      setFaceSwapError(null)
-    }
-    reader.onerror = () => setFaceSwapError('Could not read face image')
-    reader.readAsDataURL(file)
-    // Allow re-uploading the same file later.
-    e.target.value = ''
-  }
-
-  const handleFaceSwap = async () => {
-    if (!faceImage?.dataUrl) {
-      setFaceSwapError('Upload a face image first.')
-      return
-    }
-    setFaceSwapError(null)
-    setFaceSwapping(true)
-    try {
-      const token = await getAccessTokenOrNull()
-      if (!token) throw new Error('Sign in to use Face Swap')
-      const fc = fabricRef.current
-      if (!fc) throw new Error('Canvas not ready')
-      fc.discardActiveObject()
-      fc.renderAll()
-      // Composite (background + placed images) — what the user actually sees.
-      const compositeB64 = extractBase64(fc.toDataURL({ format: 'png', quality: 1 }))
-      const faceB64 = extractBase64(faceImage.dataUrl)
-      if (!faceB64) throw new Error('Could not encode face image')
-
-      const payload = {
-        thumbnail_image_base64: compositeB64 || undefined,
-        thumbnail_image_url: !compositeB64 ? imageUrl : undefined,
-        face_image_base64: faceB64,
-      }
-      const res = await thumbnailsApi.faceSwap(token, payload)
-      const newUrl = res?.image_url
-      if (!newUrl) throw new Error('No image in response')
-
       invalidateCredits(queryClient)
-      celebrate({
-        emoji: '🎭',
-        title: 'Face swapped!',
-        subtitle: `Polished with ${res?.tier || tierState?.selected || 'SRX-1'}.`,
-        variant: 'celebrate',
-      })
-      onApply?.(newUrl)
+      onApply?.(urls.length === 1 ? urls[0] : urls)
       onClose?.()
     } catch (err) {
-      // Server-side error payload may carry a friendly message.
-      const msg =
-        err?.payload?.error?.extra?.message ||
-        err?.payload?.error?.message ||
+      setError(
         err?.message ||
-        'Face swap failed.'
-      setFaceSwapError(msg)
-      // Plan-gate refresh so balance UI catches a refund if one happened.
-      invalidateCredits(queryClient)
-    } finally {
-      setFaceSwapping(false)
+          (tab === 'edit'
+            ? 'Edit failed. Try a different prompt.'
+            : 'Face swap failed. Try another persona.')
+      )
+      setBusy(false)
     }
   }
 
-  /* ================================================================
-     Render
-     ================================================================ */
-  return createPortal(
-    <div className="etd-overlay" onClick={(e) => e.target === e.currentTarget && onClose?.()}>
+  const canSubmit =
+    !busy && !!imageUrl && (tab === 'edit' ? !!editPrompt.trim() : !!selectedPersona?.image_url)
+
+  const placeholder =
+    tab === 'edit'
+      ? 'Describe the change — paint a region for targeted edits, or leave blank to edit the whole thumbnail.'
+      : selectedPersona
+        ? `Optional hint — e.g. keep beard, match ${selectedPersona.name}'s lighting…`
+        : 'Pick a persona →  then describe any extra hint (optional)…'
+
+  const dialog = (
+    <div
+      onClick={() => (busy ? null : onClose?.())}
+      role="presentation"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: Z_INDEX,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+        background: 'rgba(8, 6, 14, 0.78)',
+        backdropFilter: 'blur(22px) saturate(160%)',
+        WebkitBackdropFilter: 'blur(22px) saturate(160%)',
+        animation: 'etd-overlay-in 0.22s cubic-bezier(0.32, 0.72, 0, 1) both',
+        boxSizing: 'border-box',
+      }}
+    >
+      <style>{`
+        @keyframes etd-overlay-in {
+          from { opacity: 0 }
+          to   { opacity: 1 }
+        }
+        @keyframes etd-panel-in {
+          from { opacity: 0; transform: translateY(14px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes etd-spin { to { transform: rotate(360deg); } }
+        @keyframes etd-popover-in {
+          from { opacity: 0; transform: translateX(-50%) translateY(4px) scale(0.95); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+        }
+      `}</style>
+
       <div
-        className="etd-dialog"
+        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="etd-title"
-        onClick={(e) => e.stopPropagation()}
+        aria-label="Edit thumbnail"
+        style={{
+          position: 'relative',
+          width: '100%',
+          maxWidth: 1040,
+          maxHeight: 'calc(100dvh - 48px)',
+          padding: '22px 22px 18px',
+          borderRadius: 22,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+          background:
+            'linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 40%, rgba(255,255,255,0.01) 100%)',
+          backdropFilter: 'blur(50px) saturate(190%) brightness(1.05)',
+          WebkitBackdropFilter: 'blur(50px) saturate(190%) brightness(1.05)',
+          border: '0.5px solid rgba(255, 255, 255, 0.22)',
+          boxShadow:
+            'inset 0 0.5px 0 rgba(255,255,255,0.18), inset 0 -0.5px 0 rgba(255,255,255,0.05), 0 0 0 0.5px rgba(0,0,0,0.14), 0 16px 48px rgba(0,0,0,0.48), 0 28px 72px rgba(0,0,0,0.28)',
+          color: '#fff',
+          fontFamily: 'inherit',
+          animation: 'etd-panel-in 0.3s cubic-bezier(0.32, 0.72, 0, 1) both',
+          boxSizing: 'border-box',
+        }}
       >
-        {/* ── Header ── */}
-        <header className="etd-header">
-          <div className="etd-brand">
-            <span className="etd-brand-orb" aria-hidden>
-              <IcoSparkle />
-            </span>
-            <div className="etd-brand-text">
-              <h2 id="etd-title" className="etd-title">
-                AI Region Edit
-              </h2>
-              <p className="etd-subtitle">Select an area · describe the change · AI applies it</p>
-            </div>
+        {/* Close */}
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={busy}
+          aria-label="Close"
+          style={{
+            position: 'absolute',
+            top: 14,
+            right: 14,
+            zIndex: 3,
+            width: 32,
+            height: 32,
+            padding: 0,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '0.5px solid rgba(255,255,255,0.18)',
+            borderRadius: 999,
+            background: 'rgba(12, 10, 22, 0.5)',
+            color: 'rgba(255,255,255,0.85)',
+            cursor: busy ? 'not-allowed' : 'pointer',
+            fontFamily: 'inherit',
+            opacity: busy ? 0.5 : 1,
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+          }}
+        >
+          <IconX size={14} />
+        </button>
+
+        {/* Gradient title pill */}
+        <div
+          style={{
+            alignSelf: 'center',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '7px 16px 7px 12px',
+            borderRadius: 999,
+            background: PRIMARY_GRADIENT,
+            color: '#ffffff',
+            fontSize: 13,
+            fontWeight: 600,
+            letterSpacing: '0.005em',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 6px 18px rgba(124,58,237,0.35)',
+            textShadow: '0 1px 2px rgba(0,0,0,0.25)',
+          }}
+        >
+          <span
+            style={{
+              width: 22,
+              height: 22,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0,0,0,0.28)',
+              borderRadius: '50%',
+            }}
+          >
+            <IconSparkle />
+          </span>
+          Edit thumbnail
+        </div>
+
+        {/* Thumbnail + canvas */}
+        <div
+          ref={stageRef}
+          style={{
+            position: 'relative',
+            flex: '1 1 auto',
+            minHeight: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 14,
+            overflow: 'hidden',
+            background: 'rgba(12, 10, 18, 0.55)',
+            border: '0.5px solid rgba(255,255,255,0.1)',
+          }}
+        >
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              maxHeight: 'min(56vh, 560px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {imageUrl ? (
+              <img
+                src={imageUrl}
+                alt="Thumbnail"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  maxHeight: 'min(56vh, 560px)',
+                  height: 'auto',
+                  objectFit: 'contain',
+                  userSelect: 'none',
+                  pointerEvents: 'none',
+                }}
+                draggable={false}
+              />
+            ) : (
+              <div
+                style={{
+                  padding: 60,
+                  color: 'rgba(255,255,255,0.5)',
+                  fontSize: 14,
+                }}
+              >
+                No thumbnail.
+              </div>
+            )}
+
+            <canvas
+              ref={maskCanvasRef}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerLeave={onPointerUp}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                // Painted strokes are full-opacity on the canvas; CSS opacity
+                // makes the overlay look transparent. This means painting over
+                // the same spot twice doesn't accumulate darker — it stays one
+                // uniform transparent layer.
+                opacity: MASK_CSS_OPACITY,
+                cursor: tab !== 'edit' || busy ? 'default' : 'crosshair',
+                touchAction: 'none',
+                pointerEvents: tab === 'edit' && !busy ? 'auto' : 'none',
+              }}
+            />
           </div>
 
-          {/* Tool pills */}
-          <nav className="etd-tools" aria-label="Drawing tools">
-            {TOOLS.map((toolDef) => {
-              const ToolIco = toolDef.Ico
-              return (
-                <button
-                  key={toolDef.id}
-                  type="button"
-                  className={`etd-tool${tool === toolDef.id ? ' etd-tool--active' : ''}`}
-                  onClick={() => setTool(toolDef.id)}
-                  title={`${toolDef.label} — press ${toolDef.shortcut}`}
+          {busy && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexDirection: 'column',
+                gap: 10,
+                background: 'rgba(8, 6, 14, 0.72)',
+                backdropFilter: 'blur(6px)',
+                WebkitBackdropFilter: 'blur(6px)',
+              }}
+            >
+              <span
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: '50%',
+                  border: '2px solid rgba(255,255,255,0.16)',
+                  borderTopColor: 'rgba(255,255,255,0.9)',
+                  animation: 'etd-spin 0.9s linear infinite',
+                }}
+                aria-hidden
+              />
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.88)' }}>
+                {tab === 'edit'
+                  ? `AI is editing${batch > 1 ? ` ${batch} variants` : ''}…`
+                  : `Swapping face${batch > 1 ? ` × ${batch}` : ''}…`}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Toolbar — visible only in Edit tab */}
+        {tab === 'edit' && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '0 4px',
+            }}
+          >
+            {/* Left side — tools, separated by gap */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CircleBtn
+                onClick={() => setTool('rect')}
+                active={tool === 'rect'}
+                title="Rectangle (R)"
+                disabled={busy}
+              >
+                <IconRect size={14} />
+              </CircleBtn>
+              <CircleBtn
+                onClick={() => setTool('brush')}
+                active={tool === 'brush'}
+                title="Brush (B)"
+                disabled={busy}
+              >
+                <IconBrush size={14} />
+              </CircleBtn>
+              <CircleBtn
+                onClick={() => setTool('eraser')}
+                active={tool === 'eraser'}
+                title="Eraser (E)"
+                disabled={busy}
+              >
+                <IconEraser size={14} />
+              </CircleBtn>
+
+              {/* Brush size popover */}
+              <div ref={sizePopoverRef} style={{ position: 'relative' }}>
+                <CircleBtn
+                  onClick={() => {
+                    setSizePopoverOpen((o) => !o)
+                    setColorPopoverOpen(false)
+                  }}
+                  active={sizePopoverOpen}
+                  title={`Brush size: ${brushSize}px`}
+                  disabled={busy}
                 >
-                  <span className="etd-tool-ico" aria-hidden>
-                    <ToolIco />
-                  </span>
-                  <span>{toolDef.label}</span>
-                  <kbd className="etd-kbd">{toolDef.shortcut}</kbd>
-                </button>
-              )
-            })}
+                  <span
+                    style={{
+                      width: Math.min(16, Math.max(6, brushSize / 3)),
+                      height: Math.min(16, Math.max(6, brushSize / 3)),
+                      borderRadius: '50%',
+                      background: 'currentColor',
+                    }}
+                    aria-hidden
+                  />
+                </CircleBtn>
+                {sizePopoverOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: 'calc(100% + 8px)',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '10px 14px',
+                      background: 'rgba(14, 14, 18, 0.88)',
+                      border: '0.5px solid rgba(255,255,255,0.1)',
+                      borderRadius: 14,
+                      boxShadow: '0 10px 32px rgba(0,0,0,0.55)',
+                      backdropFilter: 'blur(22px) saturate(180%)',
+                      animation: 'etd-popover-in 0.18s cubic-bezier(0.32, 0.72, 0, 1) both',
+                      WebkitBackdropFilter: 'blur(22px) saturate(180%)',
+                      zIndex: 10,
+                      width: 200,
+                    }}
+                  >
+                    <input
+                      type="range"
+                      min="8"
+                      max="120"
+                      step="2"
+                      value={brushSize}
+                      onChange={(e) => setBrushSize(Number(e.target.value))}
+                      style={{ flex: 1, accentColor: '#a78bfa' }}
+                      aria-label="Brush size"
+                    />
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        fontVariantNumeric: 'tabular-nums',
+                        color: 'rgba(255,255,255,0.75)',
+                        minWidth: 32,
+                        textAlign: 'right',
+                      }}
+                    >
+                      {brushSize}px
+                    </span>
+                  </div>
+                )}
+              </div>
 
-            <span className="etd-tools-sep" aria-hidden />
-
-            {/* Brush size inline — only when brush or eraser */}
-            {(tool === 'brush' || tool === 'eraser') && (
-              <div className="etd-brush-ctrl">
-                <span
-                  className="etd-brush-dot"
+              {/* Color popover */}
+              <div ref={colorPopoverRef} style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setColorPopoverOpen((o) => !o)
+                    setSizePopoverOpen(false)
+                  }}
+                  disabled={busy}
+                  title={`Overlay colour (${color})`}
+                  aria-label="Overlay colour"
+                  aria-pressed={colorPopoverOpen}
                   style={{
-                    width: `${Math.max(8, Math.min(26, brushSize))}px`,
-                    height: `${Math.max(8, Math.min(26, brushSize))}px`,
+                    width: 34,
+                    height: 34,
+                    padding: 0,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: `1px solid ${
+                      colorPopoverOpen ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.1)'
+                    }`,
+                    borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.04)',
+                    cursor: busy ? 'not-allowed' : 'pointer',
+                    opacity: busy ? 0.4 : 1,
+                    transition:
+                      'border-color 0.18s ease, background 0.18s ease, transform 0.08s ease',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: '50%',
+                      background: color,
+                      border: '0.5px solid rgba(0,0,0,0.35)',
+                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)',
+                    }}
+                    aria-hidden
+                  />
+                </button>
+                {colorPopoverOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: 'calc(100% + 8px)',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      display: 'flex',
+                      gap: 6,
+                      padding: 8,
+                      background: 'rgba(14, 14, 18, 0.88)',
+                      border: '0.5px solid rgba(255,255,255,0.1)',
+                      borderRadius: 14,
+                      animation: 'etd-popover-in 0.18s cubic-bezier(0.32, 0.72, 0, 1) both',
+                      boxShadow: '0 10px 32px rgba(0,0,0,0.55)',
+                      backdropFilter: 'blur(22px) saturate(180%)',
+                      WebkitBackdropFilter: 'blur(22px) saturate(180%)',
+                      zIndex: 10,
+                    }}
+                  >
+                    {COLOR_SWATCHES.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => {
+                          setColor(c)
+                          setColorPopoverOpen(false)
+                        }}
+                        aria-label={`Colour ${c}`}
+                        aria-pressed={color === c}
+                        style={{
+                          width: 24,
+                          height: 24,
+                          padding: 0,
+                          border:
+                            color === c
+                              ? '1.5px solid rgba(255,255,255,0.9)'
+                              : '0.5px solid rgba(0,0,0,0.35)',
+                          borderRadius: '50%',
+                          background: c,
+                          cursor: 'pointer',
+                          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)',
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Spacer */}
+            <span style={{ flex: 1 }} />
+
+            {/* Right side — history */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CircleBtn onClick={handleUndo} disabled={busy || undoDepth === 0} title="Undo (⌘Z)">
+                <IconUndo size={14} />
+              </CircleBtn>
+              <CircleBtn onClick={handleRedo} disabled={busy || redoDepth === 0} title="Redo (⌘⇧Z)">
+                <IconRedo size={14} />
+              </CircleBtn>
+              <CircleBtn
+                onClick={handleClear}
+                disabled={busy || !hasDrawn}
+                title="Clear all"
+                danger
+              >
+                <IconTrash size={14} />
+              </CircleBtn>
+            </div>
+          </div>
+        )}
+
+        {/* Tabbar */}
+        <div
+          role="tablist"
+          aria-label="Editor mode"
+          style={{
+            alignSelf: 'center',
+            display: 'inline-flex',
+            padding: 3,
+            background: 'rgba(0,0,0,0.3)',
+            borderRadius: 999,
+            border: '0.5px solid rgba(255,255,255,0.08)',
+          }}
+        >
+          <TabButton
+            active={tab === 'edit'}
+            onClick={() => {
+              setTab('edit')
+              setError(null)
+            }}
+            icon={<IconWand />}
+            label="Edit"
+          />
+          <TabButton
+            active={tab === 'face'}
+            onClick={() => {
+              setTab('face')
+              setError(null)
+            }}
+            icon={<IconFace />}
+            label="Face swap"
+          />
+        </div>
+
+        {/* Error */}
+        {error && (
+          <p
+            role="alert"
+            style={{
+              margin: 0,
+              padding: '8px 14px',
+              borderRadius: 12,
+              background: 'rgba(239,68,68,0.12)',
+              border: '0.5px solid rgba(239,68,68,0.32)',
+              color: '#fca5a5',
+              fontSize: 13,
+              lineHeight: 1.4,
+              textAlign: 'center',
+            }}
+          >
+            {error}
+          </p>
+        )}
+
+        {/* Input bar */}
+        <div
+          style={{
+            alignSelf: 'center',
+            width: '100%',
+            maxWidth: 680,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+            padding: '0.55rem 0.6rem 0.45rem',
+            borderRadius: 16,
+            background: 'rgba(14, 14, 18, 0.45)',
+            backdropFilter: 'blur(48px) saturate(1.6)',
+            WebkitBackdropFilter: 'blur(48px) saturate(1.6)',
+            border: '1px solid rgba(255, 255, 255, 0.05)',
+            boxShadow: '0 -4px 24px rgba(0, 0, 0, 0.2)',
+          }}
+        >
+          <textarea
+            ref={editTextareaRef}
+            value={editPrompt}
+            onChange={(e) => {
+              setEditPrompt(e.target.value)
+              if (error) setError(null)
+            }}
+            placeholder={placeholder}
+            rows={1}
+            maxLength={400}
+            disabled={busy}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault()
+                handleSubmit()
+              }
+            }}
+            style={{
+              width: '100%',
+              padding: '0.2rem 0.4rem 0.3rem',
+              fontSize: '0.86rem',
+              fontFamily: 'inherit',
+              color: 'rgba(255,255,255,0.95)',
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              lineHeight: 1.5,
+              resize: 'none',
+              minHeight: '1.5em',
+              maxHeight: '7.5em',
+              overflowY: 'auto',
+              boxSizing: 'border-box',
+            }}
+          />
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              paddingTop: '0.2rem',
+            }}
+          >
+            {tab === 'face' && <PersonaSelector variant="glassCircle" />}
+
+            <span style={{ flex: 1 }} />
+
+            <BatchPicker value={batch} onChange={setBatch} disabled={busy} />
+
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              aria-label={tab === 'edit' ? 'Apply edit' : 'Swap face'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 34,
+                height: 34,
+                flexShrink: 0,
+                border: 'none',
+                borderRadius: '50%',
+                background: canSubmit ? PRIMARY_GRADIENT : 'rgba(255,255,255,0.1)',
+                color: '#ffffff',
+                cursor: canSubmit ? 'pointer' : 'not-allowed',
+                opacity: canSubmit ? 1 : 0.45,
+                fontFamily: 'inherit',
+                boxShadow: canSubmit
+                  ? 'inset 0 1px 0 rgba(255,255,255,0.2), 0 4px 14px rgba(124,58,237,0.35)'
+                  : 'none',
+                transition: 'background 0.18s ease, opacity 0.18s ease',
+              }}
+            >
+              {busy ? (
+                <span
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    border: '2px solid rgba(255,255,255,0.3)',
+                    borderTopColor: '#fff',
+                    animation: 'etd-spin 0.7s linear infinite',
                   }}
                   aria-hidden
                 />
-                <input
-                  type="range"
-                  className="etd-brush-range"
-                  min="8"
-                  max="80"
-                  step="2"
-                  value={brushSize}
-                  onChange={(e) => setBrushSize(Number(e.target.value))}
-                  aria-label="Brush size"
-                  title={`${brushSize}px`}
-                />
-              </div>
-            )}
-
-            <button
-              type="button"
-              className="etd-tool etd-tool--danger"
-              onClick={handleClear}
-              disabled={!hasStroke}
-              title="Clear all strokes"
-            >
-              <span className="etd-tool-ico" aria-hidden>
-                <IcoClear />
-              </span>
-              <span>Clear</span>
+              ) : (
+                <IconArrowUp size={15} />
+              )}
             </button>
-          </nav>
-
-          {/* Right actions */}
-          <div className="etd-header-end">
-            <button
-              type="button"
-              className="etd-icon-btn"
-              onClick={handleUndo}
-              disabled={undoCount === 0}
-              title="Undo (⌘Z)"
-            >
-              <IcoUndo />
-            </button>
-            <button
-              type="button"
-              className="etd-icon-btn etd-icon-btn--close"
-              onClick={onClose}
-              aria-label="Close"
-            >
-              <IcoClose />
-            </button>
-          </div>
-        </header>
-
-        {/* ── Canvas area ── */}
-        <div className="etd-canvas-area">
-          <div className="etd-canvas-sizer" ref={containerRef}>
-            {/* Fabric layer — background + placed images */}
-            <canvas ref={fabricElRef} className="etd-layer" style={{ zIndex: 1 }} aria-hidden />
-
-            {/* Draw layer — brush / eraser / rect strokes */}
-            <canvas
-              ref={drawElRef}
-              className="etd-layer"
-              style={{
-                zIndex: 2,
-                cursor: tool === 'image' ? 'default' : 'crosshair',
-                pointerEvents: tool === 'image' ? 'none' : 'auto',
-              }}
-              aria-hidden
-            />
-
-            {/* Mask canvas — hidden, used for export only */}
-            <canvas ref={maskElRef} className="etd-mask-canvas" aria-hidden />
-
-            {/* Canvas hint */}
-            {!hasStroke && !rectPreviewActive && tool !== 'image' && (
-              <div className="etd-canvas-hint" aria-hidden>
-                <span className="etd-hint-pill">
-                  {tool === 'rect' ? 'Drag to select an area' : 'Paint the area to edit'}
-                </span>
-              </div>
-            )}
-
-            {/* Applying overlay */}
-            {applying && (
-              <div className="etd-applying" aria-hidden>
-                <span className="etd-applying-orb" />
-                <span className="etd-applying-label">AI is editing…</span>
-              </div>
-            )}
           </div>
         </div>
-
-        {/* ── Footer ── */}
-        <footer className="etd-footer">
-          {/* Upload section */}
-          <div className="etd-uploads">
-            <button
-              type="button"
-              className="etd-upload-btn"
-              onClick={() => fileInputRef.current?.click()}
-              title="Upload a reference image and place it on the canvas"
-            >
-              <IcoUpload />
-              <span>Add image</span>
-            </button>
-            {placedImages.map((img) => (
-              <div key={img.id} className="etd-thumb-chip">
-                <img src={img.dataUrl} alt={img.name} className="etd-thumb-chip-img" />
-                <button
-                  type="button"
-                  className="etd-thumb-chip-remove"
-                  onClick={() => removePlacedImage(img.id)}
-                  aria-label={`Remove ${img.name}`}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="etd-file-input"
-              onChange={handleFileChange}
-            />
-          </div>
-
-          {/* ── Face Swap (Creator+) ─────────────────────────────────── */}
-          <div className="etd-face-swap" role="region" aria-label="Face swap">
-            <div className="etd-face-swap-head">
-              <span className="etd-face-swap-title">
-                <IcoSparkle />
-                Face Swap
-              </span>
-              <span className="etd-face-swap-tier" title="SRX model tier in use">
-                {tierState?.selected || 'SRX-1'} · {tierLabel}
-              </span>
-            </div>
-
-            <div className="etd-face-swap-body">
-              {faceImage ? (
-                <div className="etd-face-chip">
-                  <img src={faceImage.dataUrl} alt="Target face" />
-                  <button
-                    type="button"
-                    className="etd-face-chip-remove"
-                    onClick={() => setFaceImage(null)}
-                    aria-label="Remove face image"
-                  >
-                    ×
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="etd-face-upload"
-                  onClick={() => faceFileInputRef.current?.click()}
-                  title="Upload the face image to swap into this thumbnail"
-                >
-                  <IcoUpload />
-                  <span>Upload face</span>
-                </button>
-              )}
-              <input
-                ref={faceFileInputRef}
-                type="file"
-                accept="image/*"
-                className="etd-file-input"
-                onChange={handleFaceFileChange}
-              />
-
-              <button
-                type="button"
-                className="etd-face-swap-go"
-                onClick={handleFaceSwap}
-                disabled={faceSwapping || !faceImage}
-                title="Swap the face in this thumbnail with your uploaded face"
-              >
-                {faceSwapping ? (
-                  <>
-                    <span className="etd-spinner" aria-hidden />
-                    <span>Swapping…</span>
-                  </>
-                ) : (
-                  <>
-                    <IcoSparkle />
-                    <span>Swap face</span>
-                    <span className="etd-face-swap-cost">{faceSwapCost} cr</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            {faceSwapError && (
-              <div className="etd-face-swap-error" role="alert">
-                <IcoWarn />
-                <span>{faceSwapError}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Prompt */}
-          <div className="etd-prompt-area">
-            {error && (
-              <div className="etd-error" role="alert">
-                <IcoWarn />
-                <span>{error}</span>
-              </div>
-            )}
-            <div className="etd-prompt-row">
-              <textarea
-                id="etd-prompt"
-                className="etd-prompt"
-                placeholder="e.g. Add a glowing border, change text to red, replace background with mountain view…"
-                value={editPrompt}
-                onChange={(e) => {
-                  setEditPrompt(e.target.value)
-                  setError(null)
-                }}
-                rows={2}
-                maxLength={400}
-              />
-              <span className="etd-prompt-count">{editPrompt.length}/400</span>
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="etd-actions">
-            <button type="button" className="etd-cancel" onClick={onClose}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="etd-apply"
-              onClick={handleApply}
-              disabled={applying || !canApply}
-            >
-              {applying ? (
-                <>
-                  <span className="etd-spinner" aria-hidden />
-                  <span>Applying…</span>
-                </>
-              ) : (
-                <>
-                  <IcoSparkle />
-                  <span>Apply AI Edit</span>
-                </>
-              )}
-            </button>
-          </div>
-        </footer>
       </div>
-    </div>,
-    document.body
+    </div>
+  )
+
+  return createPortal(dialog, document.body)
+}
+
+function TabButton({ active, onClick, icon, label }) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      onPointerDown={(e) => {
+        e.currentTarget.style.transform = 'scale(0.93)'
+      }}
+      onPointerUp={(e) => {
+        e.currentTarget.style.transform = ''
+      }}
+      onPointerLeave={(e) => {
+        e.currentTarget.style.transform = ''
+      }}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 7,
+        padding: '7px 16px',
+        border: 'none',
+        borderRadius: 999,
+        background: active ? 'rgba(255,255,255,0.1)' : 'transparent',
+        color: active ? '#ffffff' : 'rgba(255,255,255,0.6)',
+        fontSize: 13,
+        fontWeight: 600,
+        letterSpacing: '0.005em',
+        fontFamily: 'inherit',
+        cursor: 'pointer',
+        transition:
+          'background 0.18s ease, color 0.18s ease, transform 0.12s cubic-bezier(0.33, 1, 0.68, 1)',
+      }}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
   )
 }
+
+export default EditThumbnailDialog

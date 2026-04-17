@@ -8,11 +8,10 @@ export const queryKeys = {
     channels: () => ['youtube', 'channels'],
     activeChannel: () => ['youtube', 'activeChannel'],
     channelInfo: (channelId) => ['youtube', 'channelInfo', channelId],
-    videos: ({ channelId, page, perPage, search, sort, videoType }) => [
+    videos: ({ channelId, perPage, search, sort, videoType }) => [
       'youtube',
       'videos',
       channelId,
-      page,
       perPage,
       search ?? '',
       sort,
@@ -80,6 +79,12 @@ export const queryKeys = {
       params.channelId ?? '',
     ],
     conversation: (conversationId) => ['thumbnails', 'conversation', conversationId ?? 'new'],
+    /**
+     * Rating cache — keyed by a short fingerprint of the image URL so the
+     * same rendered thumbnail is only rated once per session. The actual
+     * URL (often a 400KB data URL) is never used as part of the key.
+     */
+    rating: (imageFingerprint) => ['thumbnails', 'rating', imageFingerprint ?? ''],
   },
   scripts: {
     conversations: (params = {}) => [

@@ -1115,10 +1115,26 @@
 }
 
 .coach-message--user:hover .coach-message-actions--user,
-.coach-message--user:focus-within .coach-message-actions--user {
+.coach-message--user:focus-within .coach-message-actions--user,
+.coach-message--user.is-touch-active .coach-message-actions--user {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
+}
+
+/* Touch devices: no hover state, so keep the user message actions visible
+ * at all times (slightly dimmed). Tap-and-hold the bubble still selects text
+ * via the OS, while the explicit copy/edit pills stay reachable with a tap. */
+@media (hover: none) {
+  .coach-message-actions--user {
+    opacity: 0.85;
+    transform: none;
+    pointer-events: auto;
+  }
+  .coach-message--user:focus-within .coach-message-actions--user,
+  .coach-message--user:active .coach-message-actions--user {
+    opacity: 1;
+  }
 }
 
 .coach-message-action {
@@ -1162,8 +1178,35 @@
 
 .coach-message-action.is-copied {
   color: #86efac;
-  border-color: rgba(134, 239, 172, 0.22);
-  background: rgba(134, 239, 172, 0.08);
+  border-color: rgba(134, 239, 172, 0.28);
+  background: rgba(134, 239, 172, 0.12);
+}
+
+/* Snappy "pop" on the checkmark — runs once when .is-copied appears so the
+ * tap-to-checked transition feels acknowledged immediately. */
+.coach-message-action.is-copied svg {
+  animation: coach-copy-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes coach-copy-pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coach-message-action.is-copied svg {
+    animation: none;
+  }
 }
 
 .coach-message-action.is-active {
@@ -1791,6 +1834,10 @@
   transform: translateX(-50%) translateY(0);
 }
 
+/* Matches the composer bar's glass recipe (see .coach-composer above):
+ * same white vertical gradient, same 0.5px border, same 50px blur with
+ * 190% saturation + 1.05 brightness. The button reads as "part of the
+ * input family" rather than a foreign chip hovering above it. */
 .coach-scroll-to-bottom-btn {
   display: flex;
   align-items: center;
@@ -1799,27 +1846,44 @@
   height: 2.5rem;
   padding: 0;
   border-radius: 50%;
-  background: rgba(48, 52, 64, 0.72);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.03) 40%,
+    rgba(255, 255, 255, 0.01) 100%
+  );
+  backdrop-filter: blur(50px) saturate(190%) brightness(1.05);
+  -webkit-backdrop-filter: blur(50px) saturate(190%) brightness(1.05);
+  border: 0.5px solid rgba(255, 255, 255, 0.18);
   color: #e5e7eb;
   cursor: pointer;
   box-shadow:
-    0 6px 20px rgba(0, 0, 0, 0.25),
-    0 1px 0 rgba(255, 255, 255, 0.08) inset;
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -0.5px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 0.5px rgba(0, 0, 0, 0.12),
+    0 4px 16px rgba(0, 0, 0, 0.18),
+    0 12px 40px rgba(0, 0, 0, 0.12);
   transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease;
+    border-color 0.22s cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 0.22s cubic-bezier(0.25, 1, 0.5, 1),
+    transform 0.22s cubic-bezier(0.25, 1, 0.5, 1),
+    color 0.22s ease;
 }
 
 .coach-scroll-to-bottom-btn:hover {
-  background: rgba(56, 60, 76, 0.85);
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
   box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.3),
-    0 1px 0 rgba(255, 255, 255, 0.1) inset;
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -0.5px 0 rgba(255, 255, 255, 0.05),
+    0 0 0 0.5px rgba(0, 0, 0, 0.12),
+    0 6px 22px rgba(0, 0, 0, 0.22),
+    0 14px 44px rgba(0, 0, 0, 0.14);
+}
+
+.coach-scroll-to-bottom-btn:active {
+  transform: scale(0.94);
+  transition: transform 80ms ease;
 }
 
 .coach-scroll-to-bottom-btn svg {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Dialog, SegmentedTabs } from '../components/ui'
 import { getFrequencyLabel } from '../i18n/labels'
 import './SettingsModal.css'
 import { useSaveUserPreferencesMutation } from '../queries/user/preferencesQueries'
@@ -202,14 +203,7 @@ export function SettingsModal({
     if (passwordError || passwordSuccess) setPasswordSectionExpanded(true)
   }, [passwordError, passwordSuccess])
 
-  useEffect(() => {
-    if (!open) return
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
-  }, [open, onClose])
+  // Escape + body scroll lock now handled by <Dialog>.
 
   const handleChangePassword = async (e) => {
     e.preventDefault()
@@ -356,22 +350,15 @@ export function SettingsModal({
       (customPrompt.trim() || '') !== lastSavedPersonalization.customPrompt
     : true
 
-  if (!open) return null
-
   return (
-    <div
-      className={`settings-modal-backdrop ${open ? 'visible' : ''}`}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-      aria-hidden={!open}
-      role="presentation"
+    <Dialog
+      open={open}
+      onClose={onClose}
+      size="xl"
+      ariaLabelledBy="settings-modal-title"
+      className="settings-modal-dialog"
     >
-      <div
-        className="settings-modal-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="settings-modal-title"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="settings-modal-body">
         <header className="settings-modal-header">
           <h2 id="settings-modal-title" className="settings-modal-title">
             Settings
@@ -388,19 +375,62 @@ export function SettingsModal({
             </svg>
           </button>
         </header>
+
+        {/* MOBILE TABBAR (hidden on desktop). Real SegmentedTabs, sits
+            directly under the header as its own horizontal bar. */}
+        <div className="settings-modal-tabbar" aria-hidden="false">
+          <SegmentedTabs
+            value={activeSection}
+            onChange={setActiveSection}
+            ariaLabel="Settings sections"
+            options={SECTIONS.map((s) => ({ value: s.id, label: s.label }))}
+          />
+        </div>
+
         <div className="settings-modal-body">
           <nav className="settings-modal-sidebar" aria-label="Settings sections">
-            {SECTIONS.map((section) => (
+            {/* Desktop vertical list (hidden on mobile) */}
+            <div className="settings-modal-nav-list">
+              {SECTIONS.map((section) => (
+                <button
+                  key={section.id}
+                  type="button"
+                  className={`settings-modal-nav-item ${activeSection === section.id ? 'active' : ''}`}
+                  onClick={() => setActiveSection(section.id)}
+                  aria-current={activeSection === section.id ? 'true' : undefined}
+                >
+                  {section.label}
+                </button>
+              ))}
+            </div>
+            {onLogout ? (
               <button
-                key={section.id}
                 type="button"
-                className={`settings-modal-nav-item ${activeSection === section.id ? 'active' : ''}`}
-                onClick={() => setActiveSection(section.id)}
-                aria-current={activeSection === section.id ? 'true' : undefined}
+                className="settings-modal-logout"
+                onClick={() => {
+                  onClose?.()
+                  onLogout()
+                }}
+                aria-label="Log out"
               >
-                {section.label}
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                <span>Log out</span>
               </button>
-            ))}
+            ) : null}
           </nav>
           <div className="settings-modal-content">
             {/* ——— Account ——— */}
@@ -1081,9 +1111,40 @@ export function SettingsModal({
                 </div>
               </div>
             </div>
+
+            {onLogout ? (
+              <div className="settings-modal-mobile-footer">
+                <button
+                  type="button"
+                  className="settings-modal-logout-inline"
+                  onClick={() => {
+                    onClose?.()
+                    onLogout()
+                  }}
+                  aria-label="Log out"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                  </svg>
+                  <span>Log out</span>
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

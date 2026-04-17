@@ -48,7 +48,7 @@ import {
 } from './coach/CoachChatVirtuosoShell.jsx'
 
 const COACH_TABS = [
-  { id: 'thumbnails', label: 'Thumbnails', hash: 'coach/thumbnails' },
+  { id: 'thumbnails', label: 'Thumbnails', hash: 'thumbnails' },
   // Coach tab hidden for now — only Thumbnails is exposed to users.
   // Re-enable by uncommenting the entry below:
   // { id: 'coach', label: 'Coach', hash: 'coach' },
@@ -79,9 +79,7 @@ function setCoachHash(conversationId = null) {
 }
 
 function setThumbnailConversationHash(conversationId = null) {
-  window.location.hash = conversationId
-    ? `#coach/thumbnails?id=${conversationId}`
-    : '#coach/thumbnails'
+  window.location.hash = conversationId ? `#thumbnails?id=${conversationId}` : '#thumbnails'
 }
 
 // function setScriptConversationHash(conversationId = null) { // next update
@@ -457,7 +455,7 @@ function IconStop() {
   )
 }
 
-export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
+export function CoachChat({ onLogout, shellManaged }) {
   const queryClient = useQueryClient()
   const user = useAuthStore((state) => state.user)
   const {
@@ -1228,20 +1226,24 @@ export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
     })
   }
 
-  const handleCopyMessage = async (messageKey, content) => {
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(normalizeMessageText(content))
-      } else {
-        throw new Error('Clipboard not available')
-      }
-      setCopiedMessageKey(messageKey)
-      window.setTimeout(() => {
+  const handleCopyMessage = (messageKey, content) => {
+    // Flip the checkmark optimistically so the press feels instant — clipboard
+    // write happens in the background and we revert if it fails.
+    setCopiedMessageKey(messageKey)
+    window.setTimeout(() => {
+      setCopiedMessageKey((current) => (current === messageKey ? '' : current))
+    }, 2000)
+    Promise.resolve()
+      .then(() => {
+        if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+          throw new Error('Clipboard not available')
+        }
+        return navigator.clipboard.writeText(normalizeMessageText(content))
+      })
+      .catch(() => {
         setCopiedMessageKey((current) => (current === messageKey ? '' : current))
-      }, 4500)
-    } catch (_error) {
-      setSendError('Could not copy that message.')
-    }
+        setSendError('Could not copy that message.')
+      })
   }
 
   const handleShareMessage = async (messageKey, content) => {
@@ -1588,6 +1590,7 @@ export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
             className={`coach-message-action ${isCopied ? 'is-copied' : ''}`}
             onClick={() => handleCopyMessage(messageKey, message.content)}
             aria-label={isCopied ? 'Copied' : 'Copy'}
+            title={isCopied ? 'Copied!' : 'Copy'}
           >
             {isCopied ? <IconCheck /> : <IconCopy />}
           </button>
@@ -1616,6 +1619,7 @@ export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
           className={`coach-message-action ${isCopied ? 'is-copied' : ''}`}
           onClick={() => handleCopyMessage(messageKey, message.content)}
           aria-label={isCopied ? 'Copied' : 'Copy'}
+          title={isCopied ? 'Copied!' : 'Copy'}
         >
           {isCopied ? <IconCheck /> : <IconCopy />}
         </button>
@@ -1981,7 +1985,7 @@ export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
           {activeTab === 'thumbnails' ? (
             <ThumbnailGenerator
               channelId={channelId}
-              onOpenPersonas={() => onOpenPersonas?.()}
+              onOpenPersonas={() => setShowPersonasModal(true)}
               onOpenStyles={() => setShowStylesModal(true)}
               conversationId={selectedThumbnailConversationId}
               onConversationCreated={setThumbnailConversationHash}
@@ -2270,6 +2274,7 @@ export function CoachChat({ onLogout, shellManaged, onOpenPersonas }) {
           </div>
         ) : null}
 
+        {showPersonasModal && <PersonasModal onClose={() => setShowPersonasModal(false)} />}
         {showStylesModal && <StylesModal onClose={() => setShowStylesModal(false)} />}
 
         {userActionDialog ? (
