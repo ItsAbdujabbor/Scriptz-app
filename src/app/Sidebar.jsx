@@ -1029,6 +1029,19 @@ export function Sidebar({
               />
 
               <SidebarButton
+                href="#thumbnails"
+                icon={<IconThumbnail />}
+                label="Thumbnails"
+                active={currentScreen === 'coach' && activeTab === 'thumbnail'}
+                collapsed={collapsed}
+                onClick={(e) => {
+                  e.preventDefault()
+                  closeMobile()
+                  window.location.hash = 'thumbnails'
+                }}
+              />
+
+              <SidebarButton
                 href="#ab-testing"
                 icon={<IconABTest />}
                 label="A/B Testing"
