@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import './Sidebar.css'
 import '../components/ui/ui.css'
@@ -6,6 +7,7 @@ import { useSidebarStore } from '../stores/sidebarStore'
 import { useThumbnailChatActivityStore } from '../stores/thumbnailChatActivityStore'
 import { useShallow } from 'zustand/react/shallow'
 import { emitShellEvent } from '../lib/shellEvents'
+import { useFloatingPosition } from '../lib/useFloatingPosition'
 import { SidebarButton, ConfirmDialog } from '../components/ui'
 import { useCreditsQuery, useSubscriptionQuery } from '../queries/billing/creditsQueries'
 import {
@@ -375,15 +377,145 @@ function goToPro() {
   if (typeof window !== 'undefined') window.location.hash = 'pro'
 }
 
-// Short blurb shown in the per-tier info popover inside the account panel.
-// Keep under 120 chars each — the popover is narrow.
+// Short marketing blurb shown in the per-tier info popover inside the
+// account panel. Keep each under ~150 chars — the popover is narrow.
+// Don't name the underlying provider/model — users shouldn't have to know.
 const MODEL_INFO = {
-  'SRX-1': 'Fast, budget tier. gpt-image-1-mini at medium quality. 15 credits per thumbnail.',
+  'SRX-1':
+    'Our fastest, most affordable model. Great for quick drafts and exploring ideas. 15 credits per thumbnail.',
   'SRX-2':
-    'Sharper detail + stronger prompt fidelity. gpt-image-1-mini at high quality. 20 credits per thumbnail.',
-  'SRX-3': 'Top clarity + composition. gpt-image-1 at medium quality. 40 credits per thumbnail.',
+    'A balanced everyday model — crisp detail and strong prompt fidelity. 20 credits per thumbnail.',
+  'SRX-3':
+    'Our most powerful model. Top clarity and composition for hero thumbnails. 40 credits per thumbnail.',
 }
 const MODEL_TAG = { 'SRX-1': 'Lite', 'SRX-2': 'Pro', 'SRX-3': 'Ultra' }
+// Display order in the account panel — Ultra on top, Lite at the bottom.
+const MODEL_ORDER = { 'SRX-3': 0, 'SRX-2': 1, 'SRX-1': 2 }
+
+// Single row in the model-tier picker. Owns its own hover state so the
+// info popover can open on hover, and it portals the popover to <body>
+// so the expanded panel's `overflow: hidden` can't clip it.
+function ModelTierRow({
+  tier,
+  isActive,
+  isLocked,
+  tag,
+  info,
+  pinned,
+  isBusy,
+  onPick,
+  onTogglePin,
+}) {
+  const infoBtnRef = useRef(null)
+  const [hovered, setHovered] = useState(false)
+  const open = !!(info && (pinned || hovered))
+  const { popoverRef, style } = useFloatingPosition({
+    triggerRef: infoBtnRef,
+    open,
+    placement: 'top-end',
+    offset: 8,
+    padding: 12,
+  })
+
+  return (
+    <div
+      className={[
+        'sidebar-account-model__row',
+        isActive ? 'sidebar-account-model__row--active' : '',
+        isLocked ? 'sidebar-account-model__row--locked' : '',
+        open ? 'sidebar-account-model__row--info-open' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <button
+        type="button"
+        role="radio"
+        aria-checked={isActive}
+        className="sidebar-account-model__row-main"
+        onClick={onPick}
+        disabled={isBusy}
+      >
+        <span className="sidebar-account-model__code">{tier.code}</span>
+        <span className="sidebar-account-model__tag-sm">{tag}</span>
+        <span className="sidebar-account-model__row-right" aria-hidden>
+          {isLocked ? (
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="5" y="11" width="14" height="9" rx="2" />
+              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+            </svg>
+          ) : isActive ? (
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M5 12l5 5L20 7" />
+            </svg>
+          ) : null}
+        </span>
+      </button>
+
+      {info ? (
+        <button
+          ref={infoBtnRef}
+          type="button"
+          className="sidebar-account-model__info-btn"
+          aria-label={`About ${tier.code} ${tag}`}
+          aria-expanded={open}
+          onClick={(e) => {
+            e.stopPropagation()
+            onTogglePin()
+          }}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          onFocus={() => setHovered(true)}
+          onBlur={() => setHovered(false)}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <circle cx="12" cy="12" r="9" />
+            <line x1="12" y1="11" x2="12" y2="16" />
+            <circle cx="12" cy="8" r="0.6" fill="currentColor" />
+          </svg>
+        </button>
+      ) : null}
+
+      {info && open && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              ref={popoverRef}
+              className="sidebar-account-model-info-pop"
+              style={style}
+              role="tooltip"
+              onMouseEnter={() => setHovered(true)}
+              onMouseLeave={() => setHovered(false)}
+            >
+              {info}
+            </div>,
+            document.body
+          )
+        : null}
+    </div>
+  )
+}
 
 const IconScript = () => (
   <svg
@@ -1017,102 +1149,30 @@ export function Sidebar({
             role="radiogroup"
             aria-label="AI model tier"
           >
-            {modelTiers.map((t) => {
-              const isActive = t.code === currentTier
-              const isLocked = !!t.locked
-              const tag = t.label || MODEL_TAG[t.code] || t.code
-              const info = MODEL_INFO[t.code] || ''
-              const infoOpen = openModelInfo === t.code
-              return (
-                <div
-                  key={t.code}
-                  className={[
-                    'sidebar-account-model__row',
-                    isActive ? 'sidebar-account-model__row--active' : '',
-                    isLocked ? 'sidebar-account-model__row--locked' : '',
-                    infoOpen ? 'sidebar-account-model__row--info-open' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                >
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={isActive}
-                    className="sidebar-account-model__row-main"
-                    onClick={() => handlePickTier(t)}
-                    disabled={setTierMutation.isPending && setTierMutation.variables === t.code}
-                  >
-                    <span className="sidebar-account-model__code">{t.code}</span>
-                    <span className="sidebar-account-model__tag-sm">{tag}</span>
-                    <span className="sidebar-account-model__row-right" aria-hidden>
-                      {isLocked ? (
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <rect x="5" y="11" width="14" height="9" rx="2" />
-                          <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-                        </svg>
-                      ) : isActive ? (
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.4"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M5 12l5 5L20 7" />
-                        </svg>
-                      ) : null}
-                    </span>
-                  </button>
-
-                  {/* Info button — click pins the popover; hover also opens it via CSS. */}
-                  {info ? (
-                    <button
-                      type="button"
-                      className="sidebar-account-model__info-btn"
-                      aria-label={`About ${t.code} ${tag}`}
-                      aria-expanded={infoOpen}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setOpenModelInfo(infoOpen ? null : t.code)
-                      }}
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                      >
-                        <circle cx="12" cy="12" r="9" />
-                        <line x1="12" y1="11" x2="12" y2="16" />
-                        <circle cx="12" cy="8" r="0.6" fill="currentColor" />
-                      </svg>
-                    </button>
-                  ) : null}
-
-                  {info ? (
-                    <div
-                      className="sidebar-account-model__info"
-                      role="tooltip"
-                      aria-hidden={!infoOpen}
-                    >
-                      {info}
-                    </div>
-                  ) : null}
-                </div>
-              )
-            })}
+            {[...modelTiers]
+              .sort((a, b) => (MODEL_ORDER[a.code] ?? 99) - (MODEL_ORDER[b.code] ?? 99))
+              .map((t) => {
+                const isActive = t.code === currentTier
+                const isLocked = !!t.locked
+                const tag = t.label || MODEL_TAG[t.code] || t.code
+                const info = MODEL_INFO[t.code] || ''
+                const pinned = openModelInfo === t.code
+                const isBusy = setTierMutation.isPending && setTierMutation.variables === t.code
+                return (
+                  <ModelTierRow
+                    key={t.code}
+                    tier={t}
+                    isActive={isActive}
+                    isLocked={isLocked}
+                    tag={tag}
+                    info={info}
+                    pinned={pinned}
+                    isBusy={isBusy}
+                    onPick={() => handlePickTier(t)}
+                    onTogglePin={() => setOpenModelInfo(pinned ? null : t.code)}
+                  />
+                )
+              })}
           </div>
         </div>
       </div>

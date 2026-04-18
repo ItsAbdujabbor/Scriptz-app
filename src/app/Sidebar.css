@@ -2384,47 +2384,40 @@
   height: 12px;
 }
 
-/* Info popover — sits above the row, pure fade + slide. Opens on
- * hover/focus of the (i) OR via click-pinned .row--info-open state. */
-.sidebar-account-model__info {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: calc(100% + 6px);
-  z-index: 5;
-  padding: 8px 10px;
+/* Info popover — portalled to <body> and positioned by
+ * `useFloatingPosition`, so the account panel's `overflow: hidden` can
+ * never clip it. Pure fade + slide on open. */
+.sidebar-account-model-info-pop {
+  max-width: 260px;
+  min-width: 180px;
+  padding: 10px 12px;
   background: #18181c;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  border-radius: 10px;
   color: #e5e5e7;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   line-height: 1.45;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
-  opacity: 0;
-  transform: translateY(4px);
-  pointer-events: none;
-  transition:
-    opacity 0.16s ease,
-    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.sidebar-account-model__info::after {
-  content: '';
-  position: absolute;
-  bottom: -5px;
-  left: 14px;
-  width: 8px;
-  height: 8px;
-  background: #18181c;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  transform: rotate(45deg);
-}
-.sidebar-account-model__info-btn:hover ~ .sidebar-account-model__info,
-.sidebar-account-model__info-btn:focus-visible ~ .sidebar-account-model__info,
-.sidebar-account-model__row--info-open .sidebar-account-model__info {
-  opacity: 1;
-  transform: translateY(0);
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
   pointer-events: auto;
+  z-index: 100000; /* above sidebar, modals, toasts in this app */
+  animation: sidebar-model-info-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes sidebar-model-info-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-account-model-info-pop {
+    animation: none;
+  }
 }
 
 /* ── Pinned Log out pill at the bottom of the panel ─────────────── */
