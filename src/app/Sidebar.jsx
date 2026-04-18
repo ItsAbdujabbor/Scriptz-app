@@ -375,6 +375,16 @@ function goToPro() {
   if (typeof window !== 'undefined') window.location.hash = 'pro'
 }
 
+// Short blurb shown in the per-tier info popover inside the account panel.
+// Keep under 120 chars each — the popover is narrow.
+const MODEL_INFO = {
+  'SRX-1': 'Fast, budget tier. gpt-image-1-mini at medium quality. 15 credits per thumbnail.',
+  'SRX-2':
+    'Sharper detail + stronger prompt fidelity. gpt-image-1-mini at high quality. 20 credits per thumbnail.',
+  'SRX-3': 'Top clarity + composition. gpt-image-1 at medium quality. 40 credits per thumbnail.',
+}
+const MODEL_TAG = { 'SRX-1': 'Lite', 'SRX-2': 'Pro', 'SRX-3': 'Ultra' }
+
 const IconScript = () => (
   <svg
     viewBox="0 0 24 24"
@@ -591,9 +601,15 @@ export function Sidebar({
   const [accountDialogOpen, setAccountDialogOpen] = useState(false)
   const toggleAccountDialog = () =>
     setAccountDialogOpen((o) => {
-      if (o) setModelTierOpen(false) // closing panel → reset nested model picker
+      if (o) {
+        setModelTierOpen(false) // closing panel → reset nested model picker
+        setOpenModelInfo(null) // and any pinned info popover
+      }
       return !o
     })
+  // Pinned info popover — click the (i) on a tier to keep its blurb open.
+  // `null` means "follow hover only". Only one tier's info is open at a time.
+  const [openModelInfo, setOpenModelInfo] = useState(null)
   // Nested collapsible inside the account panel — model-tier picker.
   // Closed by default, remembers its state while the panel stays open.
   const [modelTierOpen, setModelTierOpen] = useState(false)
@@ -997,34 +1013,78 @@ export function Sidebar({
 
           <div
             id="sidebar-account-model-pills"
-            className="sidebar-account-model__pills"
+            className="sidebar-account-model__rows"
             role="radiogroup"
             aria-label="AI model tier"
           >
             {modelTiers.map((t) => {
               const isActive = t.code === currentTier
               const isLocked = !!t.locked
-              const label =
-                t.label || { 'SRX-1': 'Lite', 'SRX-2': 'Pro', 'SRX-3': 'Ultra' }[t.code] || t.code
+              const tag = t.label || MODEL_TAG[t.code] || t.code
+              const info = MODEL_INFO[t.code] || ''
+              const infoOpen = openModelInfo === t.code
               return (
-                <button
+                <div
                   key={t.code}
-                  type="button"
-                  role="radio"
-                  aria-checked={isActive}
                   className={[
-                    'sidebar-account-model__pill',
-                    isActive ? 'sidebar-account-model__pill--active' : '',
-                    isLocked ? 'sidebar-account-model__pill--locked' : '',
+                    'sidebar-account-model__row',
+                    isActive ? 'sidebar-account-model__row--active' : '',
+                    isLocked ? 'sidebar-account-model__row--locked' : '',
+                    infoOpen ? 'sidebar-account-model__row--info-open' : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}
-                  onClick={() => handlePickTier(t)}
-                  disabled={setTierMutation.isPending && setTierMutation.variables === t.code}
                 >
-                  <span className="sidebar-account-model__pill-label">{label}</span>
-                  {isLocked ? (
-                    <span className="sidebar-account-model__pill-lock" aria-hidden>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={isActive}
+                    className="sidebar-account-model__row-main"
+                    onClick={() => handlePickTier(t)}
+                    disabled={setTierMutation.isPending && setTierMutation.variables === t.code}
+                  >
+                    <span className="sidebar-account-model__code">{t.code}</span>
+                    <span className="sidebar-account-model__tag-sm">{tag}</span>
+                    <span className="sidebar-account-model__row-right" aria-hidden>
+                      {isLocked ? (
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <rect x="5" y="11" width="14" height="9" rx="2" />
+                          <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                        </svg>
+                      ) : isActive ? (
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.4"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M5 12l5 5L20 7" />
+                        </svg>
+                      ) : null}
+                    </span>
+                  </button>
+
+                  {/* Info button — click pins the popover; hover also opens it via CSS. */}
+                  {info ? (
+                    <button
+                      type="button"
+                      className="sidebar-account-model__info-btn"
+                      aria-label={`About ${t.code} ${tag}`}
+                      aria-expanded={infoOpen}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setOpenModelInfo(infoOpen ? null : t.code)
+                      }}
+                    >
                       <svg
                         viewBox="0 0 24 24"
                         fill="none"
@@ -1032,13 +1092,25 @@ export function Sidebar({
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
+                        aria-hidden
                       >
-                        <rect x="5" y="11" width="14" height="9" rx="2" />
-                        <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                        <circle cx="12" cy="12" r="9" />
+                        <line x1="12" y1="11" x2="12" y2="16" />
+                        <circle cx="12" cy="8" r="0.6" fill="currentColor" />
                       </svg>
-                    </span>
+                    </button>
                   ) : null}
-                </button>
+
+                  {info ? (
+                    <div
+                      className="sidebar-account-model__info"
+                      role="tooltip"
+                      aria-hidden={!infoOpen}
+                    >
+                      {info}
+                    </div>
+                  ) : null}
+                </div>
               )
             })}
           </div>
