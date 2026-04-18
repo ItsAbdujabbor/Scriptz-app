@@ -377,16 +377,12 @@ function goToPro() {
   if (typeof window !== 'undefined') window.location.hash = 'pro'
 }
 
-// Short marketing blurb shown in the per-tier info popover inside the
-// account panel. Keep each under ~150 chars — the popover is narrow.
-// Don't name the underlying provider/model — users shouldn't have to know.
+// One-liner marketing blurb for the per-tier info popover. Kept short
+// (no credit cost — that's shown elsewhere in the billing UI).
 const MODEL_INFO = {
-  'SRX-1':
-    'Our fastest, most affordable model. Great for quick drafts and exploring ideas. 15 credits per thumbnail.',
-  'SRX-2':
-    'A balanced everyday model — crisp detail and strong prompt fidelity. 20 credits per thumbnail.',
-  'SRX-3':
-    'Our most powerful model. Top clarity and composition for hero thumbnails. 40 credits per thumbnail.',
+  'SRX-1': 'Our fastest model — quick drafts and idea exploration.',
+  'SRX-2': 'A balanced everyday model — crisp detail, strong prompt fidelity.',
+  'SRX-3': 'Our most powerful model — top clarity for hero thumbnails.',
 }
 const MODEL_TAG = { 'SRX-1': 'Lite', 'SRX-2': 'Pro', 'SRX-3': 'Ultra' }
 // Display order in the account panel — Ultra on top, Lite at the bottom.

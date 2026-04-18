@@ -2384,30 +2384,32 @@
   height: 12px;
 }
 
-/* Info popover — portalled to <body> and positioned by
- * `useFloatingPosition`, so the account panel's `overflow: hidden` can
- * never clip it. Pure fade + slide on open. */
+/* Info popover — portalled to <body>, positioned by
+ * `useFloatingPosition`. Small, soft, and out of the way. */
 .sidebar-account-model-info-pop {
-  max-width: 260px;
-  min-width: 180px;
-  padding: 10px 12px;
-  background: #18181c;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  color: #e5e5e7;
-  font-size: 0.72rem;
-  line-height: 1.45;
+  max-width: 220px;
+  padding: 6px 9px;
+  background: rgba(24, 24, 28, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 7px;
+  color: rgba(229, 229, 231, 0.94);
+  font-size: 0.66rem;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.005em;
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
   box-shadow:
-    0 14px 36px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    0 8px 22px rgba(0, 0, 0, 0.45),
+    0 1px 0 rgba(255, 255, 255, 0.03) inset;
   pointer-events: auto;
-  z-index: 100000; /* above sidebar, modals, toasts in this app */
-  animation: sidebar-model-info-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 100000;
+  animation: sidebar-model-info-in 0.16s cubic-bezier(0.22, 1, 0.36, 1);
 }
 @keyframes sidebar-model-info-in {
   from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(3px);
   }
   to {
     opacity: 1;
