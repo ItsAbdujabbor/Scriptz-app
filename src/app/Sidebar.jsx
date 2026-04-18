@@ -8,6 +8,10 @@ import { useShallow } from 'zustand/react/shallow'
 import { emitShellEvent } from '../lib/shellEvents'
 import { SidebarButton, ConfirmDialog } from '../components/ui'
 import { useCreditsQuery, useSubscriptionQuery } from '../queries/billing/creditsQueries'
+import {
+  useModelTierStateQuery,
+  useSetModelTierMutation,
+} from '../queries/modelTier/modelTierQueries'
 import { openCreditsModal } from '../lib/creditsModalBus'
 import {
   prefetchCoachConversation,
@@ -287,6 +291,36 @@ const IconPersonalization = () => (
     <path d="M12 12a9 9 0 0 1-9 9" />
   </svg>
 )
+const IconCpu = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    <rect x="5" y="5" width="14" height="14" rx="2" />
+    <rect x="9" y="9" width="6" height="6" rx="1" />
+    <path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" />
+  </svg>
+)
+const IconLogOut = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <polyline points="16 17 21 12 16 7" />
+    <line x1="21" y1="12" x2="9" y2="12" />
+  </svg>
+)
 const IconUsage = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M12 20V10" />
@@ -335,6 +369,10 @@ function goToScriptConversation(conversationId = null) {
 
 function goToThumbnailConversation(conversationId = null) {
   window.location.hash = conversationId ? `#thumbnails?id=${conversationId}` : '#thumbnails'
+}
+
+function goToPro() {
+  if (typeof window !== 'undefined') window.location.hash = 'pro'
 }
 
 const IconScript = () => (
@@ -533,7 +571,7 @@ export function Sidebar({
   onOpenSettings,
   onOpenPersonas,
   onOpenStyles,
-  onLogout: _onLogout,
+  onLogout,
   currentScreen = 'dashboard',
   activeTab = 'coach',
   activeConversationId = null,
@@ -551,7 +589,25 @@ export function Sidebar({
   // (Previously lived in sidebarStore but a stale zustand closure could leave
   // subscribers un-rerendered; this is guaranteed to trigger a re-render.)
   const [accountDialogOpen, setAccountDialogOpen] = useState(false)
-  const toggleAccountDialog = () => setAccountDialogOpen((o) => !o)
+  const toggleAccountDialog = () =>
+    setAccountDialogOpen((o) => {
+      if (o) setModelTierOpen(false) // closing panel → reset nested model picker
+      return !o
+    })
+  // Nested collapsible inside the account panel — model-tier picker.
+  // Closed by default, remembers its state while the panel stays open.
+  const [modelTierOpen, setModelTierOpen] = useState(false)
+  const { data: tierState } = useModelTierStateQuery()
+  const setTierMutation = useSetModelTierMutation()
+  const modelTiers =
+    tierState?.tiers && tierState.tiers.length
+      ? tierState.tiers
+      : [
+          { code: 'SRX-1', label: 'Lite', locked: false },
+          { code: 'SRX-2', label: 'Pro', locked: false },
+          { code: 'SRX-3', label: 'Ultra', locked: false },
+        ]
+  const currentTier = tierState?.selected || 'SRX-1'
   // Press feedback for the New Chat liquid-glass pill (mirrors SidebarButton).
   const [newChatPressing, setNewChatPressing] = useState(false)
 
@@ -630,6 +686,20 @@ export function Sidebar({
       return () => window.clearTimeout(id)
     }
   }, [collapsed])
+
+  // Handler for the nested model-tier picker in the expanded account panel.
+  // Locked tiers send the user to the paywall; unlocked tiers mutate
+  // immediately (optimistic state lives in the hook).
+  const handlePickTier = (t) => {
+    if (t.code === currentTier) return
+    if (t.locked) {
+      setAccountDialogOpen(false)
+      closeMobile()
+      goToPro()
+      return
+    }
+    setTierMutation.mutate(t.code)
+  }
 
   /* Coach + Scripts chat tabs are hidden for now — only Thumbnails is exposed to
    * users. We skip the two extra queries to avoid needless network traffic and
@@ -854,49 +924,144 @@ export function Sidebar({
 
   const userInitial = (user?.email?.[0] || 'U').toUpperCase()
 
-  // Inline account panel — renders DIRECTLY below (or above, depending on
-  // scroll) the account button inside the sidebar footer. No floating portal,
-  // no position math — just a child of the footer with CSS height animation.
+  // Expanded account panel. Lives inline with the collapsed email row — when
+  // `accountDialogOpen` is true the row + panel animate open together as one
+  // tall glass card. Contains: account actions (Account / Personas / Styles),
+  // a nested collapsible "AI Model" section with the three SRX pills, and a
+  // Log out pill pinned at the bottom.
+  const activeTierLabel =
+    modelTiers.find((t) => t.code === currentTier)?.label ||
+    { 'SRX-1': 'Lite', 'SRX-2': 'Pro', 'SRX-3': 'Ultra' }[currentTier] ||
+    'Lite'
   const accountPanel = (
     <div
       ref={accountMenuPortalRef}
       className={`sidebar-account-panel ${accountDialogOpen ? 'sidebar-account-panel--open' : ''}`}
-      role="menu"
+      role="region"
       aria-hidden={!accountDialogOpen}
       aria-label="Account menu"
     >
+      <div className="sidebar-account-panel__list">
+        <button
+          type="button"
+          className="sidebar-account-item"
+          onClick={() => openSettingsTo('account')}
+        >
+          <span className="sidebar-account-item-icon" aria-hidden>
+            <IconSettings />
+          </span>
+          <span className="sidebar-account-item-label">Account</span>
+        </button>
+        <button type="button" className="sidebar-account-item" onClick={handleOpenPersonas}>
+          <span className="sidebar-account-item-icon" aria-hidden>
+            <IconPersonalization />
+          </span>
+          <span className="sidebar-account-item-label">Personas</span>
+        </button>
+        <button type="button" className="sidebar-account-item" onClick={handleOpenStyles}>
+          <span className="sidebar-account-item-icon" aria-hidden>
+            <IconStyles />
+          </span>
+          <span className="sidebar-account-item-label">Styles</span>
+        </button>
+
+        {/* Nested collapsible — AI Model picker */}
+        <div
+          className={`sidebar-account-model ${modelTierOpen ? 'sidebar-account-model--open' : ''}`}
+        >
+          <button
+            type="button"
+            className="sidebar-account-item sidebar-account-model__toggle"
+            onClick={() => setModelTierOpen((o) => !o)}
+            aria-expanded={modelTierOpen}
+            aria-controls="sidebar-account-model-pills"
+          >
+            <span className="sidebar-account-item-icon" aria-hidden>
+              <IconCpu />
+            </span>
+            <span className="sidebar-account-item-label">AI Model</span>
+            <span className="sidebar-account-model__tag">{activeTierLabel}</span>
+            <span className="sidebar-account-model__chevron" aria-hidden>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </span>
+          </button>
+
+          <div
+            id="sidebar-account-model-pills"
+            className="sidebar-account-model__pills"
+            role="radiogroup"
+            aria-label="AI model tier"
+          >
+            {modelTiers.map((t) => {
+              const isActive = t.code === currentTier
+              const isLocked = !!t.locked
+              const label =
+                t.label || { 'SRX-1': 'Lite', 'SRX-2': 'Pro', 'SRX-3': 'Ultra' }[t.code] || t.code
+              return (
+                <button
+                  key={t.code}
+                  type="button"
+                  role="radio"
+                  aria-checked={isActive}
+                  className={[
+                    'sidebar-account-model__pill',
+                    isActive ? 'sidebar-account-model__pill--active' : '',
+                    isLocked ? 'sidebar-account-model__pill--locked' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={() => handlePickTier(t)}
+                  disabled={setTierMutation.isPending && setTierMutation.variables === t.code}
+                >
+                  <span className="sidebar-account-model__pill-label">{label}</span>
+                  {isLocked ? (
+                    <span className="sidebar-account-model__pill-lock" aria-hidden>
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="5" y="11" width="14" height="9" rx="2" />
+                        <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                      </svg>
+                    </span>
+                  ) : null}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
       <button
         type="button"
-        className="sidebar-account-item"
-        role="menuitem"
-        onClick={() => openSettingsTo('account')}
+        className="sidebar-account-logout"
+        onClick={async () => {
+          setAccountDialogOpen(false)
+          closeMobile()
+          try {
+            await onLogout?.()
+          } catch {
+            /* ignore — upstream already surfaces errors */
+          }
+        }}
       >
         <span className="sidebar-account-item-icon" aria-hidden>
-          <IconSettings />
+          <IconLogOut />
         </span>
-        Account
-      </button>
-      <button
-        type="button"
-        className="sidebar-account-item"
-        role="menuitem"
-        onClick={handleOpenPersonas}
-      >
-        <span className="sidebar-account-item-icon" aria-hidden>
-          <IconPersonalization />
-        </span>
-        Personas
-      </button>
-      <button
-        type="button"
-        className="sidebar-account-item"
-        role="menuitem"
-        onClick={handleOpenStyles}
-      >
-        <span className="sidebar-account-item-icon" aria-hidden>
-          <IconStyles />
-        </span>
-        Styles
+        <span className="sidebar-account-item-label">Log out</span>
       </button>
     </div>
   )

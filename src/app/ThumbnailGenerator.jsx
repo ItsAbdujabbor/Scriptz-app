@@ -28,10 +28,6 @@ import { useThreadScrollToBottom } from '../lib/useThreadScrollToBottom'
 import { CostHint } from '../components/CostHint'
 import { useCostOf } from '../queries/billing/creditsQueries'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
-import {
-  useModelTierStateQuery,
-  useSetModelTierMutation,
-} from '../queries/modelTier/modelTierQueries'
 // import './ScriptGenerator.css' // next update — ScriptGenerator moved to src/next-update-ideas
 import './ThumbnailGenerator.css'
 
@@ -975,173 +971,6 @@ function ThumbnailLightbox({ url, onClose }) {
   )
 }
 
-const TIER_LABELS = { 'SRX-1': 'Lite', 'SRX-2': 'Pro', 'SRX-3': 'Ultra' }
-const TIER_COLORS = {
-  'SRX-1': {
-    color: '#a3e635',
-    bg: 'rgba(163,230,53,0.13)',
-    border: 'rgba(163,230,53,0.25)',
-    activeBg: 'rgba(163,230,53,0.2)',
-    activeBorder: 'rgba(163,230,53,0.4)',
-  },
-  'SRX-2': {
-    color: '#c4b5fd',
-    bg: 'rgba(167,139,250,0.13)',
-    border: 'rgba(167,139,250,0.25)',
-    activeBg: 'rgba(167,139,250,0.22)',
-    activeBorder: 'rgba(196,181,253,0.45)',
-  },
-  'SRX-3': {
-    color: '#fbbf24',
-    bg: 'rgba(251,191,36,0.13)',
-    border: 'rgba(251,191,36,0.25)',
-    activeBg: 'rgba(251,191,36,0.2)',
-    activeBorder: 'rgba(251,191,36,0.4)',
-  },
-}
-
-function ThumbModelDropdown({ tierOptions, currentTier, onPickTier, isPending }) {
-  const [open, setOpen] = useState(false)
-  const wrapRef = useRef(null)
-
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e) => {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    const onClick = (e) => {
-      if (!wrapRef.current?.contains(e.target)) setOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    document.addEventListener('mousedown', onClick)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.removeEventListener('mousedown', onClick)
-    }
-  }, [open])
-
-  const activeLabel = TIER_LABELS[currentTier] || 'Lite'
-  const activeColors = TIER_COLORS[currentTier] || TIER_COLORS['SRX-1']
-
-  return (
-    <div className="thumb-model-dropdown" ref={wrapRef}>
-      <button
-        type="button"
-        className={`thumb-model-trigger ${open ? 'thumb-model-trigger--open' : ''}`}
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-      >
-        <span className="thumb-model-trigger-code">{currentTier}</span>
-        <span
-          className="thumb-model-trigger-tag"
-          style={{
-            background: activeColors.activeBg,
-            borderColor: activeColors.activeBorder,
-            color: activeColors.color,
-          }}
-        >
-          {activeLabel}
-        </span>
-        <svg
-          className="thumb-model-trigger-chevron"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-        >
-          <path d="M6 9l6 6 6-6" />
-        </svg>
-      </button>
-
-      {open && (
-        <div className="thumb-model-menu" role="listbox" aria-label="Select AI model">
-          <div className="thumb-model-menu-header">AI Model</div>
-          {tierOptions.map((t) => {
-            const isActive = t.code === currentTier
-            const isLocked = !!t.locked
-            const label = TIER_LABELS[t.code] || ''
-            const colors = TIER_COLORS[t.code] || TIER_COLORS['SRX-1']
-            return (
-              <button
-                key={t.code}
-                type="button"
-                role="option"
-                aria-selected={isActive}
-                className={[
-                  'thumb-model-option',
-                  isActive ? 'thumb-model-option--active' : '',
-                  isLocked ? 'thumb-model-option--locked' : '',
-                ]
-                  .join(' ')
-                  .trim()}
-                onClick={() => {
-                  if (isLocked) {
-                    setOpen(false)
-                    window.location.hash = 'pro'
-                  } else {
-                    onPickTier(t.code)
-                    setOpen(false)
-                  }
-                }}
-                disabled={isPending}
-              >
-                <span className="thumb-model-option-left">
-                  <span className="thumb-model-option-code">{t.code}</span>
-                  <span
-                    className="thumb-model-option-tag"
-                    style={{
-                      background: isActive ? colors.activeBg : colors.bg,
-                      borderColor: isActive ? colors.activeBorder : colors.border,
-                      color: colors.color,
-                    }}
-                  >
-                    {label}
-                  </span>
-                </span>
-                {isActive && (
-                  <svg
-                    className="thumb-model-option-check"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
-                  >
-                    <path d="m5 13 4 4L19 7" />
-                  </svg>
-                )}
-                {isLocked && (
-                  <span className="thumb-model-option-upgrade">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden
-                    >
-                      <rect x="3" y="11" width="18" height="11" rx="2" />
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                    </svg>
-                    Upgrade
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export function ThumbnailGenerator({
   channelId,
   onOpenPersonas,
@@ -1149,18 +978,6 @@ export function ThumbnailGenerator({
   conversationId,
   onConversationCreated,
 }) {
-  const { data: tierState } = useModelTierStateQuery()
-  const setTierMutation = useSetModelTierMutation()
-  const currentTier = tierState?.selected || 'SRX-1'
-  const tierOptions =
-    tierState?.tiers && tierState.tiers.length
-      ? tierState.tiers
-      : [
-          { code: 'SRX-1', label: 'Lite', locked: false },
-          { code: 'SRX-2', label: 'Pro', locked: false },
-          { code: 'SRX-3', label: 'Ultra', locked: false },
-        ]
-
   const [lightbox, setLightbox] = useState(null)
   const [copiedMessageId, setCopiedMessageId] = useState(null)
   const [thumbMode, setThumbMode] = useState(() => parseThumbModeFromHash())
@@ -2098,14 +1915,6 @@ export function ThumbnailGenerator({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.42, ease: IOS_EASE }}
       >
-        {/* AI model tier dropdown — always pinned top-left */}
-        <ThumbModelDropdown
-          tierOptions={tierOptions}
-          currentTier={currentTier}
-          onPickTier={(code) => setTierMutation.mutate(code)}
-          isPending={setTierMutation.isPending}
-        />
-
         <div
           ref={threadRef}
           className={`coach-thread ${layoutCentered ? 'coach-thread--empty' : ''} coach-thread--thumb-panel ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
