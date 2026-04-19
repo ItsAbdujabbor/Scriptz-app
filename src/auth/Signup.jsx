@@ -1,27 +1,59 @@
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '../stores/authStore'
+import { isLocalApiAuthMode } from '../lib/authMode'
 import './auth.css'
 
 const MailIcon = () => (
-  <svg viewBox="0 0 20 20" fill="none" width="16" height="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    viewBox="0 0 20 20"
+    fill="none"
+    width="16"
+    height="16"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M3 6l7 5 7-5" />
     <rect x="2" y="4" width="16" height="12" rx="2" />
   </svg>
 )
 const LockIcon = () => (
-  <svg viewBox="0 0 20 20" fill="none" width="16" height="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+  <svg
+    viewBox="0 0 20 20"
+    fill="none"
+    width="16"
+    height="16"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+  >
     <rect x="3" y="9" width="14" height="9" rx="2" />
     <path d="M7 9V6a3 3 0 016 0v3" />
   </svg>
 )
 const EyeIcon = () => (
-  <svg viewBox="0 0 20 20" fill="none" width="16" height="16" stroke="currentColor" strokeWidth="1.5">
+  <svg
+    viewBox="0 0 20 20"
+    fill="none"
+    width="16"
+    height="16"
+    stroke="currentColor"
+    strokeWidth="1.5"
+  >
     <path d="M10 4C5.6 4 2 10 2 10s3.6 6 8 6 8-6 8-6S14.4 4 10 4z" />
     <circle cx="10" cy="10" r="2.5" />
   </svg>
 )
 const EyeOffIcon = () => (
-  <svg viewBox="0 0 20 20" fill="none" width="16" height="16" stroke="currentColor" strokeWidth="1.5">
+  <svg
+    viewBox="0 0 20 20"
+    fill="none"
+    width="16"
+    height="16"
+    stroke="currentColor"
+    strokeWidth="1.5"
+  >
     <path d="M3 3l14 14" strokeLinecap="round" />
     <path d="M8.4 8.7a3 3 0 004 4" />
     <path d="M3.7 5.3A12 12 0 002 10s3.6 6 8 6c1.7 0 3.3-.6 4.6-1.5" />
@@ -29,19 +61,39 @@ const EyeOffIcon = () => (
   </svg>
 )
 const BackIcon = () => (
-  <svg viewBox="0 0 20 20" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="1.8">
+  <svg
+    viewBox="0 0 20 20"
+    fill="none"
+    width="14"
+    height="14"
+    stroke="currentColor"
+    strokeWidth="1.8"
+  >
     <path d="M13 4L7 10l6 6" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
 const SignupIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" width="20" height="20" stroke="currentColor" strokeWidth="2">
-    <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" strokeLinecap="round" strokeLinejoin="round" />
+    <path
+      d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
     <circle cx="9" cy="7" r="4" />
     <path d="M19 8v6M22 11h-6" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
 const CheckIcon = () => (
-  <svg viewBox="0 0 14 14" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    viewBox="0 0 14 14"
+    fill="none"
+    width="14"
+    height="14"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M2 7l3 3 7-7" />
   </svg>
 )
@@ -67,7 +119,16 @@ export function Signup({ onBack, onGoToLogin, onSuccess }) {
   const [showConfirm, setShowConfirm] = useState(false)
   const [errors, setErrors] = useState({ email: '', password: '', confirm: '', terms: '' })
 
-  const { register: doRegister, login, isLoading: loading, error: storeError, clearError } = useAuthStore()
+  const {
+    register: doRegister,
+    signInWithGoogle,
+    resendSignupEmail,
+    isLoading: loading,
+    error: storeError,
+    clearError,
+  } = useAuthStore()
+  const [verificationSent, setVerificationSent] = useState(false)
+  const [resendBusy, setResendBusy] = useState(false)
 
   useEffect(() => {
     clearError()
@@ -94,13 +155,25 @@ export function Signup({ onBack, onGoToLogin, onSuccess }) {
     clearError()
     const result = await doRegister(email.trim(), password)
     if (!result?.ok) return
-    // Log in so user has a session, then show splash and go to onboarding
-    const loginResult = await login(email.trim(), password)
-    if (loginResult?.ok) {
-      onSuccess?.()
-    } else {
-      onGoToLogin?.()
+    if (result.needsEmailConfirmation) {
+      setVerificationSent(true)
+      return
     }
+    onSuccess?.()
+  }
+
+  const handleGoogle = async () => {
+    clearError()
+    await signInWithGoogle()
+  }
+
+  const handleResend = async () => {
+    const em = email.trim()
+    if (!em) return
+    setResendBusy(true)
+    clearError()
+    await resendSignupEmail(em)
+    setResendBusy(false)
   }
 
   return (
@@ -108,7 +181,15 @@ export function Signup({ onBack, onGoToLogin, onSuccess }) {
       <div className="auth-aura" aria-hidden="true" />
       <div className="auth-panel-brand">
         <div className="auth-brand-inner">
-          <a href="#" className="auth-brand-logo" onClick={(e) => { e.preventDefault(); onBack?.() }} aria-label="Scriptz AI">
+          <a
+            href="#"
+            className="auth-brand-logo"
+            onClick={(e) => {
+              e.preventDefault()
+              onBack?.()
+            }}
+            aria-label="Scriptz AI"
+          >
             <ScriptzLogo />
             Scriptz AI
           </a>
@@ -131,7 +212,15 @@ export function Signup({ onBack, onGoToLogin, onSuccess }) {
 
       <div className="auth-panel-form">
         <div className="auth-wrap">
-          <a href="#" className="auth-back" onClick={(e) => { e.preventDefault(); onBack?.() }} aria-label="Back">
+          <a
+            href="#"
+            className="auth-back"
+            onClick={(e) => {
+              e.preventDefault()
+              onBack?.()
+            }}
+            aria-label="Back"
+          >
             <BackIcon />
             Back
           </a>
@@ -143,38 +232,92 @@ export function Signup({ onBack, onGoToLogin, onSuccess }) {
             <h1 className="auth-title">Create account</h1>
             <p className="auth-subtitle">Start creating viral scripts in minutes. Free to try.</p>
 
-            {submitError && <p className="auth-error-msg" role="alert">{submitError}</p>}
+            {submitError && (
+              <p className="auth-error-msg" role="alert">
+                {submitError}
+              </p>
+            )}
+            {verificationSent && (
+              <div className="auth-success-msg" role="status">
+                <p className="auth-success-msg-text">
+                  Check <strong>{email.trim()}</strong> for a confirmation link. After you verify,
+                  you can log in.
+                </p>
+                <button
+                  type="button"
+                  className="auth-btn auth-btn-secondary auth-btn-compact"
+                  onClick={handleResend}
+                  disabled={resendBusy || loading}
+                >
+                  {resendBusy ? 'Sending…' : 'Resend confirmation email'}
+                </button>
+              </div>
+            )}
+
+            {!verificationSent && !isLocalApiAuthMode() && (
+              <>
+                <button
+                  type="button"
+                  className="auth-btn auth-btn-google"
+                  onClick={handleGoogle}
+                  disabled={loading}
+                >
+                  Continue with Google
+                </button>
+                <p className="auth-divider">
+                  <span>or email</span>
+                </p>
+              </>
+            )}
 
             <form className="auth-form" onSubmit={handleSubmit} noValidate>
               <div className="form-group">
-                <label htmlFor="signup-email" className="form-label">Email address</label>
+                <label htmlFor="signup-email" className="form-label">
+                  Email address
+                </label>
                 <div className="form-field">
-                  <span className="form-field-icon" aria-hidden="true"><MailIcon /></span>
+                  <span className="form-field-icon" aria-hidden="true">
+                    <MailIcon />
+                  </span>
                   <input
                     type="email"
                     id="signup-email"
                     autoComplete="email"
                     placeholder="you@example.com"
                     value={email}
-                    onChange={(e) => { setEmail(e.target.value); setErrors((prev) => ({ ...prev, email: '' })) }}
+                    onChange={(e) => {
+                      setEmail(e.target.value)
+                      setErrors((prev) => ({ ...prev, email: '' }))
+                    }}
                     className={`form-input ${errors.email ? 'form-input-error' : ''}`}
                     disabled={loading}
                   />
                 </div>
-                {errors.email && <p className="form-error" role="alert">{errors.email}</p>}
+                {errors.email && (
+                  <p className="form-error" role="alert">
+                    {errors.email}
+                  </p>
+                )}
               </div>
 
               <div className="form-group">
-                <label htmlFor="signup-password" className="form-label">Password</label>
+                <label htmlFor="signup-password" className="form-label">
+                  Password
+                </label>
                 <div className="form-field">
-                  <span className="form-field-icon" aria-hidden="true"><LockIcon /></span>
+                  <span className="form-field-icon" aria-hidden="true">
+                    <LockIcon />
+                  </span>
                   <input
                     type={showPassword ? 'text' : 'password'}
                     id="signup-password"
                     autoComplete="new-password"
                     placeholder="Min 8 characters"
                     value={password}
-                    onChange={(e) => { setPassword(e.target.value); setErrors((prev) => ({ ...prev, password: '' })) }}
+                    onChange={(e) => {
+                      setPassword(e.target.value)
+                      setErrors((prev) => ({ ...prev, password: '' }))
+                    }}
                     className={`form-input form-input-toggleable ${errors.password ? 'form-input-error' : ''}`}
                     disabled={loading}
                   />
@@ -187,20 +330,31 @@ export function Signup({ onBack, onGoToLogin, onSuccess }) {
                     {showPassword ? <EyeOffIcon /> : <EyeIcon />}
                   </button>
                 </div>
-                {errors.password && <p className="form-error" role="alert">{errors.password}</p>}
+                {errors.password && (
+                  <p className="form-error" role="alert">
+                    {errors.password}
+                  </p>
+                )}
               </div>
 
               <div className="form-group">
-                <label htmlFor="signup-confirm" className="form-label">Confirm password</label>
+                <label htmlFor="signup-confirm" className="form-label">
+                  Confirm password
+                </label>
                 <div className="form-field">
-                  <span className="form-field-icon" aria-hidden="true"><LockIcon /></span>
+                  <span className="form-field-icon" aria-hidden="true">
+                    <LockIcon />
+                  </span>
                   <input
                     type={showConfirm ? 'text' : 'password'}
                     id="signup-confirm"
                     autoComplete="new-password"
                     placeholder="Confirm your password"
                     value={confirmPassword}
-                    onChange={(e) => { setConfirmPassword(e.target.value); setErrors((prev) => ({ ...prev, confirm: '' })) }}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value)
+                      setErrors((prev) => ({ ...prev, confirm: '' }))
+                    }}
                     className={`form-input form-input-toggleable ${errors.confirm ? 'form-input-error' : ''}`}
                     disabled={loading}
                   />
@@ -213,26 +367,42 @@ export function Signup({ onBack, onGoToLogin, onSuccess }) {
                     {showConfirm ? <EyeOffIcon /> : <EyeIcon />}
                   </button>
                 </div>
-                {errors.confirm && <p className="form-error" role="alert">{errors.confirm}</p>}
+                {errors.confirm && (
+                  <p className="form-error" role="alert">
+                    {errors.confirm}
+                  </p>
+                )}
               </div>
 
               <label className="auth-terms">
                 <input
                   type="checkbox"
                   checked={agreeTerms}
-                  onChange={(e) => { setAgreeTerms(e.target.checked); setErrors((prev) => ({ ...prev, terms: '' })) }}
+                  onChange={(e) => {
+                    setAgreeTerms(e.target.checked)
+                    setErrors((prev) => ({ ...prev, terms: '' }))
+                  }}
                 />
                 <span className="auth-terms-box" />
                 <span>
                   I agree to the{' '}
-                  <a href="#terms" className="auth-link-inline">Terms of Service</a>
-                  {' '}and{' '}
-                  <a href="#privacy" className="auth-link-inline">Privacy Policy</a>.
+                  <a href="#terms" className="auth-link-inline">
+                    Terms of Service
+                  </a>{' '}
+                  and{' '}
+                  <a href="#privacy" className="auth-link-inline">
+                    Privacy Policy
+                  </a>
+                  .
                 </span>
               </label>
-              {errors.terms && <p className="form-error" role="alert">{errors.terms}</p>}
+              {errors.terms && (
+                <p className="form-error" role="alert">
+                  {errors.terms}
+                </p>
+              )}
 
-              <button type="submit" className="auth-btn" disabled={loading}>
+              <button type="submit" className="auth-btn" disabled={loading || verificationSent}>
                 {loading ? <span className="auth-btn-spinner" /> : null}
                 <span>{loading ? 'Creating account…' : 'Create account'}</span>
               </button>
@@ -240,7 +410,14 @@ export function Signup({ onBack, onGoToLogin, onSuccess }) {
 
             <p className="auth-footer">
               Already have an account?{' '}
-              <a href="#login" className="auth-link auth-link-bold" onClick={(e) => { e.preventDefault(); onGoToLogin?.() }}>
+              <a
+                href="#login"
+                className="auth-link auth-link-bold"
+                onClick={(e) => {
+                  e.preventDefault()
+                  onGoToLogin?.()
+                }}
+              >
                 Log in →
               </a>
             </p>

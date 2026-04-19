@@ -1,0 +1,111 @@
+/**
+ * Scriptz iOS Theme — Single source of truth for all screens.
+ * Import this file ONCE in index.css. All page-level CSS inherits these tokens.
+ *
+ * Based on Apple Human Interface Guidelines (iOS 18 dark mode).
+ * SF Pro font stack, iOS system colors, native spacing/radius/motion.
+ */
+
+:root {
+  /* ── Typography ── */
+  --ios-font:
+    -apple-system, 'SF Pro Display', 'SF Pro Text', system-ui, BlinkMacSystemFont, 'Helvetica Neue',
+    sans-serif;
+  --ios-font-rounded: 'SF Pro Rounded', -apple-system, system-ui, BlinkMacSystemFont, sans-serif;
+
+  /* iOS Type Scale (dark mode) */
+  --ios-large-title: 2.125rem; /* 34pt */
+  --ios-title1: 1.75rem; /* 28pt */
+  --ios-title2: 1.375rem; /* 22pt */
+  --ios-title3: 1.25rem; /* 20pt */
+  --ios-headline: 1.0625rem; /* 17pt semibold */
+  --ios-body: 1.0625rem; /* 17pt */
+  --ios-callout: 1rem; /* 16pt */
+  --ios-subhead: 0.9375rem; /* 15pt */
+  --ios-footnote: 0.8125rem; /* 13pt */
+  --ios-caption1: 0.75rem; /* 12pt */
+  --ios-caption2: 0.6875rem; /* 11pt */
+
+  /* ── Colors — iOS 18 Dark Mode ── */
+
+  /* Backgrounds */
+  --ios-bg-primary: #0e0e12; /* Main screen bg */
+  --ios-bg-secondary: #18181c; /* Cards, grouped sections */
+  --ios-bg-tertiary: #222228; /* Elevated cards, hover */
+  --ios-bg-canvas: #0a0a0c; /* Outer canvas (behind sidebar) */
+
+  /* Labels (text) */
+  --ios-label-primary: #ffffff;
+  --ios-label-secondary: #8e8e93; /* systemGray */
+  --ios-label-tertiary: #636366; /* systemGray2 */
+  --ios-label-quaternary: #48484a; /* systemGray3 */
+
+  /* Fills */
+  --ios-fill-primary: rgba(255, 255, 255, 0.08);
+  --ios-fill-secondary: rgba(255, 255, 255, 0.06);
+  --ios-fill-tertiary: rgba(255, 255, 255, 0.04);
+
+  /* Separators */
+  --ios-separator: rgba(255, 255, 255, 0.08);
+  --ios-separator-opaque: #38383a;
+
+  /* System Colors */
+  --ios-blue: #0a84ff;
+  --ios-green: #30d158;
+  --ios-red: #ff453a;
+  --ios-yellow: #ffd60a;
+  --ios-orange: #ff9f0a;
+  --ios-purple: #bf5af2;
+  --ios-indigo: #5e5ce6;
+  --ios-teal: #64d2ff;
+  --ios-pink: #ff375f;
+
+  /* App Accent — Deep Purple */
+  --ios-accent: #7c3aed;
+  --ios-accent-light: #9061f0;
+  --ios-accent-lighter: #b794f6;
+  --ios-accent-dark: #6d28d9;
+  --ios-accent-darker: #5b21b6;
+
+  /* ── Spacing — 8pt grid ── */
+  --ios-space-1: 0.25rem; /* 4px */
+  --ios-space-2: 0.5rem; /* 8px */
+  --ios-space-3: 0.75rem; /* 12px */
+  --ios-space-4: 1rem; /* 16px — iOS standard margin */
+  --ios-space-5: 1.25rem; /* 20px */
+  --ios-space-6: 1.5rem; /* 24px */
+
+  /* ── Corner Radius ── */
+  --ios-radius-sm: 8px;
+  --ios-radius-md: 12px;
+  --ios-radius-lg: 16px;
+  --ios-radius-xl: 22px;
+  --ios-radius-pill: 999px;
+
+  /* ── Motion ── */
+  --ios-duration: 0.25s;
+  --ios-duration-fast: 0.15s;
+  --ios-duration-slow: 0.4s;
+  --ios-ease: cubic-bezier(0.25, 1, 0.5, 1); /* Smooth out */
+  --ios-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* Spring bounce */
+  --ios-ease-in-out: cubic-bezier(0.45, 0, 0.55, 1); /* Symmetric */
+
+  /* ── Liquid Glass ── */
+  --ios-glass-blur: 50px;
+  --ios-glass-saturate: 190%;
+  --ios-glass-brightness: 1.05;
+  --ios-glass-border: 0.5px solid rgba(255, 255, 255, 0.18);
+  --ios-glass-bg: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.03) 40%,
+    rgba(255, 255, 255, 0.01) 100%
+  );
+  --ios-glass-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.15), inset 0 -0.5px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.12), 0 12px 40px rgba(0, 0, 0, 0.08);
+
+  /* ── Gradient Accent ── */
+  --ios-gradient-accent: linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #5b21b6 100%);
+  --ios-gradient-accent-glow: 0 2px 10px rgba(109, 40, 217, 0.3);
+}

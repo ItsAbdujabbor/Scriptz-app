@@ -5,16 +5,43 @@ import { queryKeys } from '../../lib/query/queryKeys'
 import { getAccessTokenOrNull } from '../../lib/query/authToken'
 
 export function useDashboardInsights(channelId) {
-  return useQuery({
-    queryKey: queryKeys.dashboard.insights(channelId),
+  const queryClient = useQueryClient()
+  const key = queryKeys.dashboard.insights(channelId)
+
+  // Auto-fetch with cached_only=true → only returns existing cached results, never generates
+  const query = useQuery({
+    queryKey: key,
     queryFn: async () => {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Not authenticated')
-      if (channelId) return dashboardApi.getInsights(token, channelId)
-      return dashboardApi.getOnboardingInsights(token)
+      if (channelId) return dashboardApi.getInsights(token, channelId, false, true)
+      return dashboardApi.getOnboardingInsights(token, false, true)
     },
-    staleTime: queryFreshness.weekly,
+    staleTime: queryFreshness.medium,
   })
+
+  // User-triggered: actually generates fresh ideas
+  const regenerateMutation = useMutation({
+    mutationFn: async () => {
+      const token = await getAccessTokenOrNull()
+      if (!token) throw new Error('Not authenticated')
+      if (channelId) return dashboardApi.getInsights(token, channelId, true, false)
+      return dashboardApi.getOnboardingInsights(token, true, false)
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(key, data)
+    },
+  })
+
+  // Has any real cached suggestions?
+  const hasCachedIdeas = !!query.data?.script_suggestions?.length
+
+  return {
+    ...query,
+    regenerateInsights: regenerateMutation.mutateAsync,
+    isRegenerating: regenerateMutation.isPending,
+    hasCachedIdeas,
+  }
 }
 
 export function useDashboardAudit(channelId) {
@@ -26,7 +53,10 @@ export function useDashboardAudit(channelId) {
       return dashboardApi.getChannelAudit(token, channelId)
     },
     enabled: !!channelId,
-    staleTime: queryFreshness.medium,
+    staleTime: queryFreshness.long,
+    gcTime: queryFreshness.chatThreadGc,
+    placeholderData: (prev) => prev,
+    refetchOnWindowFocus: false,
   })
 }
 
@@ -39,7 +69,10 @@ export function useDashboardGrowth(channelId) {
       return dashboardApi.getGrowth(token, channelId)
     },
     enabled: !!channelId,
-    staleTime: queryFreshness.medium,
+    staleTime: queryFreshness.long,
+    gcTime: queryFreshness.chatThreadGc,
+    placeholderData: (prev) => prev,
+    refetchOnWindowFocus: false,
   })
 }
 
@@ -53,6 +86,9 @@ export function useDashboardSnapshot(channelId, from, to) {
     },
     enabled: !!channelId && !!from && !!to,
     staleTime: queryFreshness.long,
+    gcTime: queryFreshness.chatThreadGc,
+    placeholderData: (prev) => prev,
+    refetchOnWindowFocus: false,
   })
 }
 
@@ -114,4 +150,3 @@ export function useIdeaFeedbackMutation({ channelId }) {
     },
   })
 }
-

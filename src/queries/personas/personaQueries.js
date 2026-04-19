@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { personasApi } from '../../api/personas'
+import { invalidateCredits } from '../billing/creditsQueries'
 import { queryFreshness } from '../../lib/query/queryConfig'
 import { queryKeys } from '../../lib/query/queryKeys'
 import { getAccessTokenOrNull } from '../../lib/query/authToken'
@@ -13,7 +14,7 @@ export function usePersonasQuery() {
       if (!token) return { items: [], total: 0, pinned_ids: [] }
       return personasApi.list(token)
     },
-    staleTime: queryFreshness.medium,
+    staleTime: queryFreshness.long,
     gcTime: queryFreshness.long,
   })
 }
@@ -51,18 +52,25 @@ export function useCreatePersonaFromImagesMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ frontImage, leftImage, rightImage, optionalText }) => {
+    mutationFn: async ({ frontImage, leftImage, rightImage, name }) => {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Not authenticated')
       const formData = new FormData()
       formData.append('front_image', frontImage)
       formData.append('left_image', leftImage)
       formData.append('right_image', rightImage)
-      if (optionalText?.trim()) formData.append('optional_text', optionalText.trim())
+      formData.append('name', (name || 'My Persona').trim().slice(0, 120))
       return personasApi.createFromImages(token, formData)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.personas.list() })
+      // 45 credits were just debited — refresh the badge immediately so the
+      // user doesn't have to wait for the 30s poll.
+      invalidateCredits(queryClient)
+    },
+    onError: () => {
+      // Backend refunds on failure; reflect that in the UI right away.
+      invalidateCredits(queryClient)
     },
   })
 }

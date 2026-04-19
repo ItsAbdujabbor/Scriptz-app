@@ -1,0 +1,140 @@
+/* ──────────────────────────────────────────────────────────────────────
+ * Thumbnail Generator — quiet ambient background.
+ *
+ * Three layers stacked inside the Thumbnail panel. No animations on
+ * the backdrop itself; only the cursor-tracked spotlight moves, and
+ * that's driven by the user.
+ *
+ *   1. __base       — black + soft purple glow from the bottom
+ *   2. __grid       — dot grid, densest in the center, fading off edges
+ *   3. __spotlight  — gentle radial halo under the cursor
+ *
+ * The panel listens for pointer events so our mouse handler fires;
+ * children are declared non-interactive so clicks pass through.
+ * ──────────────────────────────────────────────────────────────────── */
+
+.thumb-bg-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: auto;
+  --thumb-bg-mx: 50%;
+  --thumb-bg-my: 50%;
+}
+
+.thumb-bg-fx > * {
+  pointer-events: none;
+}
+
+/* ---------- 1. base ----------
+ * Flat canvas matching the Dashboard exactly (`--app-canvas-bg:
+ * #0a0a0c`). No bottom gradient, no tints — same surface the rest
+ * of the app uses, so switching screens feels seamless. The dots
+ * and cursor spotlight are the only things that sit on top. */
+.thumb-bg-fx__base {
+  position: absolute;
+  inset: 0;
+  background: var(--app-canvas-bg, #0a0a0c);
+}
+
+/* ---------- 1b. bottom glow ----------
+ * Soft purple aurora rising from the bottom edge — anchors the panel
+ * and matches the cursor spotlight's hue so they read as one palette.
+ * Sits above the base canvas, below the dot grid. */
+.thumb-bg-fx__bottom-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse 60% 38% at 50% 100%,
+      rgba(167, 139, 250, 0.55) 0%,
+      rgba(139, 92, 246, 0.32) 35%,
+      rgba(139, 92, 246, 0.12) 65%,
+      transparent 85%
+    ),
+    radial-gradient(
+      ellipse 95% 55% at 50% 110%,
+      rgba(139, 92, 246, 0.22) 0%,
+      rgba(139, 92, 246, 0.08) 50%,
+      transparent 80%
+    );
+  mix-blend-mode: screen;
+}
+
+/* ---------- 2. dot grid ----------
+ * 28px repeating white dot pattern, masked so the dots are most
+ * visible in the middle of the panel and fade toward every edge —
+ * reads like a spotlit section of a much larger grid rather than a
+ * corner-to-corner pattern. */
+.thumb-bg-fx__grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.34) 0 1.15px,
+    transparent 1.65px
+  );
+  background-size: 28px 28px;
+  background-position: 0 0;
+  /* Radial mask: fully visible at the centre, faded to zero by the
+   * edges. Ellipse so wide screens don't clip the grid too early. */
+  mask-image: radial-gradient(
+    ellipse 55% 55% at 50% 45%,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.7) 45%,
+    rgba(0, 0, 0, 0.25) 80%,
+    transparent 100%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 55% 55% at 50% 45%,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.7) 45%,
+    rgba(0, 0, 0, 0.25) 80%,
+    transparent 100%
+  );
+  opacity: 0.7;
+}
+
+/* ---------- 3. cursor spotlight ----------
+ * A soft purple halo tracks the pointer — single layer, no dot
+ * brightening, no trail. Intentionally subtle. */
+.thumb-bg-fx__spotlight {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle 280px at var(--thumb-bg-mx) var(--thumb-bg-my),
+    rgba(139, 92, 246, 0.16) 0%,
+    rgba(139, 92, 246, 0.06) 45%,
+    transparent 75%
+  );
+  transition: opacity 220ms ease;
+}
+
+/* ---------- Empty-state tweak ----------
+ * When the composer is centered (no messages yet) we want the grid
+ * particularly legible around the input bar. The `.thumb-empty` hook
+ * on the panel bumps the grid's mask intensity slightly. */
+.coach-main--thumb:has(.coach-chat-shell--thumb-empty) .thumb-bg-fx__grid {
+  opacity: 0.7;
+  mask-image: radial-gradient(
+    ellipse 60% 55% at 50% 55%,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.7) 40%,
+    rgba(0, 0, 0, 0.25) 75%,
+    transparent 100%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 60% 55% at 50% 55%,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.7) 40%,
+    rgba(0, 0, 0, 0.25) 75%,
+    transparent 100%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb-bg-fx__spotlight {
+    transition: none;
+  }
+}

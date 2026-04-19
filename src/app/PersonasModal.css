@@ -1,23 +1,6 @@
-.personas-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 20px;
-}
-
-.personas-modal {
-  width: 100%;
-  max-width: 520px;
-  max-height: 85vh;
-  overflow-y: auto;
-  background: #151517;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+/* Outer chrome (overlay, panel framing, entry animation) lives in
+ * Dialog.css. This file only styles the personas-specific content. */
+.personas-modal-body {
   padding: 24px;
 }
 
@@ -42,7 +25,9 @@
   color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
   border-radius: 8px;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
 
 .personas-modal-close:hover {
@@ -69,28 +54,188 @@
 .personas-modal-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 10px 18px;
-  border-radius: 10px;
+  padding: 11px 22px;
+  border: none;
+  border-radius: 999px;
+  font: inherit;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: 0.005em;
   cursor: pointer;
-  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 0.14s cubic-bezier(0.33, 1, 0.68, 1),
+    filter 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
+/* Canonical primary CTA — identical visual spec to .persona-selector-create
+ * (just a touch larger to match the modal's content scale). */
 .personas-modal-btn--primary {
-  border: 1px solid rgba(139, 92, 246, 0.6);
-  background: rgba(139, 92, 246, 0.15);
-  color: #a78bfa;
+  background: linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%);
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 6px 18px rgba(124, 58, 237, 0.32);
 }
 
 .personas-modal-btn--primary:hover {
-  background: rgba(139, 92, 246, 0.25);
+  filter: brightness(1.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 8px 22px rgba(124, 58, 237, 0.4);
+}
+
+.personas-modal-btn--primary:active {
+  transform: scale(0.97);
+  transition: transform 0.08s ease;
 }
 
 .personas-modal-btn svg {
   width: 18px;
   height: 18px;
+}
+
+/* ============================================================
+ * Create-persona dialog (modal-on-modal). Opens on top of the
+ * Personas dialog so the upload form is unmistakably a focused
+ * task. Reuses .personas-image-slots/.personas-name-input styles.
+ * ============================================================ */
+.personas-create-dialog {
+  /* Slightly smaller inner radius so the nested dialog reads as a
+   * separate object, not a duplicate of the Personas surface. */
+  border-radius: 16px;
+}
+
+.personas-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 22px 22px 20px;
+}
+
+.personas-create-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.personas-create-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.96);
+  letter-spacing: -0.005em;
+}
+
+.personas-create-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.personas-create-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.personas-create-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 22px;
+  border: none;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 0.14s cubic-bezier(0.33, 1, 0.68, 1),
+    filter 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.personas-create-btn:active:not(:disabled) {
+  transform: scale(0.96);
+  transition: transform 0.08s ease;
+}
+
+.personas-create-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.personas-create-btn--cancel {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.personas-create-btn--cancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.personas-create-btn--primary {
+  background: linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%);
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 6px 18px rgba(124, 58, 237, 0.32);
+}
+
+.personas-create-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 8px 22px rgba(124, 58, 237, 0.4);
+}
+
+.personas-create-btn-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.personas-create-btn-cost svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* CostHint sits inside the gradient button — keep it visible on the
+ * purple background and align it with the label. */
+.personas-modal-btn-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.personas-modal-btn-cost svg {
+  width: 12px;
+  height: 12px;
 }
 
 .personas-form {
@@ -154,7 +299,9 @@
   color: rgba(255, 255, 255, 0.5);
   font-size: 12px;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .personas-image-placeholder:hover {
@@ -190,7 +337,7 @@
   cursor: pointer;
 }
 
-.personas-optional-text {
+.personas-name-input {
   display: block;
   width: 100%;
   margin-bottom: 12px;
@@ -200,6 +347,110 @@
   background: rgba(0, 0, 0, 0.3);
   color: #fff;
   font-size: 14px;
+}
+
+.personas-modal .tabbar {
+  margin-bottom: 20px;
+}
+
+.personas-card-view-trigger {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.personas-view-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 20px;
+}
+
+.personas-view-detail {
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #151517;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+}
+
+.personas-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.personas-view-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.personas-view-close {
+  padding: 6px;
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.personas-view-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.personas-view-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+.personas-view-img-wrap {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.personas-view-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.personas-view-desc {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.5;
+}
+
+.personas-view-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.personas-view-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .personas-form h3 {
@@ -241,13 +492,13 @@
   cursor: pointer;
 }
 
-.personas-form-btns button[type="submit"] {
+.personas-form-btns button[type='submit'] {
   border: 1px solid rgba(139, 92, 246, 0.6);
   background: rgba(139, 92, 246, 0.2);
-  color: #c4b5fd;
+  color: #b794f6;
 }
 
-.personas-form-btns button[type="button"] {
+.personas-form-btns button[type='button'] {
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: transparent;
   color: rgba(255, 255, 255, 0.8);
@@ -363,7 +614,7 @@
   border: 1px solid rgba(139, 92, 246, 0.5);
   border-radius: 8px;
   background: rgba(139, 92, 246, 0.15);
-  color: #a78bfa;
+  color: #9061f0;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;

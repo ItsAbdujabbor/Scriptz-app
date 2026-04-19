@@ -1,21 +1,68 @@
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '../stores/authStore'
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
+import { isLocalApiAuthMode } from '../lib/authMode'
 import './auth.css'
 
+function parseResetTokenFromHash() {
+  if (typeof window === 'undefined') return ''
+  const hash = window.location.hash || ''
+  const qIndex = hash.indexOf('?')
+  if (qIndex === -1) return ''
+  const qs = new URLSearchParams(hash.slice(qIndex + 1))
+  return (qs.get('token') || '').trim()
+}
+
+async function getSessionAfterRecoveryParse() {
+  if (!supabase) return null
+  await supabase.auth.getSession()
+  let {
+    data: { session },
+  } = await supabase.auth.getSession()
+  if (session) return session
+  await new Promise((r) => setTimeout(r, 450))
+  ;({
+    data: { session },
+  } = await supabase.auth.getSession())
+  return session
+}
+
 const LockIcon = () => (
-  <svg viewBox="0 0 20 20" fill="none" width="16" height="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+  <svg
+    viewBox="0 0 20 20"
+    fill="none"
+    width="16"
+    height="16"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+  >
     <rect x="3" y="9" width="14" height="9" rx="2" />
     <path d="M7 9V6a3 3 0 016 0v3" />
   </svg>
 )
 const EyeIcon = () => (
-  <svg viewBox="0 0 20 20" fill="none" width="16" height="16" stroke="currentColor" strokeWidth="1.5">
+  <svg
+    viewBox="0 0 20 20"
+    fill="none"
+    width="16"
+    height="16"
+    stroke="currentColor"
+    strokeWidth="1.5"
+  >
     <path d="M10 4C5.6 4 2 10 2 10s3.6 6 8 6 8-6 8-6S14.4 4 10 4z" />
     <circle cx="10" cy="10" r="2.5" />
   </svg>
 )
 const EyeOffIcon = () => (
-  <svg viewBox="0 0 20 20" fill="none" width="16" height="16" stroke="currentColor" strokeWidth="1.5">
+  <svg
+    viewBox="0 0 20 20"
+    fill="none"
+    width="16"
+    height="16"
+    stroke="currentColor"
+    strokeWidth="1.5"
+  >
     <path d="M3 3l14 14" strokeLinecap="round" />
     <path d="M8.4 8.7a3 3 0 004 4" />
     <path d="M3.7 5.3A12 12 0 002 10s3.6 6 8 6c1.7 0 3.3-.6 4.6-1.5" />
@@ -23,7 +70,14 @@ const EyeOffIcon = () => (
   </svg>
 )
 const BackIcon = () => (
-  <svg viewBox="0 0 20 20" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="1.8">
+  <svg
+    viewBox="0 0 20 20"
+    fill="none"
+    width="14"
+    height="14"
+    stroke="currentColor"
+    strokeWidth="1.8"
+  >
     <path d="M13 4L7 10l6 6" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
@@ -34,7 +88,16 @@ const ScriptzLogo = () => (
   </svg>
 )
 const CheckIcon = () => (
-  <svg viewBox="0 0 14 14" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    viewBox="0 0 14 14"
+    fill="none"
+    width="14"
+    height="14"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M2 7l3 3 7-7" />
   </svg>
 )
@@ -45,16 +108,6 @@ const BRAND_FEATURES = [
   'YouTube analytics & growth insights',
 ]
 
-function getTokenFromUrl() {
-  if (typeof window === 'undefined') return null
-  const params = new URLSearchParams(window.location.search)
-  const token = params.get('token')
-  if (token) return token
-  const hash = (window.location.hash || '').replace(/^#/, '')
-  const hashParams = new URLSearchParams(hash.split('?')[1] || '')
-  return hashParams.get('token')
-}
-
 export function ResetPassword({ onBack, onSuccess }) {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -62,13 +115,48 @@ export function ResetPassword({ onBack, onSuccess }) {
   const [showConfirm, setShowConfirm] = useState(false)
   const [success, setSuccess] = useState(false)
   const [errors, setErrors] = useState({ password: '', confirm: '' })
+  const [checking, setChecking] = useState(() => !isLocalApiAuthMode())
+  const [hasSession, setHasSession] = useState(false)
+  const [localResetToken, setLocalResetToken] = useState('')
 
-  const token = getTokenFromUrl()
-  const { resetPassword, isLoading: loading, error: storeError, clearError } = useAuthStore()
+  const resetPassword = useAuthStore((s) => s.resetPassword)
+  const loading = useAuthStore((s) => s.isLoading)
+  const storeError = useAuthStore((s) => s.error)
+  const clearError = useAuthStore((s) => s.clearError)
+  const ensureSession = useAuthStore((s) => s.ensureSession)
 
   useEffect(() => {
     clearError()
   }, [clearError])
+
+  useEffect(() => {
+    if (isLocalApiAuthMode()) {
+      const t = parseResetTokenFromHash()
+      setLocalResetToken(t)
+      setHasSession(Boolean(t))
+      setChecking(false)
+      return () => {}
+    }
+    let cancelled = false
+    if (!isSupabaseConfigured() || !supabase) {
+      setChecking(false)
+      setHasSession(false)
+      return () => {}
+    }
+
+    async function check() {
+      await ensureSession()
+      const session = await getSessionAfterRecoveryParse()
+      if (!cancelled) {
+        setHasSession(!!session)
+        setChecking(false)
+      }
+    }
+    check()
+    return () => {
+      cancelled = true
+    }
+  }, [ensureSession])
 
   const validate = () => {
     const next = { password: '', confirm: '' }
@@ -81,27 +169,89 @@ export function ResetPassword({ onBack, onSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!token) {
-      setErrors({ password: '', confirm: 'Invalid or missing reset link. Please request a new one.' })
-      return
-    }
     if (!validate()) return
     clearError()
-    const result = await resetPassword(token, password)
+    const result = await resetPassword(isLocalApiAuthMode() ? localResetToken : null, password)
     if (result?.ok) setSuccess(true)
   }
 
-  if (!token && !success) {
+  if (!isLocalApiAuthMode() && !isSupabaseConfigured()) {
     return (
       <div className="auth-screen">
         <div className="auth-aura" aria-hidden="true" />
         <div className="auth-panel-form">
           <div className="auth-wrap">
-            <a href="#" className="auth-back" onClick={(e) => { e.preventDefault(); onBack?.() }}>Back</a>
+            <a
+              href="#"
+              className="auth-back"
+              onClick={(e) => {
+                e.preventDefault()
+                onBack?.()
+              }}
+            >
+              Back
+            </a>
             <div className="auth-card">
-              <h1 className="auth-title">Invalid reset link</h1>
-              <p className="auth-subtitle">This link is missing or expired. Please request a new password reset from the login page.</p>
-              <a href="#login" className="auth-link auth-link-bold" onClick={(e) => { e.preventDefault(); onBack?.() }}>Go to login →</a>
+              <h1 className="auth-title">Supabase not configured</h1>
+              <p className="auth-subtitle">
+                Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to reset your password.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (checking) {
+    return (
+      <div className="auth-screen">
+        <div className="auth-aura" aria-hidden="true" />
+        <div className="auth-panel-form">
+          <div className="auth-wrap">
+            <div className="auth-card" style={{ textAlign: 'center', padding: '2rem' }}>
+              <p className="auth-subtitle" style={{ margin: 0 }}>
+                Verifying reset link…
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!hasSession && !success) {
+    return (
+      <div className="auth-screen">
+        <div className="auth-aura" aria-hidden="true" />
+        <div className="auth-panel-form">
+          <div className="auth-wrap">
+            <a
+              href="#"
+              className="auth-back"
+              onClick={(e) => {
+                e.preventDefault()
+                onBack?.()
+              }}
+            >
+              Back
+            </a>
+            <div className="auth-card">
+              <h1 className="auth-title">Invalid or expired link</h1>
+              <p className="auth-subtitle">
+                Open the link from your latest password reset email, or request a new one from the
+                login page.
+              </p>
+              <a
+                href="#login"
+                className="auth-link auth-link-bold"
+                onClick={(e) => {
+                  e.preventDefault()
+                  onBack?.()
+                }}
+              >
+                Go to login →
+              </a>
             </div>
           </div>
         </div>
@@ -114,19 +264,28 @@ export function ResetPassword({ onBack, onSuccess }) {
       <div className="auth-aura" aria-hidden="true" />
       <div className="auth-panel-brand">
         <div className="auth-brand-inner">
-          <a href="#" className="auth-brand-logo" onClick={(e) => { e.preventDefault(); onBack?.() }} aria-label="Scriptz AI">
+          <a
+            href="#"
+            className="auth-brand-logo"
+            onClick={(e) => {
+              e.preventDefault()
+              onBack?.()
+            }}
+            aria-label="Scriptz AI"
+          >
             <ScriptzLogo />
             Scriptz AI
           </a>
           <h2 className="auth-brand-headline">
             Set a new <em>password</em>
           </h2>
-          <p className="auth-brand-sub">
-            Choose a strong password to keep your account secure.
-          </p>
+          <p className="auth-brand-sub">Choose a strong password to keep your account secure.</p>
           <ul className="auth-brand-features">
             {BRAND_FEATURES.map((text, i) => (
-              <li key={i}><CheckIcon /><span>{text}</span></li>
+              <li key={i}>
+                <CheckIcon />
+                <span>{text}</span>
+              </li>
             ))}
           </ul>
         </div>
@@ -134,58 +293,107 @@ export function ResetPassword({ onBack, onSuccess }) {
 
       <div className="auth-panel-form">
         <div className="auth-wrap">
-          <a href="#" className="auth-back" onClick={(e) => { e.preventDefault(); onBack?.() }}><BackIcon /> Back</a>
+          <a
+            href="#"
+            className="auth-back"
+            onClick={(e) => {
+              e.preventDefault()
+              onBack?.()
+            }}
+          >
+            <BackIcon /> Back
+          </a>
           <div className="auth-card">
             <span className="auth-eyebrow">Reset password</span>
             <h1 className="auth-title">New password</h1>
-            <p className="auth-subtitle">Enter your new password below. You can then sign in with it.</p>
+            <p className="auth-subtitle">
+              Enter your new password below. You can then sign in with it.
+            </p>
 
             {success ? (
               <>
-                <div className="auth-success-msg" role="status">Your password has been updated. You can now sign in.</div>
-                <a href="#login" className="auth-btn" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }} onClick={(e) => { e.preventDefault(); onSuccess?.() }}>
+                <div className="auth-success-msg" role="status">
+                  Your password has been updated. You can now sign in.
+                </div>
+                <a
+                  href="#login"
+                  className="auth-btn"
+                  style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    onSuccess?.()
+                  }}
+                >
                   Sign in
                 </a>
               </>
             ) : (
               <>
-                {storeError && <p className="auth-error-msg" role="alert">{storeError}</p>}
+                {storeError && (
+                  <p className="auth-error-msg" role="alert">
+                    {storeError}
+                  </p>
+                )}
                 <form className="auth-form" onSubmit={handleSubmit} noValidate>
                   <div className="form-group">
-                    <label htmlFor="reset-password" className="form-label">New password</label>
+                    <label htmlFor="reset-password" className="form-label">
+                      New password
+                    </label>
                     <div className="form-field">
-                      <span className="form-field-icon"><LockIcon /></span>
+                      <span className="form-field-icon">
+                        <LockIcon />
+                      </span>
                       <input
                         type={showPassword ? 'text' : 'password'}
                         id="reset-password"
                         autoComplete="new-password"
                         placeholder="Min 8 characters"
                         value={password}
-                        onChange={(e) => { setPassword(e.target.value); setErrors((p) => ({ ...p, password: '' })) }}
+                        onChange={(e) => {
+                          setPassword(e.target.value)
+                          setErrors((p) => ({ ...p, password: '' }))
+                        }}
                         className={`form-input form-input-toggleable ${errors.password ? 'form-input-error' : ''}`}
                         disabled={loading}
                       />
-                      <button type="button" className="form-pwd-toggle" onClick={() => setShowPassword((s) => !s)} aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                      <button
+                        type="button"
+                        className="form-pwd-toggle"
+                        onClick={() => setShowPassword((s) => !s)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
                         {showPassword ? <EyeOffIcon /> : <EyeIcon />}
                       </button>
                     </div>
                     {errors.password && <p className="form-error">{errors.password}</p>}
                   </div>
                   <div className="form-group">
-                    <label htmlFor="reset-confirm" className="form-label">Confirm password</label>
+                    <label htmlFor="reset-confirm" className="form-label">
+                      Confirm password
+                    </label>
                     <div className="form-field">
-                      <span className="form-field-icon"><LockIcon /></span>
+                      <span className="form-field-icon">
+                        <LockIcon />
+                      </span>
                       <input
                         type={showConfirm ? 'text' : 'password'}
                         id="reset-confirm"
                         autoComplete="new-password"
                         placeholder="Confirm your password"
                         value={confirmPassword}
-                        onChange={(e) => { setConfirmPassword(e.target.value); setErrors((p) => ({ ...p, confirm: '' })) }}
+                        onChange={(e) => {
+                          setConfirmPassword(e.target.value)
+                          setErrors((p) => ({ ...p, confirm: '' }))
+                        }}
                         className={`form-input form-input-toggleable ${errors.confirm ? 'form-input-error' : ''}`}
                         disabled={loading}
                       />
-                      <button type="button" className="form-pwd-toggle" onClick={() => setShowConfirm((s) => !s)} aria-label={showConfirm ? 'Hide password' : 'Show password'}>
+                      <button
+                        type="button"
+                        className="form-pwd-toggle"
+                        onClick={() => setShowConfirm((s) => !s)}
+                        aria-label={showConfirm ? 'Hide password' : 'Show password'}
+                      >
                         {showConfirm ? <EyeOffIcon /> : <EyeIcon />}
                       </button>
                     </div>
@@ -200,7 +408,16 @@ export function ResetPassword({ onBack, onSuccess }) {
             )}
 
             <p className="auth-footer">
-              <a href="#login" className="auth-link" onClick={(e) => { e.preventDefault(); onBack?.() }}>Back to login</a>
+              <a
+                href="#login"
+                className="auth-link"
+                onClick={(e) => {
+                  e.preventDefault()
+                  onBack?.()
+                }}
+              >
+                Back to login
+              </a>
             </p>
           </div>
         </div>

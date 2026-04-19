@@ -1,22 +1,52 @@
-/* Pro page — full-screen pricing, same layout as Dashboard/Optimize */
+/* Pro page — same canvas as Dashboard (#121212 via .dashboard-main-wrap), scroll in .dashboard-main-scroll */
 
+/* Width + horizontal inset from .dashboard-content-shell */
 .pro-page {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 1.25rem 1.5rem 2rem;
-  background: #0a0a0d;
+  width: 100%;
+  margin: 0;
+  padding: 0 0 clamp(1.25rem, 3vw, 2rem);
+  background: transparent;
+  color: #f5f5f6;
 }
 
-.pro-page .pri-section {
-  padding: 2rem 0 3rem;
-  background: #0a0a0d;
+/* Embedded pricing: match unified dashboard surfaces */
+.pro-page .pri-section,
+.pro-plan-section {
+  padding: 1rem 0 2rem;
+  background: transparent !important;
+  color: #ffffff;
+  --pri-bg: transparent;
+  --pri-card: #18181c;
+  --pri-card-pop: #18181c;
+  --pri-t1: #ffffff;
+  --pri-t2: #8e8e93;
+  --pri-t3: #636366;
+  --pri-bd: rgba(255, 255, 255, 0.07);
+  --pri-bd-h: rgba(255, 255, 255, 0.12);
 }
 
 .pro-page .pri-inner {
-  padding: 0;
+  padding: 0 clamp(1rem, 3vw, 2rem);
+  max-width: 1320px;
+  margin: 0 auto;
+  min-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
-/* Remove fades/gradients from background */
+.pro-page .pri-header {
+  margin-bottom: 2.5rem;
+  text-align: center;
+}
+
+.pro-page .pri-lead {
+  max-width: 36rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Remove landing-only background wash */
 .pro-page .pri-section::before {
   display: none;
 }
@@ -25,10 +55,788 @@
   display: none;
 }
 
+/* Top 28% of each card gets a soft fade — subtle inner-light shadow effect. */
 .pro-page .pri-card::before {
-  display: none;
+  display: block;
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 28%;
+  z-index: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055) 0%, transparent 100%);
+  border-radius: var(--pri-r) var(--pri-r) 0 0;
+  pointer-events: none;
 }
 
+/* Creator card keeps a softer violet-tinted top fade instead of tinting the
+   whole card. */
 .pro-page .pri-card--pop::before {
-  display: none;
+  display: block;
+  background: linear-gradient(180deg, rgba(167, 139, 250, 0.2) 0%, transparent 100%);
+}
+
+/* Keep row content above the fade */
+.pro-page .pri-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Primary CTA: match landing header `.header-trial` (gradient, shine, hover) ─── */
+.pro-page .pri-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.46rem 1.3rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  color: #fff !important;
+  background: linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%) !important;
+  border: none !important;
+  border-radius: 9999px !important;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.42);
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    filter 0.22s ease;
+}
+
+.pro-page .pri-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.14) 50%,
+    transparent 100%
+  );
+  transform: translateX(-110%);
+  transition: transform 0.55s ease;
+  pointer-events: none;
+}
+
+.pro-page .pri-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 28px rgba(124, 58, 237, 0.56);
+  filter: brightness(1.07);
+}
+
+.pro-page .pri-btn:hover::before {
+  transform: translateX(110%);
+}
+
+.pro-page .pri-btn:active {
+  transform: translateY(0);
+  filter: brightness(1.02);
+}
+
+.pro-page .pri-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgba(167, 139, 250, 0.45),
+    0 4px 20px rgba(124, 58, 237, 0.42);
+}
+
+/* Popular card: same gradient + slightly richer shadow (still header-trial family) */
+.pro-page .pri-btn--pop {
+  background: linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%) !important;
+  border: none !important;
+  box-shadow: 0 4px 24px rgba(124, 58, 237, 0.48);
+}
+
+.pro-page .pri-btn--pop:hover {
+  box-shadow: 0 8px 32px rgba(124, 58, 237, 0.58);
+  filter: brightness(1.07);
+}
+
+/* Secondary line CTA: pairs with header — glass pill like `.header-login` */
+.pro-page .pri-trial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 0.65rem;
+  padding: 0.42rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  color: rgba(255, 255, 255, 0.72) !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 9999px !important;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.pro-page .pri-trial:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.13) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  transform: translateY(-1px);
+}
+
+.pro-page .pri-trial--pop {
+  color: rgba(255, 255, 255, 0.78) !important;
+  border-color: rgba(167, 139, 250, 0.22) !important;
+  background: rgba(139, 92, 246, 0.12) !important;
+}
+
+.pro-page .pri-trial--pop:hover {
+  color: #fff !important;
+  border-color: rgba(167, 139, 250, 0.35) !important;
+  background: rgba(139, 92, 246, 0.2) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pro-page .pri-btn,
+  .pro-page .pri-btn::before,
+  .pro-page .pri-trial {
+    transition: none;
+  }
+
+  .pro-page .pri-btn:hover,
+  .pro-page .pri-trial:hover {
+    transform: none;
+  }
+
+  .pro-page .pri-btn:hover::before {
+    transform: translateX(-110%);
+  }
+}
+
+/* ═══════════════════════════════════════
+   CREDIT-BASED PRICING SYSTEM
+   ═══════════════════════════════════════ */
+
+/* Billing toggle (Monthly / Annually) */
+.pro-billing-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 100px;
+  margin-top: 1.25rem;
+}
+
+.pro-billing-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.95rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: rgba(255, 255, 255, 0.5);
+  background: transparent;
+  border: none;
+  border-radius: 100px;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.pro-billing-btn:hover {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.pro-billing-btn--active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pro-billing-save {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  color: #30d158;
+  background: rgba(48, 209, 88, 0.15);
+  border-radius: 100px;
+}
+
+/* ─ Plan cards — equal size, no glow ─ */
+.pro-page .pri-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.pro-page .pri-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: rgba(24, 24, 28, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  overflow: visible; /* let info-tooltips escape the card bounds */
+  transition: none;
+  transform: none !important;
+  animation: none !important;
+}
+
+.pro-page .pri-card:hover {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(24, 24, 28, 0.6);
+  transform: none;
+}
+
+/* Creator card: same base color as the others, only the top fade + border
+   accent signal "Most popular". */
+.pro-page .pri-card--pop {
+  background: rgba(24, 24, 28, 0.6);
+  border-color: rgba(139, 92, 246, 0.28);
+}
+
+.pro-page .pri-card--pop:hover {
+  border-color: rgba(139, 92, 246, 0.28);
+  background: rgba(24, 24, 28, 0.6);
+}
+
+/* Disable scroll-reveal animation on pricing cards */
+.pro-page .pri-reveal,
+.pro-page .pri-reveal.pri-visible {
+  opacity: 1 !important;
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Kill the glow */
+.pro-page .pri-card-glow,
+.pro-page .pri-glow--pop {
+  display: none !important;
+}
+
+/* Make the feature list flex so each card fills equally */
+.pro-page .pri-feats {
+  flex: 1;
+}
+
+/* ─ Plan CTA buttons — smaller pills, same liquid-glass style as the
+     Sidebar "New chat" pill ( .sidebar-new-chat-pill ) ─
+   Override pricing.css tier-tinted rules with higher specificity. */
+.pro-page .pri-card--starter .pro-cta:not(.pro-cta--current):not(:disabled),
+.pro-page .pri-card--creator .pro-cta:not(.pro-cta--primary):not(.pro-cta--current):not(:disabled),
+.pro-page .pri-card--ultimate .pro-cta:not(.pro-cta--current):not(:disabled),
+.pro-page .pri-card .pro-cta {
+  background:
+    radial-gradient(140% 100% at 50% 110%, rgba(255, 255, 255, 0.1) 0%, transparent 60%),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(255, 255, 255, 0.06) 45%,
+      rgba(255, 255, 255, 0.04) 75%,
+      rgba(255, 255, 255, 0.08) 100%
+    );
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 8px 16px -8px rgba(255, 255, 255, 0.08),
+    inset 0 -8px 16px -8px rgba(255, 255, 255, 0.06);
+}
+
+.pro-page .pri-card--starter .pro-cta:not(.pro-cta--current):not(:disabled):hover,
+.pro-page
+  .pri-card--creator
+  .pro-cta:not(.pro-cta--primary):not(.pro-cta--current):not(:disabled):hover,
+.pro-page .pri-card--ultimate .pro-cta:not(.pro-cta--current):not(:disabled):hover,
+.pro-page .pri-card .pro-cta:not(.pro-cta--current):not(:disabled):hover {
+  background:
+    radial-gradient(140% 100% at 50% 110%, rgba(255, 255, 255, 0.14) 0%, transparent 60%),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.2) 0%,
+      rgba(255, 255, 255, 0.09) 45%,
+      rgba(255, 255, 255, 0.07) 75%,
+      rgba(255, 255, 255, 0.12) 100%
+    );
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 10px 18px -8px rgba(255, 255, 255, 0.14),
+    inset 0 -10px 18px -8px rgba(255, 255, 255, 0.1);
+}
+
+/* Creator primary — brighter violet glass pill. */
+.pro-page .pri-card--creator .pro-cta--primary:not(.pro-cta--current):not(:disabled) {
+  background:
+    radial-gradient(140% 100% at 50% 110%, rgba(196, 181, 253, 0.25) 0%, transparent 60%),
+    linear-gradient(
+      180deg,
+      rgba(192, 170, 255, 0.8) 0%,
+      rgba(139, 92, 246, 0.85) 55%,
+      rgba(91, 33, 182, 0.9) 100%
+    );
+  border: 1px solid rgba(221, 214, 254, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+    0 4px 16px rgba(124, 58, 237, 0.45);
+}
+
+.pro-page .pri-card--creator .pro-cta--primary:not(.pro-cta--current):not(:disabled):hover {
+  background:
+    radial-gradient(140% 100% at 50% 110%, rgba(221, 214, 254, 0.35) 0%, transparent 60%),
+    linear-gradient(
+      180deg,
+      rgba(208, 189, 255, 0.9) 0%,
+      rgba(155, 111, 255, 0.95) 55%,
+      rgba(109, 40, 217, 1) 100%
+    );
+  border-color: rgba(237, 233, 254, 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 6px 22px rgba(124, 58, 237, 0.6);
+}
+
+.pro-cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  height: 36px;
+  padding: 0 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  font-family: inherit;
+  color: #fff;
+  border-radius: 999px;
+  backdrop-filter: blur(22px) saturate(1.6);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pro-cta:not(:disabled):active {
+  transform: scale(0.96);
+  transition: transform 60ms cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+.pro-cta:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.22);
+  outline-offset: 2px;
+}
+
+/* "Current plan" — calm green glass pill. */
+.pro-page .pri-card .pro-cta--current,
+.pro-page .pri-card .pro-cta--current:hover {
+  background:
+    radial-gradient(140% 100% at 50% 110%, rgba(134, 239, 172, 0.2) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(52, 211, 153, 0.3) 0%, rgba(16, 185, 129, 0.18) 100%);
+  border: 1px solid rgba(134, 239, 172, 0.45);
+  color: #d1fae5;
+  cursor: default;
+  transform: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+}
+.pro-cta--current:disabled {
+  opacity: 1;
+}
+
+/* Skip-trial secondary link — tiny text pill below the main CTA. */
+.pro-cta-skip {
+  border-radius: 999px;
+}
+
+/* Feature list refinement */
+.pro-feats {
+  margin-top: 0;
+}
+
+.pro-feats .pri-feat:first-child {
+  font-weight: 700;
+  color: #fff;
+}
+
+.pri-card--pop .pro-feats .pri-feat:first-child {
+  color: #c4b5fd;
+}
+
+/* ─ Nested feature card — matches dashboard surface (#18181c) ─ */
+.pro-page .pro-feats-card {
+  margin-top: 1rem;
+  padding: 0.85rem 0.9rem;
+  background: #18181c;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  flex: 1;
+  display: flex;
+}
+
+.pro-page .pro-feats-card .pri-feats {
+  width: 100%;
+  margin: 0;
+  gap: 0.3rem;
+}
+
+.pro-page .pri-card--pop .pro-feats-card {
+  background: #18181c;
+  border-color: rgba(139, 92, 246, 0.18);
+}
+
+/* ─ Feature rows: uniform white text, crisp icon, info button, tooltip ─ */
+.pro-page .pri-feat {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.35rem;
+  border-radius: 8px;
+  color: #fff !important;
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+
+.pro-page .pri-card .pri-feat.on,
+.pro-page .pri-card .pri-feat.off,
+.pro-page .pri-card--pop .pri-feat.on,
+.pro-page .pri-card--pop .pri-feat.off {
+  color: #fff;
+}
+
+.pro-page .pri-feat-text {
+  flex: 1;
+  min-width: 0;
+  color: #fff;
+}
+
+.pro-page .pri-feat .chk,
+.pro-page .pri-feat .crs {
+  flex-shrink: 0;
+}
+
+/* Info button — subtle glass circle, brightens on hover */
+.pro-page .pri-feat-info {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.pro-page .pri-feat-info:hover,
+.pro-page .pri-feat-info[aria-expanded='true'] {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.pro-page .pri-feat-info svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* Floating info tooltip — absolute inside the row */
+.pro-page .pri-feat-tip {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  z-index: 30;
+  width: max-content;
+  max-width: 240px;
+  padding: 0.55rem 0.7rem;
+  background: #18181c;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+}
+
+.pro-page .pri-feat-tip::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  right: 12px;
+  width: 9px;
+  height: 9px;
+  background: #18181c;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  transform: rotate(45deg);
+}
+
+/* Slider label head */
+.pro-slider-label-head {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.35);
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.pro-slider-wrap {
+  margin: 0.5rem 0 0.25rem;
+  padding: 0.75rem 0.15rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+@media (max-width: 900px) {
+  .pro-page .pri-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─ Slider ─ */
+.pro-slider-wrap {
+  margin: 0.5rem 0 1rem;
+  padding: 0 0.15rem;
+}
+
+.pro-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  border-radius: 100px;
+  background: linear-gradient(
+    to right,
+    #fff var(--slider-fill, 0%),
+    rgba(255, 255, 255, 0.1) var(--slider-fill, 0%)
+  );
+  outline: none;
+  cursor: pointer;
+}
+
+.pro-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  cursor: grab;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.1s ease;
+}
+
+.pro-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.pro-slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.08);
+}
+
+.pro-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  cursor: grab;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.pri-card--pop .pro-slider {
+  accent-color: #a78bfa;
+}
+
+.pro-slider-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  padding: 0 2px;
+}
+
+.pro-slider-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.3);
+  transition:
+    color 0.15s ease,
+    transform 0.15s ease;
+  cursor: pointer;
+}
+
+.pro-slider-label--active {
+  color: #fff;
+  transform: scale(1.08);
+}
+
+/* ══ Credit usage panel — "how credits are used" ══ */
+.pro-usage-panel {
+  margin-top: 3rem;
+  padding: 1.75rem 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: rgba(24, 24, 28, 0.55);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 8px 32px rgba(0, 0, 0, 0.28);
+}
+
+.pro-usage-head {
+  margin-bottom: 1.25rem;
+  text-align: center;
+}
+
+.pro-usage-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #f5f3ff;
+  letter-spacing: -0.01em;
+}
+
+.pro-usage-sub {
+  margin: 0;
+  font-size: 0.825rem;
+  color: rgba(229, 229, 231, 0.6);
+}
+
+.pro-usage-sub strong {
+  color: #a78bfa;
+  font-weight: 600;
+}
+
+.pro-usage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.4rem 1rem;
+}
+
+.pro-usage-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.83rem;
+}
+
+.pro-usage-row:last-child {
+  border-bottom: none;
+}
+
+.pro-usage-feature {
+  color: rgba(229, 229, 231, 0.9);
+  font-weight: 500;
+}
+
+.pro-usage-cost {
+  color: rgba(229, 229, 231, 0.75);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pro-usage-cost strong {
+  color: #c4b5fd;
+  font-weight: 700;
+  margin-right: 0.1rem;
+}
+
+.pro-usage-capacity {
+  font-style: normal;
+  font-size: 0.72rem;
+  color: rgba(167, 139, 250, 0.65);
+  margin-left: 0.35rem;
+}
+
+@media (max-width: 680px) {
+  .pro-usage-panel {
+    padding: 1.25rem 1rem;
+  }
+  .pro-usage-grid {
+    grid-template-columns: 1fr;
+  }
+  .pro-usage-capacity {
+    display: block;
+    margin-left: 0;
+    margin-top: 2px;
+  }
+}
+
+/* ─ Skip-trial secondary CTA ─
+   Rendered under the primary "Start free trial" button. Text-only link
+   look so it doesn't compete with the main CTA. */
+.pro-cta-skip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: transparent;
+  border: 0;
+  color: rgba(229, 229, 231, 0.65);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border-radius: 8px;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease,
+    transform 0.1s ease-out;
+}
+.pro-cta-skip:hover:not(:disabled) {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+}
+.pro-cta-skip:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.pro-cta-skip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

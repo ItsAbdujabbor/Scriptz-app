@@ -1,0 +1,95 @@
+/* ─────────────────────────────────────────────────────────────────────
+ * Dialog — unified centered-modal chrome.
+ *
+ * One overlay class, one panel class, five size variants. Consumer
+ * dialogs add their own internal content classes (padding, headers,
+ * forms, etc.) — Dialog.css is purely about the outer chrome.
+ *
+ * Animations use the iOS-style cubic-bezier(0.32, 0.72, 0, 1) curve so
+ * every dialog opens with the same smooth pop-in.
+ * ────────────────────────────────────────────────────────────────── */
+
+.ui-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Max signed-int z-index — beats every sticky / composer bar / sidebar
+   * chrome on the page so the dialog is never painted behind anything. */
+  z-index: 2147483647;
+  /* Fresh stacking context so nothing in the underlying tree (transforms,
+   * filters, isolation) can hoist itself above the dialog. */
+  isolation: isolate;
+  padding: 20px;
+  background: rgba(8, 6, 14, 0.72);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  animation: ui-dialog-overlay-in 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@keyframes ui-dialog-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.ui-dialog-panel {
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: linear-gradient(180deg, #1a1a1f 0%, #131318 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  animation: ui-dialog-panel-in 0.34s cubic-bezier(0.32, 0.72, 0, 1) both;
+  /* No padding — each consumer dialog adds its own internal padding via
+   * its own existing classes. Keeps Dialog.css purely about chrome. */
+}
+
+@keyframes ui-dialog-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ── Sizes ── */
+.ui-dialog-panel--sm {
+  max-width: 380px;
+}
+.ui-dialog-panel--md {
+  max-width: 520px;
+}
+.ui-dialog-panel--lg {
+  max-width: 760px;
+}
+.ui-dialog-panel--xl {
+  max-width: 920px;
+}
+.ui-dialog-panel--fullscreen {
+  max-width: min(1440px, calc(100vw - 3vw));
+  max-height: calc(100dvh - 3vh);
+  height: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-dialog-overlay,
+  .ui-dialog-panel {
+    animation: none;
+  }
+}

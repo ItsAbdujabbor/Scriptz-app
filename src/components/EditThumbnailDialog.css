@@ -1,0 +1,6 @@
+/* EditThumbnailDialog has been rewritten as a portaled, fully
+ * inline-styled dialog. Nothing in this file is used by the component
+ * anymore. Left as an empty stub so any stray import path still
+ * resolves without 404-ing.
+ *
+ * (Safe to delete once you confirm nothing else imports this.) */

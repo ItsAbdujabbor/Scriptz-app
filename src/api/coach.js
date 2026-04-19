@@ -1,12 +1,8 @@
-const getBaseUrl = () => {
-  const env = typeof import.meta !== 'undefined' && import.meta.env
-  if (env?.DEV) return ''
-  const explicit = env?.VITE_API_BASE_URL
-  return (explicit && String(explicit).trim() !== '') ? String(explicit).trim() : 'http://localhost:8000'
-}
+/** AI Coach chat API. */
+import { getApiBaseUrl } from '../lib/env.js'
 
 function request(method, path, accessToken, body = null, headers = {}) {
-  const url = getBaseUrl() + path
+  const url = getApiBaseUrl() + path
   const h = { 'Content-Type': 'application/json', ...headers }
   if (accessToken) h.Authorization = `Bearer ${accessToken}`
 
@@ -18,7 +14,7 @@ function request(method, path, accessToken, body = null, headers = {}) {
     const isJson = contentType.includes('application/json')
     const data = isJson ? await res.json().catch(() => ({})) : {}
     if (!res.ok) {
-      const msg = (data?.detail || data?.message) || res.statusText
+      const msg = data?.detail || data?.message || res.statusText
       const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
       err.status = res.status
       throw err
@@ -42,19 +38,27 @@ export const coachApi = {
     return request('GET', withQuery('/api/coach/conversations', params), accessToken)
   },
   getConversation(accessToken, conversationId, params = {}) {
-    return request('GET', withQuery(`/api/coach/conversations/${conversationId}`, params), accessToken)
+    return request(
+      'GET',
+      withQuery(`/api/coach/conversations/${conversationId}`, params),
+      accessToken
+    )
   },
   sendMessage(accessToken, payload, channelId = null) {
     const headers = {}
     if (channelId) headers['X-Channel-Id'] = channelId
     return request('POST', '/api/coach/chat', accessToken, payload, headers)
   },
-  async streamMessage(accessToken, payload, { channelId = null, signal = null, onEvent = null } = {}) {
+  async streamMessage(
+    accessToken,
+    payload,
+    { channelId = null, signal = null, onEvent = null } = {}
+  ) {
     const headers = { 'Content-Type': 'application/json' }
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`
     if (channelId) headers['X-Channel-Id'] = channelId
 
-    const response = await fetch(getBaseUrl() + '/api/coach/chat/stream', {
+    const response = await fetch(getApiBaseUrl() + '/api/coach/chat/stream', {
       method: 'POST',
       headers,
       body: JSON.stringify(payload),
@@ -119,7 +123,7 @@ export const coachApi = {
     if (trailing) emit(trailing)
   },
   async transcribeAudio(accessToken, audioBlob, mimeType = 'audio/webm', { signal = null } = {}) {
-    const url = getBaseUrl() + '/api/coach/transcribe'
+    const url = getApiBaseUrl() + '/api/coach/transcribe'
     const headers = {}
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`
 
@@ -138,7 +142,7 @@ export const coachApi = {
     const isJson = contentType.includes('application/json')
     const data = isJson ? await response.json().catch(() => ({})) : {}
     if (!response.ok) {
-      const msg = (data?.detail || data?.message) || response.statusText
+      const msg = data?.detail || data?.message || response.statusText
       const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
       err.status = response.status
       throw err

@@ -1,0 +1,50 @@
+/* Billing page wrapper */
+.billing-page {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 1.75rem 1.5rem 3rem;
+  color: #e5e5e7;
+  height: 100%;
+  max-height: 100vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+}
+.billing-page::-webkit-scrollbar {
+  width: 8px;
+}
+.billing-page::-webkit-scrollbar-thumb {
+  background: rgba(167, 139, 250, 0.25);
+  border-radius: 999px;
+}
+.billing-page::-webkit-scrollbar-thumb:hover {
+  background: rgba(167, 139, 250, 0.45);
+}
+.billing-page::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.billing-page-header {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.billing-page-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  margin: 0 0 0.3rem;
+  color: #fff;
+}
+.billing-page-sub {
+  margin: 0;
+  font-size: 0.88rem;
+  color: rgba(229, 229, 231, 0.7);
+}
+.billing-page-body {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 1.25rem 1.35rem;
+}

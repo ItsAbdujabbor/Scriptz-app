@@ -9,17 +9,17 @@
 
 /* ── Variables ── */
 :root {
-  --sol-bg:       #0b0b0c;
-  --sol-card-bg:  #111114;
-  --sol-border:   rgba(255, 255, 255, 0.07);
-  --sol-t1:       #f1f1f3;
-  --sol-t2:       #9191a4;
-  --sol-t3:       #606070;
-  --sol-indigo:   #6366f1;
-  --sol-green:    #10b981;
-  --sol-blue:     #38bdf8;
-  --sol-radius:   18px;
-  --sol-font:     'Inter', system-ui, sans-serif;
+  --sol-bg: #0b0b0c;
+  --sol-card-bg: #111114;
+  --sol-border: rgba(255, 255, 255, 0.07);
+  --sol-t1: #f1f1f3;
+  --sol-t2: #9191a4;
+  --sol-t3: #606070;
+  --sol-indigo: #6366f1;
+  --sol-green: #10b981;
+  --sol-blue: #38bdf8;
+  --sol-radius: 18px;
+  --sol-font: 'Poppins', system-ui, sans-serif;
 }
 
 /* ════════════════════════
@@ -40,9 +40,9 @@
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(circle at 20% 10%,  rgba(99,102,241,0.05) 0%, transparent 55%),
-    radial-gradient(circle at 80% 50%,  rgba(16,185,129,0.04) 0%, transparent 50%),
-    radial-gradient(circle at 50% 90%,  rgba(56,189,248,0.04) 0%, transparent 50%);
+    radial-gradient(circle at 20% 10%, rgba(99, 102, 241, 0.05) 0%, transparent 55%),
+    radial-gradient(circle at 80% 50%, rgba(16, 185, 129, 0.04) 0%, transparent 50%),
+    radial-gradient(circle at 50% 90%, rgba(56, 189, 248, 0.04) 0%, transparent 50%);
   pointer-events: none;
 }
 
@@ -65,7 +65,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--sol-border);
   border-radius: 9999px;
   padding: 0.35rem 1rem;
@@ -87,8 +87,15 @@
 }
 
 @keyframes solPulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%       { opacity: 0.5; transform: scale(0.85); }
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.85);
+  }
 }
 
 .sol-h2 {
@@ -138,21 +145,21 @@
   letter-spacing: 0.1em;
   padding: 0.3rem 0.65rem;
   border-radius: 6px;
-  background: rgba(99,102,241,0.12);
-  border: 1px solid rgba(99,102,241,0.25);
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.25);
   color: var(--sol-indigo);
   font-variant-numeric: tabular-nums;
 }
 
 .sol-blk-num--green {
-  background: rgba(16,185,129,0.11);
-  border-color: rgba(16,185,129,0.25);
+  background: rgba(16, 185, 129, 0.11);
+  border-color: rgba(16, 185, 129, 0.25);
   color: var(--sol-green);
 }
 
 .sol-blk-num--blue {
-  background: rgba(56,189,248,0.11);
-  border-color: rgba(56,189,248,0.25);
+  background: rgba(56, 189, 248, 0.11);
+  border-color: rgba(56, 189, 248, 0.25);
   color: var(--sol-blue);
 }
 
@@ -204,7 +211,13 @@
 /* Horizontal divider */
 .sol-divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--sol-border) 20%, var(--sol-border) 80%, transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--sol-border) 20%,
+    var(--sol-border) 80%,
+    transparent
+  );
   margin: 0 0 4.5rem;
 }
 
@@ -233,16 +246,17 @@
   background: var(--sol-card-bg);
   border: 1px solid var(--sol-border);
   overflow: hidden;
-  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1),
-              border-color 0.3s,
-              box-shadow 0.3s;
+  transition:
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.3s,
+    box-shadow 0.3s;
   cursor: default;
 }
 
 .sol-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(255,255,255,0.13);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+  border-color: rgba(255, 255, 255, 0.13);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
 }
 
 /* ── Image wrap ── */
@@ -258,7 +272,7 @@
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 0.5s cubic-bezier(0.4,0,0.2,1);
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sol-card:hover .sol-card-img {
@@ -275,27 +289,27 @@
 .sol-overlay-indigo {
   background: linear-gradient(
     155deg,
-    rgba(99,102,241,0.40) 0%,
-    rgba(0,0,0,0.18) 60%,
-    rgba(17,17,20,0.70) 100%
+    rgba(99, 102, 241, 0.4) 0%,
+    rgba(0, 0, 0, 0.18) 60%,
+    rgba(17, 17, 20, 0.7) 100%
   );
 }
 
 .sol-overlay-green {
   background: linear-gradient(
     155deg,
-    rgba(16,185,129,0.38) 0%,
-    rgba(0,0,0,0.15) 60%,
-    rgba(17,17,20,0.70) 100%
+    rgba(16, 185, 129, 0.38) 0%,
+    rgba(0, 0, 0, 0.15) 60%,
+    rgba(17, 17, 20, 0.7) 100%
   );
 }
 
 .sol-overlay-blue {
   background: linear-gradient(
     155deg,
-    rgba(56,189,248,0.35) 0%,
-    rgba(0,0,0,0.15) 60%,
-    rgba(17,17,20,0.70) 100%
+    rgba(56, 189, 248, 0.35) 0%,
+    rgba(0, 0, 0, 0.15) 60%,
+    rgba(17, 17, 20, 0.7) 100%
   );
 }
 
@@ -316,20 +330,20 @@
 }
 
 .sol-card-step.sol-step-indigo {
-  background: rgba(99,102,241,0.22);
-  border: 1px solid rgba(99,102,241,0.45);
+  background: rgba(99, 102, 241, 0.22);
+  border: 1px solid rgba(99, 102, 241, 0.45);
   color: #c7c9ff;
 }
 
 .sol-card-step.sol-step-blue {
-  background: rgba(56,189,248,0.18);
-  border: 1px solid rgba(56,189,248,0.4);
+  background: rgba(56, 189, 248, 0.18);
+  border: 1px solid rgba(56, 189, 248, 0.4);
   color: #bae6fd;
 }
 
 .sol-card-badge.sol-badge-green {
-  background: rgba(16,185,129,0.22);
-  border: 1px solid rgba(16,185,129,0.45);
+  background: rgba(16, 185, 129, 0.22);
+  border: 1px solid rgba(16, 185, 129, 0.45);
   color: #6ee7b7;
 }
 
@@ -361,20 +375,20 @@
 }
 
 .sol-icon-indigo {
-  background: rgba(99,102,241,0.12);
-  border: 1px solid rgba(99,102,241,0.22);
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.22);
   color: var(--sol-indigo);
 }
 
 .sol-icon-green {
-  background: rgba(16,185,129,0.11);
-  border: 1px solid rgba(16,185,129,0.22);
+  background: rgba(16, 185, 129, 0.11);
+  border: 1px solid rgba(16, 185, 129, 0.22);
   color: var(--sol-green);
 }
 
 .sol-icon-blue {
-  background: rgba(56,189,248,0.11);
-  border: 1px solid rgba(56,189,248,0.22);
+  background: rgba(56, 189, 248, 0.11);
+  border: 1px solid rgba(56, 189, 248, 0.22);
   color: var(--sol-blue);
 }
 
@@ -398,15 +412,21 @@
 .sol-card::before {
   content: '';
   position: absolute;
-  top: 0; left: 0; right: 0;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 2px;
   opacity: 0;
   transition: opacity 0.3s;
   pointer-events: none;
 }
 
-.sol-card-grid-3 .sol-card { position: relative; }
-.sol-card-grid-4 .sol-card { position: relative; }
+.sol-card-grid-3 .sol-card {
+  position: relative;
+}
+.sol-card-grid-4 .sol-card {
+  position: relative;
+}
 
 .sol-card-grid-3 .sol-card::before {
   background: linear-gradient(90deg, var(--sol-indigo), transparent 70%);
@@ -420,7 +440,9 @@
   background: linear-gradient(90deg, var(--sol-blue), transparent 70%);
 }
 
-.sol-card:hover::before { opacity: 1; }
+.sol-card:hover::before {
+  opacity: 1;
+}
 
 /* ════════════════════════
    CTA BLOCK
@@ -434,10 +456,18 @@
 .sol-cta::before {
   content: '';
   position: absolute;
-  top: 0; left: 50%; transform: translateX(-50%);
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: min(600px, 90%);
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--sol-border) 30%, var(--sol-border) 70%, transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--sol-border) 30%,
+    var(--sol-border) 70%,
+    transparent
+  );
 }
 
 .sol-cta-eyebrow {
@@ -470,13 +500,20 @@
   font-weight: 700;
   letter-spacing: -0.01em;
   text-decoration: none;
-  transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
-  box-shadow: 0 0 0 1px rgba(99,102,241,0.5), 0 4px 20px rgba(99,102,241,0.28);
+  transition:
+    background 0.2s,
+    box-shadow 0.2s,
+    transform 0.2s;
+  box-shadow:
+    0 0 0 1px rgba(99, 102, 241, 0.5),
+    0 4px 20px rgba(99, 102, 241, 0.28);
 }
 
 .sol-cta-btn:hover {
   background: #818cf8;
-  box-shadow: 0 0 0 1px rgba(129,140,248,0.6), 0 6px 30px rgba(99,102,241,0.38);
+  box-shadow:
+    0 0 0 1px rgba(129, 140, 248, 0.6),
+    0 6px 30px rgba(99, 102, 241, 0.38);
   transform: translateY(-2px);
 }
 
@@ -493,8 +530,9 @@
 .sol-reveal {
   opacity: 0;
   transform: translateY(28px);
-  transition: opacity 0.55s cubic-bezier(0.4,0,0.2,1),
-              transform 0.55s cubic-bezier(0.4,0,0.2,1);
+  transition:
+    opacity 0.55s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sol-reveal.sol-visible {
@@ -504,12 +542,18 @@
 
 /* Stagger cards in grids */
 .sol-card-grid-3 .sol-reveal:nth-child(2),
-.sol-card-grid-4 .sol-reveal:nth-child(2) { transition-delay: 0.08s; }
+.sol-card-grid-4 .sol-reveal:nth-child(2) {
+  transition-delay: 0.08s;
+}
 
 .sol-card-grid-3 .sol-reveal:nth-child(3),
-.sol-card-grid-4 .sol-reveal:nth-child(3) { transition-delay: 0.16s; }
+.sol-card-grid-4 .sol-reveal:nth-child(3) {
+  transition-delay: 0.16s;
+}
 
-.sol-card-grid-4 .sol-reveal:nth-child(4) { transition-delay: 0.24s; }
+.sol-card-grid-4 .sol-reveal:nth-child(4) {
+  transition-delay: 0.24s;
+}
 
 /* ════════════════════════
    RESPONSIVE
