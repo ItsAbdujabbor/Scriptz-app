@@ -32,6 +32,13 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
+        // OpenAI image generation at quality=high can take 60–180s, and
+        // batch=4 can push close to 3 minutes. The default
+        // http-proxy-middleware timeouts are short enough to surface as a
+        // `502 Bad Gateway` on the browser before the backend finishes, so
+        // we bump both sides of the proxy to a comfortable 5 minutes.
+        timeout: 300000, // client → proxy
+        proxyTimeout: 300000, // proxy → backend
       },
       '/__brevo': {
         target: 'https://api.brevo.com',

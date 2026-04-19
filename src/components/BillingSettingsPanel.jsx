@@ -138,8 +138,8 @@ export function BillingSettingsPanel({ active }) {
           </div>
           <h4 className="bsp-empty-title">You're on the Free plan</h4>
           <p className="bsp-empty-sub">
-            Upgrade to unlock Personas, Styles, Edit &amp; FaceSwap, A/B testing and recurring
-            monthly credits. Free trial = 100 credits to try it out.
+            Upgrade to unlock Character looks, Styles, Edit &amp; Character swap, A/B testing and
+            recurring monthly credits. Free trial = 100 credits to try it out.
           </p>
           <div className="bsp-empty-actions">
             <button

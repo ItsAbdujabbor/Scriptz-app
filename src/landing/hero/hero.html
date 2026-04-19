@@ -5,19 +5,19 @@
   <div class="lin-copy">
     <span class="lin-eyebrow">
       <span class="lin-eyebrow-line"></span>
-      YouTube growth — scripts, thumbnails &amp; AI Coach
+      AI thumbnails &amp; packaging for YouTube creators
     </span>
     <h1 class="lin-h1">
       Make Your Videos<br>
       <span class="lin-h1-accent">Impossible to Ignore.</span>
     </h1>
     <p class="lin-sub">
-      One workspace for your channel: Dashboard, AI Coach, script &amp; thumbnail tools,<br>
-      Optimize, and Library — with YouTube connected when you sign in.
+      One workspace for your channel: Dashboard insights, AI Thumbnail Generator,<br>
+      Optimize for packaging, and A/B Testing — all connected to your real YouTube data.
     </p>
   </div>
 
-  <!-- ── DASHBOARD ── -->
+  <!-- ── DASHBOARD MOCKUP ── -->
   <div class="lin-db-section">
     <div class="lin-db-stage">
       <div class="lin-db-underglow"></div>
@@ -50,25 +50,21 @@
             <div class="lin-sb-body">
 
               <div class="lin-sb-lbl">Main</div>
-              <div class="lin-ni active" data-lin-view="issues">
+              <div class="lin-ni active" data-lin-view="dashboard">
                 <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
                 Dashboard
               </div>
-              <div class="lin-ni" data-lin-view="drafts">
-                <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-                New Chat
-              </div>
-              <div class="lin-ni" data-lin-view="cycles">
+              <div class="lin-ni" data-lin-view="thumbnails">
                 <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
                 Thumbnail Generator
               </div>
-              <div class="lin-ni" data-lin-view="views">
+              <div class="lin-ni" data-lin-view="optimize">
                 <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
                 Optimize
               </div>
-              <div class="lin-ni" data-lin-view="projects">
-                <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-                Library
+              <div class="lin-ni" data-lin-view="abtest">
+                <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 3v18"/><path d="M15 3v18"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                A/B Testing
               </div>
 
             </div>
@@ -81,8 +77,8 @@
           <!-- ── MAIN ── -->
           <main class="lin-main">
 
-            <!-- SCRIPTS VIEW (default active) -->
-            <div class="lin-view active" id="lin-view-issues">
+            <!-- DASHBOARD VIEW (default active) -->
+            <div class="lin-view active" id="lin-view-dashboard">
               <div class="lin-main-hdr">
                 <span class="lin-main-ttl">Dashboard</span>
                 <span class="lin-main-ctx">· Your channel</span>
@@ -91,176 +87,149 @@
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><line x1="14" y1="2" x2="14" y2="6"/><line x1="8" y1="10" x2="8" y2="14"/></svg>
                     Filter
                   </button>
-                  <button class="lin-tbtn">Sort</button>
-                  <button class="lin-tbtn">Display</button>
+                  <button class="lin-tbtn">Last 28 days</button>
+                  <button class="lin-tbtn">Export</button>
                 </div>
               </div>
               <div class="lin-main-body">
 
-                <!-- IN PROGRESS -->
+                <!-- VIDEOS TO REPACKAGE -->
                 <div class="lin-grp" id="lin-grp-prog">
                   <div class="lin-grp-hdr" data-lin-toggle="lin-grp-prog">
                     <span class="lin-grp-dot" style="background:#e8a03a;box-shadow:0 0 6px rgba(232,160,58,0.5)"></span>
-                    <span class="lin-grp-name">Scripts in progress</span>
+                    <span class="lin-grp-name">Videos to repackage</span>
                     <span class="lin-grp-cnt">3</span>
                     <svg class="lin-grp-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                   </div>
                   <div class="lin-grp-body">
                     <div class="lin-iss" data-lin-status="prog">
                       <span class="lin-pri lin-pri-urg"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="6" y="1" width="4" height="8" rx="1"/><rect x="6" y="11" width="4" height="4" rx="1"/></svg></span>
-                      <span class="lin-iss-id">SCR-041</span>
-                      <span class="lin-iss-ttl">Q4 product launch video — intro &amp; hook</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-prog"></span>Writing</div>
-                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#5e6ad2,#a78bfa)">AL</div>
+                      <span class="lin-iss-id">VID-041</span>
+                      <span class="lin-iss-ttl">Q4 product launch — CTR 3.1%, title feels weak</span>
+                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-prog"></span>Low CTR</div>
+                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#5e6ad2,#a78bfa)">▲</div>
                     </div>
                     <div class="lin-iss" data-lin-status="prog">
                       <span class="lin-pri lin-pri-hi"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="7" width="3" height="8" rx="1"/><rect x="6" y="4" width="3" height="11" rx="1"/><rect x="11" y="1" width="3" height="14" rx="1"/></svg></span>
-                      <span class="lin-iss-id">SCR-038</span>
-                      <span class="lin-iss-ttl">AI tools in 2026 — full 15-min script</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-prog"></span>Writing</div>
-                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">SM</div>
+                      <span class="lin-iss-id">VID-038</span>
+                      <span class="lin-iss-ttl">Workflow tutorial — stuck at 1.2k views, retention soft</span>
+                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-prog"></span>Optimize</div>
+                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">▲</div>
                     </div>
                     <div class="lin-iss" data-lin-status="prog">
                       <span class="lin-pri lin-pri-med"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="7" width="3" height="8" rx="1"/><rect x="6" y="4" width="3" height="11" rx="1"/><rect x="11" y="4" width="3" height="11" rx="1"/></svg></span>
-                      <span class="lin-iss-id">SCR-035</span>
-                      <span class="lin-iss-ttl">Tutorial series ep.5 — script outline</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-prog"></span>Writing</div>
-                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#10b981,#3b82f6)">RK</div>
+                      <span class="lin-iss-id">VID-035</span>
+                      <span class="lin-iss-ttl">Tutorial ep.5 — impressions high, clicks low</span>
+                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-prog"></span>New thumbnail</div>
+                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#10b981,#3b82f6)">◆</div>
                     </div>
                   </div>
                 </div>
 
-                <!-- TODO -->
+                <!-- IDEAS -->
                 <div class="lin-grp" id="lin-grp-todo">
                   <div class="lin-grp-hdr" data-lin-toggle="lin-grp-todo">
                     <span class="lin-grp-dot" style="border:1.5px solid rgba(255,255,255,0.28);display:inline-block;width:8px;height:8px;border-radius:50%"></span>
-                    <span class="lin-grp-name">Video ideas</span>
+                    <span class="lin-grp-name">Suggested next videos</span>
                     <span class="lin-grp-cnt">4</span>
                     <svg class="lin-grp-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                   </div>
                   <div class="lin-grp-body">
                     <div class="lin-iss" data-lin-status="todo">
                       <span class="lin-pri lin-pri-hi"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="7" width="3" height="8" rx="1"/><rect x="6" y="4" width="3" height="11" rx="1"/><rect x="11" y="1" width="3" height="14" rx="1"/></svg></span>
-                      <span class="lin-iss-id">SCR-045</span>
+                      <span class="lin-iss-id">IDEA-045</span>
                       <span class="lin-iss-ttl">How to grow from 0 to 10k subscribers</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-todo"></span>Idea</div>
-                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#8b5cf6,#ec4899)">MT</div>
+                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-todo"></span>High topic score</div>
+                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#8b5cf6,#ec4899)">◆</div>
                     </div>
                     <div class="lin-iss" data-lin-status="todo">
                       <span class="lin-pri lin-pri-med"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="7" width="3" height="8" rx="1"/><rect x="6" y="4" width="3" height="11" rx="1"/><rect x="11" y="4" width="3" height="11" rx="1"/></svg></span>
-                      <span class="lin-iss-id">SCR-044</span>
-                      <span class="lin-iss-ttl">Best thumbnail strategies for 2026</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-todo"></span>Idea</div>
-                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#5e6ad2,#a78bfa)">AL</div>
+                      <span class="lin-iss-id">IDEA-044</span>
+                      <span class="lin-iss-ttl">Best thumbnail styles for tutorial channels</span>
+                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-todo"></span>Niche match</div>
+                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#5e6ad2,#a78bfa)">◆</div>
                     </div>
                     <div class="lin-iss" data-lin-status="todo">
                       <span class="lin-pri lin-pri-lo"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="11" width="3" height="4" rx="1" opacity="0.4"/><rect x="6" y="7" width="3" height="8" rx="1" opacity="0.6"/><rect x="11" y="4" width="3" height="11" rx="1"/></svg></span>
-                      <span class="lin-iss-id">SCR-043</span>
-                      <span class="lin-iss-ttl">Behind the scenes — channel rebrand video</span>
+                      <span class="lin-iss-id">IDEA-043</span>
+                      <span class="lin-iss-ttl">Behind the scenes — channel rebrand</span>
                       <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-todo"></span>Idea</div>
-                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#f59e0b,#10b981)">KT</div>
+                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#f59e0b,#10b981)">◆</div>
                     </div>
                     <div class="lin-iss" data-lin-status="todo">
                       <span class="lin-pri lin-pri-no"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/></svg></span>
-                      <span class="lin-iss-id">SCR-042</span>
-                      <span class="lin-iss-ttl">Reaction video — biggest YouTube fails</span>
+                      <span class="lin-iss-id">IDEA-042</span>
+                      <span class="lin-iss-ttl">Recap — biggest YouTube packaging wins of 2026</span>
                       <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-todo"></span>Idea</div>
-                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#10b981,#3b82f6)">RK</div>
+                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#10b981,#3b82f6)">◆</div>
                     </div>
                   </div>
                 </div>
 
-                <!-- PUBLISHED -->
+                <!-- WINNERS -->
                 <div class="lin-grp" id="lin-grp-done">
                   <div class="lin-grp-hdr" data-lin-toggle="lin-grp-done">
                     <span class="lin-grp-dot" style="background:#26c281;box-shadow:0 0 5px rgba(38,194,129,0.5)"></span>
-                    <span class="lin-grp-name">Published</span>
+                    <span class="lin-grp-name">Outperformers</span>
                     <span class="lin-grp-cnt">8</span>
                     <svg class="lin-grp-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                   </div>
                   <div class="lin-grp-body">
                     <div class="lin-iss lin-iss-done" data-lin-status="done">
                       <span class="lin-pri lin-pri-hi"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="7" width="3" height="8" rx="1"/><rect x="6" y="4" width="3" height="11" rx="1"/><rect x="11" y="1" width="3" height="14" rx="1"/></svg></span>
-                      <span class="lin-iss-id">SCR-033</span>
-                      <span class="lin-iss-ttl">ChatGPT for creators — 240k views</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-done"></span>Published</div>
-                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#5e6ad2,#a78bfa)">AL</div>
+                      <span class="lin-iss-id">VID-033</span>
+                      <span class="lin-iss-ttl">AI workflow tips for creators — 240k views</span>
+                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-done"></span>Above avg</div>
+                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#5e6ad2,#a78bfa)">★</div>
                     </div>
                     <div class="lin-iss lin-iss-done" data-lin-status="done">
                       <span class="lin-pri lin-pri-urg"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="6" y="1" width="4" height="8" rx="1"/><rect x="6" y="11" width="4" height="4" rx="1"/></svg></span>
-                      <span class="lin-iss-id">SCR-031</span>
-                      <span class="lin-iss-ttl">Faceless YouTube channel guide — 180k views</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-done"></span>Published</div>
-                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">SM</div>
+                      <span class="lin-iss-id">VID-031</span>
+                      <span class="lin-iss-ttl">Faceless channel guide — 180k views</span>
+                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-done"></span>Top 10%</div>
+                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">★</div>
                     </div>
                   </div>
                 </div>
 
-                <!-- BACKLOG (starts collapsed) -->
+                <!-- ARCHIVE -->
                 <div class="lin-grp lin-collapsed" id="lin-grp-back">
                   <div class="lin-grp-hdr" data-lin-toggle="lin-grp-back">
                     <span class="lin-grp-dot" style="border:1.5px solid rgba(255,255,255,0.13);display:inline-block;width:8px;height:8px;border-radius:50%"></span>
-                    <span class="lin-grp-name">Ideas</span>
+                    <span class="lin-grp-name">Older uploads</span>
                     <span class="lin-grp-cnt">14</span>
                     <svg class="lin-grp-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                   </div>
                   <div class="lin-grp-body">
                     <div class="lin-iss" data-lin-status="back">
                       <span class="lin-pri lin-pri-lo"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="11" width="3" height="4" rx="1" opacity="0.4"/><rect x="6" y="7" width="3" height="8" rx="1" opacity="0.6"/><rect x="11" y="4" width="3" height="11" rx="1"/></svg></span>
-                      <span class="lin-iss-id">SCR-028</span>
+                      <span class="lin-iss-id">VID-028</span>
                       <span class="lin-iss-ttl">Monetization mistakes new creators make</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-back"></span>Idea</div>
+                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-back"></span>Archive</div>
                       <div class="lin-iss-av" style="background:rgba(255,255,255,0.07)">—</div>
                     </div>
                   </div>
                 </div>
 
               </div>
-            </div><!-- /scripts view -->
+            </div><!-- /dashboard view -->
 
-            <!-- THUMBNAILS VIEW -->
-            <div class="lin-view" id="lin-view-cycles">
+            <!-- THUMBNAIL GENERATOR VIEW -->
+            <div class="lin-view" id="lin-view-thumbnails">
               <div class="lin-main-hdr"><span class="lin-main-ttl">Thumbnail Generator</span><span class="lin-main-ctx">· Your channel</span></div>
-              <div class="lin-view-empty">Generate thumbnails from prompts, reference images, or styles — edit regions and iterate with chat.</div>
-            </div>
-
-            <!-- LIBRARY VIEW -->
-            <div class="lin-view" id="lin-view-projects">
-              <div class="lin-main-hdr"><span class="lin-main-ttl">Library</span><span class="lin-main-ctx">· Saved work</span></div>
-              <div class="lin-proj-list">
-                <div class="lin-proj-row">
-                  <span class="lin-proj-dot" style="background:#5e6ad2;box-shadow:0 0 6px rgba(94,106,210,0.55)"></span>
-                  <span class="lin-proj-name">Script projects</span>
-                  <span class="lin-proj-meta">Drafts &amp; exports</span>
-                </div>
-                <div class="lin-proj-row">
-                  <span class="lin-proj-dot" style="background:#26c281;box-shadow:0 0 5px rgba(38,194,129,0.5)"></span>
-                  <span class="lin-proj-name">Thumbnail sets</span>
-                  <span class="lin-proj-meta">Variants &amp; styles</span>
-                </div>
-                <div class="lin-proj-row">
-                  <span class="lin-proj-dot" style="background:#e8a03a;box-shadow:0 0 5px rgba(232,160,58,0.4)"></span>
-                  <span class="lin-proj-name">Personas &amp; looks</span>
-                  <span class="lin-proj-meta">For consistent packaging</span>
-                </div>
-                <div class="lin-proj-row">
-                  <span class="lin-proj-dot" style="background:rgba(255,255,255,0.18)"></span>
-                  <span class="lin-proj-name">Style presets</span>
-                  <span class="lin-proj-meta">Reusable thumbnail styles</span>
-                </div>
-              </div>
+              <div class="lin-view-empty">Describe a thumbnail in plain language. Pick a style, iterate in chat, and A/B‑test the winners on your channel.</div>
             </div>
 
             <!-- OPTIMIZE VIEW -->
-            <div class="lin-view" id="lin-view-views">
+            <div class="lin-view" id="lin-view-optimize">
               <div class="lin-main-hdr"><span class="lin-main-ttl">Optimize</span><span class="lin-main-ctx">· Video packaging</span></div>
-              <div class="lin-view-empty">Paste a YouTube video to get title, thumbnail, and retention-oriented suggestions for that upload.</div>
+              <div class="lin-view-empty">Paste a YouTube video to get title, thumbnail, and retention‑oriented suggestions for that specific upload.</div>
             </div>
 
-            <!-- NEW CHAT / AI COACH -->
-            <div class="lin-view" id="lin-view-drafts">
-              <div class="lin-main-hdr"><span class="lin-main-ttl">AI Coach</span><span class="lin-main-ctx">· New chat</span></div>
-              <div class="lin-view-empty">Ask about your channel, scripts, or thumbnails. Script &amp; thumbnail chats live here too — pick a tab after you open the app.</div>
+            <!-- A/B TESTING VIEW -->
+            <div class="lin-view" id="lin-view-abtest">
+              <div class="lin-main-hdr"><span class="lin-main-ttl">A/B Testing</span><span class="lin-main-ctx">· Real channel data</span></div>
+              <div class="lin-view-empty">Rotate thumbnail and title variants on live YouTube impressions, then apply the winner automatically when confidence is high.</div>
             </div>
 
           </main>
@@ -268,67 +237,60 @@
           <!-- ── RIGHT PANEL ── -->
           <aside class="lin-right">
             <div class="lin-right-hdr">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-              AI Coach
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+              Channel pulse
             </div>
             <div class="lin-rtabs">
               <button class="lin-rtab active" data-lin-rtab="act">Activity</button>
-              <button class="lin-rtab" data-lin-rtab="ai">Chat</button>
+              <button class="lin-rtab" data-lin-rtab="ai">Insights</button>
             </div>
 
             <!-- Activity feed -->
             <div class="lin-act-feed active" id="lin-panel-act">
               <div class="lin-act-row">
-                <div class="lin-act-av" style="background:linear-gradient(135deg,#5e6ad2,#a78bfa)">AL</div>
-                <div class="lin-act-body"><div class="lin-act-txt"><strong>Alex L.</strong> started writing <span class="lin-act-ref">SCR-041</span> Q4 product launch</div><div class="lin-act-ts">3 min ago</div></div>
+                <div class="lin-act-av" style="background:linear-gradient(135deg,#5e6ad2,#a78bfa)">▲</div>
+                <div class="lin-act-body"><div class="lin-act-txt"><strong>CTR up 1.4 pp</strong> on <span class="lin-act-ref">VID-041</span> after new thumbnail</div><div class="lin-act-ts">3 min ago</div></div>
               </div>
               <div class="lin-act-row">
-                <div class="lin-act-av" style="background:rgba(255,255,255,0.07);font-size:0.62rem">🤖</div>
-                <div class="lin-act-body"><div class="lin-act-txt"><strong>Script Agent</strong> generated hook for <span class="lin-act-ref">SCR-038</span> — score 9.2</div><div class="lin-act-ts">11 min ago</div></div>
+                <div class="lin-act-av" style="background:rgba(255,255,255,0.07);font-size:0.62rem">✨</div>
+                <div class="lin-act-body"><div class="lin-act-txt"><strong>4 thumbnails</strong> generated for <span class="lin-act-ref">VID-038</span></div><div class="lin-act-ts">11 min ago</div></div>
               </div>
               <div class="lin-act-row">
-                <div class="lin-act-av" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">SM</div>
-                <div class="lin-act-body"><div class="lin-act-txt"><strong>Sara M.</strong> approved thumbnail for <span class="lin-act-ref">SCR-033</span></div><div class="lin-act-ts">28 min ago</div></div>
+                <div class="lin-act-av" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">✓</div>
+                <div class="lin-act-body"><div class="lin-act-txt"><strong>A/B test</strong> declared a winner on <span class="lin-act-ref">VID-033</span></div><div class="lin-act-ts">28 min ago</div></div>
               </div>
               <div class="lin-act-row">
-                <div class="lin-act-av" style="background:linear-gradient(135deg,#10b981,#3b82f6)">RK</div>
-                <div class="lin-act-body"><div class="lin-act-txt"><strong>Raj K.</strong> added 4 new video ideas to <span class="lin-act-ref">Ideas</span></div><div class="lin-act-ts">1 hr ago</div></div>
+                <div class="lin-act-av" style="background:linear-gradient(135deg,#10b981,#3b82f6)">◆</div>
+                <div class="lin-act-body"><div class="lin-act-txt"><strong>4 video ideas</strong> added to <span class="lin-act-ref">Suggested</span></div><div class="lin-act-ts">1 hr ago</div></div>
               </div>
               <div class="lin-act-row">
-                <div class="lin-act-av" style="background:rgba(255,255,255,0.07);font-size:0.62rem">🤖</div>
-                <div class="lin-act-body"><div class="lin-act-txt"><strong>Thumbnail Agent</strong> created 3 variants for <span class="lin-act-ref">SCR-031</span></div><div class="lin-act-ts">2 hr ago</div></div>
+                <div class="lin-act-av" style="background:rgba(255,255,255,0.07);font-size:0.62rem">✨</div>
+                <div class="lin-act-body"><div class="lin-act-txt"><strong>Optimize report</strong> ready for <span class="lin-act-ref">VID-031</span></div><div class="lin-act-ts">2 hr ago</div></div>
               </div>
               <div class="lin-act-row">
-                <div class="lin-act-av" style="background:linear-gradient(135deg,#8b5cf6,#ec4899)">MT</div>
-                <div class="lin-act-body"><div class="lin-act-txt"><strong>Maya T.</strong> published <span class="lin-act-ref">SCR-033</span> from the script workspace</div><div class="lin-act-ts">3 hr ago</div></div>
+                <div class="lin-act-av" style="background:linear-gradient(135deg,#8b5cf6,#ec4899)">★</div>
+                <div class="lin-act-body"><div class="lin-act-txt"><strong>VID-033 crossed 240k views</strong> — top 10% on your channel</div><div class="lin-act-ts">3 hr ago</div></div>
               </div>
               <div class="lin-act-row">
-                <div class="lin-act-av" style="background:linear-gradient(135deg,#f59e0b,#10b981)">KT</div>
-                <div class="lin-act-body"><div class="lin-act-txt"><strong>Kim T.</strong> moved <span class="lin-act-ref">SCR-045</span> from Ideas to To Script</div><div class="lin-act-ts">5 hr ago</div></div>
+                <div class="lin-act-av" style="background:linear-gradient(135deg,#f59e0b,#10b981)">▲</div>
+                <div class="lin-act-body"><div class="lin-act-txt">Best posting window: <span class="lin-act-ref">Tue 6–9pm</span> based on last 28 days</div><div class="lin-act-ts">5 hr ago</div></div>
               </div>
             </div>
 
-            <!-- AI chat -->
+            <!-- Insights feed -->
             <div class="lin-ai-feed" id="lin-panel-ai">
               <div class="lin-ai-row ai">
-                <div class="lin-ai-who"><span class="lin-ai-dot"></span>Scriptz AI</div>
-                <div class="lin-ai-bubble">You have <strong>3 scripts in progress</strong>. Your Q4 launch video hook score is 9.2 — highest this month. Push it to review now.</div>
-              </div>
-              <div class="lin-ai-row user">
-                <div class="lin-ai-who"><span class="lin-ai-dot"></span>You</div>
-                <div class="lin-ai-bubble">Write a punchy 30-second hook for the AI tools video targeting beginner creators.</div>
+                <div class="lin-ai-who"><span class="lin-ai-dot"></span>Insight</div>
+                <div class="lin-ai-bubble">You have <strong>3 videos with low CTR</strong>. Repackaging VID-041 could lift impressions‑to‑clicks by ~1.8 pp based on the last 28 days.</div>
               </div>
               <div class="lin-ai-row ai">
-                <div class="lin-ai-who"><span class="lin-ai-dot"></span>Scriptz AI</div>
-                <div class="lin-ai-bubble">Done. Hook added to <strong>SCR-038</strong>: <em>"If you're still making YouTube videos without AI, you're working 3× harder than you need to."</em> Hook score: 9.4.</div>
+                <div class="lin-ai-who"><span class="lin-ai-dot"></span>Insight</div>
+                <div class="lin-ai-bubble">Thumbnails using <strong>high‑contrast faces + 2‑word overlays</strong> outperformed your channel average by 32%.</div>
               </div>
-            </div>
-
-            <div class="lin-ai-inp-row">
-              <input class="lin-ai-inp" id="lin-ai-input" type="text" placeholder="Ask the coach about your channel or a video…" />
-              <button class="lin-ai-send" id="lin-ai-send">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-              </button>
+              <div class="lin-ai-row ai">
+                <div class="lin-ai-who"><span class="lin-ai-dot"></span>Insight</div>
+                <div class="lin-ai-bubble">A/B test on VID‑033 finished with <strong>high confidence</strong>. Winner applied — CTR +0.9 pp.</div>
+              </div>
             </div>
           </aside>
 
@@ -339,7 +301,7 @@
           <div class="lin-db-soon-inner">
             <span class="lin-db-soon-pill">Preview</span>
             <h2 class="lin-db-soon-title" id="lin-db-soon-heading">Coming soon</h2>
-            <p class="lin-db-soon-sub">Create an account to use Dashboard, AI Coach, Script &amp; Thumbnail tools, Optimize, Library, and your saved chat history.</p>
+            <p class="lin-db-soon-sub">Create an account to use Dashboard insights, the AI Thumbnail Generator, Optimize, and A/B Testing — all connected to your real YouTube data.</p>
           </div>
         </div>
       </div><!-- /lin-db-frame -->

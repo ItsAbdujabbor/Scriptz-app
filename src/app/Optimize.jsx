@@ -408,11 +408,6 @@ export function Optimize({ onLogout, shellManaged }) {
               <div className="optimize-top-bar">
                 <div className="optimize-heading-wrap">
                   <h1 className="optimize-heading">Optimize</h1>
-                  {totalVideos > 0 && !videosLoading && (
-                    <span className="optimize-video-count">
-                      {totalVideos} {totalVideos === 1 ? 'video' : 'videos'}
-                    </span>
-                  )}
                 </div>
                 <div className="optimize-search-wrap">
                   <span className="optimize-search-icon" aria-hidden>

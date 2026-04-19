@@ -14,7 +14,6 @@ import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line n
 
 import { useYoutubeVideosList } from '../queries/youtube/videosQueries'
 import { useOnboardingStore } from '../stores/onboardingStore'
-import { useModelTierStateQuery } from '../queries/modelTier/modelTierQueries'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 import {
   useAllABTestsQuery,
@@ -36,16 +35,17 @@ import { useCostOf, useCreditsQuery } from '../queries/billing/creditsQueries'
 import './Optimize.css'
 import './ABTesting.css'
 import {
-  SegmentedTabs,
   SelectPill,
   InlineSpinner,
   SkeletonCard,
   SkeletonGroup,
   SkeletonText,
-  SkeletonVideoRow,
 } from '../components/ui'
 
-const TIER_CAP = { 'SRX-1': 2, 'SRX-2': 5, 'SRX-3': 5 }
+// AB testing is a paid-only feature — every paid plan gets the full 5-variant
+// cap. The SRX model tiers only govern thumbnail-generation behaviour and are
+// intentionally NOT consulted here.
+const MAX_VARIANTS = 5
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hash parser
@@ -119,13 +119,23 @@ export function ABTesting() {
       if (typeof window !== 'undefined') window.location.hash = 'ab-testing'
     }
   }, [locked, route.view])
-  if (locked && (route.view === 'new' || route.view === 'detail')) {
-    return <ExperimentList locked />
-  }
 
-  if (route.view === 'new') return <CreateExperiment />
-  if (route.view === 'detail') return <ExperimentDetail testId={route.testId} />
-  return <ExperimentList locked={locked} />
+  const content = (() => {
+    if (locked && (route.view === 'new' || route.view === 'detail')) {
+      return <ExperimentList locked />
+    }
+    if (route.view === 'new') return <CreateExperiment />
+    if (route.view === 'detail') return <ExperimentDetail testId={route.testId} />
+    return <ExperimentList locked={locked} />
+  })()
+
+  // Mirror Optimize's shell wrappers so horizontal padding + vertical
+  // rhythm match exactly across the two screens.
+  return (
+    <div className="dashboard-main dashboard-main--subpage">
+      <div className="dashboard-content-shell dashboard-content-shell--page">{content}</div>
+    </div>
+  )
 }
 
 function ProCrownBadge() {
@@ -147,20 +157,6 @@ function ProCrownBadge() {
 // ─────────────────────────────────────────────────────────────────────────────
 function ExperimentList({ locked = false }) {
   const [statusFilter, setStatusFilter] = useState('')
-  const [viewMode, setViewMode] = useState(() => {
-    try {
-      return localStorage.getItem('abt.viewMode') || 'grid'
-    } catch {
-      return 'grid'
-    }
-  })
-  useEffect(() => {
-    try {
-      localStorage.setItem('abt.viewMode', viewMode)
-    } catch {
-      /* ignore */
-    }
-  }, [viewMode])
 
   // Don't fire the listing query when the user can't use the feature — keep
   // the header/tabs/filters visible but show the upsell empty state below.
@@ -190,16 +186,6 @@ function ExperimentList({ locked = false }) {
 
       <div className="optimize-filters-bar">
         <div className="abt-filters-left">
-          <SegmentedTabs
-            value={viewMode}
-            onChange={setViewMode}
-            ariaLabel="View mode"
-            layoutId="abt-view-toggle"
-            options={[
-              { value: 'grid', label: 'Grid' },
-              { value: 'list', label: 'List' },
-            ]}
-          />
           <SelectPill
             value={statusFilter}
             onChange={setStatusFilter}
@@ -231,17 +217,10 @@ function ExperimentList({ locked = false }) {
         <div className="abt-error">{String(error?.message || 'Could not load experiments.')}</div>
       )}
       {isLoading && !locked && (
-        <SkeletonGroup
-          className={viewMode === 'grid' ? 'abt-grid' : 'abt-list'}
-          label="Loading A/B experiments"
-        >
-          {Array.from({ length: viewMode === 'grid' ? 6 : 3 }).map((_, i) =>
-            viewMode === 'grid' ? (
-              <SkeletonCard key={i} ratio="16 / 9" lines={2} />
-            ) : (
-              <SkeletonVideoRow key={i} />
-            )
-          )}
+        <SkeletonGroup className="abt-grid" label="Loading A/B experiments">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} ratio="16 / 9" lines={2} />
+          ))}
         </SkeletonGroup>
       )}
 
@@ -269,67 +248,14 @@ function ExperimentList({ locked = false }) {
         </div>
       )}
 
-      {!locked && !isLoading && items.length > 0 && viewMode === 'grid' && (
+      {!locked && !isLoading && items.length > 0 && (
         <div className="abt-grid" role="list">
           {items.map((t) => (
             <ExperimentGridCard key={t.id} test={t} />
           ))}
         </div>
       )}
-
-      {!locked && !isLoading && items.length > 0 && viewMode === 'list' && (
-        <ul className="abt-list" role="list">
-          {items.map((t) => (
-            <ExperimentRow key={t.id} test={t} />
-          ))}
-        </ul>
-      )}
     </div>
-  )
-}
-
-function ExperimentRow({ test }) {
-  const activeVar = test.variations?.find((v) => v.slug === test.active_variation)
-  const totalVars = (test.variations || []).length
-  const statusCls = `abt-pill abt-pill--${test.status}`
-  return (
-    <li className="abt-row" onClick={() => goTo(String(test.id))}>
-      <div className="abt-row-thumb">
-        {activeVar?.thumbnail_url ? (
-          <img src={activeVar.thumbnail_url} alt="" />
-        ) : (
-          <div className="abt-row-thumb-fallback">🎬</div>
-        )}
-      </div>
-      <div className="abt-row-main">
-        <div className="abt-row-top">
-          <span className={statusCls}>{test.status}</span>
-          <span className="abt-pill abt-pill--kind">{test.kind}</span>
-          <span className="abt-pill abt-pill--kind">{test.mode}</span>
-          <span className="abt-pill abt-pill--mono">{totalVars} variants</span>
-          {test.winner_slug && (
-            <span className="abt-pill abt-pill--win">Winner: {test.winner_slug}</span>
-          )}
-        </div>
-        <div className="abt-row-title">
-          {activeVar?.title || `Test #${test.id} · video ${test.video_id}`}
-        </div>
-        <div className="abt-row-meta">
-          Started {new Date(test.started_at).toLocaleDateString()} · Active variant{' '}
-          {test.active_variation}
-        </div>
-      </div>
-      <button
-        type="button"
-        className="abt-row-open"
-        onClick={(e) => {
-          e.stopPropagation()
-          goTo(String(test.id))
-        }}
-      >
-        Open →
-      </button>
-    </li>
   )
 }
 
@@ -339,9 +265,7 @@ function ExperimentRow({ test }) {
 function CreateExperiment() {
   const { youtube } = useOnboardingStore()
   const channelId = youtube?.channelId || youtube?.channel_id || null
-  const { data: tierState } = useModelTierStateQuery()
-  const tier = tierState?.selected || 'SRX-1'
-  const cap = TIER_CAP[tier] || 2
+  const cap = MAX_VARIANTS
 
   const [kind, setKind] = useState('thumbnail')
   const [mode, setMode] = useState('manual')
@@ -437,32 +361,39 @@ function CreateExperiment() {
     }
   }
 
-  return (
-    <div className="abt-page">
-      <header className="abt-header">
-        <div>
-          <button type="button" className="abt-back" onClick={() => goTo('')}>
-            ← Back
-          </button>
-          <h1 className="abt-h1">New experiment</h1>
-          <p className="abt-sub">
-            Your plan ({tier}) allows up to {cap} variants per test.
-          </p>
-        </div>
-      </header>
+  const selectedVideo = videos.find((v) => v.id === selectedVideoId) || null
 
-      {/* Step 1: video */}
-      <section className="abt-step">
-        <h3 className="abt-step-h">1. Pick a video</h3>
+  return (
+    <div className="abt-page optimize-page abt-create">
+      <div className="optimize-top-bar abt-create-top">
+        <div className="optimize-heading-wrap">
+          <button type="button" className="abt-back abt-back--inline" onClick={() => goTo('')}>
+            ← All experiments
+          </button>
+          <h1 className="optimize-heading">New experiment</h1>
+          <span className="abt-create-subtle">
+            Run real titles + thumbnails against each other on YouTube.
+          </span>
+        </div>
+      </div>
+
+      <div className="optimize-divider" aria-hidden />
+
+      {/* ── Step 1 — pick a video ───────────────────────────── */}
+      <section className="abt-step-card">
+        <StepHead
+          n={1}
+          title="Pick a video"
+          hint="We'll capture its current title + thumbnail as variant A."
+        />
         {!channelId && <div className="abt-warn">Connect a YouTube channel first in Settings.</div>}
-        {videosQ.isLoading && (
+        {videosQ.isLoading ? (
           <SkeletonGroup className="abt-video-grid" label="Loading videos">
             {Array.from({ length: 6 }).map((_, i) => (
               <SkeletonCard key={i} ratio="16 / 9" lines={1} />
             ))}
           </SkeletonGroup>
-        )}
-        {videos.length > 0 && (
+        ) : videos.length > 0 ? (
           <div className="abt-video-grid">
             {videos.slice(0, 12).map((v) => (
               <button
@@ -471,144 +402,179 @@ function CreateExperiment() {
                 className={`abt-video-card ${selectedVideoId === v.id ? 'is-selected' : ''}`}
                 onClick={() => onSelectVideo(v)}
               >
-                {v.thumbnail_url ? (
-                  <img src={v.thumbnail_url} alt="" />
-                ) : (
-                  <div className="abt-video-fallback">🎬</div>
-                )}
+                <span className="abt-video-thumb-wrap">
+                  {v.thumbnail_url ? (
+                    <img src={v.thumbnail_url} alt="" />
+                  ) : (
+                    <span className="abt-video-fallback">🎬</span>
+                  )}
+                  {selectedVideoId === v.id && (
+                    <span className="abt-video-check" aria-hidden>
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="m5 12 5 5L20 7" />
+                      </svg>
+                    </span>
+                  )}
+                </span>
                 <span className="abt-video-title" title={v.title}>
                   {v.title}
                 </span>
               </button>
             ))}
           </div>
+        ) : (
+          channelId && (
+            <div className="abt-muted">
+              No recent videos to show. Publish or refresh the Optimize screen first.
+            </div>
+          )
         )}
       </section>
 
-      {/* Step 2: experiment type */}
-      <section className="abt-step">
-        <h3 className="abt-step-h">2. Experiment type</h3>
-        <div className="abt-radio-row">
-          {['thumbnail', 'title', 'both'].map((k) => (
-            <label key={k} className={`abt-radio ${kind === k ? 'is-selected' : ''}`}>
-              <input
-                type="radio"
-                name="kind"
-                value={k}
-                checked={kind === k}
-                onChange={() => setKind(k)}
-              />
-              <span>
-                {k === 'both' ? 'Thumbnail + title' : k[0].toUpperCase() + k.slice(1) + ' only'}
-              </span>
-            </label>
-          ))}
+      {/* ── Step 2 — experiment type ────────────────────────── */}
+      <section className="abt-step-card">
+        <StepHead n={2} title="What are you testing?" hint="Pick what changes between variants." />
+        <div className="abt-kind-row">
+          <KindPill
+            active={kind === 'thumbnail'}
+            onClick={() => setKind('thumbnail')}
+            icon={<IconThumbGlyph />}
+            label="Thumbnail"
+            hint="Swap only the thumbnail image"
+          />
+          <KindPill
+            active={kind === 'title'}
+            onClick={() => setKind('title')}
+            icon={<IconTypeGlyph />}
+            label="Title"
+            hint="Swap only the title text"
+          />
+          <KindPill
+            active={kind === 'both'}
+            onClick={() => setKind('both')}
+            icon={<IconSplitGlyph />}
+            label="Both"
+            hint="Change the thumbnail and title together"
+          />
         </div>
       </section>
 
-      {/* Step 3: variants */}
-      <section className="abt-step">
-        <div className="abt-step-head">
-          <h3 className="abt-step-h">
-            3. Variants ({variants.length}/{cap})
-          </h3>
-          {variants.length < cap && (
-            <button type="button" className="abt-btn abt-btn--ghost" onClick={addVariant}>
-              + Add variant
-            </button>
-          )}
-        </div>
-        <div className="abt-variants-grid">
+      {/* ── Step 3 — variants ───────────────────────────────── */}
+      <section className="abt-step-card">
+        <StepHead
+          n={3}
+          title="Your variants"
+          hint={`Variant A is always the original. Add up to ${cap} total.`}
+          right={
+            <span className="abt-step-counter">
+              {variants.length} / {cap}
+            </span>
+          }
+        />
+        <div className="abt-variants-grid abt-variants-grid--create">
           {variants.map((v, i) => (
-            <div key={i} className="abt-variant-card">
+            <div
+              key={i}
+              className={`abt-variant-card abt-variant-card--edit ${i === 0 ? 'is-original' : ''}`}
+            >
               <div className="abt-variant-head">
-                <span className="abt-variant-slug">{String.fromCharCode(65 + i)}</span>
-                {i === 0 && (
+                <span
+                  className="abt-variant-slug"
+                  style={{ background: SLUG_COLORS[i % SLUG_COLORS.length] }}
+                >
+                  {String.fromCharCode(65 + i)}
+                </span>
+                {i === 0 ? (
                   <span
                     className="abt-pill abt-pill--orig"
                     title="Captured as your original. Always preserved."
                   >
-                    🛡️ ORIGINAL
+                    🛡️ Original
                   </span>
-                )}
-                {i > 0 && (
+                ) : (
                   <button
                     type="button"
                     className="abt-variant-remove"
                     onClick={() => removeVariant(i)}
-                    aria-label="Remove"
+                    aria-label="Remove variant"
                   >
                     ×
                   </button>
                 )}
               </div>
               {(kind === 'thumbnail' || kind === 'both') && (
-                <>
-                  {v.thumbnail_url ? (
-                    <img className="abt-variant-thumb" src={v.thumbnail_url} alt="" />
-                  ) : (
-                    <div className="abt-variant-thumb abt-variant-thumb--empty">No thumbnail</div>
-                  )}
-                  <label className="abt-file-btn">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => onPickFile(i, e.target.files?.[0])}
-                      hidden
-                    />
-                    Upload thumbnail
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="Or paste an image URL"
-                    className="abt-input"
-                    value={v.thumbnail_url?.startsWith('data:') ? '' : v.thumbnail_url || ''}
-                    onChange={(e) => updateVariant(i, { thumbnail_url: e.target.value })}
-                  />
-                </>
+                <ThumbnailDropzone
+                  value={v.thumbnail_url}
+                  onPick={(f) => onPickFile(i, f)}
+                  onUrlChange={(u) => updateVariant(i, { thumbnail_url: u })}
+                  readOnly={i === 0}
+                />
               )}
               {(kind === 'title' || kind === 'both') && (
-                <input
-                  type="text"
-                  placeholder="Variant title"
-                  className="abt-input"
-                  maxLength={120}
-                  value={v.title || ''}
-                  onChange={(e) => updateVariant(i, { title: e.target.value })}
-                />
+                <div className="abt-field">
+                  <span className="abt-label">Title</span>
+                  <input
+                    type="text"
+                    placeholder={i === 0 ? 'Video title' : 'Variant title'}
+                    className="abt-input"
+                    maxLength={120}
+                    value={v.title || ''}
+                    onChange={(e) => updateVariant(i, { title: e.target.value })}
+                  />
+                  <span className="abt-input-counter">{(v.title || '').length}/120</span>
+                </div>
               )}
             </div>
           ))}
+          {variants.length < cap && (
+            <button
+              type="button"
+              className="abt-variant-add"
+              onClick={addVariant}
+              aria-label="Add variant"
+            >
+              <span className="abt-variant-add-plus">+</span>
+              <span className="abt-variant-add-label">Add variant</span>
+              <span className="abt-variant-add-hint">
+                Variant {String.fromCharCode(65 + variants.length)}
+              </span>
+            </button>
+          )}
         </div>
       </section>
 
-      {/* Step 4: mode */}
-      <section className="abt-step">
-        <h3 className="abt-step-h">4. Mode</h3>
-        <div className="abt-radio-row">
-          <label className={`abt-radio ${mode === 'manual' ? 'is-selected' : ''}`}>
-            <input
-              type="radio"
-              name="mode"
-              value="manual"
-              checked={mode === 'manual'}
-              onChange={() => setMode('manual')}
-            />
-            <span>Manual — you rotate variants</span>
-          </label>
-          <label className={`abt-radio ${mode === 'automatic' ? 'is-selected' : ''}`}>
-            <input
-              type="radio"
-              name="mode"
-              value="automatic"
-              checked={mode === 'automatic'}
-              onChange={() => setMode('automatic')}
-            />
-            <span>Automatic — rotate on a schedule</span>
-          </label>
+      {/* ── Step 4 — rotation mode ──────────────────────────── */}
+      <section className="abt-step-card">
+        <StepHead
+          n={4}
+          title="How should variants rotate?"
+          hint="Choose manual or let us do it on a schedule."
+        />
+        <div className="abt-mode-grid">
+          <ModeCard
+            active={mode === 'manual'}
+            onClick={() => setMode('manual')}
+            title="Manual"
+            desc="You decide when to swap which variant is live. Full control."
+            icon="👆"
+          />
+          <ModeCard
+            active={mode === 'automatic'}
+            onClick={() => setMode('automatic')}
+            title="Automatic"
+            desc="We rotate variants on a fixed schedule so the test runs itself."
+            icon="🔁"
+          />
         </div>
         {mode === 'automatic' && (
-          <div className="abt-field-row">
+          <div className="abt-field-row abt-mode-extras">
             <label className="abt-field">
               <span className="abt-label">Rotate every (hours)</span>
               <input
@@ -626,11 +592,24 @@ function CreateExperiment() {
                 checked={autoApply}
                 onChange={(e) => setAutoApply(e.target.checked)}
               />
-              <span>Auto-apply the winner on YouTube when confidence is high</span>
+              <span>Auto-apply the winner when confidence is high</span>
             </label>
           </div>
         )}
       </section>
+
+      {/* ── Recap + footer ──────────────────────────────────── */}
+      {selectedVideo && (
+        <div className="abt-recap">
+          <span className="abt-recap-label">Testing on</span>
+          {selectedVideo.thumbnail_url && (
+            <img src={selectedVideo.thumbnail_url} alt="" className="abt-recap-thumb" />
+          )}
+          <span className="abt-recap-title" title={selectedVideo.title}>
+            {selectedVideo.title}
+          </span>
+        </div>
+      )}
 
       {err && <div className="abt-error">{err}</div>}
       <CreateCostSummary variantCount={variants.length} />
@@ -650,7 +629,7 @@ function CreateExperiment() {
               Starting…
             </span>
           ) : (
-            'Start experiment'
+            '🧪 Start experiment'
           )}
         </button>
       </div>
@@ -658,8 +637,155 @@ function CreateExperiment() {
   )
 }
 
+function StepHead({ n, title, hint, right }) {
+  return (
+    <div className="abt-step-head-row">
+      <span className="abt-step-num">{String(n).padStart(2, '0')}</span>
+      <div className="abt-step-head-main">
+        <h3 className="abt-step-title">{title}</h3>
+        {hint && <p className="abt-step-hint">{hint}</p>}
+      </div>
+      {right && <div className="abt-step-head-right">{right}</div>}
+    </div>
+  )
+}
+
+function KindPill({ active, onClick, icon, label, hint }) {
+  return (
+    <button
+      type="button"
+      className={`abt-kind ${active ? 'is-selected' : ''}`}
+      onClick={onClick}
+      aria-pressed={active}
+    >
+      <span className="abt-kind-icon">{icon}</span>
+      <span className="abt-kind-body">
+        <span className="abt-kind-label">{label}</span>
+        <span className="abt-kind-hint">{hint}</span>
+      </span>
+    </button>
+  )
+}
+
+function ModeCard({ active, onClick, title, desc, icon }) {
+  return (
+    <button
+      type="button"
+      className={`abt-mode-card ${active ? 'is-selected' : ''}`}
+      onClick={onClick}
+      aria-pressed={active}
+    >
+      <span className="abt-mode-icon" aria-hidden>
+        {icon}
+      </span>
+      <span className="abt-mode-title">{title}</span>
+      <span className="abt-mode-desc">{desc}</span>
+    </button>
+  )
+}
+
+function ThumbnailDropzone({ value, onPick, onUrlChange, readOnly }) {
+  const [isDrag, setIsDrag] = useState(false)
+  const isData = typeof value === 'string' && value.startsWith('data:')
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setIsDrag(false)
+    const f = e.dataTransfer?.files?.[0]
+    if (f) onPick?.(f)
+  }
+  return (
+    <div className="abt-dz">
+      <label
+        className={`abt-dz-area ${isDrag ? 'is-drag' : ''} ${value ? 'has-image' : ''} ${readOnly ? 'is-readonly' : ''}`}
+        onDragOver={(e) => {
+          if (readOnly) return
+          e.preventDefault()
+          setIsDrag(true)
+        }}
+        onDragLeave={() => setIsDrag(false)}
+        onDrop={readOnly ? undefined : handleDrop}
+      >
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => onPick?.(e.target.files?.[0])}
+          hidden
+          disabled={readOnly}
+        />
+        {value ? (
+          <img className="abt-dz-preview" src={value} alt="" />
+        ) : (
+          <span className="abt-dz-empty">
+            <span className="abt-dz-empty-icon" aria-hidden>
+              🖼️
+            </span>
+            <span className="abt-dz-empty-text">Drop or click to upload</span>
+          </span>
+        )}
+      </label>
+      {!readOnly && (
+        <input
+          type="url"
+          placeholder="Or paste an image URL"
+          className="abt-input abt-input--sm"
+          value={isData ? '' : value || ''}
+          onChange={(e) => onUrlChange?.(e.target.value)}
+        />
+      )}
+    </div>
+  )
+}
+
+function IconThumbGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <circle cx="9" cy="11" r="1.5" />
+      <path d="m21 16-5-5-8 8" />
+    </svg>
+  )
+}
+function IconTypeGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="4 7 4 5 20 5 20 7" />
+      <line x1="9" y1="19" x2="15" y2="19" />
+      <line x1="12" y1="5" x2="12" y2="19" />
+    </svg>
+  )
+}
+function IconSplitGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="5" width="8" height="14" rx="2" />
+      <rect x="13" y="5" width="8" height="14" rx="2" />
+    </svg>
+  )
+}
+
 function CreateCostSummary({ variantCount }) {
-  const { unit: createCost, tier } = useCostOf('ab_test_create', 1)
+  const { unit: createCost } = useCostOf('ab_test_create', 1)
   const { unit: variantCost } = useCostOf('ab_test_variant', 1)
   const extras = Math.max(0, (variantCount || 0) - 2)
   const total = createCost + extras * variantCost
@@ -680,7 +806,6 @@ function CreateCostSummary({ variantCount }) {
           <span className="abt-cost-summary-detail">
             {createCost} base
             {extras > 0 ? ` + ${extras} × ${variantCost} for extra variants` : ''}
-            {` · ${tier}`}
           </span>
         </div>
       </div>
@@ -809,8 +934,7 @@ function ExperimentDetail({ testId }) {
   }
 
   const variantCount = Object.keys(variations).length
-  const tier = results?.srx_tier || 'SRX-1'
-  const cap = TIER_CAP[tier] || 2
+  const cap = MAX_VARIANTS
   const canAddMore = variantCount < cap && results?.status === 'running'
 
   if (isLoading) {
@@ -847,7 +971,7 @@ function ExperimentDetail({ testId }) {
   if (!results) return null
 
   return (
-    <div className="abt-page">
+    <div className="abt-page optimize-page">
       <header className="abt-header">
         <div>
           <button type="button" className="abt-back" onClick={() => goTo('')}>
@@ -857,7 +981,6 @@ function ExperimentDetail({ testId }) {
           <p className="abt-sub">
             <span className={`abt-pill abt-pill--${results.status}`}>{results.status}</span>
             <span className="abt-pill abt-pill--kind">{results.mode}</span>
-            <span className="abt-pill abt-pill--mono">{tier}</span>
             <span className="abt-pill abt-pill--mono">Active: {results.active_variation}</span>
             {results.rotation_interval_hours && (
               <span className="abt-pill abt-pill--mono">
@@ -882,13 +1005,13 @@ function ExperimentDetail({ testId }) {
               'Refresh'
             )}
           </button>
-          {tier === 'SRX-3' && (
+          {insightsCost > 0 && (
             <button
               type="button"
               className="abt-btn abt-btn--ghost"
               onClick={() => insightsMut.mutate(testId)}
               disabled={insightsMut.isPending}
-              title={`Charges ${insightsCost} credits on Ultra`}
+              title={`Charges ${insightsCost} credits`}
             >
               {insightsMut.isPending ? (
                 <span className="sk-btn-pending">
@@ -997,49 +1120,16 @@ function ExperimentDetail({ testId }) {
         </div>
       )}
 
-      {/* Comparison summary */}
-      <section className="abt-section">
-        <h3 className="abt-step-h">Summary</h3>
-        <div className="abt-summary-grid">
-          <SummaryCell label="Ranking" value={ranking.length ? ranking.join(' > ') : '—'} />
-          <SummaryCell
-            label="CTR delta"
-            value={
-              results.comparison?.ctr_delta_pp != null
-                ? `${(results.comparison.ctr_delta_pp * 100).toFixed(2)} pp`
-                : '—'
-            }
-          />
-          <SummaryCell
-            label="Confidence"
-            value={<ConfidenceBadge c={results.comparison?.confidence} />}
-          />
-          <SummaryCell
-            label="p-value"
-            value={
-              results.comparison?.p_value != null ? results.comparison.p_value.toFixed(4) : '—'
-            }
-          />
-        </div>
-        <p className="abt-muted abt-verdict">{results.comparison?.reason || 'Gathering data…'}</p>
-        {winnerSlug && results.status !== 'completed' && (
-          <button
-            type="button"
-            className="abt-btn abt-btn--primary"
-            onClick={() => handlePromote(winnerSlug)}
-            disabled={promoteMut.isPending}
-          >
-            {promoteMut.isPending ? (
-              <span className="sk-btn-pending">
-                <InlineSpinner size={12} />
-                Applying…
-              </span>
-            ) : (
-              `Apply winner (${winnerSlug}) to YouTube`
-            )}
-          </button>
-        )}
-      </section>
+      {/* Comparison summary — visual hero */}
+      <SummaryHero
+        comparison={results.comparison}
+        variations={variations}
+        ranking={ranking}
+        winnerSlug={winnerSlug}
+        status={results.status}
+        onPromote={() => winnerSlug && handlePromote(winnerSlug)}
+        promoting={promoteMut.isPending}
+      />
 
       {/* Variants grid */}
       <section className="abt-section">
@@ -1058,20 +1148,26 @@ function ExperimentDetail({ testId }) {
           )}
         </div>
         <div className="abt-variants-grid">
-          {Object.values(variations).map((v) => (
-            <VariantCardFull
-              key={v.slug}
-              v={v}
-              isOriginal={v.slug === 'A'}
-              isWinner={v.slug === winnerSlug}
-              isActive={v.is_active}
-              canActivate={results.status === 'running' && !v.is_active}
-              onActivate={() => handleActivate(v.slug)}
-              onPromote={() => handlePromote(v.slug)}
-              activating={activateMut.isPending}
-              promoting={promoteMut.isPending}
-            />
-          ))}
+          {(() => {
+            const variantList = Object.values(variations)
+            const bestCtr = Math.max(0, ...variantList.map((v) => v.impression_ctr ?? 0))
+            return variantList.map((v, i) => (
+              <VariantCardVisual
+                key={v.slug}
+                v={v}
+                colorIndex={i}
+                bestCtr={bestCtr}
+                isOriginal={v.slug === 'A'}
+                isWinner={v.slug === winnerSlug}
+                isActive={v.is_active}
+                canActivate={results.status === 'running' && !v.is_active}
+                onActivate={() => handleActivate(v.slug)}
+                onPromote={() => handlePromote(v.slug)}
+                activating={activateMut.isPending}
+                promoting={promoteMut.isPending}
+              />
+            ))
+          })()}
           {showAdd && (
             <div className="abt-variant-card abt-variant-card--form">
               <div className="abt-variant-head">
@@ -1167,11 +1263,11 @@ function ExperimentDetail({ testId }) {
         </section>
       )}
 
-      {/* Time-window CTR */}
+      {/* Time-window CTR — heatmap */}
       {results.windowed && Object.keys(results.windowed).length > 0 && (
         <section className="abt-section">
           <h3 className="abt-step-h">CTR by time window</h3>
-          <WindowedTable windowed={results.windowed} slugs={Object.keys(variations)} />
+          <WindowedHeatmap windowed={results.windowed} slugs={Object.keys(variations)} />
         </section>
       )}
 
@@ -1198,15 +1294,6 @@ function ExperimentDetail({ testId }) {
   )
 }
 
-function SummaryCell({ label, value }) {
-  return (
-    <div className="abt-summary-cell">
-      <span className="abt-label">{label}</span>
-      <strong>{value ?? '—'}</strong>
-    </div>
-  )
-}
-
 function ConfidenceBadge({ c }) {
   if (!c) return '—'
   const map = {
@@ -1219,8 +1306,196 @@ function ConfidenceBadge({ c }) {
   return <span className={map[c] || map.insufficient}>{label[c] || c}</span>
 }
 
-function VariantCardFull({
+/* ── Summary hero ─────────────────────────────────────────────────
+ * Three visual cells: winner reveal · CTR delta with bars · confidence
+ * arc gauge. Verdict prose + Apply-winner CTA live below. */
+function SummaryHero({
+  comparison,
+  variations,
+  ranking,
+  winnerSlug,
+  status,
+  onPromote,
+  promoting,
+}) {
+  const ctrDeltaPP = comparison?.ctr_delta_pp != null ? comparison.ctr_delta_pp * 100 : null
+  const confidence = comparison?.confidence
+  const pValue = comparison?.p_value
+  return (
+    <section className="abt-section abt-hero">
+      <div className="abt-hero-grid">
+        <WinnerCell winnerSlug={winnerSlug} variations={variations} ranking={ranking} />
+        <CtrDeltaCell
+          deltaPP={ctrDeltaPP}
+          ranking={ranking}
+          variations={variations}
+          winnerSlug={winnerSlug}
+        />
+        <ConfidenceCell confidence={confidence} pValue={pValue} />
+      </div>
+      <p className="abt-verdict">
+        {comparison?.reason || 'Gathering data — this updates as YouTube reports new impressions.'}
+      </p>
+      {winnerSlug && status !== 'completed' && (
+        <button
+          type="button"
+          className="abt-btn abt-btn--primary abt-apply-winner"
+          onClick={onPromote}
+          disabled={promoting}
+        >
+          {promoting ? (
+            <span className="sk-btn-pending">
+              <InlineSpinner size={12} />
+              Applying…
+            </span>
+          ) : (
+            <>
+              <span aria-hidden>🏆</span> Apply winner ({winnerSlug}) to YouTube
+            </>
+          )}
+        </button>
+      )}
+    </section>
+  )
+}
+
+function WinnerCell({ winnerSlug, variations, ranking }) {
+  const w = winnerSlug ? variations[winnerSlug] : null
+  return (
+    <div className={`abt-hero-cell abt-hero-cell--winner ${winnerSlug ? 'has-winner' : ''}`}>
+      <span className="abt-hero-label">Winner</span>
+      {winnerSlug ? (
+        <>
+          <div className="abt-hero-winner-chip">
+            <span className="abt-hero-winner-slug">{winnerSlug}</span>
+            <span className="abt-hero-winner-trophy" aria-hidden>
+              🏆
+            </span>
+          </div>
+          {w?.title && (
+            <span className="abt-hero-winner-title" title={w.title}>
+              {w.title}
+            </span>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="abt-hero-winner-chip abt-hero-winner-chip--empty">
+            <span className="abt-hero-winner-dots">
+              <span />
+              <span />
+              <span />
+            </span>
+          </div>
+          <span className="abt-hero-muted">
+            {ranking.length ? `Leading: ${ranking[0]}` : 'No winner yet'}
+          </span>
+        </>
+      )}
+    </div>
+  )
+}
+
+function CtrDeltaCell({ deltaPP, ranking, variations, winnerSlug }) {
+  // Bars comparison — show each variant's CTR as a bar normalised to the leader.
+  const list = Object.values(variations || {})
+  const best = Math.max(0, ...list.map((v) => v.impression_ctr ?? 0))
+  const positive = (deltaPP ?? 0) >= 0
+  const hasData = deltaPP != null
+  return (
+    <div className="abt-hero-cell abt-hero-cell--delta">
+      <span className="abt-hero-label">CTR delta</span>
+      <div className={`abt-hero-delta ${positive ? 'is-pos' : 'is-neg'}`}>
+        <span className="abt-hero-delta-arrow" aria-hidden>
+          {positive ? '▲' : '▼'}
+        </span>
+        <span className="abt-hero-delta-num">{hasData ? `${deltaPP.toFixed(2)}` : '—'}</span>
+        {hasData && <span className="abt-hero-delta-unit">pp</span>}
+      </div>
+      <div className="abt-hero-bars">
+        {ranking.map((slug) => {
+          const v = variations[slug]
+          const ctr = v?.impression_ctr ?? 0
+          const widthPct = best > 0 ? Math.max(3, (ctr / best) * 100) : 3
+          const isWin = slug === winnerSlug
+          return (
+            <div key={slug} className="abt-hero-bar-row">
+              <span className="abt-hero-bar-slug">{slug}</span>
+              <div className="abt-hero-bar-track">
+                <span
+                  className={`abt-hero-bar-fill ${isWin ? 'is-winner' : ''}`}
+                  style={{ width: `${widthPct}%` }}
+                />
+              </div>
+              <span className="abt-hero-bar-val">{pct(ctr)}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function ConfidenceCell({ confidence, pValue }) {
+  // 0-1 value representing how confident we are; drives the arc fill.
+  const ratioMap = { high: 0.95, medium: 0.7, low: 0.4, insufficient: 0.08 }
+  const ratio = ratioMap[confidence] ?? 0
+  const colorMap = {
+    high: '#34d399',
+    medium: '#fbbf24',
+    low: '#fb923c',
+    insufficient: 'rgba(255,255,255,0.3)',
+  }
+  const color = colorMap[confidence] ?? 'rgba(255,255,255,0.3)'
+  const labelMap = {
+    high: 'High',
+    medium: 'Medium',
+    low: 'Low',
+    insufficient: 'Not enough',
+  }
+  // Arc: 180° half-circle, stroke-dasharray trick.
+  const r = 54,
+    cx = 62,
+    cy = 62
+  const circ = Math.PI * r // half circumference
+  return (
+    <div className="abt-hero-cell abt-hero-cell--conf">
+      <span className="abt-hero-label">Confidence</span>
+      <div className="abt-hero-gauge">
+        <svg viewBox="0 0 124 70" className="abt-hero-gauge-svg" aria-hidden>
+          <path
+            d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
+            fill="none"
+            stroke="rgba(255,255,255,0.08)"
+            strokeWidth="8"
+            strokeLinecap="round"
+          />
+          <path
+            d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
+            fill="none"
+            stroke={color}
+            strokeWidth="8"
+            strokeLinecap="round"
+            strokeDasharray={`${circ * ratio} ${circ}`}
+            style={{ transition: 'stroke-dasharray 0.4s ease' }}
+          />
+        </svg>
+        <div className="abt-hero-gauge-center">
+          <span className="abt-hero-gauge-num" style={{ color }}>
+            {labelMap[confidence] || '—'}
+          </span>
+          <span className="abt-hero-gauge-p">p = {pValue != null ? pValue.toFixed(4) : '—'}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Variant card — thumbnail hero + inline bar + micro stats ─── */
+function VariantCardVisual({
   v,
+  colorIndex,
+  bestCtr,
   isOriginal,
   isWinner,
   isActive,
@@ -1230,40 +1505,66 @@ function VariantCardFull({
   activating,
   promoting,
 }) {
+  const ctr = v.impression_ctr ?? 0
+  const barPct = bestCtr > 0 ? Math.max(3, (ctr / bestCtr) * 100) : 3
+  const color = SLUG_COLORS[colorIndex % SLUG_COLORS.length]
   return (
     <div
       className={`abt-variant-card ${isOriginal ? 'is-original' : ''} ${isWinner ? 'is-winner' : ''} ${isActive ? 'is-active' : ''}`}
+      style={{ '--slug-color': color }}
     >
       <div className="abt-variant-head">
-        <span className="abt-variant-slug">{v.slug}</span>
-        {isOriginal && (
-          <span
-            className="abt-pill abt-pill--orig"
-            title="Your video's original title and thumbnail. Always preserved — never deleted."
-          >
-            🛡️ ORIGINAL
-          </span>
-        )}
-        {isActive && <span className="abt-pill abt-pill--live">LIVE</span>}
-        {isWinner && <span className="abt-pill abt-pill--win">WINNER</span>}
+        <span className="abt-variant-slug" style={{ background: color }}>
+          {v.slug}
+        </span>
+        <div className="abt-variant-pills">
+          {isActive && <span className="abt-pill abt-pill--live">● LIVE</span>}
+          {isWinner && <span className="abt-pill abt-pill--win">🏆 WINNER</span>}
+          {isOriginal && (
+            <span
+              className="abt-pill abt-pill--orig"
+              title="Your video's original title and thumbnail. Always preserved — never deleted."
+            >
+              🛡️ Original
+            </span>
+          )}
+        </div>
       </div>
-      {v.thumbnail_url ? (
-        <img className="abt-variant-thumb" src={v.thumbnail_url} alt="" />
-      ) : (
-        <div className="abt-variant-thumb abt-variant-thumb--empty">No thumbnail</div>
-      )}
+      <div className="abt-variant-thumb-wrap">
+        {v.thumbnail_url ? (
+          <img className="abt-variant-thumb" src={v.thumbnail_url} alt="" />
+        ) : (
+          <div className="abt-variant-thumb abt-variant-thumb--empty">No thumbnail</div>
+        )}
+      </div>
       {v.title && (
         <div className="abt-variant-title" title={v.title}>
           {v.title}
         </div>
       )}
-      <div className="abt-variant-metrics">
-        <Metric label="CTR" value={pct(v.impression_ctr)} />
-        <Metric label="Views" value={fmtNum(v.views)} />
-        <Metric label="Impressions" value={fmtNum(v.impressions)} />
-        <Metric label="Views/hr" value={v.views_per_hour ?? '—'} />
-        <Metric label="Window" value={hoursLabel(v.hours_running)} />
+
+      {/* Hero stat — CTR with horizontal bar vs leader */}
+      <div className="abt-variant-hero-stat">
+        <div className="abt-variant-hero-stat-top">
+          <span className="abt-variant-hero-stat-label">CTR</span>
+          <span className="abt-variant-hero-stat-value">{pct(ctr)}</span>
+        </div>
+        <div className="abt-variant-bar-track">
+          <span
+            className="abt-variant-bar-fill"
+            style={{ width: `${barPct}%`, background: color }}
+          />
+        </div>
       </div>
+
+      {/* Micro stats — tight row, no label/value stack */}
+      <div className="abt-variant-micro">
+        <MicroStat label="Views" value={fmtNum(v.views)} />
+        <MicroStat label="Impr." value={fmtNum(v.impressions)} />
+        <MicroStat label="V/hr" value={v.views_per_hour ?? '—'} />
+        <MicroStat label="Ran" value={hoursLabel(v.hours_running)} />
+      </div>
+
       <div className="abt-variant-actions">
         {canActivate && (
           <button
@@ -1295,58 +1596,83 @@ function VariantCardFull({
   )
 }
 
-function Metric({ label, value }) {
+function MicroStat({ label, value }) {
   return (
-    <div>
-      <span className="abt-label">{label}</span>
-      <strong>{value}</strong>
+    <div className="abt-micro">
+      <span className="abt-micro-val">{value}</span>
+      <span className="abt-micro-label">{label}</span>
     </div>
   )
 }
 
-function WindowedTable({ windowed, slugs }) {
+/* ── Windowed heatmap — cells coloured by CTR intensity ─────── */
+function WindowedHeatmap({ windowed, slugs }) {
   const buckets = ['0-6h', '6-24h', '24-48h', '48h+']
+  const allCtrs = slugs.flatMap((s) =>
+    buckets.map((b) => windowed[s]?.[b]?.ctr).filter((v) => v != null)
+  )
+  const maxCtr = Math.max(0.001, ...(allCtrs.length ? allCtrs : [0.05]))
   return (
-    <div className="abt-window-table-wrap">
-      <table className="abt-window-table">
-        <thead>
-          <tr>
-            <th>Variant</th>
-            {buckets.map((b) => (
-              <th key={b}>{b}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {slugs.map((slug) => {
-            const row = windowed[slug] || {}
+    <div className="abt-heatmap">
+      <div className="abt-heatmap-head">
+        <span className="abt-heatmap-corner" />
+        {buckets.map((b) => (
+          <span key={b} className="abt-heatmap-col">
+            {b}
+          </span>
+        ))}
+      </div>
+      {slugs.map((slug, i) => (
+        <div key={slug} className="abt-heatmap-row">
+          <span
+            className="abt-heatmap-slug"
+            style={{ '--slug-color': SLUG_COLORS[i % SLUG_COLORS.length] }}
+          >
+            {slug}
+          </span>
+          {buckets.map((b) => {
+            const cell = windowed[slug]?.[b]
+            const ctr = cell?.ctr
+            const hasData = ctr != null
+            const intensity = hasData ? ctr / maxCtr : 0
+            const alpha = hasData ? 0.12 + intensity * 0.68 : 0.04
+            const color = SLUG_COLORS[i % SLUG_COLORS.length]
             return (
-              <tr key={slug}>
-                <td>
-                  <strong>{slug}</strong>
-                </td>
-                {buckets.map((b) => {
-                  const cell = row[b] || {}
-                  return (
-                    <td key={b}>
-                      <div className="abt-window-cell">
-                        <span className="abt-window-ctr">
-                          {cell.ctr != null ? pct(cell.ctr) : '—'}
-                        </span>
-                        <span className="abt-window-meta">
-                          {cell.impressions != null ? `${fmtNum(cell.impressions)} imp` : 'no data'}
-                        </span>
-                      </div>
-                    </td>
-                  )
-                })}
-              </tr>
+              <div
+                key={b}
+                className={`abt-heatmap-cell ${hasData ? 'has-data' : ''}`}
+                style={{
+                  background: hasData
+                    ? `linear-gradient(135deg, ${hexToRgba(color, alpha)}, ${hexToRgba(color, alpha * 0.6)})`
+                    : 'rgba(255,255,255,0.03)',
+                  borderColor: hasData ? hexToRgba(color, 0.32) : 'rgba(255,255,255,0.06)',
+                }}
+                title={
+                  hasData
+                    ? `${pct(ctr)} · ${fmtNum(cell.impressions || 0)} impressions`
+                    : 'No data in this window'
+                }
+              >
+                <span className="abt-heatmap-ctr">{hasData ? pct(ctr) : '—'}</span>
+                {hasData && (
+                  <span className="abt-heatmap-meta">{fmtNum(cell.impressions || 0)} imp</span>
+                )}
+              </div>
             )
           })}
-        </tbody>
-      </table>
+        </div>
+      ))}
     </div>
   )
+}
+
+function hexToRgba(hex, a) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  if (!m) return hex
+  const r = parseInt(m[1], 16)
+  const g = parseInt(m[2], 16)
+  const b = parseInt(m[3], 16)
+  return `rgba(${r}, ${g}, ${b}, ${a})`
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1358,46 +1684,141 @@ function TrendChartN({ trend, slugs }) {
   const rows = (trend || []).filter((r) => slugs.some((s) => r[s]?.ctr != null))
   if (rows.length < 2)
     return <div className="abt-muted">Trend appears after two or more snapshots.</div>
-  const W = 640,
-    H = 160,
-    P = 20
+  const W = 720,
+    H = 220,
+    PL = 38,
+    PR = 16,
+    PT = 16,
+    PB = 28
+  const innerW = W - PL - PR
+  const innerH = H - PT - PB
   const xs = rows.map((r) => new Date(r.captured_at).getTime())
   const x0 = Math.min(...xs),
     x1 = Math.max(...xs)
   const ctrs = rows.flatMap((r) => slugs.map((s) => r[s]?.ctr)).filter((v) => v != null)
   const y1 = Math.max(0.01, ...(ctrs.length ? ctrs : [0.1]))
-  const xScale = (t) => P + ((t - x0) / Math.max(1, x1 - x0)) * (W - 2 * P)
-  const yScale = (v) => H - P - (v / y1) * (H - 2 * P)
-  const pathFor = (slug) => {
-    const pts = rows
+  const xScale = (t) => PL + ((t - x0) / Math.max(1, x1 - x0)) * innerW
+  const yScale = (v) => PT + innerH - (v / y1) * innerH
+  const ptsFor = (slug) =>
+    rows
       .filter((r) => r[slug]?.ctr != null)
-      .map(
-        (r) =>
-          `${xScale(new Date(r.captured_at).getTime()).toFixed(1)},${yScale(r[slug].ctr).toFixed(1)}`
-      )
+      .map((r) => ({
+        x: xScale(new Date(r.captured_at).getTime()),
+        y: yScale(r[slug].ctr),
+        v: r[slug].ctr,
+      }))
+  const linePath = (pts) =>
+    pts.length ? `M ${pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ')}` : ''
+  const areaPath = (pts) => {
     if (!pts.length) return ''
-    return `M ${pts.join(' L ')}`
+    const top = pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ')
+    const baseY = PT + innerH
+    return `M ${pts[0].x.toFixed(1)},${baseY} L ${top} L ${pts[pts.length - 1].x.toFixed(1)},${baseY} Z`
+  }
+  // Tick labels — 4 horizontal grid lines
+  const ticks = [0, 0.33, 0.66, 1]
+  const fmtTs = (t) => {
+    const d = new Date(t)
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
   }
   return (
-    <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="abt-chart">
-        <line x1={P} y1={H - P} x2={W - P} y2={H - P} stroke="rgba(255,255,255,0.08)" />
-        <line x1={P} y1={P} x2={P} y2={H - P} stroke="rgba(255,255,255,0.08)" />
-        {slugs.map((s, i) => (
-          <path
-            key={s}
-            d={pathFor(s)}
-            fill="none"
-            stroke={SLUG_COLORS[i % SLUG_COLORS.length]}
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-        ))}
-        <text x={P + 4} y={P + 10} fill="rgba(229,229,231,0.45)" fontSize="10">
-          {(y1 * 100).toFixed(1)}%
+    <div className="abt-trend">
+      <svg viewBox={`0 0 ${W} ${H}`} className="abt-chart" preserveAspectRatio="none">
+        <defs>
+          {slugs.map((s, i) => {
+            const c = SLUG_COLORS[i % SLUG_COLORS.length]
+            return (
+              <linearGradient key={s} id={`abt-grad-${s}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={c} stopOpacity="0.45" />
+                <stop offset="100%" stopColor={c} stopOpacity="0" />
+              </linearGradient>
+            )
+          })}
+        </defs>
+        {/* Horizontal grid */}
+        {ticks.map((t) => {
+          const y = PT + innerH - t * innerH
+          return (
+            <g key={t}>
+              <line
+                x1={PL}
+                y1={y}
+                x2={PL + innerW}
+                y2={y}
+                stroke="rgba(255,255,255,0.06)"
+                strokeDasharray="2 4"
+              />
+              <text
+                x={PL - 8}
+                y={y + 3}
+                fill="rgba(229,229,231,0.42)"
+                fontSize="10"
+                textAnchor="end"
+              >
+                {(y1 * t * 100).toFixed(1)}%
+              </text>
+            </g>
+          )
+        })}
+        {/* Baseline */}
+        <line
+          x1={PL}
+          y1={PT + innerH}
+          x2={PL + innerW}
+          y2={PT + innerH}
+          stroke="rgba(255,255,255,0.14)"
+        />
+        {/* Area fills (behind lines) */}
+        {slugs.map((s) => {
+          const pts = ptsFor(s)
+          return <path key={`a-${s}`} d={areaPath(pts)} fill={`url(#abt-grad-${s})`} />
+        })}
+        {/* Lines */}
+        {slugs.map((s, i) => {
+          const pts = ptsFor(s)
+          const c = SLUG_COLORS[i % SLUG_COLORS.length]
+          return (
+            <g key={`l-${s}`}>
+              <path
+                d={linePath(pts)}
+                fill="none"
+                stroke={c}
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {pts.map((p, j) => (
+                <circle
+                  key={j}
+                  cx={p.x}
+                  cy={p.y}
+                  r={j === pts.length - 1 ? 3.5 : 2}
+                  fill={c}
+                  stroke="rgba(12,10,18,0.7)"
+                  strokeWidth="1"
+                />
+              ))}
+              {/* End-of-line value label */}
+              {pts.length > 0 && (
+                <text
+                  x={pts[pts.length - 1].x + 6}
+                  y={pts[pts.length - 1].y + 3}
+                  fill={c}
+                  fontSize="10"
+                  fontWeight="600"
+                >
+                  {(pts[pts.length - 1].v * 100).toFixed(1)}%
+                </text>
+              )}
+            </g>
+          )
+        })}
+        {/* X axis date range */}
+        <text x={PL} y={H - 8} fill="rgba(229,229,231,0.5)" fontSize="10">
+          {fmtTs(x0)}
         </text>
-        <text x={P + 4} y={H - P - 2} fill="rgba(229,229,231,0.45)" fontSize="10">
-          0%
+        <text x={PL + innerW} y={H - 8} fill="rgba(229,229,231,0.5)" fontSize="10" textAnchor="end">
+          {fmtTs(x1)}
         </text>
       </svg>
       <div className="abt-legend">

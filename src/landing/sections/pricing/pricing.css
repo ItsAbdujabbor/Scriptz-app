@@ -633,8 +633,9 @@
 }
 
 .chk {
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.28);
+  background: rgba(16, 185, 129, 0.28);
+  border: 1px solid rgba(16, 185, 129, 0.6);
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.15);
 }
 
 .chk::before {
@@ -642,14 +643,15 @@
   display: block;
   width: 4px;
   height: 7px;
-  border-right: 1.8px solid var(--pri-green);
-  border-bottom: 1.8px solid var(--pri-green);
+  border-right: 2.2px solid #10b981;
+  border-bottom: 2.2px solid #10b981;
   transform: rotate(45deg) translate(-1px, -1px);
 }
 
 .crs {
-  background: rgba(248, 113, 113, 0.07);
-  border: 1px solid rgba(248, 113, 113, 0.15);
+  background: rgba(248, 113, 113, 0.22);
+  border: 1px solid rgba(248, 113, 113, 0.55);
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.12);
 }
 
 .crs::before,
@@ -657,8 +659,8 @@
   content: '';
   position: absolute;
   width: 7px;
-  height: 1.5px;
-  background: rgba(248, 113, 113, 0.4);
+  height: 1.8px;
+  background: #f87171;
   border-radius: 1px;
 }
 

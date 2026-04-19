@@ -77,11 +77,11 @@ export function CreatePersonaDialog() {
         frontImage: images.front,
         leftImage: images.left,
         rightImage: images.right,
-        name: (name || 'My Persona').trim() || 'My Persona',
+        name: (name || 'My Character').trim() || 'My Character',
       })
       close()
     } catch (err) {
-      setError(err?.message || 'Could not create persona.')
+      setError(err?.message || 'Could not create character.')
     }
   }
 
@@ -147,7 +147,7 @@ export function CreatePersonaDialog() {
         >
           <div>
             <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: '#fff' }}>
-              Create a new persona
+              Create a new character
             </h2>
             <p
               style={{
@@ -157,8 +157,9 @@ export function CreatePersonaDialog() {
                 color: 'rgba(255,255,255,0.62)',
               }}
             >
-              Upload a front view and both side profiles. The three photos are combined into one
-              high-fidelity portrait used in your thumbnails.
+              Upload three reference photos <strong>you own or have rights to</strong>. The three
+              photos are combined into one on‑brand character look used in your thumbnails.
+              Impersonating another person is not permitted.
             </p>
           </div>
           <button
@@ -290,7 +291,7 @@ export function CreatePersonaDialog() {
         {/* Name */}
         <input
           type="text"
-          placeholder="Persona name"
+          placeholder="Character name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={120}
@@ -363,7 +364,7 @@ export function CreatePersonaDialog() {
                 Generating…
               </span>
             ) : (
-              'Generate persona'
+              'Generate character'
             )}
             <span
               style={{

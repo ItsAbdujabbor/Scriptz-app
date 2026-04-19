@@ -1100,7 +1100,7 @@ export function Sidebar({
           <span className="sidebar-account-item-icon" aria-hidden>
             <IconPersonalization />
           </span>
-          <span className="sidebar-account-item-label">Personas</span>
+          <span className="sidebar-account-item-label">Characters</span>
         </button>
         <button type="button" className="sidebar-account-item" onClick={handleOpenStyles}>
           <span className="sidebar-account-item-icon" aria-hidden>

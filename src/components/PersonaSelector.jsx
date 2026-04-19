@@ -30,13 +30,21 @@ function IconPersona() {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.8"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden
     >
-      <path d="M12 3a9 9 0 0 0 9 9c0-5-4-9-9-9z" />
-      <path d="M12 12a9 9 0 0 0 9 9" />
-      <path d="M12 12a9 9 0 0 1-9 9" />
+      {/* head */}
+      <circle cx="12" cy="9" r="3.4" />
+      {/* shoulders / shirt line */}
+      <path d="M5 20.2c1-3.6 3.8-5.6 7-5.6s6 2 7 5.6" />
+      {/* sparkle — denotes "AI character" */}
+      <path
+        d="M18.5 4.4 19 3l.5 1.4L21 5l-1.5.6L19 7l-.5-1.4L17 5z"
+        fill="currentColor"
+        stroke="none"
+      />
     </svg>
   )
 }
@@ -115,8 +123,8 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
           onClick={() => {
             window.location.hash = 'pro'
           }}
-          aria-label="Personas — upgrade to Creator to unlock"
-          title="Personas are a Creator+ feature. Click to upgrade."
+          aria-label="Character looks — upgrade to Creator to unlock"
+          title="Character looks are a Creator+ feature. Click to upgrade."
         >
           <span className="persona-selector-icon">
             <IconLock />
@@ -141,9 +149,11 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={selectedPersona ? `Persona: ${selectedPersona.name}` : 'Select persona'}
+        aria-label={selectedPersona ? `Character: ${selectedPersona.name}` : 'Select character'}
         title={
-          selectedPersona ? selectedPersona.name : 'Persona — guides face & voice in thumbnails'
+          selectedPersona
+            ? selectedPersona.name
+            : 'Character — a reusable on-brand look for your thumbnails'
         }
       >
         {selectedPersona?.image_url ? (
@@ -158,7 +168,7 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
         {!isGlassCircle && (
           <>
             <span className="persona-selector-label">
-              {selectedPersona ? selectedPersona.name : 'Persona'}
+              {selectedPersona ? selectedPersona.name : 'Character'}
             </span>
             <span className="persona-selector-chevron">
               <IconChevronDown />
@@ -175,8 +185,8 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
           type="button"
           className={`persona-selector-reset ${isGlassCircle ? 'persona-selector-reset--circle' : ''}`}
           onClick={handleClear}
-          aria-label={`Clear persona (${selectedPersona.name})`}
-          title="Clear persona"
+          aria-label={`Clear character (${selectedPersona.name})`}
+          title="Clear character"
         >
           <svg
             viewBox="0 0 24 24"
@@ -202,7 +212,7 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
             style={popoverStyle}
           >
             {isPending && (
-              <SkeletonGroup className="persona-selector-loading" label="Loading personas">
+              <SkeletonGroup className="persona-selector-loading" label="Loading characters">
                 <Skeleton height={36} radius={10} />
                 <Skeleton height={36} radius={10} />
                 <Skeleton height={36} radius={10} />
@@ -210,7 +220,7 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
             )}
             {!isPending && items.length === 0 && (
               <div className="persona-selector-empty">
-                <p>No personas yet.</p>
+                <p>No characters yet.</p>
                 {onOpenLibrary && (
                   <button
                     type="button"
@@ -220,7 +230,7 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
                       onOpenLibrary()
                     }}
                   >
-                    Create your first persona
+                    Create your first character
                   </button>
                 )}
               </div>
@@ -270,7 +280,7 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
                       onOpenLibrary()
                     }}
                   >
-                    Manage personas…
+                    Manage characters…
                   </button>
                 )}
               </>

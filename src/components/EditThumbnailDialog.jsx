@@ -7,7 +7,7 @@
  *   3. Toolbar row (Edit tab only):
  *        left  → Rect · Brush · Eraser · Brush-size · Colour
  *        right → Undo · Redo · Clear
- *   4. Pill tabbar (Edit | Face swap).
+ *   4. Pill tabbar (Edit | Character swap).
  *   5. Floating-glass input bar (matches Optimize Video) with batch
  *      picker and send. Face-swap tab shows `<PersonaSelector>` in the
  *      action row.
@@ -25,9 +25,10 @@ import { createPortal } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { thumbnailsApi } from '../api/thumbnails'
-import { invalidateCredits } from '../queries/billing/creditsQueries'
+import { invalidateCredits, useCostOf } from '../queries/billing/creditsQueries'
 import { usePersonaStore } from '../stores/personaStore'
 import { PersonaSelector } from './PersonaSelector'
+import { SegmentedTabs } from './ui/SegmentedTabs'
 
 const Z_INDEX = 2147483647
 const PRIMARY_GRADIENT = 'linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)'
@@ -79,30 +80,63 @@ const IconSparkle = ({ size = 14 }) => (
     <path d="M13 2 3 14h7l-1 8 11-13h-8l1-7z" />
   </svg>
 )
-const IconWand = (p) => (
+const IconPencil = (p) => (
   <Svg
     {...p}
     path={
       <>
-        <path d="m15 4 2 2" />
-        <path d="M9 10l-6 6 2 2 6-6" />
-        <path d="m15 4 4 4-9 9-4-4 9-9z" />
+        <path d="M14.7 5.3a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 9.7-9.7z" />
+        <path d="M13 7 17 11" />
       </>
     }
   />
 )
-const IconFace = (p) => (
+const IconFaceSwap = (p) => (
   <Svg
     {...p}
     path={
       <>
-        <circle cx="12" cy="12" r="9" />
-        <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-        <circle cx="9" cy="10" r="0.7" fill="currentColor" />
-        <circle cx="15" cy="10" r="0.7" fill="currentColor" />
+        {/* head silhouette */}
+        <circle cx="12" cy="9" r="3.2" />
+        <path d="M6 19c1-3 3.4-4.5 6-4.5s5 1.5 6 4.5" />
+        {/* swap arrows arcing around the head */}
+        <path d="M3 10.5a6 6 0 0 1 4-4.2" />
+        <polyline points="7.2 4.2 7 6.3 9 6.5" />
+        <path d="M21 13.5a6 6 0 0 1-4 4.2" />
+        <polyline points="16.8 19.8 17 17.7 15 17.5" />
       </>
     }
   />
+)
+const IconPersonaHead = (p) => (
+  <Svg
+    {...p}
+    path={
+      <>
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6" />
+      </>
+    }
+  />
+)
+const IconChevron = (p) => (
+  <Svg {...p} strokeWidth={2.4} path={<polyline points="6 9 12 15 18 9" />} />
+)
+const IconLayers = (p) => (
+  <Svg
+    {...p}
+    path={
+      <>
+        <polygon points="12 3 21 8 12 13 3 8 12 3" />
+        <polyline points="3 13 12 18 21 13" />
+      </>
+    }
+  />
+)
+const IconZapFilled = ({ size = 12 }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size} aria-hidden>
+    <path d="M13 2 3 14h7l-1 8 11-13h-8l1-7z" />
+  </svg>
 )
 const IconArrowUp = (p) => (
   <Svg
@@ -209,6 +243,119 @@ function hexToRgba(hex, alpha = 1) {
 }
 
 /* ── Batch picker (matches VideoOptimize) ─────────────────────────── */
+function BatchRowBtn({ value, onChange, disabled }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    if (open) {
+      document.addEventListener('click', onDoc)
+      return () => document.removeEventListener('click', onDoc)
+    }
+  }, [open])
+  return (
+    <div ref={ref} style={{ position: 'relative', width: '100%' }}>
+      <button
+        type="button"
+        onClick={() => !disabled && setOpen((o) => !o)}
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`${value} ${value === 1 ? 'variant' : 'variants'} per run`}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          width: '100%',
+          padding: '10px 14px',
+          gap: 10,
+          borderRadius: 12,
+          border: `1px solid ${open ? 'rgba(139,92,246,0.4)' : 'rgba(255,255,255,0.08)'}`,
+          background: open ? 'rgba(139,92,246,0.1)' : 'rgba(255,255,255,0.05)',
+          color: 'rgba(255,255,255,0.9)',
+          fontFamily: 'inherit',
+          fontSize: 13,
+          fontWeight: 500,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          opacity: disabled ? 0.55 : 1,
+          transition: 'background 0.18s ease, border-color 0.18s ease',
+        }}
+      >
+        <span style={{ display: 'inline-flex', opacity: 0.75 }}>
+          <IconLayers size={16} />
+        </span>
+        <span style={{ flex: 1, textAlign: 'left' }}>
+          {value} {value === 1 ? 'variant' : 'variants'}
+        </span>
+        <span
+          style={{
+            opacity: 0.6,
+            transition: 'transform 0.2s',
+            transform: open ? 'rotate(180deg)' : 'none',
+            display: 'inline-flex',
+          }}
+        >
+          <IconChevron size={14} />
+        </span>
+      </button>
+      {open && !disabled && (
+        <div
+          role="listbox"
+          style={{
+            position: 'absolute',
+            bottom: 'calc(100% + 6px)',
+            left: 0,
+            right: 0,
+            display: 'flex',
+            gap: 4,
+            padding: 4,
+            background: 'rgba(14, 14, 18, 0.92)',
+            border: '0.5px solid rgba(255,255,255,0.1)',
+            borderRadius: 12,
+            boxShadow: '0 10px 32px rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(22px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(22px) saturate(180%)',
+            zIndex: 10,
+            animation: 'etd-fade-in 0.18s cubic-bezier(0.32, 0.72, 0, 1) both',
+          }}
+        >
+          {[1, 2, 3, 4].map((n) => (
+            <button
+              key={n}
+              type="button"
+              role="option"
+              aria-selected={n === value}
+              onClick={() => {
+                onChange(n)
+                setOpen(false)
+              }}
+              style={{
+                flex: 1,
+                height: 32,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: 600,
+                fontFamily: 'inherit',
+                color: n === value ? '#ffffff' : 'rgba(255,255,255,0.6)',
+                background: n === value ? 'rgba(255,255,255,0.14)' : 'transparent',
+                cursor: 'pointer',
+                transition: 'background 0.15s ease, color 0.15s ease',
+              }}
+            >
+              {n}×
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function BatchPicker({ value, onChange, disabled }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -299,6 +446,138 @@ function CircleBtn({ onClick, disabled, active, title, children, label, danger }
   )
 }
 
+/** Matches the `thumb-send-pill` pattern from ThumbnailGenerator: cost+zap
+ *  on the left separated by a thin divider, label in the middle, icon on
+ *  the right. Hover brightness, active scale.  */
+function PrimaryActionBtn({
+  onClick,
+  disabled,
+  busy,
+  label,
+  busyLabel,
+  icon,
+  fullWidth = false,
+  ariaLabel,
+  creditCost, // number — live per-tier cost
+}) {
+  const enabled = !disabled
+  const showCost = creditCost != null && creditCost > 0
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={ariaLabel || label}
+      aria-busy={busy || undefined}
+      style={{
+        position: 'relative',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '0.5rem',
+        width: fullWidth ? '100%' : 'auto',
+        height: 38,
+        padding: showCost ? '0 1rem 0 0.85rem' : '0 1.05rem',
+        border: 'none',
+        borderRadius: 999,
+        background: enabled ? PRIMARY_GRADIENT : 'rgba(255,255,255,0.08)',
+        color: enabled ? '#ffffff' : 'rgba(255,255,255,0.5)',
+        fontFamily: 'inherit',
+        fontSize: '0.84rem',
+        fontWeight: 700,
+        letterSpacing: '-0.005em',
+        whiteSpace: 'nowrap',
+        cursor: enabled ? 'pointer' : 'not-allowed',
+        opacity: enabled ? 1 : 0.5,
+        outline: 'none',
+        boxShadow: enabled ? 'inset 0 1px 0 rgba(255,255,255,0.18)' : 'none',
+        transition: 'filter 0.22s ease, opacity 0.14s ease, transform 0.15s ease',
+      }}
+      onMouseEnter={(e) => {
+        if (enabled) e.currentTarget.style.filter = 'brightness(1.08)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.filter = ''
+        e.currentTarget.style.transform = ''
+      }}
+      onPointerDown={(e) => {
+        if (enabled) {
+          e.currentTarget.style.transform = 'scale(0.97)'
+          e.currentTarget.style.filter = 'brightness(0.97)'
+        }
+      }}
+      onPointerUp={(e) => {
+        e.currentTarget.style.transform = ''
+        e.currentTarget.style.filter = enabled ? 'brightness(1.08)' : ''
+      }}
+    >
+      {busy ? (
+        <>
+          <span
+            style={{
+              width: 13,
+              height: 13,
+              borderRadius: '50%',
+              border: '2px solid rgba(255,255,255,0.3)',
+              borderTopColor: '#fff',
+              animation: 'etd-spin 0.7s linear infinite',
+            }}
+            aria-hidden
+          />
+          <span>{busyLabel || 'Working…'}</span>
+        </>
+      ) : (
+        <>
+          {showCost && (
+            <span
+              aria-hidden
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 3,
+                lineHeight: 1,
+                paddingRight: '0.5rem',
+                borderRight: '1px solid rgba(255, 255, 255, 0.24)',
+              }}
+            >
+              <IconZapFilled size={12} />
+              <span
+                style={{
+                  fontVariantNumeric: 'tabular-nums',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.01em',
+                }}
+              >
+                {creditCost}
+              </span>
+            </span>
+          )}
+          <span
+            style={{
+              textShadow: '0 1px 2px rgba(0, 0, 0, 0.18)',
+            }}
+          >
+            {label}
+          </span>
+          {icon && (
+            <span
+              style={{
+                display: 'inline-grid',
+                placeItems: 'center',
+                width: 14,
+                height: 14,
+              }}
+            >
+              {icon}
+            </span>
+          )}
+        </>
+      )}
+    </button>
+  )
+}
+
 function Popover({ children }) {
   return (
     <div
@@ -366,6 +645,10 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
   const editTextareaRef = useRef(null)
   const queryClient = useQueryClient()
   const selectedPersona = usePersonaStore((s) => s.selectedPersona)
+
+  // Live per-tier credit cost for the action the user is about to take.
+  // Backend charges the same cost for edit + faceswap, so one key covers both.
+  const { unit: unitCost, total: totalCost } = useCostOf('thumbnail_edit_faceswap', batch)
 
   // Canvas refs
   const maskCanvasRef = useRef(null) // full natural resolution mask canvas
@@ -712,7 +995,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
         err?.message ||
           (tab === 'edit'
             ? 'Edit failed. Try a different prompt.'
-            : 'Face swap failed. Try another persona.')
+            : 'Character swap failed. Try another character.')
       )
       setBusy(false)
     }
@@ -761,6 +1044,30 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
           from { opacity: 0; transform: translateX(-50%) translateY(4px) scale(0.95); }
           to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
         }
+        @keyframes etd-fade-in {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        /* Widen the PersonaSelector trigger into a full-row button when it
+         * lives inside the face-swap panel. */
+        .etd-face-panel .persona-selector { width: 100%; }
+        .etd-face-panel .persona-selector-trigger {
+          display: flex;
+          width: 100%;
+          padding: 10px 14px;
+          border-radius: 12px;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid rgba(255,255,255,0.08);
+          font-size: 13px;
+        }
+        .etd-face-panel .persona-selector-trigger:hover {
+          background: rgba(139, 92, 246, 0.1);
+          border-color: rgba(139, 92, 246, 0.38);
+        }
+        .etd-face-panel .persona-selector-label { max-width: none; flex: 1; text-align: left; }
+        .etd-face-panel .persona-selector-trigger-img { width: 22px; height: 22px; border-radius: 999px; }
+        .etd-face-panel .persona-selector-icon svg { width: 18px; height: 18px; }
+        .etd-face-panel .persona-selector-reset { top: 6px; right: 6px; }
       `}</style>
 
       <div
@@ -857,81 +1164,72 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
           Edit thumbnail
         </div>
 
-        {/* Thumbnail + canvas */}
+        {/* Thumbnail + canvas — 16:9 card, no dead space. */}
         <div
           ref={stageRef}
           style={{
             position: 'relative',
-            flex: '1 1 auto',
-            minHeight: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            alignSelf: 'center',
+            width: '100%',
+            maxWidth: 640,
+            aspectRatio: '16 / 9',
             borderRadius: 14,
             overflow: 'hidden',
             background: 'rgba(12, 10, 18, 0.55)',
             border: '0.5px solid rgba(255,255,255,0.1)',
           }}
         >
-          <div
-            style={{
-              position: 'relative',
-              width: '100%',
-              maxHeight: 'min(56vh, 560px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {imageUrl ? (
-              <img
-                src={imageUrl}
-                alt="Thumbnail"
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  maxHeight: 'min(56vh, 560px)',
-                  height: 'auto',
-                  objectFit: 'contain',
-                  userSelect: 'none',
-                  pointerEvents: 'none',
-                }}
-                draggable={false}
-              />
-            ) : (
-              <div
-                style={{
-                  padding: 60,
-                  color: 'rgba(255,255,255,0.5)',
-                  fontSize: 14,
-                }}
-              >
-                No thumbnail.
-              </div>
-            )}
-
-            <canvas
-              ref={maskCanvasRef}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerLeave={onPointerUp}
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt="Thumbnail"
               style={{
-                position: 'absolute',
-                inset: 0,
+                display: 'block',
                 width: '100%',
                 height: '100%',
-                // Painted strokes are full-opacity on the canvas; CSS opacity
-                // makes the overlay look transparent. This means painting over
-                // the same spot twice doesn't accumulate darker — it stays one
-                // uniform transparent layer.
-                opacity: MASK_CSS_OPACITY,
-                cursor: tab !== 'edit' || busy ? 'default' : 'crosshair',
-                touchAction: 'none',
-                pointerEvents: tab === 'edit' && !busy ? 'auto' : 'none',
+                objectFit: 'cover',
+                userSelect: 'none',
+                pointerEvents: 'none',
               }}
+              draggable={false}
             />
-          </div>
+          ) : (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                height: '100%',
+                color: 'rgba(255,255,255,0.5)',
+                fontSize: 14,
+              }}
+            >
+              No thumbnail.
+            </div>
+          )}
+
+          <canvas
+            ref={maskCanvasRef}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerLeave={onPointerUp}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              // Painted strokes are full-opacity on the canvas; CSS opacity
+              // makes the overlay look transparent. This means painting over
+              // the same spot twice doesn't accumulate darker — it stays one
+              // uniform transparent layer.
+              opacity: MASK_CSS_OPACITY,
+              cursor: busy ? 'default' : 'crosshair',
+              touchAction: 'none',
+              pointerEvents: busy ? 'none' : 'auto',
+            }}
+          />
 
           {busy && (
             <div
@@ -962,263 +1260,250 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
               <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.88)' }}>
                 {tab === 'edit'
                   ? `AI is editing${batch > 1 ? ` ${batch} variants` : ''}…`
-                  : `Swapping face${batch > 1 ? ` × ${batch}` : ''}…`}
+                  : `Swapping character${batch > 1 ? ` × ${batch}` : ''}…`}
               </span>
             </div>
           )}
         </div>
 
-        {/* Toolbar — visible only in Edit tab */}
-        {tab === 'edit' && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '0 4px',
-            }}
-          >
-            {/* Left side — tools, separated by gap */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <CircleBtn
-                onClick={() => setTool('rect')}
-                active={tool === 'rect'}
-                title="Rectangle (R)"
-                disabled={busy}
-              >
-                <IconRect size={14} />
-              </CircleBtn>
-              <CircleBtn
-                onClick={() => setTool('brush')}
-                active={tool === 'brush'}
-                title="Brush (B)"
-                disabled={busy}
-              >
-                <IconBrush size={14} />
-              </CircleBtn>
-              <CircleBtn
-                onClick={() => setTool('eraser')}
-                active={tool === 'eraser'}
-                title="Eraser (E)"
-                disabled={busy}
-              >
-                <IconEraser size={14} />
-              </CircleBtn>
-
-              {/* Brush size popover */}
-              <div ref={sizePopoverRef} style={{ position: 'relative' }}>
-                <CircleBtn
-                  onClick={() => {
-                    setSizePopoverOpen((o) => !o)
-                    setColorPopoverOpen(false)
-                  }}
-                  active={sizePopoverOpen}
-                  title={`Brush size: ${brushSize}px`}
-                  disabled={busy}
-                >
-                  <span
-                    style={{
-                      width: Math.min(16, Math.max(6, brushSize / 3)),
-                      height: Math.min(16, Math.max(6, brushSize / 3)),
-                      borderRadius: '50%',
-                      background: 'currentColor',
-                    }}
-                    aria-hidden
-                  />
-                </CircleBtn>
-                {sizePopoverOpen && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: 'calc(100% + 8px)',
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '10px 14px',
-                      background: 'rgba(14, 14, 18, 0.88)',
-                      border: '0.5px solid rgba(255,255,255,0.1)',
-                      borderRadius: 14,
-                      boxShadow: '0 10px 32px rgba(0,0,0,0.55)',
-                      backdropFilter: 'blur(22px) saturate(180%)',
-                      animation: 'etd-popover-in 0.18s cubic-bezier(0.32, 0.72, 0, 1) both',
-                      WebkitBackdropFilter: 'blur(22px) saturate(180%)',
-                      zIndex: 10,
-                      width: 200,
-                    }}
-                  >
-                    <input
-                      type="range"
-                      min="8"
-                      max="120"
-                      step="2"
-                      value={brushSize}
-                      onChange={(e) => setBrushSize(Number(e.target.value))}
-                      style={{ flex: 1, accentColor: '#a78bfa' }}
-                      aria-label="Brush size"
-                    />
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        fontVariantNumeric: 'tabular-nums',
-                        color: 'rgba(255,255,255,0.75)',
-                        minWidth: 32,
-                        textAlign: 'right',
-                      }}
-                    >
-                      {brushSize}px
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Color popover */}
-              <div ref={colorPopoverRef} style={{ position: 'relative' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setColorPopoverOpen((o) => !o)
-                    setSizePopoverOpen(false)
-                  }}
-                  disabled={busy}
-                  title={`Overlay colour (${color})`}
-                  aria-label="Overlay colour"
-                  aria-pressed={colorPopoverOpen}
-                  style={{
-                    width: 34,
-                    height: 34,
-                    padding: 0,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: `1px solid ${
-                      colorPopoverOpen ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.1)'
-                    }`,
-                    borderRadius: '50%',
-                    background: 'rgba(255,255,255,0.04)',
-                    cursor: busy ? 'not-allowed' : 'pointer',
-                    opacity: busy ? 0.4 : 1,
-                    transition:
-                      'border-color 0.18s ease, background 0.18s ease, transform 0.08s ease',
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 16,
-                      height: 16,
-                      borderRadius: '50%',
-                      background: color,
-                      border: '0.5px solid rgba(0,0,0,0.35)',
-                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)',
-                    }}
-                    aria-hidden
-                  />
-                </button>
-                {colorPopoverOpen && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: 'calc(100% + 8px)',
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      display: 'flex',
-                      gap: 6,
-                      padding: 8,
-                      background: 'rgba(14, 14, 18, 0.88)',
-                      border: '0.5px solid rgba(255,255,255,0.1)',
-                      borderRadius: 14,
-                      animation: 'etd-popover-in 0.18s cubic-bezier(0.32, 0.72, 0, 1) both',
-                      boxShadow: '0 10px 32px rgba(0,0,0,0.55)',
-                      backdropFilter: 'blur(22px) saturate(180%)',
-                      WebkitBackdropFilter: 'blur(22px) saturate(180%)',
-                      zIndex: 10,
-                    }}
-                  >
-                    {COLOR_SWATCHES.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => {
-                          setColor(c)
-                          setColorPopoverOpen(false)
-                        }}
-                        aria-label={`Colour ${c}`}
-                        aria-pressed={color === c}
-                        style={{
-                          width: 24,
-                          height: 24,
-                          padding: 0,
-                          border:
-                            color === c
-                              ? '1.5px solid rgba(255,255,255,0.9)'
-                              : '0.5px solid rgba(0,0,0,0.35)',
-                          borderRadius: '50%',
-                          background: c,
-                          cursor: 'pointer',
-                          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)',
-                        }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Spacer */}
-            <span style={{ flex: 1 }} />
-
-            {/* Right side — history */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <CircleBtn onClick={handleUndo} disabled={busy || undoDepth === 0} title="Undo (⌘Z)">
-                <IconUndo size={14} />
-              </CircleBtn>
-              <CircleBtn onClick={handleRedo} disabled={busy || redoDepth === 0} title="Redo (⌘⇧Z)">
-                <IconRedo size={14} />
-              </CircleBtn>
-              <CircleBtn
-                onClick={handleClear}
-                disabled={busy || !hasDrawn}
-                title="Clear all"
-                danger
-              >
-                <IconTrash size={14} />
-              </CircleBtn>
-            </div>
-          </div>
-        )}
-
-        {/* Tabbar */}
+        {/* Toolbar — visible in both tabs. Centered under the thumbnail,
+         * constrained to the same max-width so it shares the column. */}
         <div
-          role="tablist"
-          aria-label="Editor mode"
           style={{
             alignSelf: 'center',
-            display: 'inline-flex',
-            padding: 3,
-            background: 'rgba(0,0,0,0.3)',
-            borderRadius: 999,
-            border: '0.5px solid rgba(255,255,255,0.08)',
+            width: '100%',
+            maxWidth: 640,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+            padding: '6px 10px',
+            borderRadius: 14,
+            background: 'rgba(14, 14, 18, 0.45)',
+            border: '1px solid rgba(255, 255, 255, 0.06)',
+            backdropFilter: 'blur(22px) saturate(1.4)',
+            WebkitBackdropFilter: 'blur(22px) saturate(1.4)',
           }}
         >
-          <TabButton
-            active={tab === 'edit'}
-            onClick={() => {
-              setTab('edit')
+          {/* Left side — tools, separated by gap */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <CircleBtn
+              onClick={() => setTool('rect')}
+              active={tool === 'rect'}
+              title="Rectangle (R)"
+              disabled={busy}
+            >
+              <IconRect size={14} />
+            </CircleBtn>
+            <CircleBtn
+              onClick={() => setTool('brush')}
+              active={tool === 'brush'}
+              title="Brush (B)"
+              disabled={busy}
+            >
+              <IconBrush size={14} />
+            </CircleBtn>
+            <CircleBtn
+              onClick={() => setTool('eraser')}
+              active={tool === 'eraser'}
+              title="Eraser (E)"
+              disabled={busy}
+            >
+              <IconEraser size={14} />
+            </CircleBtn>
+
+            {/* Brush size popover */}
+            <div ref={sizePopoverRef} style={{ position: 'relative' }}>
+              <CircleBtn
+                onClick={() => {
+                  setSizePopoverOpen((o) => !o)
+                  setColorPopoverOpen(false)
+                }}
+                active={sizePopoverOpen}
+                title={`Brush size: ${brushSize}px`}
+                disabled={busy}
+              >
+                <span
+                  style={{
+                    width: Math.min(16, Math.max(6, brushSize / 3)),
+                    height: Math.min(16, Math.max(6, brushSize / 3)),
+                    borderRadius: '50%',
+                    background: 'currentColor',
+                  }}
+                  aria-hidden
+                />
+              </CircleBtn>
+              {sizePopoverOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: 'calc(100% + 8px)',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '10px 14px',
+                    background: 'rgba(14, 14, 18, 0.88)',
+                    border: '0.5px solid rgba(255,255,255,0.1)',
+                    borderRadius: 14,
+                    boxShadow: '0 10px 32px rgba(0,0,0,0.55)',
+                    backdropFilter: 'blur(22px) saturate(180%)',
+                    animation: 'etd-popover-in 0.18s cubic-bezier(0.32, 0.72, 0, 1) both',
+                    WebkitBackdropFilter: 'blur(22px) saturate(180%)',
+                    zIndex: 10,
+                    width: 200,
+                  }}
+                >
+                  <input
+                    type="range"
+                    min="8"
+                    max="120"
+                    step="2"
+                    value={brushSize}
+                    onChange={(e) => setBrushSize(Number(e.target.value))}
+                    style={{ flex: 1, accentColor: '#a78bfa' }}
+                    aria-label="Brush size"
+                  />
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      fontVariantNumeric: 'tabular-nums',
+                      color: 'rgba(255,255,255,0.75)',
+                      minWidth: 32,
+                      textAlign: 'right',
+                    }}
+                  >
+                    {brushSize}px
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Color popover */}
+            <div ref={colorPopoverRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setColorPopoverOpen((o) => !o)
+                  setSizePopoverOpen(false)
+                }}
+                disabled={busy}
+                title={`Overlay colour (${color})`}
+                aria-label="Overlay colour"
+                aria-pressed={colorPopoverOpen}
+                style={{
+                  width: 34,
+                  height: 34,
+                  padding: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: `1px solid ${
+                    colorPopoverOpen ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.1)'
+                  }`,
+                  borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.04)',
+                  cursor: busy ? 'not-allowed' : 'pointer',
+                  opacity: busy ? 0.4 : 1,
+                  transition:
+                    'border-color 0.18s ease, background 0.18s ease, transform 0.08s ease',
+                }}
+              >
+                <span
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: '50%',
+                    background: color,
+                    border: '0.5px solid rgba(0,0,0,0.35)',
+                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)',
+                  }}
+                  aria-hidden
+                />
+              </button>
+              {colorPopoverOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: 'calc(100% + 8px)',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    display: 'flex',
+                    gap: 6,
+                    padding: 8,
+                    background: 'rgba(14, 14, 18, 0.88)',
+                    border: '0.5px solid rgba(255,255,255,0.1)',
+                    borderRadius: 14,
+                    animation: 'etd-popover-in 0.18s cubic-bezier(0.32, 0.72, 0, 1) both',
+                    boxShadow: '0 10px 32px rgba(0,0,0,0.55)',
+                    backdropFilter: 'blur(22px) saturate(180%)',
+                    WebkitBackdropFilter: 'blur(22px) saturate(180%)',
+                    zIndex: 10,
+                  }}
+                >
+                  {COLOR_SWATCHES.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => {
+                        setColor(c)
+                        setColorPopoverOpen(false)
+                      }}
+                      aria-label={`Colour ${c}`}
+                      aria-pressed={color === c}
+                      style={{
+                        width: 24,
+                        height: 24,
+                        padding: 0,
+                        border:
+                          color === c
+                            ? '1.5px solid rgba(255,255,255,0.9)'
+                            : '0.5px solid rgba(0,0,0,0.35)',
+                        borderRadius: '50%',
+                        background: c,
+                        cursor: 'pointer',
+                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)',
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Spacer */}
+          <span style={{ flex: 1 }} />
+
+          {/* Right side — history */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <CircleBtn onClick={handleUndo} disabled={busy || undoDepth === 0} title="Undo (⌘Z)">
+              <IconUndo size={14} />
+            </CircleBtn>
+            <CircleBtn onClick={handleRedo} disabled={busy || redoDepth === 0} title="Redo (⌘⇧Z)">
+              <IconRedo size={14} />
+            </CircleBtn>
+            <CircleBtn onClick={handleClear} disabled={busy || !hasDrawn} title="Clear all" danger>
+              <IconTrash size={14} />
+            </CircleBtn>
+          </div>
+        </div>
+
+        {/* Tabbar — shared SegmentedTabs for the unified app-wide look. */}
+        <div style={{ alignSelf: 'center' }}>
+          <SegmentedTabs
+            value={tab}
+            onChange={(v) => {
+              setTab(v)
               setError(null)
             }}
-            icon={<IconWand />}
-            label="Edit"
-          />
-          <TabButton
-            active={tab === 'face'}
-            onClick={() => {
-              setTab('face')
-              setError(null)
-            }}
-            icon={<IconFace />}
-            label="Face swap"
+            ariaLabel="Editor mode"
+            layoutId="etd-mode-toggle"
+            options={[
+              { value: 'edit', label: 'Edit', icon: <IconPencil size={14} /> },
+              { value: 'face', label: 'Character swap', icon: <IconFaceSwap size={14} /> },
+            ]}
           />
         </div>
 
@@ -1242,116 +1527,107 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
           </p>
         )}
 
-        {/* Input bar */}
-        <div
-          style={{
-            alignSelf: 'center',
-            width: '100%',
-            maxWidth: 680,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 6,
-            padding: '0.55rem 0.6rem 0.45rem',
-            borderRadius: 16,
-            background: 'rgba(14, 14, 18, 0.45)',
-            backdropFilter: 'blur(48px) saturate(1.6)',
-            WebkitBackdropFilter: 'blur(48px) saturate(1.6)',
-            border: '1px solid rgba(255, 255, 255, 0.05)',
-            boxShadow: '0 -4px 24px rgba(0, 0, 0, 0.2)',
-          }}
-        >
-          <textarea
-            ref={editTextareaRef}
-            value={editPrompt}
-            onChange={(e) => {
-              setEditPrompt(e.target.value)
-              if (error) setError(null)
-            }}
-            placeholder={placeholder}
-            rows={1}
-            maxLength={400}
-            disabled={busy}
-            onKeyDown={(e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                e.preventDefault()
-                handleSubmit()
-              }
-            }}
-            style={{
-              width: '100%',
-              padding: '0.2rem 0.4rem 0.3rem',
-              fontSize: '0.86rem',
-              fontFamily: 'inherit',
-              color: 'rgba(255,255,255,0.95)',
-              background: 'transparent',
-              border: 'none',
-              outline: 'none',
-              lineHeight: 1.5,
-              resize: 'none',
-              minHeight: '1.5em',
-              maxHeight: '7.5em',
-              overflowY: 'auto',
-              boxSizing: 'border-box',
-            }}
-          />
-
+        {/* Input area — compact, matchy between tabs. */}
+        {tab === 'edit' ? (
           <div
             style={{
+              alignSelf: 'center',
+              width: '100%',
+              maxWidth: 560,
               display: 'flex',
-              alignItems: 'center',
-              gap: '0.3rem',
-              paddingTop: '0.2rem',
+              alignItems: 'flex-end',
+              gap: 8,
+              padding: '0.55rem 0.55rem 0.55rem 0.75rem',
+              borderRadius: 14,
+              background:
+                'linear-gradient(180deg, rgba(124,58,237,0.06) 0%, rgba(14,14,18,0.55) 70%)',
+              backdropFilter: 'blur(48px) saturate(1.6)',
+              WebkitBackdropFilter: 'blur(48px) saturate(1.6)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 -4px 24px rgba(0, 0, 0, 0.2)',
+              animation: 'etd-fade-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) both',
             }}
           >
-            {tab === 'face' && <PersonaSelector variant="glassCircle" />}
-
-            <span style={{ flex: 1 }} />
-
-            <BatchPicker value={batch} onChange={setBatch} disabled={busy} />
-
-            <button
-              type="button"
+            <textarea
+              ref={editTextareaRef}
+              value={editPrompt}
+              onChange={(e) => {
+                setEditPrompt(e.target.value)
+                if (error) setError(null)
+              }}
+              placeholder={placeholder}
+              rows={1}
+              maxLength={400}
+              disabled={busy}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                  e.preventDefault()
+                  handleSubmit()
+                }
+              }}
+              style={{
+                flex: 1,
+                padding: '0.5rem 0.2rem',
+                fontSize: '0.86rem',
+                fontFamily: 'inherit',
+                color: 'rgba(255,255,255,0.95)',
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                lineHeight: 1.5,
+                resize: 'none',
+                minHeight: '1.5em',
+                maxHeight: '6em',
+                overflowY: 'auto',
+                boxSizing: 'border-box',
+              }}
+            />
+            <PrimaryActionBtn
               onClick={handleSubmit}
               disabled={!canSubmit}
-              aria-label={tab === 'edit' ? 'Apply edit' : 'Swap face'}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 34,
-                height: 34,
-                flexShrink: 0,
-                border: 'none',
-                borderRadius: '50%',
-                background: canSubmit ? PRIMARY_GRADIENT : 'rgba(255,255,255,0.1)',
-                color: '#ffffff',
-                cursor: canSubmit ? 'pointer' : 'not-allowed',
-                opacity: canSubmit ? 1 : 0.45,
-                fontFamily: 'inherit',
-                boxShadow: canSubmit
-                  ? 'inset 0 1px 0 rgba(255,255,255,0.2), 0 4px 14px rgba(124,58,237,0.35)'
-                  : 'none',
-                transition: 'background 0.18s ease, opacity 0.18s ease',
-              }}
-            >
-              {busy ? (
-                <span
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: '50%',
-                    border: '2px solid rgba(255,255,255,0.3)',
-                    borderTopColor: '#fff',
-                    animation: 'etd-spin 0.7s linear infinite',
-                  }}
-                  aria-hidden
-                />
-              ) : (
-                <IconArrowUp size={15} />
-              )}
-            </button>
+              busy={busy}
+              label="Generate"
+              busyLabel="Generating…"
+              icon={<IconArrowUp size={13} />}
+              creditCost={unitCost ? (batch > 1 ? totalCost : unitCost) : null}
+            />
           </div>
-        </div>
+        ) : (
+          <div
+            className="etd-face-panel"
+            style={{
+              alignSelf: 'center',
+              width: '100%',
+              maxWidth: 380,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              padding: 12,
+              borderRadius: 18,
+              background:
+                'linear-gradient(180deg, rgba(124,58,237,0.06) 0%, rgba(14,14,18,0.55) 70%)',
+              backdropFilter: 'blur(48px) saturate(1.6)',
+              WebkitBackdropFilter: 'blur(48px) saturate(1.6)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 -4px 24px rgba(0, 0, 0, 0.2)',
+              animation: 'etd-fade-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) both',
+            }}
+          >
+            <PersonaSelector />
+            <BatchRowBtn value={batch} onChange={setBatch} disabled={busy} />
+            <PrimaryActionBtn
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              busy={busy}
+              label="Swap character"
+              busyLabel="Swapping character…"
+              icon={<IconFaceSwap size={16} />}
+              fullWidth
+              ariaLabel="Swap character"
+              creditCost={unitCost ? (batch > 1 ? totalCost : unitCost) : null}
+            />
+          </div>
+        )}
       </div>
     </div>
   )
@@ -1382,15 +1658,20 @@ function TabButton({ active, onClick, icon, label }) {
         padding: '7px 16px',
         border: 'none',
         borderRadius: 999,
-        background: active ? 'rgba(255,255,255,0.1)' : 'transparent',
+        background: active
+          ? 'linear-gradient(135deg, rgba(144,97,240,0.28) 0%, rgba(124,58,237,0.22) 100%)'
+          : 'transparent',
         color: active ? '#ffffff' : 'rgba(255,255,255,0.6)',
         fontSize: 13,
         fontWeight: 600,
         letterSpacing: '0.005em',
         fontFamily: 'inherit',
         cursor: 'pointer',
+        boxShadow: active
+          ? 'inset 0 1px 0 rgba(255,255,255,0.14), 0 4px 14px rgba(124,58,237,0.22)'
+          : 'none',
         transition:
-          'background 0.18s ease, color 0.18s ease, transform 0.12s cubic-bezier(0.33, 1, 0.68, 1)',
+          'background 0.22s ease, color 0.22s ease, box-shadow 0.22s ease, transform 0.12s cubic-bezier(0.33, 1, 0.68, 1)',
       }}
     >
       {icon}

@@ -1713,43 +1713,71 @@
   padding-bottom: 3.5rem;
 }
 
-/* Action cards — icon centered, label below, same height as thumbnail cards */
+/* Action cards — same 16:9 surface as thumbnail cards. Icon + label in
+ * the middle, subtle dashed-violet border to hint they're actions. */
 .video-opt-thumb-card--action {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   aspect-ratio: 16 / 9;
+  width: 100%;
   cursor: pointer;
   font-family: inherit;
   text-align: center;
-  color: var(--vo-text-soft);
-  padding: 0;
+  color: rgba(229, 229, 231, 0.72);
+  padding: 0.6rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(167, 139, 250, 0.28);
+  border-radius: 12px;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.video-opt-thumb-card--action:hover {
-  color: var(--vo-text-muted);
+.video-opt-thumb-card--action:hover:not(:disabled) {
+  color: #fff;
+  background: rgba(167, 139, 250, 0.08);
+  border-color: rgba(196, 181, 253, 0.5);
+  transform: translateY(-1px);
 }
 
 .video-opt-thumb-card--action:disabled {
-  opacity: 0.3;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
-.video-opt-thumb-card--action:active {
-  transform: scale(0.96);
-  transition: transform 0.06s ease;
+.video-opt-thumb-card--action:active:not(:disabled) {
+  transform: translateY(0) scale(0.985);
+  transition: transform 0.08s ease;
 }
 
 .video-opt-thumb-card--action-active {
-  border-color: var(--vo-border-hover);
+  color: #fff;
+  background: rgba(167, 139, 250, 0.08);
+  border-style: solid;
+  border-color: rgba(196, 181, 253, 0.55);
+}
+
+.video-opt-thumb-card--action svg {
+  opacity: 0.8;
 }
 
 .video-opt-thumb-card-action-label {
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   font-weight: 600;
+  letter-spacing: 0.005em;
   color: inherit;
+}
+
+/* CreditBadge slot — sits in the corner without stealing attention */
+.video-opt-thumb-card--action .vo-send-pill-cost,
+.video-opt-thumb-card--action [data-credit-badge] {
+  margin-top: 0.1rem;
 }
 
 .video-opt-thumb-file-input {
@@ -1763,26 +1791,71 @@
   gap: 0.75rem;
 }
 
-/* Thumbnail card */
+/* Thumbnail card — click anywhere to select. Bottom 3 round actions
+ * live INSIDE the image in a glass tray, always visible. */
 .video-opt-thumb-card {
   position: relative;
-  background: var(--vo-surface);
-  border: 1px solid var(--vo-border);
-  border-radius: 14px;
-  overflow: hidden;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .video-opt-thumb-card:hover {
-  background: rgba(255, 255, 255, 0.045);
-  border-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+}
+.video-opt-thumb-card:active {
+  transform: translateY(0) scale(0.995);
+}
+.video-opt-thumb-card:focus-visible {
+  outline: none;
+}
+.video-opt-thumb-card:focus-visible .video-opt-thumb-card-img-wrap {
+  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.55);
 }
 
-.video-opt-thumb-card--selected {
-  border-color: rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.05);
+/* Selected state lives on the image wrapper — a calm violet border,
+ * no drop-glow. Keeps the grid feeling flat. No border transition so
+ * hovering over an already-selected card stays perfectly still. */
+.video-opt-thumb-card-img-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0a0a0a;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.video-opt-thumb-card:hover .video-opt-thumb-card-img-wrap {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.video-opt-thumb-card--selected .video-opt-thumb-card-img-wrap,
+.video-opt-thumb-card--selected:hover .video-opt-thumb-card-img-wrap {
+  border-color: rgba(167, 139, 250, 0.65);
+  box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.45);
+}
+
+.video-opt-thumb-card-check {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  pointer-events: none;
+  z-index: 3;
+}
+.video-opt-thumb-card-check svg {
+  width: 13px;
+  height: 13px;
 }
 
 .video-opt-thumb-card--current {
@@ -1793,31 +1866,29 @@
   min-height: 0;
 }
 
-.video-opt-thumb-card-img-wrap {
-  width: 100%;
-  aspect-ratio: 16/9;
-  background: #0a0a0a;
-  overflow: hidden;
-  cursor: pointer;
-  position: relative;
-}
+/* .video-opt-thumb-card-img-wrap is defined earlier (click target) */
 
 .video-opt-thumb-card-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.2s ease;
+  display: block;
+  transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+  pointer-events: none;
 }
 
 .video-opt-thumb-card:hover .video-opt-thumb-card-img {
-  transform: scale(1.03);
+  transform: scale(1.025);
 }
 
-/* Badge overlay (Current / Uploaded) */
+/* Badge overlay (Current / Uploaded) — pinned to top-right so it sits
+ * opposite the selected-check chip in the top-left. Generated thumbnails
+ * get a score badge in the same slot; Current/Uploaded never have a score
+ * so there's no collision. */
 .video-opt-thumb-card-badge {
   position: absolute;
   top: 0.4rem;
-  left: 0.4rem;
+  right: 0.4rem;
   padding: 0.15rem 0.45rem;
   font-size: 0.65rem;
   font-weight: 700;
@@ -1871,67 +1942,59 @@
   font-weight: 500;
 }
 
-/* Card actions row */
-.video-opt-thumb-card-actions {
+/* Action trio — sits INSIDE the image, pinned close to the bottom edge. */
+.video-opt-thumb-card-float {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.35rem 0.4rem;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(10, 10, 14, 0.72);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 4;
 }
 
-.video-opt-thumb-card-btn {
+.video-opt-thumb-card-float-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.2rem;
-  padding: 0.25rem 0.45rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  font-family: inherit;
-  color: rgba(255, 255, 255, 0.45);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 100px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.85);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
   cursor: pointer;
   text-decoration: none;
   transition:
-    background 0.1s ease,
-    color 0.1s ease;
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease;
 }
-
-.video-opt-thumb-card-btn svg {
-  flex-shrink: 0;
+.video-opt-thumb-card-float-btn svg {
+  width: 13px;
+  height: 13px;
 }
-
-.video-opt-thumb-card-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.75);
-}
-
-.video-opt-thumb-card-btn:active {
-  transform: scale(0.94);
-  transition: transform 0.06s ease;
-}
-
-.video-opt-thumb-card-btn--select {
-  color: rgba(255, 255, 255, 0.55);
-  padding: 0.25rem 0.55rem;
-}
-
-.video-opt-thumb-card-btn--active {
-  background: rgba(255, 255, 255, 0.1);
+.video-opt-thumb-card-float-btn:hover {
   color: #fff;
-  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.12);
 }
-
-.video-opt-thumb-card-btn--remove {
-  margin-left: auto;
+.video-opt-thumb-card-float-btn:active {
+  transform: scale(0.92);
 }
-
-.video-opt-thumb-card-btn--remove:hover {
-  background: rgba(239, 68, 68, 0.12);
+.video-opt-thumb-card-float-btn--danger {
+  color: rgba(252, 165, 165, 0.9);
+}
+.video-opt-thumb-card-float-btn--danger:hover {
   color: #fca5a5;
-  border-color: rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.18);
 }
 
 /* ── Shared floating glass input bars — absolute overlay at bottom ── */
@@ -1953,7 +2016,7 @@
 .video-opt-float-glass {
   width: 100%;
   max-width: 460px;
-  min-height: 48px;
+  min-height: 72px;
   display: flex;
   flex-direction: column;
   background: rgba(14, 14, 18, 0.45);
@@ -1961,16 +2024,16 @@
   -webkit-backdrop-filter: blur(48px) saturate(1.6);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 16px;
-  padding: 0.55rem 0.6rem 0.45rem;
+  padding: 0.7rem 0.75rem 0.55rem;
   pointer-events: auto;
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.2);
 }
 
-/* Auto-expanding textarea */
-/* Textarea — expands then scrolls */
+/* Auto-expanding textarea — starts two lines tall so the composer
+ * feels substantial, then grows with the content. */
 .video-opt-float-input {
   width: 100%;
-  padding: 0.2rem 0.1rem 0.3rem;
+  padding: 0.25rem 0.1rem 0.35rem;
   font-size: 0.86rem;
   font-family: inherit;
   color: var(--vo-text);
@@ -1979,8 +2042,8 @@
   outline: none;
   line-height: 1.5;
   resize: none;
-  min-height: 1.5em;
-  max-height: 7.5em;
+  min-height: 3em;
+  max-height: 9em;
   overflow-y: auto;
   box-sizing: border-box;
   scrollbar-width: thin;
@@ -2005,12 +2068,23 @@
   color: var(--vo-text-soft);
 }
 
-/* Action row */
+/* Action row — left controls + right (batch + send) split groups */
 .video-opt-float-actions {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.3rem;
   padding-top: 0.2rem;
+}
+.video-opt-float-actions-left,
+.video-opt-float-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.video-opt-float-actions-right {
+  margin-left: auto;
 }
 
 /* Circle button — 34px to match persona/style selectors */

@@ -10,11 +10,12 @@ import {
   SkeletonThumbGrid,
   InlineSpinner,
 } from '../components/ui'
-import { TabBar } from '../components/TabBar'
+import { SegmentedTabs } from '../components/ui/SegmentedTabs'
 import { useYoutubeVideoOptimization } from '../queries/youtube/optimizationQueries'
 import { videoThumbnailsApi } from '../api/videoThumbnails'
 import { PersonaSelector } from '../components/PersonaSelector'
 import { StyleSelector } from '../components/StyleSelector'
+import { EditThumbnailDialog } from '../components/EditThumbnailDialog'
 import { useCostOf } from '../queries/billing/creditsQueries'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 // ABTestPanel removed from Video Optimize — A/B Testing has its own top-level screen.
@@ -154,9 +155,9 @@ function BatchCirclePicker({ value, onChange, disabled }) {
 }
 
 const TABS = [
-  { id: 'title', label: 'Title' },
-  { id: 'thumbnail', label: 'Thumbnails' },
-  { id: 'seo', label: 'SEO' },
+  { value: 'title', label: 'Title' },
+  { value: 'thumbnail', label: 'Thumbnails' },
+  { value: 'seo', label: 'SEO' },
 ]
 
 const SCORE_TIERS = [
@@ -197,6 +198,159 @@ const SCORE_TIERS = [
 function getScoreTier(score) {
   const n = Math.max(0, Math.min(100, Math.round(score)))
   return SCORE_TIERS.find((t) => n >= t.min && n <= t.max) || SCORE_TIERS[3]
+}
+
+/* ─ Thumbnail result card ─────────────────────────────────────────────
+ * Click anywhere to select. Three always-visible round actions (Preview ·
+ * Download · Delete) sit in a glass bar at the bottom of the image. Pass
+ * `hideDelete` to suppress delete on immutable cards (e.g. the original). */
+function ThumbResultCard({
+  imageUrl,
+  alt,
+  score,
+  badge,
+  selected,
+  onSelect,
+  onPreview,
+  onEdit,
+  downloadName,
+  onDelete,
+  hideDelete = false,
+  hideEdit = false,
+}) {
+  const stop = (fn) => (e) => {
+    e.stopPropagation()
+    fn?.()
+  }
+  return (
+    <motion.div
+      className={`video-opt-thumb-card ${selected ? 'video-opt-thumb-card--selected' : ''}`}
+      initial={{ opacity: 0, scale: 0.94 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.94 }}
+      transition={{ duration: 0.22, ease: [0.33, 1, 0.68, 1] }}
+      layout
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect?.()
+        }
+      }}
+    >
+      <div className="video-opt-thumb-card-img-wrap">
+        <img src={imageUrl} alt={alt || ''} className="video-opt-thumb-card-img" />
+        {selected && (
+          <span className="video-opt-thumb-card-check" aria-hidden>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m5 12 5 5L20 7" />
+            </svg>
+          </span>
+        )}
+        {badge && <span className="video-opt-thumb-card-badge">{badge}</span>}
+        {score != null && (
+          <span
+            className={`video-opt-thumb-card-score video-opt-thumb-card-score--${getScoreTier(score).id}`}
+          >
+            {score}
+          </span>
+        )}
+        <div className="video-opt-thumb-card-float" role="toolbar" aria-label="Thumbnail actions">
+          <button
+            type="button"
+            className="video-opt-thumb-card-float-btn"
+            onClick={stop(onPreview)}
+            title="Preview"
+            aria-label="Preview"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+            </svg>
+          </button>
+          {!hideEdit && onEdit && (
+            <button
+              type="button"
+              className="video-opt-thumb-card-float-btn"
+              onClick={stop(onEdit)}
+              title="Edit"
+              aria-label="Edit"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M14.7 5.3a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 9.7-9.7z" />
+                <path d="M13 7 17 11" />
+              </svg>
+            </button>
+          )}
+          <a
+            href={imageUrl}
+            download={downloadName}
+            onClick={(e) => e.stopPropagation()}
+            className="video-opt-thumb-card-float-btn"
+            title="Download"
+            aria-label="Download"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          </a>
+          {!hideDelete && onDelete && (
+            <button
+              type="button"
+              className="video-opt-thumb-card-float-btn video-opt-thumb-card-float-btn--danger"
+              onClick={stop(onDelete)}
+              title="Delete"
+              aria-label="Delete"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  )
 }
 
 export function VideoOptimizeModal({
@@ -251,6 +405,7 @@ export function VideoOptimizeModal({
   const [selectedPreviewThumbnailUrl, setSelectedPreviewThumbnailUrl] = useState(null)
   // (previewTheme removed with the Preview tab — left sidebar preview uses a fixed dark theme.)
   const [fullSizeImage, setFullSizeImage] = useState(null)
+  const [editingUrl, setEditingUrl] = useState(null)
   const fileInputRef = useRef(null)
   const screenRef = useRef(null)
   const scoreAbortRef = useRef(null)
@@ -814,6 +969,32 @@ export function VideoOptimizeModal({
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.35, ease: [0.33, 1, 0.68, 1] }}
     >
+      {/* AI edit dialog — opens from any thumbnail card's Edit button. The
+       *  result is pushed into the "Uploaded" bucket so it appears in the
+       *  grid immediately (we don't mutate the YouTube thumbnail itself). */}
+      {editingUrl && (
+        <EditThumbnailDialog
+          imageUrl={editingUrl}
+          onClose={() => setEditingUrl(null)}
+          onApply={(result) => {
+            const urls = Array.isArray(result) ? result : [result]
+            const added = urls.filter(Boolean).map((image_url, i) => ({
+              image_url,
+              title: 'Edited',
+              id: `edit-${Date.now()}-${i}`,
+            }))
+            if (added.length) {
+              setUploadedByVideo((prev) => ({
+                ...prev,
+                [videoId]: [...added, ...(prev[videoId] || [])],
+              }))
+              setSelectedPreviewThumbnailUrl(added[0].image_url)
+            }
+            setEditingUrl(null)
+          }}
+        />
+      )}
+
       {/* Full-size image viewer */}
       <AnimatePresence>
         {fullSizeImage && (
@@ -1015,12 +1196,12 @@ export function VideoOptimizeModal({
         {/* Right — tools */}
         <div className="video-opt-tools">
           <div className="video-opt-screen-tabrow">
-            <TabBar
-              tabs={TABS}
+            <SegmentedTabs
               value={activeTab}
               onChange={setActiveTab}
+              options={TABS}
               ariaLabel="Optimization sections"
-              variant="modal"
+              layoutId="video-opt-tabs"
               className="video-opt-tabs"
             />
           </div>
@@ -1391,23 +1572,33 @@ export function VideoOptimizeModal({
                           <span className="video-opt-thumb-card-action-label">Upload</span>
                         </button>
 
-                        {/* Current */}
-                        <div
-                          className={`video-opt-thumb-card video-opt-thumb-card--current ${!selectedPreviewThumbnailUrl ? 'video-opt-thumb-card--selected' : ''}`}
-                          onClick={() => setSelectedPreviewThumbnailUrl(null)}
-                        >
-                          <div className="video-opt-thumb-card-img-wrap">
-                            <img
-                              src={
-                                video?.thumbnail_url ||
+                        {/* Current — original YouTube thumbnail, cannot be deleted.
+                         *  Editing opens the dialog with a fresh copy; the original on
+                         *  YouTube is never overwritten from here. */}
+                        <ThumbResultCard
+                          imageUrl={
+                            video?.thumbnail_url ||
+                            `https://img.youtube.com/vi/${video?.id}/mqdefault.jpg`
+                          }
+                          alt="Current"
+                          badge="Current"
+                          selected={!selectedPreviewThumbnailUrl}
+                          onSelect={() => setSelectedPreviewThumbnailUrl(null)}
+                          onPreview={() =>
+                            setFullSizeImage(
+                              video?.thumbnail_url ||
                                 `https://img.youtube.com/vi/${video?.id}/mqdefault.jpg`
-                              }
-                              alt="Current"
-                              className="video-opt-thumb-card-img"
-                            />
-                            <span className="video-opt-thumb-card-badge">Current</span>
-                          </div>
-                        </div>
+                            )
+                          }
+                          onEdit={() =>
+                            setEditingUrl(
+                              video?.thumbnail_url ||
+                                `https://img.youtube.com/vi/${video?.id}/mqdefault.jpg`
+                            )
+                          }
+                          downloadName={`current-${video?.id || 'thumbnail'}.jpg`}
+                          hideDelete
+                        />
 
                         {/* Generating */}
                         <AnimatePresence>
@@ -1432,169 +1623,36 @@ export function VideoOptimizeModal({
                         {/* Generated */}
                         <AnimatePresence>
                           {thumbnailBatch.map((t) => (
-                            <motion.div
+                            <ThumbResultCard
                               key={t.id}
-                              className={`video-opt-thumb-card ${selectedPreviewThumbnailUrl === t.image_url ? 'video-opt-thumb-card--selected' : ''}`}
-                              initial={{ opacity: 0, scale: 0.92 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.92 }}
-                              transition={{ duration: 0.25, ease: [0.33, 1, 0.68, 1] }}
-                              layout
-                            >
-                              <div
-                                className="video-opt-thumb-card-img-wrap"
-                                onClick={() => setSelectedPreviewThumbnailUrl(t.image_url)}
-                              >
-                                <img
-                                  src={t.image_url}
-                                  alt={t.title}
-                                  className="video-opt-thumb-card-img"
-                                />
-                                {t.score != null && (
-                                  <span
-                                    className={`video-opt-thumb-card-score video-opt-thumb-card-score--${getScoreTier(t.score).id}`}
-                                  >
-                                    {t.score}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="video-opt-thumb-card-actions">
-                                <button
-                                  type="button"
-                                  className={`video-opt-thumb-card-btn video-opt-thumb-card-btn--select ${selectedPreviewThumbnailUrl === t.image_url ? 'video-opt-thumb-card-btn--active' : ''}`}
-                                  onClick={() => setSelectedPreviewThumbnailUrl(t.image_url)}
-                                >
-                                  {selectedPreviewThumbnailUrl === t.image_url
-                                    ? 'Selected'
-                                    : 'Select'}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="video-opt-thumb-card-btn"
-                                  onClick={() => setFullSizeImage(t.image_url)}
-                                >
-                                  <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                  >
-                                    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-                                  </svg>
-                                </button>
-                                <a
-                                  href={t.image_url}
-                                  download={`thumbnail-${t.id}.png`}
-                                  className="video-opt-thumb-card-btn"
-                                  title="Download"
-                                >
-                                  <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                  >
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                    <polyline points="7 10 12 15 17 10" />
-                                    <line x1="12" y1="15" x2="12" y2="3" />
-                                  </svg>
-                                </a>
-                                <button
-                                  type="button"
-                                  className="video-opt-thumb-card-btn video-opt-thumb-card-btn--remove"
-                                  onClick={() => handleRemoveGenerated(t.id)}
-                                  title="Delete"
-                                >
-                                  <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                  >
-                                    <polyline points="3 6 5 6 21 6" />
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                  </svg>
-                                </button>
-                              </div>
-                            </motion.div>
+                              imageUrl={t.image_url}
+                              alt={t.title}
+                              score={t.score}
+                              selected={selectedPreviewThumbnailUrl === t.image_url}
+                              onSelect={() => setSelectedPreviewThumbnailUrl(t.image_url)}
+                              onPreview={() => setFullSizeImage(t.image_url)}
+                              onEdit={() => setEditingUrl(t.image_url)}
+                              downloadName={`thumbnail-${t.id}.png`}
+                              onDelete={() => handleRemoveGenerated(t.id)}
+                            />
                           ))}
                         </AnimatePresence>
 
                         {/* Uploaded */}
                         <AnimatePresence>
                           {uploadedThumbnails.map((u) => (
-                            <motion.div
+                            <ThumbResultCard
                               key={u.id}
-                              className={`video-opt-thumb-card ${selectedPreviewThumbnailUrl === u.image_url ? 'video-opt-thumb-card--selected' : ''}`}
-                              initial={{ opacity: 0, scale: 0.92 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.92 }}
-                              transition={{ duration: 0.25, ease: [0.33, 1, 0.68, 1] }}
-                              layout
-                            >
-                              <div
-                                className="video-opt-thumb-card-img-wrap"
-                                onClick={() => setSelectedPreviewThumbnailUrl(u.image_url)}
-                              >
-                                <img
-                                  src={u.image_url}
-                                  alt={u.title}
-                                  className="video-opt-thumb-card-img"
-                                />
-                                <span className="video-opt-thumb-card-badge">Uploaded</span>
-                              </div>
-                              <div className="video-opt-thumb-card-actions">
-                                <button
-                                  type="button"
-                                  className={`video-opt-thumb-card-btn video-opt-thumb-card-btn--select ${selectedPreviewThumbnailUrl === u.image_url ? 'video-opt-thumb-card-btn--active' : ''}`}
-                                  onClick={() => setSelectedPreviewThumbnailUrl(u.image_url)}
-                                >
-                                  {selectedPreviewThumbnailUrl === u.image_url
-                                    ? 'Selected'
-                                    : 'Select'}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="video-opt-thumb-card-btn"
-                                  onClick={() => setFullSizeImage(u.image_url)}
-                                >
-                                  <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                  >
-                                    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-                                  </svg>
-                                </button>
-                                <button
-                                  type="button"
-                                  className="video-opt-thumb-card-btn video-opt-thumb-card-btn--remove"
-                                  onClick={() => handleRemoveUploaded(u.id)}
-                                  title="Delete"
-                                >
-                                  <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                  >
-                                    <polyline points="3 6 5 6 21 6" />
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                  </svg>
-                                </button>
-                              </div>
-                            </motion.div>
+                              imageUrl={u.image_url}
+                              alt={u.title}
+                              badge="Uploaded"
+                              selected={selectedPreviewThumbnailUrl === u.image_url}
+                              onSelect={() => setSelectedPreviewThumbnailUrl(u.image_url)}
+                              onPreview={() => setFullSizeImage(u.image_url)}
+                              onEdit={() => setEditingUrl(u.image_url)}
+                              downloadName={`thumbnail-${u.id}.png`}
+                              onDelete={() => handleRemoveUploaded(u.id)}
+                            />
                           ))}
                         </AnimatePresence>
                       </div>
@@ -1873,7 +1931,7 @@ export function VideoOptimizeModal({
                   }}
                   onInput={(e) => {
                     e.target.style.height = 'auto'
-                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
+                    e.target.style.height = Math.min(e.target.scrollHeight, 144) + 'px'
                   }}
                   placeholder="Describe your thumbnail idea... e.g. dramatic lighting, close-up face with surprised expression, bold text overlay"
                   aria-label="Thumbnail prompt"
@@ -1881,40 +1939,44 @@ export function VideoOptimizeModal({
                   rows={1}
                 />
                 <div className="video-opt-float-actions">
-                  <button
-                    type="button"
-                    className="video-opt-float-circle-btn"
-                    onClick={() => fileInputRef.current?.click()}
-                    title="Add reference image"
-                  >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
+                  <div className="video-opt-float-actions-left">
+                    <button
+                      type="button"
+                      className="video-opt-float-circle-btn"
+                      onClick={() => fileInputRef.current?.click()}
+                      title="Add reference image"
                     >
-                      <rect x="3" y="3" width="18" height="18" rx="2" />
-                      <circle cx="8.5" cy="8.5" r="1.5" />
-                      <polyline points="21 15 16 10 5 21" />
-                    </svg>
-                  </button>
-                  <PersonaSelector variant="glassCircle" />
-                  <StyleSelector variant="glassCircle" />
-                  <BatchCirclePicker
-                    value={thumbBatchCount}
-                    onChange={setThumbBatchCount}
-                    disabled={thumbnailLoading}
-                  />
-                  <VOSendPill
-                    featureKey="video_thumbnail_generate"
-                    count={thumbBatchCount}
-                    loading={thumbnailLoading}
-                    disabled={thumbnailLoading || !videoId}
-                    onClick={handleGenerateThumbnails}
-                    ariaLabel="Generate thumbnails"
-                  />
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                        <circle cx="8.5" cy="8.5" r="1.5" />
+                        <polyline points="21 15 16 10 5 21" />
+                      </svg>
+                    </button>
+                    <PersonaSelector variant="glassCircle" />
+                    <StyleSelector variant="glassCircle" />
+                  </div>
+                  <div className="video-opt-float-actions-right">
+                    <BatchCirclePicker
+                      value={thumbBatchCount}
+                      onChange={setThumbBatchCount}
+                      disabled={thumbnailLoading}
+                    />
+                    <VOSendPill
+                      featureKey="video_thumbnail_generate"
+                      count={thumbBatchCount}
+                      loading={thumbnailLoading}
+                      disabled={thumbnailLoading || !videoId}
+                      onClick={handleGenerateThumbnails}
+                      ariaLabel="Generate thumbnails"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1934,20 +1996,23 @@ export function VideoOptimizeModal({
                   }}
                   onInput={(e) => {
                     e.target.style.height = 'auto'
-                    e.target.style.height = Math.min(e.target.scrollHeight, 88) + 'px'
+                    e.target.style.height = Math.min(e.target.scrollHeight, 144) + 'px'
                   }}
                   placeholder="Ask AI to edit your description…"
                   aria-label="AI command for description"
                   rows={1}
                 />
                 <div className="video-opt-float-actions">
-                  <VOSendPill
-                    featureKey="description_rewrite"
-                    loading={refineLoading}
-                    disabled={!detailsCommand.trim() && !refineLoading}
-                    onClick={handleDetailsCommandSubmit}
-                    ariaLabel="Refine description"
-                  />
+                  <div className="video-opt-float-actions-left" aria-hidden />
+                  <div className="video-opt-float-actions-right">
+                    <VOSendPill
+                      featureKey="description_rewrite"
+                      loading={refineLoading}
+                      disabled={!detailsCommand.trim() && !refineLoading}
+                      onClick={handleDetailsCommandSubmit}
+                      ariaLabel="Refine description"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

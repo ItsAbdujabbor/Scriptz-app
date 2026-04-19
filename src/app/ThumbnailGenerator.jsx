@@ -28,6 +28,7 @@ import { useThreadScrollToBottom } from '../lib/useThreadScrollToBottom'
 import { CostHint } from '../components/CostHint'
 import { useCostOf } from '../queries/billing/creditsQueries'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
+import { checkPromptForRealPerson, warningMessageFor } from '../lib/promptModeration'
 // import './ScriptGenerator.css' // next update — ScriptGenerator moved to src/next-update-ideas
 import './ThumbnailGenerator.css'
 
@@ -285,6 +286,41 @@ const IOS_RESIZE_TRANSITION = { duration: 0.42, ease: IOS_EASE }
  * Re-measuring to the same value is a no-op so the wrapper does not
  * animate on idle re-renders.
  */
+/**
+ * PromptModerationNotice — soft, non-blocking warning shown below the
+ * prompt textarea when the user's draft mentions a well-known real person
+ * or uses impersonation phrasing. The submit button stays enabled; this
+ * is just a nudge that Scriptz AI is for original characters.
+ */
+function PromptModerationNotice({ prompt }) {
+  const check = checkPromptForRealPerson(prompt)
+  if (check.ok) return null
+  const msg = warningMessageFor(check)
+  return (
+    <div
+      role="status"
+      style={{
+        margin: '6px 0 0',
+        padding: '8px 10px',
+        borderRadius: 10,
+        fontSize: 12,
+        lineHeight: 1.45,
+        color: 'rgba(252, 211, 77, 0.95)',
+        background: 'rgba(234, 179, 8, 0.08)',
+        border: '1px solid rgba(234, 179, 8, 0.32)',
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 8,
+      }}
+    >
+      <span aria-hidden style={{ flexShrink: 0, lineHeight: 1 }}>
+        ⚠️
+      </span>
+      <span>{msg}</span>
+    </div>
+  )
+}
+
 function SmoothHeight({ children, className = '' }) {
   const innerRef = useRef(null)
   const [height, setHeight] = useState('auto')
@@ -2224,6 +2260,7 @@ export function ThumbnailGenerator({
                       {!draft && !promptImageDataUrl ? (
                         <AnimatedComposerHint hints={THUMB_COMPOSER_HINTS} />
                       ) : null}
+                      <PromptModerationNotice prompt={draft} />
                     </div>
                     <div className="coach-composer-actions thumb-gen-toolbar">
                       <div className="thumb-gen-toolbar-tools">

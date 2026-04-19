@@ -36,6 +36,9 @@ const Terms = lazy(() => import('./legal/Terms').then((m) => ({ default: m.Terms
 const PrivacyPolicy = lazy(() =>
   import('./legal/PrivacyPolicy').then((m) => ({ default: m.PrivacyPolicy }))
 )
+const RefundPolicy = lazy(() =>
+  import('./legal/RefundPolicy').then((m) => ({ default: m.RefundPolicy }))
+)
 
 /** Dashboard, Coach, Optimize, Pro, Templates — one lazy chunk; in-app navigation does not flash full-screen. */
 const AuthenticatedRoutes = lazy(() => import('./AuthenticatedRoutes.jsx'))
@@ -88,6 +91,7 @@ function getView() {
   if (h === 'reset-password') return 'reset-password'
   if (h === 'terms') return 'terms'
   if (h === 'privacy') return 'privacy'
+  if (h === 'refund') return 'refund'
   if (h === 'onboarding') return 'dashboard'
   if (h === 'optimizing') return 'dashboard'
   if (h === 'dashboard') return 'dashboard'
@@ -181,6 +185,7 @@ function App() {
       'reset-password',
       'terms',
       'privacy',
+      'refund',
     ]
     if (!allowed.includes(view)) {
       window.location.hash = 'banned'
@@ -324,6 +329,8 @@ function App() {
         return <Terms onBack={goBack} />
       case 'privacy':
         return <PrivacyPolicy onBack={goBack} />
+      case 'refund':
+        return <RefundPolicy onBack={goBack} />
       case 'dashboard':
         return <AuthenticatedRouteBoundary view="dashboard" onLogout={onLogout} />
       case 'coach':

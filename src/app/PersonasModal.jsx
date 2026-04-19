@@ -168,7 +168,7 @@ export function PersonasModal({ onClose }) {
       setCreateError('All 3 photos are required.')
       return
     }
-    const name = createName.trim() || 'My Persona'
+    const name = createName.trim() || 'My Character'
     setCreateError('')
     try {
       const persona = await createMutation.mutateAsync({
@@ -180,7 +180,7 @@ export function PersonasModal({ onClose }) {
       if (persona) setSelectedPersona(persona)
       clearCreateForm()
     } catch (err) {
-      setCreateError(err?.message || 'Could not create persona.')
+      setCreateError(err?.message || 'Could not create character.')
     }
   }
 
@@ -308,7 +308,7 @@ export function PersonasModal({ onClose }) {
               letterSpacing: '-0.01em',
             }}
           >
-            Personas
+            Character looks
           </h2>
           <button
             type="button"
@@ -330,7 +330,7 @@ export function PersonasModal({ onClose }) {
               { value: 'personal', label: 'Personal' },
               { value: 'stock', label: 'Stock' },
             ]}
-            ariaLabel="Persona sections"
+            ariaLabel="Character sections"
           />
         </div>
 
@@ -344,7 +344,7 @@ export function PersonasModal({ onClose }) {
               style={createPillBtn}
             >
               <IconPlus />
-              Create persona
+              Create character
             </button>
           </div>
         )}
@@ -361,6 +361,22 @@ export function PersonasModal({ onClose }) {
               background: 'rgba(0,0,0,0.22)',
             }}
           >
+            <p
+              style={{
+                margin: '0 0 12px',
+                padding: '8px 10px',
+                fontSize: 11.5,
+                lineHeight: 1.45,
+                color: 'rgba(229, 229, 231, 0.72)',
+                background: 'rgba(167, 139, 250, 0.08)',
+                border: '1px solid rgba(167, 139, 250, 0.22)',
+                borderRadius: 10,
+              }}
+            >
+              Upload photos <strong>you own or have rights to</strong> — typically photos of
+              yourself. This tool is for original and authorized content creation; impersonating
+              another person is not permitted.
+            </p>
             <div
               style={{
                 display: 'grid',
@@ -477,7 +493,7 @@ export function PersonasModal({ onClose }) {
             <input
               type="text"
               className="pm-input"
-              placeholder="Name this persona"
+              placeholder="Name this character"
               value={createName}
               onChange={(e) => setCreateName(e.target.value)}
               maxLength={120}
