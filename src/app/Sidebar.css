@@ -1,48 +1,37 @@
-/*
- * Scriptz AI — Sidebar
- * Clean, polished redesign: better spacing, direct active states,
- * smooth animations, refined history items, proper mobile behavior.
+/**
+ * Scriptz AI — Modern left sidebar (no glow)
+ * Cleaner palette, better hover/active, nicer radius, smoother collapse
  */
 
-/* ============================================================
-   1. DESIGN TOKENS
-   ============================================================ */
+/* ---- Sidebar container ---- */
 .app-sidebar {
-  /* Sizing — compact + appealing */
-  --sidebar-width: 232px;
+  --sidebar-width: 252px;
   --sidebar-collapsed: 60px;
-  --sidebar-btn-height: 34px;
-  --sidebar-rail-icon: 34px;
-  --sidebar-item-radius: 10px;
+  --sidebar-btn-height: 40px;
 
-  /* Surfaces — softer, warmer */
-  --sidebar-bg: transparent;
-  --sidebar-hover: rgba(255, 255, 255, 0.05);
-  --sidebar-hover-strong: rgba(255, 255, 255, 0.09);
-  --sidebar-active-bg: rgba(255, 255, 255, 0.07);
-  --sidebar-active-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
-  --sidebar-border: rgba(255, 255, 255, 0.07);
-  --sidebar-surface: rgba(255, 255, 255, 0.05);
+  /* Landing-page aligned palette */
+  --sidebar-bg: #09090b;
+  --sidebar-surface: rgba(255, 255, 255, 0.045);
+  --sidebar-surface-2: rgba(255, 255, 255, 0.075);
+  --sidebar-border: rgba(255, 255, 255, 0.08);
 
-  /* Text */
-  --text: #ffffff;
-  --text-muted: #b0b0b6;
-  --text-dim: #6e6e74;
+  --text: #f5f5f6;
+  --text-muted: rgba(255, 255, 255, 0.64);
+  --text-dim: rgba(255, 255, 255, 0.36);
 
-  /* Accent — soft lavender (no harsh deep purple) */
-  --accent: #c4b5fd;
-  --accent-2: #a78bfa;
-  --accent-bg: rgba(196, 181, 253, 0.08);
-  --accent-ring: rgba(196, 181, 253, 0.25);
+  /* Accent — same family as landing header/hero */
+  --accent: #a78bfa;
+  --accent-2: #8b5cf6;
+  --accent-deep: #5b21b6;
+  --accent-bg: rgba(167, 139, 250, 0.13);
+  --accent-ring: rgba(139, 92, 246, 0.22);
 
-  /* Transitions */
-  --sidebar-transition: 200ms cubic-bezier(0.33, 1, 0.68, 1);
-  --sidebar-transition-open: 360ms cubic-bezier(0.33, 1, 0.68, 1);
-  --sidebar-transition-close: 360ms cubic-bezier(0.33, 1, 0.68, 1);
-  --sidebar-rail-ease: cubic-bezier(0.33, 1, 0.68, 1);
-  --sidebar-mobile-ease: cubic-bezier(0.33, 1, 0.68, 1);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
 
-  /* Layout */
+  --sidebar-transition: 220ms cubic-bezier(0.4, 0, 0.2, 1);
+
   width: var(--sidebar-width);
   min-height: 100vh;
   height: 100vh;
@@ -51,201 +40,53 @@
   display: flex;
   flex-direction: column;
   padding: 0;
-  overflow: hidden;
+  margin: 0;
+  border-radius: 0;
+  background: var(--sidebar-bg) !important;
+  border-right: 1px solid var(--sidebar-border);
+  transition: width var(--sidebar-transition);
+  overflow: visible;
   position: sticky;
   top: 0;
   align-self: stretch;
-  background: transparent;
   box-sizing: border-box;
   z-index: 1;
-  will-change: width;
-  contain: layout style;
-  transition: width var(--sidebar-transition-close);
-
-  /* Typography */
-  color: var(--text);
-  font-family:
-    'Poppins',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .app-sidebar,
-  .app-sidebar * {
-    transition: none !important;
-    animation: none !important;
-  }
-}
-
-/* ============================================================
-   2. COLLAPSED STATE
-   ============================================================ */
-.app-sidebar.collapsed {
-  width: var(--sidebar-collapsed);
-  --sidebar-rail-icon: 36px;
-}
-
-/* ============================================================
-   3. KEYFRAMES
-   ============================================================ */
-@keyframes sb-card-settle {
-  from {
-    opacity: 0;
-    transform: scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes sb-stack-appear {
-  from {
-    opacity: 0.5;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes sb-flyout-enter {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-/* ============================================================
-   4. RAIL STACK (two-section card layout)
-   ============================================================ */
-.sidebar-rail-stack {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  width: 100%;
-  box-sizing: border-box;
-  position: relative;
-  z-index: 1;
-}
-
-.app-sidebar:not(.collapsed) .sidebar-rail-stack.sidebar-rail-stack--expand-fade {
-  animation: sb-stack-appear 0.34s cubic-bezier(0.33, 1, 0.68, 1) both;
-}
-
-.sidebar-rail-card {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
-.sidebar-rail-card--top {
-  flex: 0 0 auto;
-}
-
-.sidebar-rail-card--bottom {
-  flex: 1 1 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
 }
 
-/* Expanded: transparent chrome */
-.app-sidebar:not(.collapsed) .sidebar-rail-card {
-  background: transparent;
-  border: none;
-  box-shadow: none;
+/* Liquid glass inner highlight (top-edge subtle reflection) */
+.app-sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: none;
+  z-index: 0;
   border-radius: 0;
 }
 
-/* Collapsed: icon rail */
-.app-sidebar.collapsed .sidebar-rail-stack {
-  justify-content: flex-start;
-  align-items: stretch;
-  padding: 0;
-  flex: 1;
-  min-height: 0;
+.app-sidebar.collapsed {
+  width: var(--sidebar-collapsed);
 }
 
-.app-sidebar.collapsed .sidebar-rail-card {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  align-items: center;
-  border-radius: 0;
-}
-
-.app-sidebar.collapsed .sidebar-rail-stack--collapse-settle .sidebar-rail-card {
-  animation: sb-card-settle 0.36s cubic-bezier(0.33, 1, 0.68, 1) both;
-}
-
-.app-sidebar.collapsed .sidebar-rail-stack--collapse-settle .sidebar-rail-card--bottom {
-  animation-delay: 45ms;
-}
-
-.app-sidebar.collapsed .sidebar-rail-card--top {
-  flex: 0 0 auto;
-  padding: 0.28rem 0.2rem 0.2rem;
-  overflow: visible;
-}
-
-.app-sidebar.collapsed .sidebar-rail-card--bottom {
-  flex: 0 0 auto;
-  margin-top: auto;
-  padding: 0.25rem 0.2rem 0.3rem;
-}
-
-/* ============================================================
-   5. HIDE / SHOW TEXT ON COLLAPSE
-   ============================================================ */
-.app-sidebar:not(.collapsed) .sidebar-label,
-.app-sidebar:not(.collapsed) .sidebar-section-label,
-.app-sidebar:not(.collapsed) .sidebar-user-email,
-.app-sidebar:not(.collapsed) .sidebar-user-plan,
-.app-sidebar:not(.collapsed) .sidebar-account-email,
-.app-sidebar:not(.collapsed) .sidebar-account-plan,
-.app-sidebar:not(.collapsed) .sidebar-history-row__title,
-.app-sidebar:not(.collapsed) .sidebar-history-row__menu {
-  opacity: 1;
-  transform: translateX(0);
-  transition:
-    opacity 280ms cubic-bezier(0.33, 1, 0.68, 1) 80ms,
-    transform 280ms cubic-bezier(0.33, 1, 0.68, 1) 80ms;
-}
-
+/* Collapse: hide text cleanly without killing layout */
+.app-sidebar.collapsed .sidebar-brand,
 .app-sidebar.collapsed .sidebar-label,
 .app-sidebar.collapsed .sidebar-section-label,
 .app-sidebar.collapsed .sidebar-user-email,
 .app-sidebar.collapsed .sidebar-user-plan,
-.app-sidebar.collapsed .sidebar-account-email,
-.app-sidebar.collapsed .sidebar-account-plan,
-.app-sidebar.collapsed .sidebar-history-row__title,
-.app-sidebar.collapsed .sidebar-history-row__menu {
+.app-sidebar.collapsed .sidebar-history-item-title,
+.app-sidebar.collapsed .sidebar-history-item-menu {
   opacity: 0;
-  transform: translateX(-6px);
+  visibility: hidden;
   pointer-events: none;
-  transition:
-    opacity 180ms cubic-bezier(0.33, 1, 0.68, 1),
-    transform 180ms cubic-bezier(0.33, 1, 0.68, 1);
-}
-
-/* Parents clip overflowing text when collapsed so width:0 isn't needed. */
-.app-sidebar.collapsed .sidebar-account-btn,
-.app-sidebar.collapsed .sidebar-user-block,
-.app-sidebar.collapsed .sidebar-history-row {
+  transform: translateX(-6px);
+  width: 0;
+  min-width: 0;
+  height: 0;
   overflow: hidden;
+  margin: 0;
+  padding: 0;
 }
 
 .app-sidebar.collapsed .sidebar-divider {
@@ -254,19 +95,20 @@
   height: 0;
 }
 
-/* Hide history when collapsed on desktop */
-@media (min-width: 1025px) {
-  .app-sidebar.collapsed .sidebar-nav--history {
-    display: none;
-  }
-  .app-sidebar.collapsed .sidebar-history-list,
-  .app-sidebar.collapsed .sidebar-history-header,
-  .app-sidebar.collapsed .sidebar-history-filter {
-    display: none !important;
-  }
+/* Collapsed: hide History section entirely */
+.app-sidebar.collapsed .sidebar-history-list {
+  display: none !important;
 }
 
-/* Hide brand / toggle / user-info when collapsed */
+.app-sidebar.collapsed .sidebar-history-header {
+  display: none !important;
+}
+
+.app-sidebar.collapsed .sidebar-history-filter {
+  display: none !important;
+}
+
+/* Collapsed: hide brand and toggle with smooth animation (shrink + fade) */
 .app-sidebar.collapsed .sidebar-brand,
 .app-sidebar.collapsed .sidebar-toggle {
   opacity: 0;
@@ -276,95 +118,200 @@
   margin: 0;
   padding: 0;
   border-width: 0;
-  width: 0;
+  transform: scale(0.92);
+  transition: opacity var(--sidebar-transition), visibility var(--sidebar-transition),
+    max-width var(--sidebar-transition), width var(--sidebar-transition),
+    margin var(--sidebar-transition), padding var(--sidebar-transition),
+    transform var(--sidebar-transition);
+}
+
+.app-sidebar.collapsed .sidebar-brand {
+  display: block !important;
+  max-width: 0;
   min-width: 0;
-  transition:
-    opacity var(--sidebar-transition-close),
-    visibility var(--sidebar-transition-close),
-    width var(--sidebar-transition-close),
-    margin var(--sidebar-transition-close),
-    padding var(--sidebar-transition-close);
+  width: 0;
+  flex: 0 0 0;
 }
 
-.app-sidebar:not(.collapsed) .sidebar-brand,
-.app-sidebar:not(.collapsed) .sidebar-toggle {
-  transition:
-    opacity var(--sidebar-transition-open),
-    visibility var(--sidebar-transition-open),
-    width var(--sidebar-transition-open),
-    margin var(--sidebar-transition-open),
-    padding var(--sidebar-transition-open);
+.app-sidebar.collapsed .sidebar-toggle {
+  display: flex !important;
+  min-width: 0;
+  width: 0;
 }
 
+.app-sidebar.collapsed .sidebar-header-inner {
+  justify-content: center;
+  padding: 0 0.5rem;
+  position: relative;
+}
+
+/* Collapsed: center the logo avatar in the header */
+.app-sidebar.collapsed .sidebar-logo-avatar-btn {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  margin: 0;
+  border-radius: 50%;
+}
+
+.app-sidebar.collapsed .sidebar-logo-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.app-sidebar.collapsed .sidebar-expand-icon {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--sidebar-transition), visibility var(--sidebar-transition);
+}
+
+.app-sidebar.collapsed:hover .sidebar-logo-avatar-btn .sidebar-logo-avatar {
+  opacity: 0.4;
+  transition: opacity var(--sidebar-transition);
+}
+
+.app-sidebar.collapsed:hover .sidebar-logo-avatar-btn .sidebar-expand-icon {
+  opacity: 1;
+  visibility: visible;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  display: flex;
+}
+
+.app-sidebar.collapsed .sidebar-logo-avatar-btn:hover {
+  background: var(--sidebar-surface-2);
+  border-color: rgba(255,255,255,0.12);
+}
+
+.app-sidebar.collapsed .sidebar-logo-avatar-btn:hover .sidebar-expand-icon {
+  opacity: 1;
+  visibility: visible;
+  display: flex;
+}
+
+.app-sidebar.collapsed .sidebar-logo-avatar-btn:hover .sidebar-logo-avatar {
+  opacity: 0.35;
+  transition: opacity var(--sidebar-transition);
+}
+
+/* Collapsed: hide name/email but keep avatar visible and centered */
 .app-sidebar.collapsed .sidebar-user-info {
   display: none !important;
 }
 
-/* ============================================================
-   6. HEADER
-   ============================================================ */
+.app-sidebar.collapsed .sidebar-footer .sidebar-user-block {
+  justify-content: center;
+  padding: 0.5rem;
+  min-height: 44px;
+  border: none;
+  background: transparent;
+}
+
+.app-sidebar.collapsed .sidebar-user-block:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+/* Keep icons centered in closed state */
+.app-sidebar.collapsed .sidebar-nav {
+  align-items: center;
+}
+
+.app-sidebar.collapsed .sidebar-link,
+.app-sidebar.collapsed .sidebar-user-block {
+  justify-content: center;
+  align-items: center;
+  padding: 0.4rem;
+  width: 100%;
+  max-width: 100%;
+  gap: 0;
+}
+
+/* Collapsed: selected link — simple rounded square */
+.app-sidebar.collapsed .sidebar-link.active {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.app-sidebar.collapsed .sidebar-link.active::before {
+  display: none;
+}
+
+.app-sidebar.collapsed .sidebar-link.active .sidebar-icon {
+  color: var(--text);
+  margin: 0;
+  flex-shrink: 0;
+}
+
+/* ---- Header (Logo avatar + Scriptz AI + collapse) ---- */
 .sidebar-header {
   flex-shrink: 0;
+  min-height: 48px;
   position: relative;
   box-sizing: border-box;
+  transition: border-color var(--sidebar-transition);
 }
 
+/* Horizontal divider — solid, no gradient */
 .sidebar-header::after {
-  content: '';
+  content: "";
   position: absolute;
-  left: 0.75rem;
-  right: 0.75rem;
+  left: 0.85rem;
+  right: 0.85rem;
   bottom: 0;
   height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(139, 92, 246, 0.14) 25%,
-    rgba(255, 255, 255, 0.07) 50%,
-    rgba(139, 92, 246, 0.14) 75%,
-    transparent 100%
-  );
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 14%, rgba(255,255,255,0.1) 86%, rgba(255,255,255,0) 100%);
   pointer-events: none;
-}
-
-.app-sidebar.collapsed .sidebar-header::after {
-  opacity: 0;
-  height: 0;
 }
 
 .sidebar-header-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.35rem;
-  padding: 0.65rem 0.8rem 0.6rem;
+  gap: 0.4rem;
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  padding: 0 0.85rem;
   box-sizing: border-box;
 }
 
-/* Logo avatar button */
+/* Logo / Avatar (left of brand); when collapsed = expand trigger. Circle, bright. */
 .sidebar-logo-avatar-btn {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  min-height: 34px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
   padding: 0;
-  border: 1.5px solid rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
   cursor: pointer;
   position: relative;
-  transition:
-    background var(--sidebar-transition),
-    border-color var(--sidebar-transition);
+  transition: background var(--sidebar-transition), border-color var(--sidebar-transition),
+    width var(--sidebar-transition), height var(--sidebar-transition);
 }
 
 .sidebar-logo-avatar-btn:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255,255,255,0.12);
 }
 
 .sidebar-logo-avatar {
@@ -373,16 +320,17 @@
   justify-content: center;
   width: 100%;
   height: 100%;
-  border-radius: 50%;
+  border-radius: 10px;
   overflow: hidden;
-  background: #000;
+  background: transparent;
+  color: #fff;
   transition: opacity var(--sidebar-transition);
 }
 
 .sidebar-logo-glyph {
-  width: 22px;
-  height: 22px;
   display: flex;
+  width: 24px;
+  height: 24px;
 }
 
 .sidebar-logo-glyph svg {
@@ -401,6 +349,10 @@
   display: none;
 }
 
+.sidebar-logo-img:not([hidden]) ~ .sidebar-logo-placeholder {
+  display: none;
+}
+
 .sidebar-expand-icon {
   position: absolute;
   inset: 0;
@@ -411,124 +363,66 @@
   visibility: hidden;
   pointer-events: none;
   color: var(--text);
-  transition:
-    opacity var(--sidebar-transition),
-    visibility var(--sidebar-transition);
+  transition: opacity var(--sidebar-transition), visibility var(--sidebar-transition);
 }
 
 .sidebar-expand-icon svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
 
-/* Collapsed: center logo, show expand icon on hover */
-.app-sidebar.collapsed .sidebar-header-inner {
-  justify-content: center;
-  padding: 0.55rem 0.25rem 0.5rem;
-}
-
-.app-sidebar.collapsed .sidebar-logo-avatar-btn {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  min-height: 36px;
-}
-
-.app-sidebar.collapsed .sidebar-expand-icon {
-  opacity: 0;
-  visibility: hidden;
-}
-
-.app-sidebar.collapsed:hover .sidebar-logo-avatar {
-  opacity: 0.38;
-  transition: opacity var(--sidebar-transition);
-}
-
-.app-sidebar.collapsed:hover .sidebar-expand-icon {
-  opacity: 1;
-  visibility: visible;
-}
-
-.app-sidebar.collapsed .sidebar-logo-avatar-btn:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.14);
-}
-
-.app-sidebar.collapsed .sidebar-logo-avatar-btn:hover .sidebar-logo-avatar {
-  opacity: 0.3;
-}
-
-.app-sidebar.collapsed .sidebar-logo-avatar-btn:hover .sidebar-expand-icon {
-  opacity: 1;
-  visibility: visible;
-}
-
-/* Brand name */
+/* Scriptz AI: plain text, same line as collapse button. Smooth appear on expand. No wrap. */
 .sidebar-brand {
   font-weight: 700;
   font-size: 0.875rem;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
   color: var(--text);
-  text-decoration: none !important;
+  text-decoration: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
   flex: 1;
-  transition:
-    opacity var(--sidebar-transition),
-    visibility var(--sidebar-transition),
-    width var(--sidebar-transition);
+  transition: opacity var(--sidebar-transition), visibility var(--sidebar-transition),
+    max-width var(--sidebar-transition), transform var(--sidebar-transition);
 }
 
-.sidebar-brand:visited,
 .sidebar-brand:hover {
   color: var(--text);
-  text-decoration: none;
+  opacity: 0.9;
 }
 
-/* Collapse toggle */
+/* ---- Collapse / Expand: circular button, chevron rotates. Smooth appear on expand. ---- */
 .sidebar-toggle {
   flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
-  min-height: 30px;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.42);
+  border: 1px solid var(--sidebar-border);
+  background: var(--sidebar-surface);
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition:
-    color var(--sidebar-transition),
-    background var(--sidebar-transition),
-    border-color var(--sidebar-transition),
-    opacity var(--sidebar-transition),
-    visibility var(--sidebar-transition),
-    width var(--sidebar-transition),
-    margin var(--sidebar-transition),
-    padding var(--sidebar-transition);
+  transition: color var(--sidebar-transition), background var(--sidebar-transition),
+    border-color var(--sidebar-transition), width var(--sidebar-transition),
+    opacity var(--sidebar-transition), visibility var(--sidebar-transition),
+    margin var(--sidebar-transition), padding var(--sidebar-transition),
+    transform var(--sidebar-transition);
 }
 
 .sidebar-toggle:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.13);
-}
-
-.sidebar-toggle:active {
-  transform: scale(0.94);
+  background: var(--sidebar-surface-2);
+  border-color: rgba(255,255,255,0.1);
 }
 
 .sidebar-toggle-icon {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -538,82 +432,44 @@
 .sidebar-toggle-icon svg {
   width: 100%;
   height: 100%;
+  transition: transform var(--sidebar-transition);
 }
 
-/* Mobile close button */
-.sidebar-mobile-close-btn {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0;
-  transition:
-    color var(--sidebar-transition),
-    background var(--sidebar-transition);
+/* Expanded: chevron left (collapse). Collapsed: toggle hidden, avatar = expand */
+.app-sidebar.collapsed .sidebar-toggle-chevron,
+.app-sidebar.collapsed .sidebar-toggle-icon svg {
+  transform: rotate(180deg);
 }
 
-.sidebar-mobile-close-btn:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.07);
-}
-
-.sidebar-mobile-close-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-/* ============================================================
-   7. NAVIGATION CONTAINER
-   ============================================================ */
+/* ---- Nav ---- */
 .sidebar-nav {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 0.25rem 0.4rem;
-  gap: 0.05rem;
   overflow: hidden;
-}
-
-.sidebar-nav--primary {
-  flex: 0 0 auto;
-}
-
-.sidebar-nav--history {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
+  padding: 0.35rem 0.6rem 0.35rem;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+  scrollbar-color: rgba(255,255,255,0.14) transparent;
 }
 
-.sidebar-nav--history::-webkit-scrollbar {
-  width: 4px;
-}
-
-.sidebar-nav--history::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.sidebar-nav--history::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.22);
+.sidebar-nav::-webkit-scrollbar { width: 6px; }
+.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(167,139,250,0.18) 0%, rgba(99,102,241,0.2) 100%);
   border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
 }
 
-/* Section labels */
 .sidebar-section-label {
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-dim);
-  padding: 0.45rem 0.55rem 0.2rem;
+  padding: 0.5rem 0.6rem 0.35rem;
+  transition: opacity var(--sidebar-transition), transform var(--sidebar-transition);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -621,83 +477,53 @@
   flex-shrink: 0;
 }
 
-/* Divider */
+/* Horizontal divider — solid, no gradient */
 .sidebar-divider {
   height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.07) 15%,
-    rgba(255, 255, 255, 0.07) 85%,
-    transparent 100%
-  );
-  margin: 0.4rem 0.55rem 0.35rem;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.08) 12%, rgba(255,255,255,0.08) 88%, rgba(255,255,255,0) 100%);
+  margin: 0.55rem 0.7rem;
   flex-shrink: 0;
-  transition:
-    opacity var(--sidebar-transition),
-    margin var(--sidebar-transition),
-    height var(--sidebar-transition);
+  transition: opacity var(--sidebar-transition), margin var(--sidebar-transition);
 }
 
-/* ============================================================
-   8. NAV LINK (SidebarButton)
-   ============================================================ */
-/* Sidebar nav links — Dashboard / Optimize / A/B Testing.
- * Tight pill rows with smooth hover, spring press, and a sliding accent
- * indicator on the active row. Animations are subtle (opacity/transform/
- * background) so the row never feels heavy or jumpy. */
+/* Link: rounded square, same height as other buttons */
 .sidebar-link {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  height: var(--sidebar-btn-height);
+  gap: 0.55rem;
   min-height: var(--sidebar-btn-height);
-  flex: 0 0 var(--sidebar-btn-height);
-  padding: 0 0.7rem;
-  font-size: 0.8rem;
+  padding: 0 0.85rem;
+  font-size: 0.875rem;
   font-weight: 500;
-  letter-spacing: 0.005em;
   color: var(--text-muted);
-  text-decoration: none;
-  border-radius: 10px;
+  border-radius: 8px;
+  transition: background var(--sidebar-transition), color var(--sidebar-transition), transform var(--sidebar-transition), box-shadow var(--sidebar-transition);
+  outline: none;
   white-space: nowrap;
   min-width: 0;
   flex-shrink: 0;
   overflow: hidden;
-  outline: none;
   isolation: isolate;
-  -webkit-tap-highlight-color: transparent;
-  /* Slow spring on the way OUT — guarantees the press bounce-back is
-   * visible even when the user clicks for a single frame. The press
-   * itself uses a faster transition declared on :active below. */
-  transition:
-    color 180ms cubic-bezier(0.25, 1, 0.5, 1),
-    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  will-change: transform;
 }
 
-/* Animated background layer — independent from text so we can fade/slide
- * without nudging the text or icon. */
 .sidebar-link::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
   opacity: 0;
-  transform: scaleX(0.6);
-  transform-origin: left center;
-  z-index: -1;
-  transition:
-    opacity 220ms cubic-bezier(0.25, 1, 0.5, 1),
-    transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    background 200ms ease;
+  transform: scale(0.985);
+  transition: opacity 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+  z-index: 0;
 }
 
-.sidebar-link:visited {
-  color: var(--text-muted);
-  text-decoration: none;
+.sidebar-link > * {
+  position: relative;
+  z-index: 1;
 }
 
 .sidebar-link .sidebar-icon {
@@ -707,138 +533,48 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted);
-  transition:
-    color 200ms cubic-bezier(0.25, 1, 0.5, 1),
-    transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  color: inherit;
+  opacity: 0.95;
 }
 
 .sidebar-link .sidebar-icon svg {
-  width: 17px;
-  height: 17px;
-  stroke-width: 1.9;
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: stroke-width 200ms ease;
 }
 
-.sidebar-link .sidebar-label {
-  position: relative;
-  z-index: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-  transition:
-    opacity 220ms cubic-bezier(0.33, 1, 0.68, 1),
-    transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-/* Hover — soft fill expands within the button bounds. No scale on icon /
- * label, so the hover surface is exactly the size of the button. */
+/* Hover: slight lift, no glow */
 .sidebar-link:hover {
   color: var(--text);
-}
-.sidebar-link:hover::after {
-  opacity: 1;
-  transform: scaleX(1);
   background: rgba(255, 255, 255, 0.06);
 }
-.sidebar-link:hover .sidebar-icon {
-  color: rgba(255, 255, 255, 0.92);
-}
 
-/* Press — fast scale-down (60ms). Release uses the parent's longer 260ms
- * spring transition so the bounce-back is always visible even after a
- * one-frame click that triggers immediate navigation. */
-.sidebar-link:active {
-  transform: scale(0.94);
-  transition: transform 60ms cubic-bezier(0.4, 0, 0.6, 1);
-}
-.sidebar-link:active::after {
-  opacity: 1;
-  transform: scaleX(1);
-  background: rgba(255, 255, 255, 0.12);
-  transition:
-    background 60ms ease,
-    opacity 60ms ease,
-    transform 60ms ease;
-}
-.sidebar-link:active .sidebar-icon {
-  transform: scale(0.92);
-  transition: transform 60ms cubic-bezier(0.4, 0, 0.6, 1);
-}
-
-/* Click ripple — a short keyframe that ALWAYS plays on pointerdown,
- * regardless of how fast the click finishes. Triggered by adding the
- * .is-pressing class via a pointerdown listener (see SidebarButton). */
-.sidebar-link.is-pressing {
-  animation: sidebar-link-press 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-@keyframes sidebar-link-press {
-  0% {
-    transform: scale(1);
-  }
-  35% {
-    transform: scale(0.93);
-  }
-  70% {
-    transform: scale(1.02);
-  }
-  100% {
-    transform: scale(1);
-  }
+.sidebar-link:not(.active):hover {
+  transform: translateY(-0.5px);
 }
 
 .sidebar-link:focus-visible {
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
-/* Active (selected) — soft neutral fill + slim white-ish accent bar.
- * No deep-purple anymore: icon turns soft white, fill is a calm gray. */
+/* Active: simple rounded square, smooth selected state — no glow, no vertical stick */
 .sidebar-link.active {
-  color: #ffffff;
+  color: var(--text);
+  background: transparent;
+  transform: none;
+  border-radius: 10px;
+  box-shadow: none;
 }
+
+.sidebar-link.active::before {
+  display: none;
+}
+
 .sidebar-link.active::after {
   opacity: 1;
-  transform: scaleX(1);
-  background: rgba(255, 255, 255, 0.08);
-}
-.sidebar-link.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 24%;
-  bottom: 24%;
-  width: 2.5px;
-  border-radius: 0 3px 3px 0;
-  background: rgba(255, 255, 255, 0.55);
-  z-index: 1;
-  animation: sidebar-link-bar-in 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.sidebar-link.active .sidebar-icon {
-  color: #ffffff;
-}
-.sidebar-link.active .sidebar-icon svg {
-  stroke-width: 2;
-}
-
-@keyframes sidebar-link-bar-in {
-  0% {
-    transform: translateX(-4px) scaleY(0.4);
-    opacity: 0;
-  }
-  60% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(0) scaleY(1);
-    opacity: 1;
-  }
-}
-
-.sidebar-link.active:visited {
-  color: var(--text);
+  transform: scale(1);
 }
 
 .sidebar-link.active .sidebar-icon {
@@ -847,38 +583,17 @@
 
 .sidebar-link.active .sidebar-label {
   font-weight: 600;
-  transition-delay: 0ms;
 }
 
-/* Collapsed: icon-only pills */
-.app-sidebar.collapsed .sidebar-nav--primary {
-  align-items: center;
-  padding: 0.1rem 0;
-  gap: 0.12rem;
+.sidebar-link .sidebar-label {
+  transition: opacity var(--sidebar-transition), transform var(--sidebar-transition);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
-.app-sidebar.collapsed .sidebar-link {
-  justify-content: center;
-  padding: 0;
-  width: var(--sidebar-rail-icon);
-  min-width: var(--sidebar-rail-icon);
-  max-width: var(--sidebar-rail-icon);
-  height: var(--sidebar-rail-icon);
-  margin: 0 auto;
-  gap: 0;
-  border-radius: var(--sidebar-item-radius);
-}
-
-/* Label delay when expanding */
-.app-sidebar.collapsed .sidebar-link .sidebar-label,
-.app-sidebar.collapsed .sidebar-upgrade-pro-label,
-.app-sidebar.collapsed .sidebar-section-label {
-  transition-delay: 0ms;
-}
-
-/* ============================================================
-   9. DROPDOWN (SidebarDropdown / Toolkit)
-   ============================================================ */
+/* ---- Tools dropdown (collapsible, no landing screen) ---- */
 .sidebar-dropdown {
   flex-shrink: 0;
 }
@@ -887,25 +602,43 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.55rem;
   width: 100%;
   min-height: var(--sidebar-btn-height);
-  padding: 0 0.7rem;
-  font-size: 0.82rem;
+  padding: 0 0.85rem;
+  font-size: 0.875rem;
   font-weight: 500;
   color: var(--text-muted);
   background: transparent;
   border: none;
-  border-radius: 999px;
+  border-radius: 8px;
   cursor: pointer;
-  white-space: nowrap;
-  text-align: left;
   outline: none;
+  white-space: nowrap;
+  min-width: 0;
+  text-align: left;
+  transition: background var(--sidebar-transition), color var(--sidebar-transition), transform var(--sidebar-transition);
   overflow: hidden;
-  transition:
-    background var(--sidebar-transition),
-    color var(--sidebar-transition),
-    box-shadow var(--sidebar-transition);
+  isolation: isolate;
+}
+
+.sidebar-dropdown-trigger::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  opacity: 0;
+  transform: scale(0.985);
+  transition: opacity 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sidebar-dropdown-trigger > * {
+  position: relative;
+  z-index: 1;
 }
 
 .sidebar-dropdown-trigger .sidebar-icon {
@@ -916,27 +649,36 @@
   align-items: center;
   justify-content: center;
   color: inherit;
+  opacity: 0.95;
 }
 
 .sidebar-dropdown-trigger .sidebar-icon svg {
   width: 16px;
   height: 16px;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .sidebar-dropdown-trigger:hover {
   color: var(--text);
-  background: var(--sidebar-hover);
-}
-
-.sidebar-dropdown-trigger:active {
-  transform: scale(0.98);
+  background: var(--sidebar-surface);
 }
 
 .sidebar-dropdown-trigger:focus-visible {
-  box-shadow: 0 0 0 2px var(--accent-ring);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.sidebar-dropdown.active .sidebar-dropdown-trigger {
+  color: var(--text);
+  background: transparent;
+  box-shadow: none;
+}
+
+.sidebar-dropdown.active .sidebar-dropdown-trigger::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.sidebar-dropdown.active .sidebar-dropdown-trigger .sidebar-icon {
+  color: var(--text);
 }
 
 .sidebar-dropdown-chevron {
@@ -946,93 +688,86 @@
   align-items: center;
   justify-content: center;
   color: inherit;
-  opacity: 0.55;
-  transition:
-    transform var(--sidebar-transition),
-    opacity var(--sidebar-transition);
+  opacity: 0.7;
+  transition: transform var(--sidebar-transition);
 }
 
 .sidebar-dropdown-chevron svg {
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
 }
 
 .sidebar-dropdown.expanded .sidebar-dropdown-chevron {
   transform: rotate(180deg);
-  opacity: 0.7;
 }
 
-/* Active / expanded trigger */
-.sidebar-dropdown.active .sidebar-dropdown-trigger,
-.sidebar-dropdown.expanded .sidebar-dropdown-trigger {
-  color: var(--text);
-  background: var(--sidebar-active-bg);
-  box-shadow: var(--sidebar-active-shadow);
-}
-
-.sidebar-dropdown.active .sidebar-dropdown-trigger .sidebar-icon,
-.sidebar-dropdown.expanded .sidebar-dropdown-trigger .sidebar-icon {
-  color: var(--accent);
-}
-
-/* Accordion expand */
 .sidebar-dropdown-content {
-  display: grid;
-  grid-template-rows: 0fr;
+  max-height: 0;
   overflow: hidden;
-  transition: grid-template-rows 0.26s cubic-bezier(0.33, 1, 0.68, 1);
-}
-
-.sidebar-dropdown-content > * {
-  overflow: hidden;
+  transition: max-height 0.22s ease-out;
 }
 
 .sidebar-dropdown.expanded .sidebar-dropdown-content {
-  grid-template-rows: 1fr;
+  max-height: 220px;
 }
 
-/* Sub-links */
-.sidebar-sub-link,
-.sb-dropdown__link {
+.sidebar-sub-link {
+  position: relative;
   display: block;
-  padding: 0.28rem 0.7rem 0.28rem 2.1rem;
-  font-size: 0.78rem;
+  padding: 0.35rem 0.65rem 0.35rem 2rem;
+  font-size: 0.8rem;
   font-weight: 500;
   color: var(--text-muted);
-  text-decoration: none !important;
-  border-radius: 8px;
+  text-decoration: none;
+  border-radius: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition:
-    background var(--sidebar-transition),
-    color var(--sidebar-transition);
+  transition: background var(--sidebar-transition), color var(--sidebar-transition);
+  isolation: isolate;
 }
 
-.sidebar-sub-link:visited,
-.sb-dropdown__link:visited {
-  color: var(--text-muted);
-  text-decoration: none;
+.sidebar-sub-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  opacity: 0;
+  transform: scale(0.985);
+  transition: opacity 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+  z-index: 0;
 }
 
-.sidebar-sub-link:hover,
-.sb-dropdown__link:hover {
+.sidebar-sub-link > * {
+  position: relative;
+  z-index: 1;
+}
+
+.sidebar-sub-link:hover {
   color: var(--text);
-  background: var(--sidebar-hover);
+  background: var(--sidebar-surface);
 }
 
 .sidebar-sub-link.active {
   color: var(--text);
-  background: var(--sidebar-active-bg);
+  background: transparent;
+  box-shadow: none;
 }
 
-.sidebar-sub-link:focus-visible,
-.sb-dropdown__link:focus-visible {
+.sidebar-sub-link.active::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.sidebar-sub-link:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--accent-ring);
 }
 
-/* Collapsed: icon-only dropdown trigger */
+/* Collapsed sidebar: hide dropdown content */
 .app-sidebar.collapsed .sidebar-dropdown-content {
   display: none;
 }
@@ -1043,1704 +778,864 @@
 
 .app-sidebar.collapsed .sidebar-dropdown-trigger {
   justify-content: center;
-  padding: 0;
-  width: var(--sidebar-rail-icon);
-  min-width: var(--sidebar-rail-icon);
-  max-width: var(--sidebar-rail-icon);
-  height: var(--sidebar-rail-icon);
-  margin: 0 auto;
-  gap: 0;
-  border-radius: var(--sidebar-item-radius);
+  padding: 0.5rem;
 }
 
-.app-sidebar.collapsed .sidebar-dropdown {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
+.app-sidebar.collapsed .sidebar-dropdown.active .sidebar-dropdown-trigger {
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
 }
 
-/* ============================================================
-   10. GO PRO BUTTON
-   ============================================================ */
-.sidebar-credits-row {
-  display: flex;
-  padding: 0 0 0.5rem;
-}
-.sidebar-credits-row .credits-badge {
-  width: 100%;
-}
-.app-sidebar.collapsed .sidebar-credits-row {
-  justify-content: center;
+.app-sidebar.collapsed .sidebar-dropdown.active .sidebar-dropdown-trigger .sidebar-icon {
+  color: var(--accent);
 }
 
-.sidebar-upgrade-pro {
-  position: relative;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  height: var(--sidebar-btn-height);
-  min-height: var(--sidebar-btn-height);
-  flex: 0 0 var(--sidebar-btn-height);
-  margin: 0.85rem 0 0.3rem;
-  padding: 0 0.85rem;
-  border: none;
-  border-radius: 999px;
-  font: inherit;
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: #fff !important;
-  cursor: pointer;
-  text-decoration: none;
-  white-space: nowrap;
-  flex-shrink: 0;
-  min-width: 0;
-  overflow: hidden;
-  outline: none;
-  background: linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transition:
-    filter 0.22s ease,
-    box-shadow 0.22s ease,
-    transform 0.15s ease;
+/* When expanded: labels fade in with slight delay so they don't wrap during open */
+.app-sidebar:not(.collapsed) .sidebar-link .sidebar-label,
+.app-sidebar:not(.collapsed) .sidebar-upgrade-pro-label,
+.app-sidebar:not(.collapsed) .sidebar-section-label {
+  transition: opacity 260ms cubic-bezier(0.4, 0, 0.2, 1) 100ms, transform var(--sidebar-transition);
+}
+.app-sidebar.collapsed .sidebar-link .sidebar-label,
+.app-sidebar.collapsed .sidebar-upgrade-pro-label,
+.app-sidebar.collapsed .sidebar-section-label {
+  transition-delay: 0ms;
 }
 
-/* Shine sweep */
-.sidebar-upgrade-pro::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    110deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.15) 50%,
-    transparent 100%
-  );
-  transform: translateX(-110%);
-  transition: transform 0.55s ease;
-  pointer-events: none;
-}
-
-.sidebar-upgrade-pro:hover {
-  filter: brightness(1.08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
-}
-
-.sidebar-upgrade-pro:hover::before {
-  transform: translateX(110%);
-}
-
-.sidebar-upgrade-pro:active {
-  transform: scale(0.97);
-  filter: brightness(0.97);
-}
-
-.sidebar-upgrade-pro:focus-visible {
-  outline: 2px solid rgba(167, 139, 250, 0.7);
-  outline-offset: 2px;
-}
-
-.sidebar-upgrade-pro.active {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
-}
-
-.sidebar-upgrade-pro-icon {
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: inherit;
-}
-
-.sidebar-upgrade-pro-icon svg {
-  width: 15px;
-  height: 15px;
-}
-
-.sidebar-upgrade-pro-label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-/* Collapsed: icon circle with glow */
-.sidebar-upgrade-pro--collapsed,
-.app-sidebar.collapsed .sidebar-upgrade-pro {
-  justify-content: center;
-  padding: 0;
-  width: var(--sidebar-rail-icon);
-  min-width: var(--sidebar-rail-icon);
-  max-width: var(--sidebar-rail-icon);
-  height: var(--sidebar-rail-icon);
-  margin: 0.18rem auto 0.25rem;
-  gap: 0;
-  border-radius: 50%;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    0 0 0 1.5px rgba(167, 139, 250, 0.45),
-    0 4px 14px rgba(109, 40, 217, 0.45);
-}
-
-.app-sidebar.collapsed .sidebar-upgrade-pro:hover {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    0 0 0 2px rgba(167, 139, 250, 0.6),
-    0 6px 20px rgba(109, 40, 217, 0.55);
-}
-
-.app-sidebar.collapsed .sidebar-upgrade-pro-icon svg {
-  width: 17px;
-  height: 17px;
-}
-
-/* ============================================================
-   11. HISTORY SECTION
-   ============================================================ */
+/* ---- History list ---- */
 .sidebar-history-header {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
-  padding: 0.4rem 0.5rem 0.25rem;
+  gap: 0.35rem;
+  padding: 0.5rem 0.6rem 0.35rem;
+  min-height: 2rem;
   flex-shrink: 0;
-  min-height: 34px;
 }
 
 .sidebar-history-header .sidebar-section-label {
   padding: 0;
   flex: 1;
   min-width: 0;
-  transition: opacity 180ms ease;
-}
-.sidebar-history-header.is-searching .sidebar-section-label {
-  opacity: 0;
-  pointer-events: none;
 }
 
-/* Search icon button — appears on the right of the History label */
-.sidebar-history-search-btn {
-  display: inline-grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  background: transparent;
-  border: 0;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease,
-    transform 80ms cubic-bezier(0.4, 0, 0.6, 1);
-}
-.sidebar-history-search-btn:hover {
-  background: rgba(255, 255, 255, 0.07);
-  color: #fff;
-}
-.sidebar-history-search-btn:active {
-  transform: scale(0.92);
-}
-.sidebar-history-search-btn svg {
-  width: 13px;
-  height: 13px;
-  stroke-width: 2;
-}
-
-/* Inline search input — replaces the "History" label when active */
-.sidebar-history-search-wrap {
-  position: absolute;
-  left: 0.5rem;
-  right: 0.5rem;
+/* History filter tabs: All | Scripts | AI Coach */
+.sidebar-history-filter {
   display: flex;
   align-items: center;
-  gap: 6px;
-  opacity: 0;
-  transform: translateY(-2px);
-  pointer-events: none;
-  transition:
-    opacity 180ms cubic-bezier(0.25, 1, 0.5, 1),
-    transform 180ms cubic-bezier(0.25, 1, 0.5, 1);
-}
-.sidebar-history-header.is-searching .sidebar-history-search-wrap {
-  opacity: 1;
-  transform: none;
-  pointer-events: auto;
+  gap: 0.2rem;
+  padding: 0 0.5rem 0.5rem;
+  flex-shrink: 0;
 }
 
-/* Input with an inline search icon on the left */
-.sidebar-history-search-field {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-}
-.sidebar-history-search-field::before {
-  content: '';
-  position: absolute;
-  left: 9px;
-  top: 50%;
-  width: 12px;
-  height: 12px;
-  transform: translateY(-50%);
-  background-color: var(--text-dim);
-  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>")
-    center / contain no-repeat;
-  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>")
-    center / contain no-repeat;
-  pointer-events: none;
-  opacity: 0.8;
-  transition: opacity 0.15s ease;
-}
-.sidebar-history-search-field:focus-within::before {
-  opacity: 1;
-  background-color: #fff;
-}
-
-.sidebar-history-search-input {
+.sidebar-history-filter-btn {
   flex: 1;
   min-width: 0;
   height: 28px;
-  padding: 0 10px 0 26px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 0;
-  border-radius: 999px;
-  color: #fff;
-  font: inherit;
-  font-size: 0.78rem;
-  outline: none;
-  box-shadow: none;
-  transition: background 0.15s ease;
-}
-.sidebar-history-search-input:focus {
-  background: rgba(255, 255, 255, 0.09);
-  box-shadow: none;
-}
-.sidebar-history-search-input::placeholder {
-  color: var(--text-dim);
-}
-.sidebar-history-search-close {
-  display: inline-grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
+  padding: 0 0.5rem;
+  border: 1px solid transparent;
   background: transparent;
-  border: 0;
-  color: var(--text-muted);
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-weight: 600;
   cursor: pointer;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease,
-    transform 80ms ease;
-  flex-shrink: 0;
-}
-.sidebar-history-search-close:hover {
-  background: rgba(255, 255, 255, 0.07);
-  color: #fff;
-}
-.sidebar-history-search-close:active {
-  transform: scale(0.92);
-}
-.sidebar-history-search-close svg {
-  width: 12px;
-  height: 12px;
-  stroke-width: 2.2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--sidebar-transition), color var(--sidebar-transition), border-color var(--sidebar-transition);
 }
 
-/* Scrollable history list */
+.sidebar-history-filter-btn:hover {
+  color: var(--text);
+  background: var(--sidebar-surface);
+  border-color: var(--sidebar-border);
+}
+
+.sidebar-history-filter-btn.active {
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-color: rgba(139, 92, 246, 0.25);
+}
+
+.sidebar-history-filter-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.app-sidebar.collapsed .sidebar-history-filter,
+.app-sidebar.collapsed .sidebar-history-filter-btn {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Section labels when showing "All" */
+.sidebar-history-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 0.5rem;
+}
+
+.sidebar-history-section:last-child {
+  margin-bottom: 0;
+}
+
+.sidebar-history-section-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  padding: 0.25rem 0.5rem 0.15rem;
+}
+
+/* Filter dialog: same UI as account dialog / bottom portal */
+.sidebar-history-filter-dialog {
+  position: fixed;
+  z-index: 120;
+  min-width: 180px;
+  padding: 0.45rem;
+  background: rgba(12,13,16,0.98);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 16px;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0,0,0,0.3);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 220ms cubic-bezier(0.4, 0, 0.2, 1), visibility 220ms;
+}
+
+.sidebar-history-filter-dialog.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.sidebar-history-filter-dialog .dialog-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background var(--sidebar-transition), color var(--sidebar-transition);
+}
+
+.sidebar-history-filter-dialog .dialog-item:hover {
+  color: var(--text);
+  background: var(--sidebar-surface);
+}
+
+.sidebar-history-filter-dialog .dialog-item.selected {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.sidebar-history-filter-dialog .dialog-item-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: inherit;
+}
+
 .sidebar-history-list {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 0.25rem 0.3rem 0.8rem;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem 0.75rem;
   flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+  scrollbar-color: rgba(255,255,255,0.14) transparent;
   overscroll-behavior: contain;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
 }
 
-/* Load-more button at the bottom of the history list */
-.sidebar-history-load-more {
-  margin: 6px 4px 2px;
-  height: 28px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease,
-    transform 80ms ease;
-}
-.sidebar-history-load-more:hover {
-  background: rgba(255, 255, 255, 0.07);
-  color: #fff;
-}
-.sidebar-history-load-more:active {
-  transform: scale(0.985);
-}
-
-.sidebar-history-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.sidebar-history-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.sidebar-history-list::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.2);
-  border-radius: 999px;
-}
-
-/* Empty state */
+/* Empty state: modern icon + "Empty history" text */
 .sidebar-history-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.55rem;
-  padding: 2rem 1rem 1.5rem;
+  gap: 0.6rem;
+  padding: 1.75rem 0.75rem;
+  min-height: 100px;
   text-align: center;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  font-weight: 500;
 }
 
 .sidebar-history-empty-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-dim);
   flex-shrink: 0;
 }
 
 .sidebar-history-empty-icon svg {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
 }
 
 .sidebar-history-empty-text {
-  font-size: 0.73rem;
-  color: var(--text-dim);
-  line-height: 1.5;
-  max-width: 160px;
+  line-height: 1.35;
+  max-width: 140px;
+  letter-spacing: 0.01em;
 }
 
-/* ============================================================
-   12. HISTORY ROW (chat history list)
-   ------------------------------------------------------------
-   ONE clickable pill. No nested buttons, no split containers —
-   the outer <div role="button"> paints the entire surface, and
-   icon + title + status + 3-dot all flow as children inside it.
+.sidebar-history-list::-webkit-scrollbar { width: 6px; }
+.sidebar-history-list::-webkit-scrollbar-track { background: transparent; }
+.sidebar-history-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(167,139,250,0.18) 0%, rgba(99,102,241,0.2) 100%);
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
 
-   Selected state = single purple wash across the whole pill,
-   from the left edge all the way past the 3-dot on the right.
-   Everything rides on top of that surface with zero per-child
-   backgrounds — there is no "two piece" look to create.
-   ============================================================ */
-
-.sidebar-history-row {
+.sidebar-history-item {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  /* Lock the row height so flex can never compress rows as the list grows. */
-  flex: 0 0 36px;
-  height: 36px;
-  min-height: 36px;
-  padding: 0 0.35rem 0 0.7rem;
-  box-sizing: border-box;
-  border: none;
-  border-radius: 10px;
-  background: transparent;
+  gap: 0.55rem;
+  min-height: var(--sidebar-btn-height);
+  padding: 0 0.7rem;
+  border-radius: 12px;
+  font-size: 0.82rem;
   color: var(--text-muted);
-  cursor: pointer;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    background 160ms cubic-bezier(0.25, 1, 0.5, 1),
-    box-shadow 160ms cubic-bezier(0.25, 1, 0.5, 1),
-    transform 80ms ease;
+  text-decoration: none;
+  transition: background var(--sidebar-transition), color var(--sidebar-transition);
+  flex-shrink: 0;
+  min-height: 40px;
+  box-sizing: border-box;
 }
 
-.sidebar-history-row:hover {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.04) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+.sidebar-history-item.active {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-history-item:hover {
+  background: var(--sidebar-surface);
   color: var(--text);
 }
 
-.sidebar-history-row:active {
-  transform: scale(0.99);
-}
-
-.sidebar-history-row:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.4);
-}
-
-/* ----- Selected: single purple wash across the whole pill ----- */
-.sidebar-history-row.is-active {
-  background: linear-gradient(180deg, rgba(139, 92, 246, 0.32) 0%, rgba(124, 58, 237, 0.28) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.12),
-    inset 0 0 0 1px rgba(167, 139, 250, 0.28);
-  color: #ffffff;
-}
-
-.sidebar-history-row.is-active:hover {
-  background: linear-gradient(180deg, rgba(139, 92, 246, 0.38) 0%, rgba(124, 58, 237, 0.34) 100%);
-}
-
-/* ----- Icon ----- */
-.sidebar-history-row__icon {
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(226, 232, 240, 0.75);
-  opacity: 0.55;
-  transition:
-    opacity 160ms ease,
-    color 160ms ease;
-}
-.sidebar-history-row__icon svg {
-  width: 13px;
-  height: 13px;
-  stroke-width: 2;
-}
-
-.sidebar-history-row:hover .sidebar-history-row__icon {
-  opacity: 0.9;
-}
-
-.sidebar-history-row.is-active .sidebar-history-row__icon {
-  opacity: 1;
-  color: #ffffff;
-}
-
-/* Type tints collapsed into one neutral family — the selected
- * state is the only signal that stands out. Retained for legacy
- * markup anywhere else in the app. */
-.icon-coach,
-.icon-thumbnail,
-.icon-script {
-  color: rgba(226, 232, 240, 0.75);
-}
-
-/* ----- Title ----- */
-.sidebar-history-row__title {
+.sidebar-history-item-main {
   flex: 1;
   min-width: 0;
-  font-size: 0.8rem;
-  font-weight: 500;
-  line-height: 1.3;
-  letter-spacing: -0.005em;
-  color: inherit;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 160ms ease;
-}
-
-.sidebar-history-row.is-active .sidebar-history-row__title {
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.sidebar-history-row.is-unread .sidebar-history-row__title {
-  color: var(--text);
-  font-weight: 600;
-}
-
-/* ----- Status badge (inline with title) ----- */
-.sidebar-history-row__status {
-  flex-shrink: 0;
-  display: inline-block;
-  border-radius: 50%;
-}
-
-.sidebar-history-row__status--pending {
-  width: 11px;
-  height: 11px;
-  border: 1.6px solid rgba(255, 255, 255, 0.14);
-  border-top-color: rgba(229, 231, 235, 0.92);
-  animation: sidebar-history-spin 0.85s linear infinite;
-}
-
-@keyframes sidebar-history-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.sidebar-history-row__status--unread {
-  width: 6px;
-  height: 6px;
-  background: rgba(229, 231, 235, 0.95);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12);
-  animation: sidebar-history-unread-in 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes sidebar-history-unread-in {
-  from {
-    transform: scale(0.4);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-/* ----- 3-dot menu inside the same pill -----
- * This is a <span role=button> not a <button>, so it doesn't
- * render its own background. It brightens its icon on hover and
- * shrinks slightly on press — that's the whole interaction. No
- * rectangle, no chip, no second surface. */
-.sidebar-history-row__menu {
-  flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  display: inline-flex;
+  min-height: 40px;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 7px;
-  cursor: pointer;
-  color: rgba(156, 163, 175, 0.75);
-  opacity: 0;
-  transition:
-    opacity 140ms ease,
-    color 140ms ease,
-    background 140ms ease,
-    transform 120ms ease;
-}
-.sidebar-history-row__menu svg {
-  width: 13px;
-  height: 13px;
-}
-
-.sidebar-history-row:hover .sidebar-history-row__menu,
-.sidebar-history-row.is-active .sidebar-history-row__menu {
-  opacity: 1;
-}
-
-.sidebar-history-row__menu:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.sidebar-history-row.is-active .sidebar-history-row__menu {
-  color: #ffffff;
+  gap: 0.55rem;
+  padding: 0;
+  border: none;
   background: transparent;
-}
-.sidebar-history-row.is-active .sidebar-history-row__menu:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.14);
-}
-
-.sidebar-history-row__menu:active {
-  transform: scale(0.88);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.sidebar-history-row__menu:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.55);
-}
-
-/* ----- Editing variant: replaces title with an input + save/cancel. --- */
-.sidebar-history-row--editing {
-  cursor: default;
-  padding: 0 0.35rem;
-}
-.sidebar-history-row--editing:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-.sidebar-history-row--editing:active {
-  transform: none;
-}
-
-/* Rename form */
 .sidebar-history-edit-form {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.4rem;
   width: 100%;
-  padding: 0.2rem 0.35rem;
 }
 
 .sidebar-history-title-input {
   flex: 1;
   min-width: 0;
-  height: 28px;
-  padding: 0 0.55rem;
-  font-size: 0.775rem;
-  font-family: inherit;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(129, 140, 248, 0.24);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text);
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(139, 92, 246, 0.35);
-  border-radius: 6px;
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0 0.7rem;
   outline: none;
-  transition:
-    border-color var(--sidebar-transition),
-    box-shadow var(--sidebar-transition);
 }
 
 .sidebar-history-title-input:focus {
-  border-color: rgba(139, 92, 246, 0.6);
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.14);
+  border-color: rgba(129, 140, 248, 0.42);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.16);
 }
 
 .sidebar-history-edit-action {
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
-  width: 26px;
-  height: 26px;
-  display: flex;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
   cursor: pointer;
-  color: var(--text-muted);
-  padding: 0;
-  transition:
-    background var(--sidebar-transition),
-    color var(--sidebar-transition),
-    border-color var(--sidebar-transition);
+  transition: background var(--sidebar-transition), color var(--sidebar-transition), border-color var(--sidebar-transition);
 }
 
 .sidebar-history-edit-action:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
   color: var(--text);
-  border-color: rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .sidebar-history-edit-action:disabled {
-  opacity: 0.4;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .sidebar-history-edit-action svg {
-  width: 13px;
-  height: 13px;
+  width: 15px;
+  height: 15px;
 }
 
-/* ============================================================
-   13. FOOTER / USER BLOCK
-   ============================================================ */
-.sidebar-footer {
-  flex-shrink: 0;
-  padding: 0.5rem 0.5rem 0.65rem;
-}
-
-/* Override LiquidGlass inside footer (legacy — not used after refactor) */
-.sidebar-footer .liquid-glass,
-.sidebar-footer > :first-child {
-  border-radius: 12px !important;
-  box-shadow: none !important;
-}
-
-/* ── Unified account button — liquid-glass row with a traveling violet
-   shimmer on hover (mirrors the new-chat pill motion family). ────── */
-.sidebar-account-btn {
-  position: relative;
-  flex-shrink: 0;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  width: 100%;
-  padding: 0.5rem 0.6rem;
-  background: linear-gradient(
-    150deg,
-    rgba(255, 255, 255, 0.055) 0%,
-    rgba(255, 255, 255, 0.02) 100%
-  );
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  color: inherit;
-  overflow: hidden;
-  isolation: isolate;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  transition:
-    background 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.1s ease;
-}
-
-/* Traveling violet sheen — fires on hover only. */
-.sidebar-account-btn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    115deg,
-    transparent 25%,
-    rgba(167, 139, 250, 0.22) 48%,
-    rgba(255, 255, 255, 0.12) 50%,
-    rgba(167, 139, 250, 0.22) 52%,
-    transparent 75%
-  );
-  background-size: 240% 100%;
-  background-position: 120% 0;
-  opacity: 0;
-  mix-blend-mode: screen;
-  pointer-events: none;
-  z-index: -1;
-  transition:
-    background-position 0.7s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.22s ease;
-}
-
-.sidebar-account-btn:hover {
-  background: linear-gradient(150deg, rgba(167, 139, 250, 0.15) 0%, rgba(124, 58, 237, 0.06) 100%);
-  border-color: rgba(196, 181, 253, 0.34);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.09),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
-    0 6px 18px rgba(124, 58, 237, 0.22);
-}
-.sidebar-account-btn:hover::before {
-  opacity: 1;
-  background-position: -40% 0;
-}
-
-.sidebar-account-btn--open,
-.sidebar-account-btn--open:hover {
-  background: linear-gradient(150deg, rgba(167, 139, 250, 0.22) 0%, rgba(99, 102, 241, 0.1) 100%);
-  border-color: rgba(196, 181, 253, 0.42);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 8px 22px rgba(124, 58, 237, 0.3);
-}
-
-.sidebar-account-btn:active {
-  transform: scale(0.985);
-}
-
-.sidebar-account-avatar {
-  flex-shrink: 0;
-  width: 26px;
-  height: 26px;
-  min-width: 26px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.9) 0%, rgba(99, 102, 241, 0.78) 100%);
-  border: 1.5px solid rgba(167, 139, 250, 0.32);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.sidebar-account-info {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  transition:
-    opacity var(--sidebar-transition-open),
-    visibility var(--sidebar-transition-open),
-    max-width var(--sidebar-transition-open);
-}
-
-.sidebar-account-email {
-  display: block;
-  font-size: 0.74rem;
-  font-weight: 600;
-  color: rgba(245, 243, 255, 0.94);
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sidebar-account-plan {
-  font-size: 0.63rem;
-  font-weight: 600;
-  color: rgba(196, 181, 253, 0.68);
-  line-height: 1.2;
-  letter-spacing: 0.01em;
-  text-transform: none;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 110px;
-}
-
-.sidebar-account-plan.sidebar-account-plan--active {
-  color: #c4b5fd;
-  font-weight: 700;
-}
-
-.sidebar-account-plan.sidebar-account-plan--trial {
-  color: #fde68a;
-}
-
-.sidebar-account-chevron {
-  flex-shrink: 0;
-  display: inline-flex;
-  color: rgba(229, 229, 231, 0.4);
-  transition:
-    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-    color 0.18s ease;
-}
-.sidebar-account-chevron svg {
-  width: 14px;
-  height: 14px;
-}
-.sidebar-account-btn:hover .sidebar-account-chevron {
-  color: rgba(196, 181, 253, 0.85);
-}
-.sidebar-account-btn--open .sidebar-account-chevron {
-  transform: rotate(180deg);
-  color: #c4b5fd;
-}
-
-/* Collapsed rail: hide email + plan + chevron, center avatar */
-.app-sidebar.collapsed .sidebar-account-btn {
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  justify-content: center;
-  margin-left: auto;
-  margin-right: auto;
-}
-.app-sidebar.collapsed .sidebar-account-info,
-.app-sidebar.collapsed .sidebar-account-chevron {
-  display: none;
-}
-
-.sidebar-user-block {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  width: 100%;
-  padding: 0.5rem 0.65rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 10px;
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  transition:
-    background var(--sidebar-transition),
-    border-color var(--sidebar-transition);
-}
-
-.sidebar-user-block:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.11);
-}
-
-.sidebar-user-block:active {
-  transform: scale(0.99);
-}
-
-.sidebar-user-avatar-placeholder {
-  flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
-  min-height: 30px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.7) 0%, rgba(99, 102, 241, 0.6) 100%);
-  border: 1.5px solid rgba(167, 139, 250, 0.22);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: white;
-  letter-spacing: 0;
-}
-
-.sidebar-user-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  min-width: 0;
-  flex: 1;
-}
-
-.sidebar-user-email {
-  font-size: 0.775rem;
-  font-weight: 500;
+.sidebar-history-item.pinned {
   color: var(--text);
+  background: rgba(255,255,255,0.03);
+}
+
+.sidebar-history-item-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  opacity: 0.95;
+}
+
+.sidebar-history-item-icon.icon-script {
+  color: rgba(167, 139, 250, 0.95);
+}
+
+.sidebar-history-item-icon.icon-coach {
+  color: rgba(96, 165, 250, 0.9);
+}
+
+.sidebar-history-item-icon.pin {
+  color: var(--accent);
+}
+
+.sidebar-history-item-title {
+  flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.3;
-  transition:
-    opacity var(--sidebar-transition-open),
-    visibility var(--sidebar-transition-open),
-    max-width var(--sidebar-transition-open),
-    width var(--sidebar-transition-open),
-    margin var(--sidebar-transition-open),
-    padding var(--sidebar-transition-open);
+  transition: opacity var(--sidebar-transition), transform var(--sidebar-transition);
+  line-height: 1.35;
 }
 
-.sidebar-user-plan {
-  font-size: 0.67rem;
-  font-weight: 600;
-  color: var(--accent);
-  line-height: 1.2;
-  transition:
-    opacity var(--sidebar-transition-open),
-    visibility var(--sidebar-transition-open),
-    max-width var(--sidebar-transition-open),
-    width var(--sidebar-transition-open),
-    margin var(--sidebar-transition-open),
-    padding var(--sidebar-transition-open);
-}
-
-/* Subscribed user — brighter purple to make the active plan visible. */
-.sidebar-user-plan.sidebar-user-plan--active {
-  color: #c4b5fd;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-}
-
-/* Trial — amber tag */
-.sidebar-user-plan.sidebar-user-plan--trial {
-  color: #fde68a;
-}
-
-/* ══ Account button subline (plan + credits chip) ══ */
-.sidebar-account-subline {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.1rem;
-}
-
-.sidebar-account-credits {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-  padding: 0.08rem 0.42rem 0.08rem 0.35rem;
-  border-radius: 999px;
-  border: 1px solid rgba(167, 139, 250, 0.28);
-  background: linear-gradient(150deg, rgba(139, 92, 246, 0.16) 0%, rgba(99, 102, 241, 0.1) 100%);
-  color: #e9d5ff;
-  font: inherit;
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-  white-space: nowrap;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    transform 0.1s ease;
-}
-
-.sidebar-account-credits svg {
-  width: 9px;
-  height: 9px;
-  color: #c4b5fd;
-}
-
-.sidebar-account-credits:hover {
-  background: linear-gradient(150deg, rgba(139, 92, 246, 0.28) 0%, rgba(99, 102, 241, 0.2) 100%);
-  border-color: rgba(196, 181, 253, 0.5);
-}
-.sidebar-account-credits:active {
-  transform: scale(0.96);
-}
-
-.sidebar-account-credits-num {
-  font-variant-numeric: tabular-nums;
-  color: #fff;
-}
-
-/* ══ Inline expanding account panel (replaces floating flyout) ══ */
-.sidebar-account-wrap {
-  display: flex;
-  flex-direction: column;
-  margin: 0.15rem 0.35rem 0.35rem;
-}
-
-/* Expanded account panel — simpler, tighter. Minimal violet tinting;
- * relies on the row hover to add motion rather than a colourful bg. */
-.sidebar-account-panel {
-  margin-top: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  max-height: 0;
-  overflow: hidden;
-  opacity: 0;
-  transform: translateY(-3px);
-  transform-origin: top center;
-  transition:
-    max-height 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.18s ease,
-    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
-    margin-top 0.3s cubic-bezier(0.22, 1, 0.36, 1),
-    padding 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-  pointer-events: none;
-  padding: 0 0.3rem;
-  border-radius: 12px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.015) 100%),
-    rgba(18, 18, 24, 0.7);
-  -webkit-backdrop-filter: blur(22px) saturate(160%);
-  backdrop-filter: blur(22px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0);
-}
-
-.sidebar-account-panel.sidebar-account-panel--open {
-  max-height: 420px;
-  opacity: 1;
-  transform: none;
-  margin-top: 0.35rem;
-  padding: 0.3rem;
-  pointer-events: auto;
-  border-color: rgba(255, 255, 255, 0.07);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 10px 28px rgba(0, 0, 0, 0.35);
-}
-
-.sidebar-account-panel__list {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-/* Base row — compact 30 px, flat idle, soft tint only on hover. */
-.sidebar-account-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  height: 30px;
-  padding: 0 0.55rem;
-  border: 0;
-  border-radius: 8px;
+.sidebar-history-item-menu {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
   background: transparent;
-  color: rgba(229, 229, 231, 0.82);
-  font: inherit;
-  font-size: 0.76rem;
-  font-weight: 500;
-  text-align: left;
+  border-radius: 10px;
+  color: var(--text-dim);
   cursor: pointer;
-  transition:
-    background 0.16s ease,
-    color 0.16s ease,
-    transform 0.08s ease;
-}
-.sidebar-account-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #fff;
-}
-.sidebar-account-item:active {
-  transform: scale(0.985);
-}
-
-.sidebar-account-item-icon {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
+  transition: background var(--sidebar-transition), color var(--sidebar-transition), border-color var(--sidebar-transition);
+}
+
+.sidebar-history-item-menu:hover {
+  color: var(--text);
+  background: var(--sidebar-surface);
+  border-color: var(--sidebar-border);
+}
+
+.sidebar-history-item-menu svg {
   width: 16px;
   height: 16px;
-  flex-shrink: 0;
-  color: rgba(196, 181, 253, 0.72);
-  transition: color 0.18s ease;
-}
-.sidebar-account-item-icon svg {
-  width: 13px;
-  height: 13px;
-}
-.sidebar-account-item:hover .sidebar-account-item-icon {
-  color: #c4b5fd;
 }
 
-.sidebar-account-item-label {
-  flex: 1 1 auto;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ── Nested AI-model picker ─────────────────────────────────────── */
-.sidebar-account-model__tag {
-  flex-shrink: 0;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: rgba(196, 181, 253, 0.92);
-  background: rgba(167, 139, 250, 0.14);
-  border: 1px solid rgba(167, 139, 250, 0.2);
-  padding: 2px 6px;
-  border-radius: 999px;
-}
-.sidebar-account-model__chevron {
-  flex-shrink: 0;
-  color: rgba(196, 181, 253, 0.5);
-  transition:
-    transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
-    color 0.18s ease;
-}
-.sidebar-account-model__chevron svg {
-  width: 11px;
-  height: 11px;
-  display: block;
-}
-.sidebar-account-model--open .sidebar-account-model__chevron {
-  transform: rotate(180deg);
-  color: #c4b5fd;
-}
-
-/* Vertical row list — each tier sits on its own line. */
-.sidebar-account-model__rows {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  max-height: 0;
-  overflow: hidden;
-  opacity: 0;
-  padding: 0;
-  transition:
-    max-height 0.3s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.18s ease,
-    padding 0.3s cubic-bezier(0.22, 1, 0.36, 1),
-    margin-top 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.sidebar-account-model--open .sidebar-account-model__rows {
-  max-height: 240px;
-  opacity: 1;
-  padding: 2px 0;
-  margin-top: 2px;
-}
-
-.sidebar-account-model__row {
-  position: relative;
-}
-
-.sidebar-account-model__row-main {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  width: 100%;
-  height: 30px;
-  padding: 0 2rem 0 1.6rem;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: rgba(229, 229, 231, 0.8);
-  font: inherit;
-  font-size: 0.74rem;
-  font-weight: 500;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background 0.16s ease,
-    color 0.16s ease,
-    transform 0.08s ease;
-}
-.sidebar-account-model__row-main:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.04);
-  color: #fff;
-}
-.sidebar-account-model__row-main:active:not(:disabled) {
-  transform: scale(0.985);
-}
-.sidebar-account-model__row-main:disabled {
-  opacity: 0.55;
-  cursor: wait;
-}
-
-.sidebar-account-model__code {
-  font-weight: 600;
-  color: rgba(245, 245, 247, 0.88);
-  letter-spacing: 0.02em;
-  font-variant-numeric: tabular-nums;
-}
-
-.sidebar-account-model__tag-sm {
-  flex-shrink: 0;
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(229, 229, 231, 0.68);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 1px 6px;
-  border-radius: 999px;
-  line-height: 1.4;
-}
-
-.sidebar-account-model__row-right {
-  margin-left: auto;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  color: rgba(229, 229, 231, 0.45);
-}
-.sidebar-account-model__row-right svg {
-  width: 13px;
-  height: 13px;
-}
-
-/* Active row — subtle violet tint, check turns mint-green. */
-.sidebar-account-model__row--active .sidebar-account-model__row-main {
-  background: rgba(167, 139, 250, 0.1);
-  color: #fff;
-}
-.sidebar-account-model__row--active .sidebar-account-model__row-main:hover {
-  background: rgba(167, 139, 250, 0.16);
-}
-.sidebar-account-model__row--active .sidebar-account-model__code {
-  color: #fff;
-}
-.sidebar-account-model__row--active .sidebar-account-model__tag-sm {
-  color: #c4b5fd;
-  background: rgba(167, 139, 250, 0.16);
-  border-color: rgba(167, 139, 250, 0.24);
-}
-.sidebar-account-model__row--active .sidebar-account-model__row-right {
-  color: #86efac;
-}
-
-.sidebar-account-model__row--locked .sidebar-account-model__row-main {
-  color: rgba(229, 229, 231, 0.45);
-}
-.sidebar-account-model__row--locked .sidebar-account-model__code {
-  color: rgba(229, 229, 231, 0.5);
-}
-.sidebar-account-model__row--locked .sidebar-account-model__tag-sm {
-  color: rgba(229, 229, 231, 0.45);
-}
-
-/* Info button — flush right of the row, brightens on hover. */
-.sidebar-account-model__info-btn {
-  position: absolute;
-  top: 50%;
-  right: 6px;
-  transform: translateY(-50%);
-  width: 18px;
-  height: 18px;
-  display: inline-grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: rgba(196, 181, 253, 0.55);
-  border-radius: 999px;
-  cursor: pointer;
-  transition:
-    color 0.16s ease,
-    background 0.16s ease;
-}
-.sidebar-account-model__info-btn:hover {
-  color: #c4b5fd;
-  background: rgba(167, 139, 250, 0.14);
-}
-.sidebar-account-model__info-btn svg {
-  width: 12px;
-  height: 12px;
-}
-
-/* Info popover — portalled to <body>, positioned by
- * `useFloatingPosition`. Small, soft, and out of the way. */
-.sidebar-account-model-info-pop {
-  max-width: 220px;
-  padding: 6px 9px;
-  background: rgba(24, 24, 28, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 7px;
-  color: rgba(229, 229, 231, 0.94);
-  font-size: 0.66rem;
-  font-weight: 500;
-  line-height: 1.4;
-  letter-spacing: 0.005em;
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  backdrop-filter: blur(14px) saturate(160%);
-  box-shadow:
-    0 8px 22px rgba(0, 0, 0, 0.45),
-    0 1px 0 rgba(255, 255, 255, 0.03) inset;
-  pointer-events: auto;
-  z-index: 100000;
-  animation: sidebar-model-info-in 0.16s cubic-bezier(0.22, 1, 0.36, 1);
-}
-@keyframes sidebar-model-info-in {
-  from {
-    opacity: 0;
-    transform: translateY(3px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .sidebar-account-model-info-pop {
-    animation: none;
-  }
-}
-
-/* ── Pinned Log out pill at the bottom of the panel ─────────────── */
-.sidebar-account-logout {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  height: 30px;
-  margin-top: 0.2rem;
-  padding: 0 0.8rem;
-  border: 1px solid rgba(248, 113, 113, 0.18);
-  border-radius: 999px;
-  background: rgba(248, 113, 113, 0.05);
-  color: rgba(252, 165, 165, 0.88);
-  font: inherit;
-  font-size: 0.74rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    background 0.16s ease,
-    border-color 0.16s ease,
-    color 0.16s ease,
-    transform 0.08s ease;
-}
-.sidebar-account-logout:hover {
-  background: rgba(248, 113, 113, 0.12);
-  border-color: rgba(248, 113, 113, 0.3);
-  color: #fecaca;
-}
-.sidebar-account-logout:active {
-  transform: scale(0.97);
-}
-.sidebar-account-logout .sidebar-account-item-icon {
-  color: rgba(252, 165, 165, 0.8);
-  width: 14px;
-  height: 14px;
-}
-.sidebar-account-logout .sidebar-account-item-icon svg {
-  width: 12px;
-  height: 12px;
-}
-.sidebar-account-logout:hover .sidebar-account-item-icon {
-  color: #fecaca;
-}
-
-/* Collapsed rail: hide the credits chip + panel (rail is icon-only) */
-.app-sidebar.collapsed .sidebar-account-credits,
-.app-sidebar.collapsed .sidebar-account-panel {
-  display: none !important;
-}
-
-/* Stagger entrance of items when opening */
-.sidebar-account-panel--open .sidebar-account-panel__list > * {
-  animation: sb-account-item-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.sidebar-account-panel--open .sidebar-account-panel__list > :nth-child(1) {
-  animation-delay: 0.02s;
-}
-.sidebar-account-panel--open .sidebar-account-panel__list > :nth-child(2) {
-  animation-delay: 0.05s;
-}
-.sidebar-account-panel--open .sidebar-account-panel__list > :nth-child(3) {
-  animation-delay: 0.08s;
-}
-.sidebar-account-panel--open .sidebar-account-panel__list > :nth-child(4) {
-  animation-delay: 0.11s;
-}
-.sidebar-account-panel--open .sidebar-account-logout {
-  animation: sb-account-item-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
-  animation-delay: 0.14s;
-}
-
-@keyframes sb-account-item-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sidebar-account-panel,
-  .sidebar-account-panel--open .sidebar-account-panel__list > *,
-  .sidebar-account-panel--open .sidebar-account-logout,
-  .sidebar-account-model__pills {
-    animation: none !important;
-    transition:
-      max-height 0.12s ease,
-      opacity 0.12s ease;
-  }
-  .sidebar-account-item::before {
-    display: none;
-  }
-}
-
-/* Collapsed footer: avatar-only */
-.app-sidebar.collapsed .sidebar-footer {
-  padding: 0.35rem 0.2rem 0.4rem;
-}
-
-.app-sidebar.collapsed .sidebar-user-block {
-  width: var(--sidebar-rail-icon);
-  height: var(--sidebar-rail-icon);
-  min-width: var(--sidebar-rail-icon);
-  padding: 0;
-  justify-content: center;
-  margin: 0 auto;
-  border-radius: 50%;
-  border-color: rgba(255, 255, 255, 0.07);
-}
-
-/* ============================================================
-   14. PORTAL MENU (history context menu)
-   ============================================================ */
+/* ---- Dropdown ---- */
+/* Portal menu (outside sidebar, same style as account dialog) */
 .sidebar-portal-menu {
   position: fixed;
   z-index: 120;
-  min-width: 152px;
-  padding: 0.3rem;
-  background: rgba(18, 18, 24, 0.98);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 12px;
-  box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.5),
-    0 2px 8px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(16px) saturate(150%);
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  min-width: 160px;
+  padding: 0.45rem;
+  background: rgba(12,13,16,0.98);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 16px;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0,0,0,0.3);
   opacity: 0;
   visibility: hidden;
-  transform: scale(0.95) translateY(-3px);
-  transform-origin: bottom left;
-  transition:
-    opacity 0.17s cubic-bezier(0.33, 1, 0.68, 1),
-    visibility 0.17s,
-    transform 0.17s cubic-bezier(0.33, 1, 0.68, 1);
-  pointer-events: none;
+  transition: opacity 220ms cubic-bezier(0.4, 0, 0.2, 1), visibility 220ms;
 }
 
 .sidebar-portal-menu.visible {
   opacity: 1;
   visibility: visible;
-  transform: scale(1) translateY(0);
-  pointer-events: auto;
 }
 
-/* ============================================================
-   15. FLOATING MENU SHARED STYLES
-   ============================================================ */
-.floating-menu {
-  position: fixed;
-  z-index: 200;
-  min-width: 192px;
-  padding: 0.3rem;
-  background: rgba(16, 16, 22, 0.98);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+.sidebar-portal-menu button,
+.sidebar-history-dropdown button {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
   border-radius: 14px;
-  box-shadow:
-    0 16px 48px rgba(0, 0, 0, 0.55),
-    0 4px 12px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background var(--sidebar-transition), color var(--sidebar-transition);
+}
+
+.sidebar-portal-menu button:hover,
+.sidebar-history-dropdown button:hover {
+  color: var(--text);
+  background: var(--sidebar-surface);
+}
+
+.sidebar-portal-menu button svg,
+.sidebar-history-dropdown button svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.sidebar-portal-menu button.danger,
+.sidebar-history-dropdown button.danger {
+  color: #fb7185;
+}
+
+.sidebar-portal-menu button.danger:hover,
+.sidebar-history-dropdown button.danger:hover {
+  background: rgba(251, 113, 133, 0.12);
+}
+
+/* ---- Go Pro — brighter, more vibrant CTA ---- */
+.sidebar-upgrade-pro {
+  width: 100%;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: var(--sidebar-btn-height);
+  padding: 0 0.9rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff !important;
+  text-decoration: none;
+  margin: 0.18rem 0 0.3rem;
+  min-width: 0;
+  white-space: nowrap;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(196, 181, 253, 0.45) 0%, rgba(139, 92, 246, 0.55) 45%, rgba(124, 58, 237, 0.65) 100%) !important;
+  border: 1px solid rgba(216, 199, 254, 0.35) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 8px 24px rgba(139, 92, 246, 0.35), 0 0 0 1px rgba(167, 139, 250, 0.15);
+  transition: background var(--sidebar-transition), box-shadow var(--sidebar-transition), border-color var(--sidebar-transition), transform var(--sidebar-transition);
+}
+
+.sidebar-upgrade-pro::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.06) 40%, rgba(255,255,255,0) 100%);
+  pointer-events: none;
+}
+
+.sidebar-upgrade-pro:hover {
+  color: #fff !important;
+  background: linear-gradient(135deg, rgba(216, 199, 254, 0.55) 0%, rgba(167, 139, 250, 0.65) 45%, rgba(139, 92, 246, 0.75) 100%) !important;
+  border-color: rgba(233, 213, 255, 0.45) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 12px 32px rgba(139, 92, 246, 0.45), 0 0 0 1px rgba(167, 139, 250, 0.25);
+  transform: translateY(-0.5px);
+}
+
+.sidebar-upgrade-pro.active {
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25), 0 8px 24px rgba(139, 92, 246, 0.5);
+}
+
+.sidebar-upgrade-pro-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.98);
+  opacity: 0.95;
+}
+
+.sidebar-upgrade-pro-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sidebar-upgrade-pro-label {
+  transition: opacity var(--sidebar-transition), transform var(--sidebar-transition);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Collapsed: square, same size as nav icons (matches .sidebar-link collapsed) */
+.app-sidebar.collapsed .sidebar-upgrade-pro {
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 40px;
+  min-height: var(--sidebar-btn-height);
+  height: var(--sidebar-btn-height);
+  padding: 0;
+  margin: 0.15rem auto;
+  gap: 0;
+  box-sizing: border-box;
+  border-radius: 12px;
+}
+
+.app-sidebar.collapsed .sidebar-upgrade-pro-label {
   opacity: 0;
   visibility: hidden;
-  transform: translateY(6px) scale(0.97);
-  transform-origin: bottom left;
-  transition:
-    opacity 0.2s cubic-bezier(0.33, 1, 0.68, 1),
-    visibility 0.2s,
-    transform 0.2s cubic-bezier(0.33, 1, 0.68, 1);
-  pointer-events: none;
-  box-sizing: border-box;
-  max-height: min(400px, calc(100dvh - 24px));
-  overflow-y: auto;
-  overflow-x: hidden;
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
 }
 
-.floating-menu[data-open='true'],
-.floating-menu.open {
+/* ---- Footer / User block: compact, liquid glass, fully pressable ---- */
+.sidebar-footer {
+  margin-top: auto;
+  flex-shrink: 0;
+  padding: 0;
+  transition: opacity var(--sidebar-transition), visibility var(--sidebar-transition),
+    padding var(--sidebar-transition), margin var(--sidebar-transition),
+    transform var(--sidebar-transition);
+  position: relative;
+  /* Liquid glass effect */
+  background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.08) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 0 0 1px rgba(0,0,0,0.15);
+  margin-top: auto;
+  margin-left: 0.5rem;
+  margin-right: 0.5rem;
+  margin-bottom: 0.6rem;
+  border-radius: 12px;
+  overflow: visible;
+}
+
+/* Horizontal divider above footer — subtle fade */
+.sidebar-footer::before {
+  content: "";
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 15%, rgba(255,255,255,0.1) 85%, rgba(255,255,255,0) 100%);
+  pointer-events: none;
+}
+
+/* User block: fills entire footer — 100% clickable, no dead zones */
+.sidebar-footer .sidebar-user-block {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  transition: background var(--sidebar-transition), color var(--sidebar-transition);
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  box-sizing: border-box;
+  border-radius: 12px;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  touch-action: manipulation;
+  /* Fill entire footer — no padding gaps = no dead zones */
+  margin: 0;
+  outline: none;
+  overflow: visible;
+}
+
+.sidebar-footer .sidebar-user-block:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent-ring);
+}
+
+.sidebar-footer .sidebar-user-block:hover {
+  background: var(--sidebar-surface);
+  color: var(--text);
+}
+
+/* Expanded: simple smooth selected — no glow, no vertical stick */
+.sidebar-footer .sidebar-user-block[aria-expanded="true"] {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.sidebar-footer .sidebar-user-block[aria-expanded="true"]::before {
+  display: none;
+}
+
+.sidebar-footer .sidebar-user-block .sidebar-user-avatar-placeholder,
+.sidebar-footer .sidebar-user-block .sidebar-user-avatar {
+  flex-shrink: 0;
+}
+
+.sidebar-user-block {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  text-align: left;
+  border: none;
+  color: inherit;
+  font: inherit;
+  box-sizing: border-box;
+  cursor: pointer;
+  position: relative;
+  font-family: inherit;
+}
+
+/* Avatar: compact for footer block */
+.sidebar-footer .sidebar-user-avatar,
+.sidebar-footer .sidebar-user-avatar-placeholder {
+  width: 28px;
+  height: 28px;
+}
+
+.sidebar-user-avatar,
+.sidebar-user-avatar-placeholder {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+}
+
+.sidebar-user-avatar {
+  background: transparent;
+  object-fit: cover;
+}
+
+.sidebar-user-avatar-placeholder {
+  background: linear-gradient(135deg, #a78bfa 0%, #6366f1 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.sidebar-user-info {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.sidebar-user-email {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity var(--sidebar-transition), transform var(--sidebar-transition);
+}
+
+.sidebar-user-plan {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  transition: opacity var(--sidebar-transition), transform var(--sidebar-transition);
+}
+
+.sidebar-user-plan.pro,
+.sidebar-user-plan.premium {
+  color: var(--accent);
+}
+
+/* ---- Account dialog: inside sidebar, above user block ---- */
+.sidebar-account-dialog {
+  position: fixed;
+  z-index: 110;
+  bottom: 1.25rem;
+  left: calc(252px + 0.5rem);
+  min-width: 220px;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  padding: 0.45rem;
+  background: rgba(12, 13, 16, 0.98);
+  border: 1px solid #1A1A1E;
+  border-radius: 16px;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-8px);
+  transition: left 220ms cubic-bezier(0.4, 0, 0.2, 1), opacity 220ms cubic-bezier(0.4, 0, 0.2, 1), visibility 220ms, transform 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Inside sidebar: positioned above user block, compact liquid glass */
+.sidebar-account-dialog--inside {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 0.4rem;
+  min-width: unset;
+  max-height: 240px;
+  padding: 0.35rem;
+  background: rgba(16, 16, 20, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(0, 0, 0, 0.15);
+  transform: translateY(4px);
+  transition: opacity 220ms cubic-bezier(0.4, 0, 0.2, 1), visibility 220ms, transform 220ms cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.sidebar-account-dialog--inside.visible {
   opacity: 1;
   visibility: visible;
-  transform: translateY(0) scale(1);
+  transform: translateY(0);
   pointer-events: auto;
 }
 
-.floating-menu__item {
+.sidebar-account-dialog--inside.collapsed {
+  left: 0;
+  right: auto;
+  min-width: 200px;
+  width: max-content;
+}
+
+.sidebar-account-dialog.collapsed {
+  left: calc(60px + 0.5rem);
+}
+
+.sidebar-account-dialog.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+}
+
+.sidebar-account-dialog a,
+.sidebar-account-dialog button.dialog-item {
   display: flex;
   align-items: center;
   gap: 0.55rem;
   width: 100%;
-  padding: 0.48rem 0.65rem;
+  min-height: 34px;
+  padding: 0.4rem 0.65rem;
   font-size: 0.82rem;
-  font-weight: 500;
-  font-family: inherit;
-  color: rgba(255, 255, 255, 0.72);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
   background: transparent;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  text-align: left;
-  text-decoration: none !important;
-  white-space: nowrap;
-  transition:
-    background var(--sidebar-transition),
-    color var(--sidebar-transition);
+  text-decoration: none;
+  transition: background 180ms ease, color 180ms ease;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
-.floating-menu__item:hover {
-  background: rgba(255, 255, 255, 0.07);
+.sidebar-account-dialog a:hover,
+.sidebar-account-dialog button.dialog-item:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-account-dialog button.dialog-item:active {
+  background: rgba(139, 92, 246, 0.2);
   color: #fff;
 }
 
-.floating-menu__item--danger {
-  color: rgba(248, 113, 113, 0.85);
-}
-
-.floating-menu__item--danger:hover {
-  background: rgba(220, 38, 38, 0.1);
-  color: #f87171;
-}
-
-.floating-menu__icon {
+.sidebar-account-dialog .dialog-item-icon {
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.8;
+  color: inherit;
 }
 
-.floating-menu__icon svg {
-  width: 14px;
-  height: 14px;
-}
-
-.floating-menu__divider {
+.sidebar-account-dialog .dialog-divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.07);
-  margin: 0.22rem 0.4rem;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0.25rem 0.5rem;
 }
 
-.floating-menu__footer {
-  padding: 0.4rem 0.65rem 0.15rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  margin-top: 0.2rem;
+.sidebar-account-dialog button.dialog-item.logout {
+  color: #fb7185;
 }
 
-.floating-menu__footer-text {
-  display: block;
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.38);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.sidebar-account-dialog button.dialog-item.logout:hover {
+  background: rgba(251, 113, 133, 0.12);
+  color: #fecdd3;
 }
 
-.floating-menu__footer-sub {
-  display: block;
-  font-size: 0.67rem;
-  color: var(--accent);
-  margin-top: 0.08rem;
-  font-weight: 600;
-}
-
-/* ============================================================
-   16. MOBILE OPEN BUTTON
-   ============================================================ */
-.sidebar-open-btn {
-  position: fixed;
-  top: 0.8rem;
-  left: 0.8rem;
-  z-index: 90;
-  width: 38px;
-  height: 38px;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(16, 16, 22, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  color: rgba(255, 255, 255, 0.8);
-  cursor: pointer;
-  backdrop-filter: blur(10px);
-  transition:
-    background var(--sidebar-transition),
-    border-color var(--sidebar-transition),
-    opacity 0.2s ease,
-    transform 0.2s ease;
-}
-
-.sidebar-open-btn:hover {
-  background: rgba(28, 28, 38, 0.96);
-  border-color: rgba(255, 255, 255, 0.16);
-}
-
-.sidebar-open-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-.sidebar-open-btn--hidden {
-  opacity: 0;
-  pointer-events: none;
-  transform: scale(0.9);
-}
-
-/* Overlay */
+/* ---- Mobile overlay + button ---- */
+/* Overlay sits behind sidebar: lower z-index so sidebar (z-index 50 on mobile) stays on top */
 .sidebar-overlay {
   display: none;
   position: fixed;
   inset: 0;
-  z-index: 95;
+  z-index: 42;
   background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
   opacity: 0;
-  transition: opacity 0.3s cubic-bezier(0.33, 1, 0.68, 1);
+  transition: opacity 220ms cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
 }
 
@@ -2749,402 +1644,315 @@
   pointer-events: auto;
 }
 
-/* ============================================================
-   17. MOBILE RESPONSIVE (≤ 1024px)
-   ============================================================ */
-@media (max-width: 1024px) {
-  .sidebar-open-btn {
-    display: flex;
-  }
+/* ---- Mobile: floating menu button (liquid glass) ---- */
+.sidebar-open-btn {
+  display: none;
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 55;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.24),
+    0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
 
-  .sidebar-overlay {
-    display: block;
+.sidebar-open-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 10px 36px rgba(0, 0, 0, 0.28),
+    0 1px 0 rgba(255, 255, 255, 0.1) inset;
+}
+
+.sidebar-open-btn:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-open-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+.sidebar-open-btn--hidden {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 1024px) {
+  .sidebar-open-btn { display: flex; }
+
+  /* Hide sidebar header on mobile for cleaner floating menu experience */
+  .sidebar-header {
+    display: none;
   }
 
   .app-sidebar {
     position: fixed;
-    top: 0;
-    left: 0;
-    height: 100vh;
-    height: 100dvh;
-    z-index: 100;
-    transform: translateX(-100%);
-    transition: transform 0.3s cubic-bezier(0.33, 1, 0.68, 1) !important;
-    width: var(--sidebar-width) !important;
-    background: rgba(12, 12, 18, 0.98);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
-    padding: 0;
+    left: 0.75rem;
+    top: 0.75rem;
+    bottom: 0.75rem;
+    z-index: 50;
+    transform: translateX(calc(-100% - 2rem));
+    transition: transform var(--sidebar-transition);
+    height: calc(100vh - 1.5rem);
+    height: calc(100dvh - 1.5rem);
+    border-radius: 20px;
+    overflow: hidden;
+    background: rgba(18, 18, 22, 0.88) !important;
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 24px 64px rgba(0, 0, 0, 0.4),
+      0 1px 0 rgba(255, 255, 255, 0.06) inset;
   }
 
   .app-sidebar.mobile-open {
     transform: translateX(0);
-    box-shadow: 8px 0 40px rgba(0, 0, 0, 0.4);
   }
 
-  /* Mobile: always full-width regardless of collapsed state */
-  .app-sidebar.collapsed {
-    width: var(--sidebar-width) !important;
-  }
-
-  .sidebar-mobile-close-btn {
-    display: flex;
-  }
-
-  .sidebar-toggle {
-    display: none !important;
-  }
-
-  /* Undo collapsed styles on mobile */
-  .app-sidebar.collapsed .sidebar-brand {
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-    width: auto !important;
-    min-width: 0 !important;
-    overflow: visible !important;
-    margin: initial !important;
-    padding: initial !important;
-    border-width: initial !important;
-  }
-
-  .app-sidebar.collapsed .sidebar-header-inner {
-    justify-content: space-between;
-    padding: 0.65rem 0.8rem 0.6rem;
-  }
-
-  .app-sidebar.collapsed .sidebar-logo-avatar-btn {
-    position: relative;
-    left: auto;
-    transform: none;
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
-  }
-
-  .app-sidebar.collapsed .sidebar-nav--primary {
-    align-items: stretch;
-    padding: 0.35rem 0.5rem;
-    gap: 0;
-  }
-
-  .app-sidebar.collapsed .sidebar-link {
-    justify-content: flex-start;
-    padding: 0 0.7rem;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    height: var(--sidebar-btn-height);
-    margin: 0;
-    border-radius: 999px;
-    gap: 0.6rem;
-  }
-
-  .app-sidebar.collapsed .sidebar-dropdown-trigger {
-    justify-content: flex-start;
-    padding: 0 0.7rem;
-    width: 100%;
-    max-width: 100%;
-    height: var(--sidebar-btn-height);
-    margin: 0;
-    border-radius: 999px;
-    gap: 0.6rem;
-  }
-
-  .app-sidebar.collapsed .sidebar-dropdown {
-    width: 100%;
-    align-items: stretch;
-  }
-
-  .app-sidebar.collapsed .sidebar-dropdown-chevron {
-    display: flex;
-  }
-
-  .app-sidebar.collapsed .sidebar-dropdown-content {
-    display: grid;
-  }
-
-  .app-sidebar.collapsed .sidebar-nav--history {
-    display: flex;
-    flex: 1 1 0;
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
-
-  .app-sidebar.collapsed .sidebar-history-list,
-  .app-sidebar.collapsed .sidebar-history-header {
-    display: flex !important;
-  }
-
-  .app-sidebar.collapsed .sidebar-divider {
+  .sidebar-overlay {
     display: block;
-    opacity: 1 !important;
-    margin: 0.4rem 0.55rem 0.35rem !important;
-    height: 1px !important;
+    pointer-events: none;
   }
 
+  .sidebar-overlay.visible {
+    pointer-events: auto;
+  }
+
+  /* On mobile, ignore collapsed state */
+  .app-sidebar.collapsed {
+    width: var(--sidebar-width);
+  }
+
+  .app-sidebar.collapsed .sidebar-brand,
   .app-sidebar.collapsed .sidebar-label,
   .app-sidebar.collapsed .sidebar-section-label,
-  .app-sidebar.collapsed .sidebar-history-row__title,
-  .app-sidebar.collapsed .sidebar-history-row__menu {
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-    width: auto !important;
-    min-width: 0 !important;
-    height: auto !important;
-    overflow: visible !important;
-    margin: initial !important;
-    padding: initial !important;
+  .app-sidebar.collapsed .sidebar-user-email,
+  .app-sidebar.collapsed .sidebar-user-plan,
+  .app-sidebar.collapsed .sidebar-history-item-title,
+  .app-sidebar.collapsed .sidebar-history-item-menu {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: none;
   }
 
-  .app-sidebar.collapsed .sidebar-user-info {
-    display: flex !important;
+  .app-sidebar.collapsed .sidebar-brand {
+    max-width: none;
+    width: auto;
+    min-width: 0;
+    flex: 1;
+    overflow: visible;
   }
 
-  .app-sidebar.collapsed .sidebar-user-block {
-    width: 100% !important;
-    height: auto !important;
-    padding: 0.5rem 0.65rem !important;
-    justify-content: flex-start !important;
-    margin: 0 !important;
-    border-radius: 10px !important;
-  }
-
-  .app-sidebar.collapsed .sidebar-upgrade-pro {
-    width: 100% !important;
-    max-width: 100% !important;
-    padding: 0 0.85rem !important;
-    height: var(--sidebar-btn-height) !important;
-    margin: 0.22rem 0 0.3rem !important;
-    border-radius: 999px !important;
-    justify-content: center !important;
-    gap: 0.5rem !important;
-  }
-
+  /* On mobile, show footer when sidebar is open (ignore collapsed) */
   .app-sidebar.collapsed .sidebar-footer {
-    padding: 0.5rem 0.5rem 0.65rem !important;
+    opacity: 1;
+    visibility: visible;
+    height: auto;
+    min-height: 0;
+    padding: 0.5rem 0.6rem 0.75rem;
+    margin: 0;
+    overflow: visible;
+    pointer-events: auto;
+    transform: none;
+  }
+
+  .sidebar-toggle { display: none; }
+
+  /* Compensate for hidden header: add top padding to nav */
+  .sidebar-nav {
+    padding-top: 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-sidebar {
+    width: min(300px, calc(100vw - 1.5rem));
+    max-width: 300px;
   }
 }
 
 /* ============================================================
-   18. MISC UTILITIES
+   MINIMAL REDESIGN — Liquid glass sidebar, gradient dividers, pill active, Go Pro = header CTA
    ============================================================ */
 
-/* Filter tabs (if rendered) */
-.sidebar-history-filter {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 0.5rem 0.45rem;
-  flex-shrink: 0;
+/* 0. Sidebar — solid, no gradient or glass */
+.app-sidebar {
+  background: var(--sidebar-bg) !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
-.sidebar-history-filter-btn {
-  flex: 1;
-  min-width: 0;
-  height: 28px;
-  padding: 0 0.55rem;
-  border: 1px solid transparent;
-  background: transparent;
-  border-radius: 999px;
-  color: var(--text-dim);
-  font-size: 0.72rem;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition:
-    background var(--sidebar-transition),
-    color var(--sidebar-transition),
-    border-color var(--sidebar-transition),
-    box-shadow var(--sidebar-transition);
-}
-
-.sidebar-history-filter-btn:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.07);
-}
-
-.sidebar-history-filter-btn.active {
-  color: #fff;
-  background: linear-gradient(180deg, rgba(139, 92, 246, 0.28) 0%, rgba(124, 58, 237, 0.22) 100%);
-  border-color: rgba(167, 139, 250, 0.3);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
-   New Chat — liquid-glass pill, pinned to the top of the sidebar rail.
-   ───────────────────────────────────────────────────────────────────────── */
-.sidebar-new-chat-pill {
-  position: relative;
-  width: calc(100% - 0.5rem);
-  margin: 0.85rem 0.25rem 0.6rem 0.25rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  height: var(--sidebar-btn-height);
-  min-height: var(--sidebar-btn-height);
-  flex: 0 0 var(--sidebar-btn-height);
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background:
-    radial-gradient(140% 100% at 50% 110%, rgba(255, 255, 255, 0.11) 0%, transparent 60%),
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.14) 0%,
-      rgba(255, 255, 255, 0.05) 45%,
-      rgba(255, 255, 255, 0.04) 75%,
-      rgba(255, 255, 255, 0.08) 100%
-    );
-  backdrop-filter: blur(22px) saturate(1.6);
-  -webkit-backdrop-filter: blur(22px) saturate(1.6);
-  color: rgba(245, 245, 247, 0.96);
-  font-family: inherit;
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-  overflow: hidden;
-  isolation: isolate;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.14),
-    inset 0 8px 16px -8px rgba(255, 255, 255, 0.1),
-    inset 0 -8px 16px -8px rgba(255, 255, 255, 0.08);
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  will-change: transform;
-}
-/* Static top-gloss highlight — a thin curved reflection across the upper
-   half of the pill, like real frosted glass catching light. */
-.sidebar-new-chat-pill::before {
-  content: '';
-  position: absolute;
-  inset: 1px 1px auto 1px;
-  height: 48%;
-  border-radius: 999px 999px 60% 60% / 999px 999px 100% 100%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 100%);
-  opacity: 0.9;
-  pointer-events: none;
-  z-index: 0;
-  transition: opacity 0.25s ease;
-}
-
-/* Traveling shine stripe — sweeps across on hover. */
-.sidebar-new-chat-pill::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    110deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.16) 50%,
-    transparent 100%
-  );
-  transform: translateX(-130%);
-  pointer-events: none;
-  z-index: 0;
-  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.sidebar-new-chat-pill:hover {
-  background:
-    radial-gradient(140% 100% at 50% 110%, rgba(255, 255, 255, 0.12) 0%, transparent 60%),
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.15) 0%,
-      rgba(255, 255, 255, 0.06) 45%,
-      rgba(255, 255, 255, 0.05) 75%,
-      rgba(255, 255, 255, 0.09) 100%
-    );
-  border-color: rgba(255, 255, 255, 0.18);
-  color: #fff;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.18),
-    inset 0 10px 18px -8px rgba(255, 255, 255, 0.12),
-    inset 0 -10px 18px -8px rgba(255, 255, 255, 0.1);
-}
-.sidebar-new-chat-pill:hover::before {
-  opacity: 0.95;
-}
-.sidebar-new-chat-pill:hover::after {
-  transform: translateX(130%);
-}
-.sidebar-new-chat-pill:active {
-  transform: scale(0.96);
-  transition: transform 60ms cubic-bezier(0.4, 0, 0.6, 1);
-}
-.sidebar-new-chat-pill.is-pressing {
-  animation: sb-btn-press 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.sidebar-new-chat-pill:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.18);
-  outline-offset: 2px;
-}
-
-/* No external glow / sheen — kept as a no-op so the JSX span still renders cleanly. */
-.sidebar-new-chat-pill-glow {
+/* 1. No overlay gradient */
+.app-sidebar::before {
   display: none;
 }
 
-.sidebar-new-chat-pill-icon {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  place-items: center;
-  width: 16px;
-  height: 16px;
-  color: currentColor;
-  flex-shrink: 0;
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.sidebar-new-chat-pill-icon svg {
-  width: 12px;
-  height: 12px;
-  stroke-width: 2.2;
-}
-.sidebar-new-chat-pill:hover .sidebar-new-chat-pill-icon {
-  transform: rotate(90deg);
+/* 2. Logo avatar — solid */
+.sidebar-logo-avatar {
+  background: transparent;
+  box-shadow: none;
 }
 
-.sidebar-new-chat-pill-label {
-  position: relative;
-  z-index: 1;
-  white-space: nowrap;
+/* 3. Header — transparent */
+.sidebar-header {
+  background: transparent;
 }
 
-.sidebar-new-chat-pill--collapsed {
-  width: var(--sidebar-btn-height);
-  height: var(--sidebar-btn-height);
-  margin: 0.85rem auto 0.6rem auto;
-  padding: 0;
+/* 4. Active nav — no vertical stick */
+.sidebar-link.active::before {
+  display: none;
 }
 
-/* Empty-state — compact, centered. */
-.sidebar-history-empty {
+/* 5. Footer user block expanded — no vertical stick */
+.sidebar-footer .sidebar-user-block[aria-expanded="true"]::before {
+  display: none;
+}
+
+/* 6. User avatar placeholder — match brand gradient */
+.sidebar-user-avatar-placeholder {
+  background: linear-gradient(135deg, #a78bfa 0%, #6366f1 100%);
+}
+
+/* 7. Go Pro — same as header "Start Free Trial" (gradient pill); base styles apply, no override */
+
+/* 8. Section labels — slightly cleaner spacing */
+.sidebar-section-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.09em;
+  color: var(--text-dim);
+}
+
+/* 9. Active link — dark pill + glow (base has it; ensure override doesn’t flatten) */
+.sidebar-link.active {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  border-left: none;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+.sidebar-link.active .sidebar-icon {
+  color: var(--accent);
+}
+
+/* 10. Nav link hover — no lift, just bg change */
+.sidebar-link:not(.active):hover {
+  transform: none;
+}
+
+/* 11. Dropdown trigger hover — no lift */
+.sidebar-dropdown-trigger:hover {
+  transform: none;
+}
+
+/* 12. Collapsed Go Pro — brighter solid gradient */
+.app-sidebar.collapsed .sidebar-upgrade-pro {
+  background: linear-gradient(135deg, #c4b5fd 0%, #a78bfa 40%, #8b5cf6 100%) !important;
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 8px 24px rgba(139, 92, 246, 0.4);
+}
+
+/* 13. Header control borders */
+.sidebar-logo-avatar-btn,
+.sidebar-toggle {
+  border-color: var(--sidebar-border);
+}
+
+.sidebar-logo-avatar-btn:hover,
+.sidebar-toggle:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Delete chat confirmation dialog — centered on screen */
+.sidebar-delete-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 18px 12px;
-  text-align: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: sidebar-delete-dialog-fade-in 0.2s ease;
 }
-.sidebar-history-empty-text {
-  font-size: 0.74rem;
-  color: var(--text-3, rgba(229, 229, 231, 0.5));
-  letter-spacing: 0.01em;
+@keyframes sidebar-delete-dialog-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.sidebar-delete-dialog {
+  width: 100%;
+  max-width: 400px;
+  padding: 1.5rem 1.75rem;
+  background: #0f1012;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+  animation: sidebar-delete-dialog-scale-in 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes sidebar-delete-dialog-scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.sidebar-delete-dialog-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #f5f5f6;
+}
+.sidebar-delete-dialog-desc {
+  margin: 0 0 1.25rem 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.5;
+}
+.sidebar-delete-dialog-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+.sidebar-delete-dialog-btn {
+  padding: 0.55rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: inherit;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.sidebar-delete-dialog-btn--cancel {
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.sidebar-delete-dialog-btn--cancel:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+.sidebar-delete-dialog-btn--danger {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+.sidebar-delete-dialog-btn--danger:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
 }

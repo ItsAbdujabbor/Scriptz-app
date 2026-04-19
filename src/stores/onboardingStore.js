@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { userApi } from '../api/user'
 import { profileApi } from '../api/profile'
-import { youtubeApi } from '../api/youtube'
 
 const STORAGE_KEY = 'scriptz_onboarding'
 
@@ -22,6 +21,7 @@ function saveStored(data) {
 }
 
 const defaultProfile = {
+  onboardingCompleted: false,
   preferredLanguage: 'en', // en | es | pt | de | fr
   niche: '',
   videoFormat: '', // 'shorts' | 'longform' | 'both'
@@ -52,51 +52,13 @@ function mergeStored() {
   }
 }
 
-const PERSIST_KEYS = [
-  'preferredLanguage',
-  'niche',
-  'videoFormat',
-  'uploadFrequency',
-  'preferredTone',
-  'speakingStyle',
-  'preferredCtaStyle',
-  'includePersonalStories',
-  'useFirstPerson',
-  'youtube',
-]
-
-const YOUTUBE_BOOTSTRAP_TTL_MS = 60 * 1000
-let youtubeBootstrapCache = null
-let youtubeBootstrapInFlight = null
+const PERSIST_KEYS = ['onboardingCompleted', 'preferredLanguage', 'niche', 'videoFormat', 'uploadFrequency', 'preferredTone', 'speakingStyle', 'preferredCtaStyle', 'includePersonalStories', 'useFirstPerson', 'youtube']
 
 function persist(getState) {
   const state = getState()
   const s = {}
-  PERSIST_KEYS.forEach((k) => {
-    s[k] = state[k]
-  })
+  PERSIST_KEYS.forEach((k) => { s[k] = state[k] })
   saveStored(s)
-}
-
-function toYouTubeState(data = {}) {
-  return {
-    connected: !!(data.channelId ?? data.channel_id),
-    channelId: data.channelId ?? data.channel_id ?? null,
-    channelName: data.channelName ?? data.channel_title ?? null,
-    avatar: data.avatar ?? data.profile_image ?? null,
-    subscriberCount: data.subscriberCount ?? data.subscriber_count ?? null,
-    viewCount: data.viewCount ?? data.view_count ?? null,
-    videoCount: data.videoCount ?? data.video_count ?? null,
-  }
-}
-
-function buildBootstrapResult(list = {}, info = null) {
-  const channels = list.channels || []
-  return {
-    channels,
-    activeChannelId: list.active_channel_id || channels[0]?.channel_id || info?.channel_id || null,
-    info,
-  }
 }
 
 export const useOnboardingStore = create((set, get) => ({
@@ -148,87 +110,42 @@ export const useOnboardingStore = create((set, get) => ({
   },
 
   setYouTube(connected, data = {}) {
-    const youtube = connected
-      ? toYouTubeState(data)
-      : { ...defaultProfile.youtube, connected: false }
+    const youtube = {
+      connected: !!connected,
+      channelId: data.channelId ?? data.channel_id ?? null,
+      channelName: data.channelName ?? data.channel_title ?? null,
+      avatar: data.avatar ?? data.profile_image ?? null,
+      subscriberCount: data.subscriberCount ?? data.subscriber_count ?? null,
+      viewCount: data.viewCount ?? data.view_count ?? null,
+      videoCount: data.videoCount ?? data.video_count ?? null,
+    }
     set({ youtube })
     persist(get)
-  },
-
-  async bootstrapYouTube(accessToken, { force = false } = {}) {
-    if (!accessToken) {
-      get().setYouTube(false, {})
-      return buildBootstrapResult()
-    }
-
-    const now = Date.now()
-    if (
-      !force &&
-      youtubeBootstrapCache?.accessToken === accessToken &&
-      youtubeBootstrapCache.expiresAt > now
-    ) {
-      const cached = youtubeBootstrapCache.result
-      if (cached?.info) get().setYouTube(true, cached.info)
-      return cached
-    }
-
-    if (!force && youtubeBootstrapInFlight?.accessToken === accessToken) {
-      return youtubeBootstrapInFlight.promise
-    }
-
-    const promise = (async () => {
-      const list = await youtubeApi.listChannels(accessToken)
-      const channels = list.channels || []
-      if (channels.length === 0) {
-        get().setYouTube(false, {})
-        const emptyResult = buildBootstrapResult(list, null)
-        youtubeBootstrapCache = {
-          accessToken,
-          expiresAt: Date.now() + YOUTUBE_BOOTSTRAP_TTL_MS,
-          result: emptyResult,
-        }
-        return emptyResult
-      }
-
-      const activeChannelId = list.active_channel_id || channels[0]?.channel_id
-      const info = activeChannelId
-        ? await youtubeApi.getChannelInfo(accessToken, activeChannelId)
-        : null
-      if (info) get().setYouTube(true, info)
-
-      const result = buildBootstrapResult(list, info)
-      youtubeBootstrapCache = {
-        accessToken,
-        expiresAt: Date.now() + YOUTUBE_BOOTSTRAP_TTL_MS,
-        result,
-      }
-      return result
-    })()
-
-    youtubeBootstrapInFlight = { accessToken, promise }
-    return promise.finally(() => {
-      if (youtubeBootstrapInFlight?.promise === promise) {
-        youtubeBootstrapInFlight = null
-      }
-    })
   },
 
   /** Update channel in backend (PUT /api/profile/channel/{channel_id}). Call after connect/switch. */
   async syncChannelToBackend(accessToken, channelId, channelData = {}) {
     if (!accessToken || !channelId) return
     const data = get().youtube
-    const channelName =
-      channelData.channelName ?? channelData.channel_title ?? data?.channelName ?? null
     const payload = {
       channel_id: channelId,
-      channel_name: channelName || null,
+      channel_title: channelData.channelName ?? channelData.channel_title ?? data?.channelName,
+      profile_image: channelData.avatar ?? channelData.profile_image ?? data?.avatar,
+      subscriber_count: channelData.subscriberCount ?? channelData.subscriber_count ?? data?.subscriberCount,
+      view_count: channelData.viewCount ?? channelData.view_count ?? data?.viewCount,
+      video_count: channelData.videoCount ?? channelData.video_count ?? data?.videoCount,
     }
     try {
       await profileApi.updateChannel(accessToken, channelId, payload)
     } catch (_) {}
   },
 
-  /** Clear all local preferences data (e.g. after "delete my data"). */
+  completeOnboarding() {
+    set({ onboardingCompleted: true })
+    persist(get)
+  },
+
+  /** Clear all local onboarding/preferences data (e.g. after "delete my data"). */
   clearLocalData() {
     set({ ...defaultProfile })
     saveStored(null)
@@ -266,51 +183,54 @@ export const useOnboardingStore = create((set, get) => ({
     if (cid) {
       try {
         await profileApi.updateChannel(accessToken, cid, {
-          channel_id: cid,
-          channel_name: state.youtube.channelName ?? null,
+          channel_title: state.youtube.channelName,
+          profile_image: state.youtube.avatar,
+          subscriber_count: state.youtube.subscriberCount,
+          view_count: state.youtube.viewCount,
+          video_count: state.youtube.videoCount,
         })
       } catch (_) {}
     }
   },
 
-  /** Load preferences, profile, and optional channel from backend in parallel. */
+  /** Load preferences, profile, and optional channel from backend (called on dashboard load). */
   async loadFromBackend(accessToken) {
     if (!accessToken) return
     const current = get()
 
-    const [prefsResult, profileResult] = await Promise.allSettled([
-      userApi.getPreferences(accessToken),
-      profileApi.getProfile(accessToken),
-    ])
-
-    const prefs = prefsResult.status === 'fulfilled' ? prefsResult.value : null
-    const profile = profileResult.status === 'fulfilled' ? profileResult.value : null
-
-    if (prefs && typeof prefs === 'object') {
-      set({
-        preferredLanguage: prefs.preferredLanguage ?? current.preferredLanguage,
-        niche: prefs.niche ?? current.niche,
-        videoFormat: prefs.videoFormat ?? current.videoFormat,
-        uploadFrequency: prefs.uploadFrequency ?? current.uploadFrequency,
-        youtube: prefs.youtube ? { ...current.youtube, ...prefs.youtube } : current.youtube,
-      })
-      persist(get)
+    try {
+      const prefs = await userApi.getPreferences(accessToken)
+      if (prefs && typeof prefs === 'object') {
+        set({
+          preferredLanguage: prefs.preferredLanguage ?? current.preferredLanguage,
+          niche: prefs.niche ?? current.niche,
+          videoFormat: prefs.videoFormat ?? current.videoFormat,
+          uploadFrequency: prefs.uploadFrequency ?? current.uploadFrequency,
+          youtube: prefs.youtube ? { ...current.youtube, ...prefs.youtube } : current.youtube,
+        })
+        persist(get)
+      }
+    } catch (_) {
+      // Keep existing local state
     }
 
-    if (profile && typeof profile === 'object') {
-      const next = get()
-      set({
-        niche: profile.niche ?? next.niche,
-        videoFormat: profile.video_format ?? next.videoFormat,
-        uploadFrequency: profile.upload_frequency ?? next.uploadFrequency,
-        preferredTone: profile.preferred_tone ?? next.preferredTone,
-        speakingStyle: profile.speaking_style ?? next.speakingStyle,
-        preferredCtaStyle: profile.preferred_cta_style ?? next.preferredCtaStyle,
-        includePersonalStories: profile.include_personal_stories !== false,
-        useFirstPerson: profile.use_first_person !== false,
-      })
-      persist(get)
-    }
+    try {
+      const profile = await profileApi.getProfile(accessToken)
+      if (profile && typeof profile === 'object') {
+        const next = get()
+        set({
+          niche: profile.niche ?? next.niche,
+          videoFormat: profile.video_format ?? next.videoFormat,
+          uploadFrequency: profile.upload_frequency ?? next.uploadFrequency,
+          preferredTone: profile.preferred_tone ?? next.preferredTone,
+          speakingStyle: profile.speaking_style ?? next.speakingStyle,
+          preferredCtaStyle: profile.preferred_cta_style ?? next.preferredCtaStyle,
+          includePersonalStories: profile.include_personal_stories !== false,
+          useFirstPerson: profile.use_first_person !== false,
+        })
+        persist(get)
+      }
+    } catch (_) {}
 
     const channelId = get().youtube?.channelId ?? get().youtube?.channel_id
     if (channelId) {
@@ -324,8 +244,7 @@ export const useOnboardingStore = create((set, get) => ({
               ...yt,
               channelName: channel.channel_title ?? channel.channel_name ?? yt.channelName,
               avatar: channel.profile_image ?? channel.avatar ?? yt.avatar,
-              subscriberCount:
-                channel.subscriber_count ?? channel.subscriberCount ?? yt.subscriberCount,
+              subscriberCount: channel.subscriber_count ?? channel.subscriberCount ?? yt.subscriberCount,
               viewCount: channel.view_count ?? channel.viewCount ?? yt.viewCount,
               videoCount: channel.video_count ?? channel.videoCount ?? yt.videoCount,
             },

@@ -3,10 +3,15 @@
  * GET/PUT /api/profile, GET/PUT /api/profile/channel/{channel_id}
  */
 
-import { getApiBaseUrl } from '../lib/env.js'
+const getBaseUrl = () => {
+  const env = typeof import.meta !== 'undefined' && import.meta.env
+  if (env?.DEV) return ''
+  const explicit = env?.VITE_API_BASE_URL
+  return (explicit && String(explicit).trim() !== '') ? String(explicit).trim() : 'http://localhost:8000'
+}
 
 function request(method, path, body, accessToken) {
-  const url = getApiBaseUrl() + path
+  const url = getBaseUrl() + path
   const headers = { 'Content-Type': 'application/json' }
   if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`
   const opts = { method, headers }
@@ -16,7 +21,7 @@ function request(method, path, body, accessToken) {
     const isJson = contentType.indexOf('application/json') !== -1
     const data = isJson ? await res.json().catch(() => ({})) : {}
     if (!res.ok) {
-      const msg = data?.detail || data?.message || res.statusText
+      const msg = (data?.detail || data?.message) || res.statusText
       const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
       err.status = res.status
       throw err
@@ -41,21 +46,11 @@ export const profileApi = {
 
   /** GET /api/profile/channel/{channel_id} — get channel information */
   getChannel(accessToken, channelId) {
-    return request(
-      'GET',
-      `/api/profile/channel/${encodeURIComponent(channelId)}`,
-      null,
-      accessToken
-    )
+    return request('GET', `/api/profile/channel/${encodeURIComponent(channelId)}`, null, accessToken)
   },
 
   /** PUT /api/profile/channel/{channel_id} — create or update channel information */
   updateChannel(accessToken, channelId, channel) {
-    return request(
-      'PUT',
-      `/api/profile/channel/${encodeURIComponent(channelId)}`,
-      channel,
-      accessToken
-    )
+    return request('PUT', `/api/profile/channel/${encodeURIComponent(channelId)}`, channel, accessToken)
   },
 }

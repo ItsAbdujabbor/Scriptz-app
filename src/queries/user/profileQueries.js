@@ -3,7 +3,6 @@ import { profileApi } from '../../api/profile'
 import { queryFreshness } from '../../lib/query/queryConfig'
 import { queryKeys } from '../../lib/query/queryKeys'
 import { getAccessTokenOrNull } from '../../lib/query/authToken'
-import { resultOrNullOnAuthFailure } from '../../lib/query/safeApi'
 
 export function useUserProfileQuery() {
   return useQuery({
@@ -11,7 +10,7 @@ export function useUserProfileQuery() {
     queryFn: async () => {
       const token = await getAccessTokenOrNull()
       if (!token) return null
-      return resultOrNullOnAuthFailure(profileApi.getProfile(token))
+      return profileApi.getProfile(token)
     },
     staleTime: queryFreshness.long,
     gcTime: queryFreshness.long,
@@ -41,3 +40,4 @@ export function useUpdateUserProfileMutation() {
     },
   })
 }
+

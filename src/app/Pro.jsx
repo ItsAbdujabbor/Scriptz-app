@@ -1,30 +1,20 @@
 import { useState, useEffect, useRef } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
 import { useOnboardingStore } from '../stores/onboardingStore'
 import { youtubeApi } from '../api/youtube'
-import { AppShellLayout } from '../components/AppShellLayout'
 import { Sidebar } from './Sidebar'
 import { SettingsModal } from './SettingsModal'
 import { ProPricingContent } from './ProPricingContent'
 import { useUserPreferencesQuery } from '../queries/user/preferencesQueries'
 import { useUserProfileQuery } from '../queries/user/profileQueries'
-import { queryKeys } from '../lib/query/queryKeys'
-/* Sidebar.css, SettingsModal.css, Dashboard.css imported by AuthenticatedRoutes */
+import './Sidebar.css'
+import './SettingsModal.css'
+import './Dashboard.css'
 import './Pro.css'
+import '../landing/sections/pricing/pricing.css'
 
-export function Pro({ onLogout, shellManaged }) {
-  const {
-    user,
-    logout,
-    changePassword,
-    deleteData,
-    deleteAccount,
-    getValidAccessToken,
-    allowsPasswordlessAccountDelete,
-    isLoading: authLoading,
-    clearError,
-  } = useAuthStore()
+export function Pro({ onLogout }) {
+  const { user, logout, changePassword, deleteData, deleteAccount, getValidAccessToken, isLoading: authLoading, clearError } = useAuthStore()
   const {
     preferredLanguage,
     niche,
@@ -48,11 +38,7 @@ export function Pro({ onLogout, shellManaged }) {
     setUseFirstPerson,
     clearLocalData,
     syncChannelToBackend,
-    syncToBackend,
-    bootstrapYouTube,
   } = useOnboardingStore()
-
-  const queryClient = useQueryClient()
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsSection, setSettingsSection] = useState('account')
@@ -74,13 +60,7 @@ export function Pro({ onLogout, shellManaged }) {
     if (prefs.videoFormat != null) setVideoFormat(prefs.videoFormat)
     if (prefs.uploadFrequency != null) setUploadFrequency(prefs.uploadFrequency)
     prefsHydratedRef.current = true
-  }, [
-    userPreferencesQuery.data,
-    setNiche,
-    setPreferredLanguage,
-    setUploadFrequency,
-    setVideoFormat,
-  ])
+  }, [userPreferencesQuery.data, setNiche, setPreferredLanguage, setUploadFrequency, setVideoFormat])
 
   useEffect(() => {
     if (profileHydratedRef.current) return
@@ -158,8 +138,6 @@ export function Pro({ onLogout, shellManaged }) {
         videoCount: info.videoCount ?? info.video_count,
       })
       await syncChannelToBackend?.(token, channelId, info)
-      await syncToBackend(token)
-      queryClient.invalidateQueries({ queryKey: queryKeys.user.preferences })
     } catch (_) {
       setYoutubeOAuthError('Could not switch channel.')
     }
@@ -170,51 +148,33 @@ export function Pro({ onLogout, shellManaged }) {
   }, [clearError])
 
   useEffect(() => {
-    let cancelled = false
     getValidAccessToken().then(async (token) => {
-      if (!token || cancelled) return
-      try {
-        const bootstrap = await bootstrapYouTube(token)
-        if (!cancelled) setYoutubeChannels(bootstrap.channels || [])
-      } catch (_) {
-        if (!cancelled) setYoutubeChannels([])
+      if (token) {
+        try {
+          const list = await youtubeApi.listChannels(token)
+          setYoutubeChannels(list.channels || [])
+        } catch (_) {
+          setYoutubeChannels([])
+        }
       }
     })
-    return () => {
-      cancelled = true
-    }
-  }, [bootstrapYouTube, getValidAccessToken])
-
-  const innerContent = (
-    <div className="dashboard-main-scroll">
-      <div className="dashboard-main dashboard-main--subpage">
-        <div className="dashboard-content-shell dashboard-content-shell--page">
-          <div className="pro-page">
-            <ProPricingContent onStartTrial={handleStartTrial} />
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-
-  if (shellManaged) return innerContent
+  }, [])
 
   return (
     <div className="dashboard-page">
-      <AppShellLayout
-        shellOnly
-        mainClassName="dashboard-main-wrap"
-        sidebar={
-          <Sidebar
-            user={user}
-            onOpenSettings={openSettings}
-            onLogout={handleLogout}
-            currentScreen="pro"
-          />
-        }
-      >
-        {innerContent}
-      </AppShellLayout>
+      <div className="dashboard-app-shell">
+        <Sidebar
+          user={user}
+          onOpenSettings={openSettings}
+          onLogout={handleLogout}
+          currentScreen="pro"
+        />
+        <main className="dashboard-main-wrap">
+          <div className="dashboard-main pro-page">
+            <ProPricingContent onStartTrial={handleStartTrial} />
+          </div>
+        </main>
+      </div>
 
       {settingsOpen && (
         <SettingsModal
@@ -222,10 +182,6 @@ export function Pro({ onLogout, shellManaged }) {
           initialSection={settingsSection}
           onClose={() => setSettingsOpen(false)}
           user={user}
-          accountDeletePasswordOptional={
-            typeof allowsPasswordlessAccountDelete === 'function' &&
-            allowsPasswordlessAccountDelete()
-          }
           authLoading={authLoading}
           changePassword={changePassword}
           deleteData={deleteData}

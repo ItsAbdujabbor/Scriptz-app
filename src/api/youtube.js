@@ -3,10 +3,15 @@
  * Uses same base URL as auth (Vite proxy in dev).
  */
 
-import { getApiBaseUrl } from '../lib/env.js'
+const getBaseUrl = () => {
+  const env = typeof import.meta !== 'undefined' && import.meta.env
+  if (env?.DEV) return ''
+  const explicit = env?.VITE_API_BASE_URL
+  return (explicit && String(explicit).trim() !== '') ? String(explicit).trim() : 'http://localhost:8000'
+}
 
 function request(method, path, accessToken, body = null, headers = {}) {
-  const url = getApiBaseUrl() + path
+  const url = getBaseUrl() + path
   const h = { 'Content-Type': 'application/json', ...headers }
   if (accessToken) h['Authorization'] = `Bearer ${accessToken}`
   const opts = { method, headers: h }
@@ -16,7 +21,7 @@ function request(method, path, accessToken, body = null, headers = {}) {
     const isJson = contentType.indexOf('application/json') !== -1
     const data = isJson ? await res.json().catch(() => ({})) : {}
     if (!res.ok) {
-      const msg = data?.detail || data?.message || res.statusText
+      const msg = (data?.detail || data?.message) || res.statusText
       const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
       err.status = res.status
       throw err
@@ -63,27 +68,18 @@ export const youtubeApi = {
     if (options.per_page != null) params.set('per_page', String(options.per_page))
     if (options.search != null && options.search.trim()) params.set('search', options.search.trim())
     if (options.sort != null) params.set('sort', options.sort)
-    if (options.video_type != null && options.video_type !== 'all')
-      params.set('video_type', options.video_type)
+    if (options.video_type != null && options.video_type !== 'all') params.set('video_type', options.video_type)
     const qs = params.toString()
     const path = '/api/youtube/videos' + (qs ? '?' + qs : '')
-    const headers = options.channel_id ? { 'X-Channel-Id': options.channel_id } : {}
-    return request('GET', path, accessToken, null, headers)
+    return request('GET', path, accessToken)
   },
 
   /**
    * Get AI optimization suggestions for a video (titles, description, tags, etc.).
    * POST /api/youtube/optimize-video body: { video_id }
    */
-  optimizeVideo(accessToken, videoId, channelId = null) {
-    const headers = channelId ? { 'X-Channel-Id': channelId } : {}
-    return request(
-      'POST',
-      '/api/youtube/optimize-video',
-      accessToken,
-      { video_id: videoId },
-      headers
-    )
+  optimizeVideo(accessToken, videoId) {
+    return request('POST', '/api/youtube/optimize-video', accessToken, { video_id: videoId })
   },
 
   /**
@@ -92,15 +88,6 @@ export const youtubeApi = {
    */
   scoreTitle(accessToken, title) {
     return request('POST', '/api/youtube/score-title', accessToken, { title: title || '' })
-  },
-
-  /**
-   * Comprehensive video score — title + description + tags + engagement + thumbnail.
-   * POST /api/youtube/score-video body: { video_id, title?, description?, tags?, view_count?, like_count?, comment_count?, thumbnail_url? }
-   * Returns { score, tier, breakdown }.
-   */
-  scoreVideo(accessToken, videoData) {
-    return request('POST', '/api/youtube/score-video', accessToken, videoData)
   },
 
   /**
@@ -132,14 +119,7 @@ export const youtubeApi = {
    * Apply title, description, tags to a video on YouTube.
    * PATCH /api/youtube/videos/{video_id} body: { title?, description?, tags? }
    */
-  updateVideoMetadata(accessToken, videoId, body, channelId = null) {
-    const headers = channelId ? { 'X-Channel-Id': channelId } : {}
-    return request(
-      'PATCH',
-      `/api/youtube/videos/${encodeURIComponent(videoId)}`,
-      accessToken,
-      body,
-      headers
-    )
+  updateVideoMetadata(accessToken, videoId, body) {
+    return request('PATCH', `/api/youtube/videos/${encodeURIComponent(videoId)}`, accessToken, body)
   },
 }

@@ -3,7 +3,6 @@ import { userApi } from '../../api/user'
 import { queryFreshness } from '../../lib/query/queryConfig'
 import { queryKeys } from '../../lib/query/queryKeys'
 import { getAccessTokenOrNull } from '../../lib/query/authToken'
-import { resultOrNullOnAuthFailure } from '../../lib/query/safeApi'
 
 export function useUserPreferencesQuery() {
   return useQuery({
@@ -11,7 +10,7 @@ export function useUserPreferencesQuery() {
     queryFn: async () => {
       const token = await getAccessTokenOrNull()
       if (!token) return null
-      return resultOrNullOnAuthFailure(userApi.getPreferences(token))
+      return userApi.getPreferences(token)
     },
     staleTime: queryFreshness.long,
     gcTime: queryFreshness.long,
@@ -36,8 +35,9 @@ export function useSaveUserPreferencesMutation() {
       if (!ctx?.previous) return
       queryClient.setQueryData(queryKeys.user.preferences, ctx.previous)
     },
-    onSuccess: (savedPreferences) => {
-      queryClient.setQueryData(queryKeys.user.preferences, savedPreferences)
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.preferences })
     },
   })
 }
+

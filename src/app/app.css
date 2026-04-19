@@ -5,24 +5,24 @@
 
 .app-screen {
   --app-bg: #060607;
-  --app-surface: #1a1a1a;
-  --app-surface-2: #1f1f1f;
+  --app-surface: #08080a;
+  --app-surface-2: #0c0c0e;
   --app-border: rgba(255, 255, 255, 0.065);
   --app-border-2: rgba(255, 255, 255, 0.12);
   --app-text: #e5e5e7;
   --app-text-dim: #9ca3af;
-  --app-accent: #9061f0;
+  --app-accent: #a78bfa;
   /* Hero heading gradient — use for accents, buttons, active states */
-  --hero-gradient: linear-gradient(125deg, #b794f6 0%, #9061f0 25%, #7c3aed 60%, #6d28d9 100%);
-  --hero-gradient-solid: linear-gradient(135deg, #9061f0, #7c3aed, #6d28d9);
-  --hero-accent: #b794f6;
-  --hero-accent-mid: #7c3aed;
-  --hero-accent-deep: #6d28d9;
+  --hero-gradient: linear-gradient(125deg, #c4b5fd 0%, #a78bfa 25%, #818cf8 60%, #6366f1 100%);
+  --hero-gradient-solid: linear-gradient(135deg, #a78bfa, #818cf8, #6366f1);
+  --hero-accent: #c4b5fd;
+  --hero-accent-mid: #818cf8;
+  --hero-accent-deep: #6366f1;
 
   min-height: 100vh;
   min-height: 100dvh;
-  background: transparent;
-  font-family: var(--font, 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  background: var(--app-bg);
+  font-family: var(--font, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
   -webkit-font-smoothing: antialiased;
   color: var(--app-text);
   position: relative;
@@ -37,12 +37,10 @@
   width: 1200px;
   max-width: 100vw;
   height: 780px;
-  background: radial-gradient(
-    ellipse at 50% 20%,
+  background: radial-gradient(ellipse at 50% 20%,
     rgba(94, 106, 210, 0.13) 0%,
     rgba(94, 106, 210, 0.05) 42%,
-    transparent 64%
-  );
+    transparent 64%);
   pointer-events: none;
   z-index: 0;
 }
@@ -69,10 +67,7 @@
   border: 1px solid var(--app-border);
   border-radius: 12px;
   cursor: pointer;
-  transition:
-    border-color 0.2s,
-    background 0.2s,
-    transform 0.2s;
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
   text-decoration: none;
 }
 .app-btn:hover:not(:disabled) {
@@ -130,6 +125,171 @@
   margin-bottom: 0.5rem;
 }
 
+/* Onboarding steps — card so content is clearly visible on dark bg */
+.ob-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+}
+
+.ob-card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 20px;
+  padding: 2rem 1.75rem;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  margin-top: 0.5rem;
+}
+
+.ob-progress {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.ob-progress-dot {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--app-border);
+  transition: background 0.3s;
+}
+.ob-progress-dot.active {
+  background: var(--app-accent);
+}
+.ob-progress-dot.done {
+  background: rgba(167, 139, 246, 0.5);
+}
+
+.ob-title {
+  font-size: clamp(1.4rem, 2vw, 1.85rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: #ffffff;
+  margin: 0 0 0.5rem;
+  line-height: 1.2;
+}
+
+.ob-subtitle {
+  font-size: 0.95rem;
+  color: #9ca3af;
+  margin-bottom: 1.5rem;
+  line-height: 1.55;
+}
+
+.ob-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.ob-option {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  text-align: left;
+  font-size: 1rem;
+  color: #e5e5e7;
+  font-family: inherit;
+}
+.ob-option:hover {
+  border-color: var(--app-border-2);
+  background: rgba(255, 255, 255, 0.06);
+}
+.ob-option.selected {
+  border-color: rgba(167, 139, 246, 0.5);
+  background: rgba(167, 139, 246, 0.12);
+  color: #fff;
+}
+
+.ob-option-radio {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--app-border-2);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ob-option.selected .ob-option-radio {
+  border-color: var(--app-accent);
+  background: var(--app-accent);
+}
+.ob-option.selected .ob-option-radio::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.ob-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.75rem;
+  flex-wrap: wrap;
+}
+.ob-actions .app-btn {
+  min-width: 120px;
+}
+
+.ob-niche-input-wrap {
+  margin-top: 0.75rem;
+}
+.ob-niche-input-wrap .app-label {
+  color: #9ca3af;
+}
+.ob-niche-input-wrap .app-input {
+  max-width: 100%;
+}
+
+/* Optimizing screen */
+.opt-inner {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+}
+
+.opt-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--app-border);
+  border-top-color: var(--app-accent);
+  border-radius: 50%;
+  animation: optSpin 0.9s linear infinite;
+  margin: 0 auto 1.5rem;
+}
+@keyframes optSpin {
+  to { transform: rotate(360deg); }
+}
+
+.opt-title {
+  font-size: clamp(1.25rem, 2vw, 1.5rem);
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 0.5rem;
+}
+.opt-subtitle {
+  font-size: 0.95rem;
+  color: var(--app-text-dim);
+  margin: 0;
+}
+
 /* Dashboard */
 .dash-layout {
   position: relative;
@@ -151,7 +311,7 @@
 
 .dash-logo {
   font-size: 1.15rem;
-  font-weight: 700;
+  font-weight: 800;
   color: #fff;
   text-decoration: none;
   letter-spacing: -0.04em;
@@ -177,7 +337,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #6d28d9, #9061f0);
+  background: linear-gradient(135deg, #6366f1, #a78bfa);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -267,7 +427,7 @@
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.05em;
   color: var(--app-text-dim);
 }
 .dash-profile-value {

@@ -1,220 +1,106 @@
-/* Coach screen container — mirrors Dashboard's `.dashboard-page` exactly so
- * Coach + Dashboard + Optimize render on the same canvas with identical
- * background colour, outer chrome, gutters, and tokens. Every value below
- * is copied verbatim from Dashboard.css `.dashboard-page` (lines 5–95).
- * Don't drift this — keep it in sync. */
 .coach-page {
   min-height: 100vh;
   min-height: 100dvh;
   width: 100%;
-
-  /* ── iOS 18 Design Tokens (copied from Dashboard.css) ── */
-  --dash-radius-sm: 10px;
-  --dash-radius-md: 12px;
-  --dash-radius-lg: 16px;
-  --dash-radius-pill: 999px;
-
-  --dash-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
-  --dash-shadow-md: 0 2px 12px rgba(0, 0, 0, 0.3);
-  --dash-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
-
-  /* ── Surfaces ── */
-  --app-canvas-bg: #0a0a0c;
-  background: var(--app-canvas-bg);
-  font-family:
-    -apple-system, 'SF Pro Display', 'SF Pro Text', system-ui, BlinkMacSystemFont, 'Helvetica Neue',
-    sans-serif;
+  background: #0a0a0d;
+  color: #e5e5e7;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
-  color: #ffffff;
-  position: relative;
+  overscroll-behavior-y: contain;
+}
+
+.coach-app-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  width: 100%;
   overflow: hidden;
-  overscroll-behavior: none;
-  --dash-surface-page: #0e0e12;
-  --dash-surface-sidebar: color-mix(in srgb, var(--dash-surface-page) 78%, black);
-  --dash-surface-card: #18181c;
-  --dash-surface-card-unified: var(--dash-surface-card);
-  --dash-surface-card-hover: #222228;
-  --dash-surface-accent-tint: rgba(100, 60, 180, 0.12);
-  --dash-accent-ring: rgba(100, 60, 180, 0.25);
-  --dash-surface-border: rgba(255, 255, 255, 0.07);
-  --dash-surface-border-hover: rgba(255, 255, 255, 0.12);
-
-  /* ── iOS Motion ── */
-  --dash-dur: 250ms;
-  --dash-dur-fast: 180ms;
-  --dash-dur-enter: 350ms;
-  --dash-ease: cubic-bezier(0.28, 0.11, 0.32, 1);
-  --dash-ease-out: cubic-bezier(0.25, 1, 0.5, 1);
-  --dash-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-
-  /* ── iOS Typography ── */
-  --dash-text-body: #ffffff;
-  --dash-text-muted: #8e8e93;
-  --dash-text-soft: #636366;
-
-  /* ── Layout ── */
-  --dash-shell-max: 1200px;
-  --dash-gutter-x: calc(clamp(0.85rem, 3.5vw, 1.75rem) + 12px);
-  --dash-item-pad: clamp(0.75rem, 2.4vw, 1rem);
-  --dash-shell-pad-x: var(--dash-gutter-x);
-  --dash-shell-pad-bottom: clamp(1.35rem, 4vw, 2.25rem);
-  --dash-section-gap: 1.25rem;
-  --dash-card-gap: 0.75rem;
 }
 
-/* Box-sizing reset matches Dashboard's */
-.coach-page,
-.coach-page *,
-.coach-page *::before,
-.coach-page *::after {
-  box-sizing: border-box;
-}
-
-/* App row uses `.dashboard-app-shell` from Dashboard.css via AppShellLayout */
-
-/* Coach screen container — copied verbatim from Dashboard.css
- * `.dashboard-main-wrap` so the chat panel inside `.coach-page` looks
- * identical to the Dashboard / Optimize main column: same background,
- * same height, same overflow, same edge shadows. */
 .coach-main-wrap {
   flex: 1;
   min-width: 0;
-  min-height: 100vh;
   height: 100vh;
   height: 100dvh;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
   position: relative;
-  overscroll-behavior: none;
-  background: var(--dash-surface-page);
 }
 
-/* Top/bottom edge shadows matching dashboard */
-.coach-main-wrap::before {
-  content: '';
+/* Header with fade + shadow — gradient from top, soft shadow below */
+/* Header fade — smooth gradient from page background to transparent */
+.coach-header {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 40px;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.22) 0%, transparent 100%);
-  pointer-events: none;
-  z-index: 80;
+  height: 5rem;
+  z-index: 2;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 1.5rem;
+  box-sizing: border-box;
+  background: linear-gradient(
+    180deg,
+    #0a0a0d 0%,
+    rgba(10, 10, 13, 0.92) 20%,
+    rgba(10, 10, 13, 0.7) 45%,
+    rgba(10, 10, 13, 0.35) 70%,
+    rgba(10, 10, 13, 0) 100%
+  );
 }
 
-.coach-main-wrap::after {
-  content: '';
+/* Tab bar — minimal underline style, no containers or borders */
+.coach-tabbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+}
+
+.coach-tabbar-tab {
+  position: relative;
+  padding: 0.5rem 1rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(229, 229, 231, 0.55);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  white-space: nowrap;
+}
+
+.coach-tabbar-tab:hover {
+  color: rgba(229, 229, 231, 0.85);
+}
+
+.coach-tabbar-tab.is-active {
+  color: #e5e5e7;
+}
+
+.coach-tabbar-tab-line {
   position: absolute;
   bottom: 0;
-  left: 0;
-  right: 0;
-  height: 32px;
-  background: linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0%, transparent 100%);
-  pointer-events: none;
-  z-index: 80;
-}
-
-.coach-main-body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* Gradient shadow header — sits behind the floating tabbar */
-.coach-header-shade {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 48px;
-  z-index: 10;
-  pointer-events: none;
-  border-radius: 24px 24px 0 0;
-  background: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0.25) 0%,
-    rgba(0, 0, 0, 0.08) 50%,
-    transparent 100%
-  );
-}
-
-/* Floating pill tabbar — iOS liquid glass, centered */
-.tabbar.modal.coach-tabbar--floating {
-  position: absolute;
-  top: 0.6rem;
   left: 50%;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #a78bfa, #818cf8);
+  border-radius: 2px 2px 0 0;
   transform: translateX(-50%);
-  z-index: 14;
-  width: auto;
-  gap: 2px;
-  padding: 4px;
-  border-radius: 999px;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.04) 40%,
-    rgba(255, 255, 255, 0.02) 100%
-  );
-  border: 0.5px solid rgba(255, 255, 255, 0.18);
-  box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.15),
-    0 0 0 0.5px rgba(0, 0, 0, 0.12),
-    0 4px 16px rgba(0, 0, 0, 0.2),
-    0 12px 40px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(50px) saturate(190%) brightness(1.05);
-  -webkit-backdrop-filter: blur(50px) saturate(190%) brightness(1.05);
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.tabbar.modal.coach-tabbar--floating .tabbar-tab {
-  padding: 7px 18px;
-  font-size: 0.76rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  border-radius: 999px;
-  color: rgba(235, 235, 240, 0.52);
-  transition:
-    color 0.22s cubic-bezier(0.33, 1, 0.68, 1),
-    background 0.22s cubic-bezier(0.33, 1, 0.68, 1),
-    transform 0.14s ease;
+.coach-tabbar-tab.is-active .coach-tabbar-tab-line {
+  width: 100%;
 }
 
-.tabbar.modal.coach-tabbar--floating .tabbar-tab:hover {
-  color: rgba(245, 243, 255, 0.88);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.tabbar.modal.coach-tabbar--floating .tabbar-tab.is-active {
-  color: #ffffff;
-  background: linear-gradient(
-    145deg,
-    rgba(124, 58, 237, 0.35) 0%,
-    rgba(109, 40, 217, 0.28) 50%,
-    rgba(91, 33, 182, 0.22) 100%
-  );
-  box-shadow:
-    0 0 0 0.5px rgba(183, 148, 246, 0.3),
-    0 2px 8px rgba(109, 40, 217, 0.2),
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.12);
-}
-
-@media (max-width: 520px) {
-  .tabbar.modal.coach-tabbar--floating {
-    top: 0.45rem;
-    border-radius: 999px;
-    padding: 3px;
-    gap: 1px;
-  }
-
-  .tabbar.modal.coach-tabbar--floating .tabbar-tab {
-    padding: 6px 13px;
-    font-size: 0.68rem;
-  }
-
-  .coach-header-shade {
-    height: 48px;
+@media (max-width: 680px) {
+  .coach-tabbar-tab {
+    padding: 0.4rem 0.65rem 0.6rem;
+    font-size: 0.8125rem;
   }
 }
 
@@ -248,8 +134,8 @@
 }
 
 .coach-coming-soon-icon--script {
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.25), rgba(99, 102, 241, 0.2));
-  color: #9061f0;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(99, 102, 241, 0.2));
+  color: #a78bfa;
 }
 
 .coach-coming-soon-icon--script svg {
@@ -258,7 +144,7 @@
 }
 
 .coach-coming-soon-icon--thumbnail {
-  background: linear-gradient(135deg, rgba(236, 72, 153, 0.2), rgba(124, 58, 237, 0.2));
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.2), rgba(139, 92, 246, 0.2));
   color: #ec4899;
 }
 
@@ -271,10 +157,10 @@
   display: inline-block;
   font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(124, 58, 237, 0.9);
-  background: rgba(124, 58, 237, 0.15);
+  color: rgba(167, 139, 250, 0.9);
+  background: rgba(139, 92, 246, 0.15);
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
   margin-bottom: 1rem;
@@ -297,58 +183,66 @@
 
 .coach-main {
   width: 100%;
-  max-width: 100%;
-  min-width: 0;
   margin: 0 auto;
-  padding: 0.5rem 0 0.5rem;
+  padding: 1rem 0 0.5rem;
   box-sizing: border-box;
   height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 .coach-chat-shell {
-  /* Unified content width across Coach, Scripts, and Thumbnail. The thread
-   * owns horizontal padding (see .coach-thread), so we just cap the inner
-   * column here and let parent padding + scrollbar gutter handle breathing
-   * room — keeps content fully inside the shell on every viewport size. */
-  --coach-content-width: min(760px, 100%);
-  /* Set by JS from measured composer footer height so scroll-to-bottom stays above the input bar */
-  --coach-composer-stack-px: 148px;
+  --coach-content-width: min(720px, calc(100% - 2rem));
   position: relative;
   min-height: 0;
   height: 100%;
   flex: 1;
-  min-width: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   background: transparent;
 }
 
-/* Empty state: keep the same fill-and-scroll layout as populated.
- * The thread stays `flex: 1; overflow-y: auto`, the composer stays sticky at
- * the bottom, and empty-state content is centered via `.coach-thread--empty`
- * (justify-content: center). This guarantees the screen always fits inside
- * the main wrap — no overflow clipping when empty content + composer grow. */
+/* Desktop: when empty, center thread + composer below quick actions */
+@media (min-width: 761px) {
+  .coach-chat-shell--empty {
+    justify-content: center;
+    align-items: center;
+  }
+
+  .coach-chat-shell--empty .coach-thread {
+    flex: 0 0 auto;
+    justify-content: center;
+    padding-bottom: 1.5rem;
+  }
+
+  .coach-chat-shell--empty .coach-composer-wrap--empty {
+    position: static;
+    margin-top: 0;
+    padding-top: 1rem;
+    width: var(--coach-content-width);
+  }
+
+  .coach-chat-shell--empty .coach-composer-wrap--empty::after {
+    display: none;
+  }
+}
+
+.coach-main--empty {
+  min-height: 100%;
+}
 
 .coach-thread {
   flex: 1;
-  min-width: 0;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  /* Horizontal padding uses the same gutter var as the Dashboard content shell
-   * (see .dashboard-content-shell in Dashboard.css) so chat screens feel
-   * identical in breathing room to the rest of the app. */
-  padding: 3.6rem var(--dash-gutter-x, 1.75rem) 6.25rem;
+  padding: 0.2rem 0 5.5rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1rem;
-  box-sizing: border-box;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
@@ -356,88 +250,6 @@
   direction: ltr;
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.5) transparent;
-}
-
-/* Virtuoso: outer thread is a flex shell; inner scroller owns overflow */
-.coach-thread--virtualized {
-  overflow: hidden;
-  padding-top: 0.35rem;
-  padding-bottom: 0.35rem;
-}
-
-.coach-thread-virtuoso {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-}
-
-.coach-virtuoso-list {
-  /* Items are absolutely positioned; gap does not apply — use padding on items */
-  /* Top: enough clearance so first message sits below the floating tabbar */
-  /* Bottom: measured composer stack + breathing room so last rows clear the input bar */
-  /* Horizontal: matches `.coach-thread` and Dashboard's content gutter. */
-  padding: 3.6rem var(--dash-gutter-x, 1.75rem)
-    calc(var(--coach-composer-stack-px, 148px) + 2.25rem);
-  box-sizing: border-box;
-  width: 100%;
-}
-
-.coach-virtuoso-item {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  box-sizing: border-box;
-  /* Spacing between rows must be inside measured height (Virtuoso positions items absolutely) */
-  padding-bottom: 1.35rem;
-  contain: layout style;
-}
-
-/* Virtuoso footer: center the pending exchange exactly like list items */
-.coach-virtuoso-footer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-}
-
-.coach-virtuoso-footer > .coach-message {
-  padding-bottom: 1.35rem;
-}
-
-[data-coach-virtuoso-scroller] {
-  overflow-x: hidden;
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-gutter: stable;
-  touch-action: pan-y;
-  direction: ltr;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.5) transparent;
-}
-
-[data-coach-virtuoso-scroller]::-webkit-scrollbar {
-  width: 8px;
-}
-
-[data-coach-virtuoso-scroller]::-webkit-scrollbar-track {
-  background: transparent;
-  margin: 4px 0;
-}
-
-[data-coach-virtuoso-scroller]::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-
-[data-coach-virtuoso-scroller]::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.65);
-  background-clip: padding-box;
-}
-
-[data-coach-virtuoso-scroller]::-webkit-scrollbar-corner {
-  background: transparent;
 }
 
 .coach-thread::-webkit-scrollbar {
@@ -466,111 +278,10 @@
 }
 
 .coach-thread--empty {
-  /* Content is vertically centered via `.coach-empty-state { margin: auto 0 }`,
-   * which is scroll-safe (unlike justify-content: center, which would clip
-   * overflow-top). The thread stays flex: 1 + overflow-y: auto. */
+  justify-content: center;
   align-items: center;
   padding-top: 2rem;
   padding-bottom: 6rem;
-}
-
-/* Full-panel centered history load */
-.coach-thread--history-loading {
-  justify-content: center;
-  align-items: center;
-  padding-top: clamp(2rem, 8vh, 4rem);
-  padding-bottom: clamp(2rem, 8vh, 4rem);
-  gap: 0;
-}
-
-.coach-thread--history-loading.coach-thread--virtualized {
-  padding-top: 0;
-  padding-bottom: 0;
-}
-
-/* ──────────────────────────────────────────────────────────────────────
- * Chat history loading — skeleton-style.
- *
- * Shows a pair of placeholder bubbles (user + assistant) plus, for the
- * thumbnail variant, a 2×2 thumbnail grid skeleton. A single diagonal
- * shimmer sweeps across the whole stack so the page feels alive without
- * adding per-element animations. The layout mirrors the real chat so
- * when data lands the swap is a crossfade, not a jump.
- * ──────────────────────────────────────────────────────────────────── */
-/* Layout-only rules for the chat-history skeleton. The shimmer, the
- * dots animation, and the fade-in all live in the shared Skeleton.css
- * now; this keeps just the positioning that's specific to the chat
- * thread layout (centered column, user/assistant row, avatar, etc). */
-.coach-history-loading {
-  margin: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: center;
-  gap: 1rem;
-  width: min(560px, 100%);
-  padding: 1rem 1rem 1.25rem;
-  box-sizing: border-box;
-}
-
-.coach-history-loading__stack {
-  display: flex;
-  flex-direction: column;
-  gap: 1.1rem;
-  padding: 1rem 0.25rem;
-  border-radius: 18px;
-}
-
-.coach-history-loading__row {
-  display: flex;
-  gap: 0.65rem;
-}
-
-.coach-history-loading__row--user {
-  justify-content: flex-end;
-}
-
-.coach-history-loading__row--assistant {
-  justify-content: flex-start;
-  align-items: flex-start;
-}
-
-.coach-history-loading__assistant-col {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  min-width: 0;
-  max-width: 420px;
-  flex: 1;
-}
-
-/* Keep the violet tint on the user bubble — overrides the neutral
- * .sk base gradient with a subtle violet wash. */
-.coach-history-loading__bubble--sm {
-  background: linear-gradient(
-    90deg,
-    rgba(124, 58, 237, 0.16) 0%,
-    rgba(124, 58, 237, 0.24) 50%,
-    rgba(124, 58, 237, 0.16) 100%
-  );
-  border-color: rgba(167, 139, 250, 0.18);
-  max-width: 180px;
-}
-
-.coach-history-loading__footer {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
-  color: rgba(156, 163, 175, 0.85);
-}
-
-.coach-history-loading__label {
-  margin: 0;
-  font-size: 0.78rem;
-  font-weight: 500;
-  letter-spacing: 0.005em;
-  color: rgba(156, 163, 175, 0.9);
 }
 
 .coach-thread-state {
@@ -578,59 +289,22 @@
   padding: 1rem 1.1rem;
   border-radius: 18px;
   color: #b4bbc7;
-  background: #1a1a1a;
+  background: #111214;
   border: 1px solid rgba(255, 255, 255, 0.08);
   width: var(--coach-content-width);
   box-sizing: border-box;
 }
 
 .coach-thread-state--error,
-.coach-compose-error,
-.coach-thread-error {
+.coach-compose-error {
   color: #fecaca;
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
-.coach-thread-error {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  text-align: center;
-  padding: 1.1rem 1.25rem;
-}
-.coach-thread-error__msg {
-  margin: 0;
-  font-size: 0.88rem;
-  line-height: 1.45;
-}
-.coach-thread-error__retry {
-  padding: 0.45rem 1rem;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #fff;
-  background: rgba(248, 113, 113, 0.18);
-  border: 1px solid rgba(248, 113, 113, 0.35);
-  border-radius: 999px;
-  cursor: pointer;
-  transition:
-    background 0.18s ease,
-    transform 0.1s ease;
-}
-.coach-thread-error__retry:hover {
-  background: rgba(248, 113, 113, 0.28);
-}
-.coach-thread-error__retry:active {
-  transform: scale(0.97);
-}
-
 .coach-empty-state {
   width: var(--coach-content-width);
-  max-width: 100%;
-  /* `margin: auto` centers the empty state on both axes inside any flex thread,
-   * regardless of the parent's `align-items` setting (scroll-safe). */
-  margin: auto;
+  margin: auto 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -638,7 +312,6 @@
   padding: 0 0 1.25rem;
   text-align: center;
   box-sizing: border-box;
-  min-width: 0;
 }
 
 .coach-empty-state-kicker {
@@ -652,7 +325,7 @@
   color: #9ca3af;
   font-size: 0.6rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -668,72 +341,35 @@
 
 .coach-empty-actions {
   display: grid;
-  /* minmax(0, 1fr) so tracks can shrink below intrinsic content width — prevents
-   * horizontal overflow on narrow shells (e.g. sidebar open + small viewport). */
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.55rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
   width: var(--coach-content-width);
   max-width: 100%;
-  margin-top: 0.85rem;
-}
-
-/* Narrow shells: collapse the 3-column quick-action grid to 1 column so cards
- * fit without clipping. */
-@media (max-width: 520px) {
-  .coach-empty-actions {
-    grid-template-columns: 1fr;
-  }
+  margin-top: 0.75rem;
 }
 
 .coach-empty-action {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.6rem;
-  min-width: 0;
-  min-height: 5.2rem;
-  padding: 0.9rem 0.95rem;
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  border-radius: 20px;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.055) 0%,
-    rgba(255, 255, 255, 0.02) 100%
-  );
+  gap: 0.55rem;
+  min-height: 5rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
   color: #e2e8f0;
   font: inherit;
   cursor: pointer;
   text-align: left;
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 -0.5px 0 rgba(255, 255, 255, 0.03),
-    0 0 0 0.5px rgba(0, 0, 0, 0.16),
-    0 4px 20px rgba(0, 0, 0, 0.18),
-    0 1px 4px rgba(0, 0, 0, 0.1);
-  transition:
-    background 0.26s cubic-bezier(0.33, 1, 0.68, 1),
-    border-color 0.26s cubic-bezier(0.33, 1, 0.68, 1),
-    box-shadow 0.26s cubic-bezier(0.33, 1, 0.68, 1),
-    transform 0.18s cubic-bezier(0.33, 1, 0.68, 1);
-  -webkit-tap-highlight-color: transparent;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: background 0.14s ease, border-color 0.14s ease;
 }
 
 .coach-empty-action:hover {
-  background: linear-gradient(180deg, rgba(124, 58, 237, 0.1) 0%, rgba(124, 58, 237, 0.05) 100%);
-  border-color: rgba(124, 58, 237, 0.26);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -0.5px 0 rgba(255, 255, 255, 0.04),
-    0 0 0 0.5px rgba(0, 0, 0, 0.16),
-    0 6px 28px rgba(0, 0, 0, 0.22),
-    0 0 12px rgba(124, 58, 237, 0.08);
-}
-
-.coach-empty-action:active {
-  transform: scale(0.98);
-  transition-duration: 0.1s;
+  background: rgba(167, 139, 250, 0.08);
+  border-color: rgba(167, 139, 250, 0.24);
 }
 
 .coach-empty-action-icon-wrap {
@@ -742,14 +378,9 @@
   justify-content: center;
   width: 2.25rem;
   height: 2.25rem;
-  border-radius: 12px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  transition: background 0.26s cubic-bezier(0.33, 1, 0.68, 1);
-}
-
-.coach-empty-action:hover .coach-empty-action-icon-wrap {
-  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .coach-empty-action-icon-wrap svg {
@@ -758,21 +389,21 @@
 }
 
 .coach-empty-action--ideas .coach-empty-action-icon-wrap {
-  color: #fbbf24;
-  background: rgba(251, 191, 36, 0.1);
-  border-color: rgba(251, 191, 36, 0.18);
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.2);
 }
 
 .coach-empty-action--hook .coach-empty-action-icon-wrap {
-  color: #60a5fa;
-  background: rgba(96, 165, 250, 0.1);
-  border-color: rgba(96, 165, 250, 0.18);
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.2);
 }
 
 .coach-empty-action--thumbnail .coach-empty-action-icon-wrap {
-  color: #34d399;
-  background: rgba(52, 211, 153, 0.1);
-  border-color: rgba(52, 211, 153, 0.18);
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.2);
 }
 
 .coach-empty-action-label {
@@ -781,8 +412,7 @@
   font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: -0.01em;
-  line-height: 1.45;
-  color: rgba(229, 231, 235, 0.82);
+  line-height: 1.4;
   word-wrap: break-word;
   overflow-wrap: break-word;
 }
@@ -792,8 +422,6 @@
   flex-direction: column;
   gap: 0.45rem;
   width: var(--coach-content-width);
-  max-width: 100%;
-  min-width: 0;
   box-sizing: border-box;
 }
 
@@ -807,8 +435,6 @@
   align-items: flex-end;
   gap: 0.32rem;
   width: 100%;
-  max-width: 100%;
-  min-width: 0;
 }
 
 .coach-user-message-meta {
@@ -837,10 +463,10 @@
   flex: 1 1 0;
   min-width: min(170px, 42vw);
   max-width: min(280px, 72vw);
-  border-radius: var(--ios-radius-lg, 16px);
+  border-radius: 22px;
   overflow: hidden;
-  background: var(--ios-bg-secondary, #18181c);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 12px 30px rgba(16, 16, 34, 0.16);
   padding: 0;
   cursor: zoom-in;
 }
@@ -854,32 +480,25 @@
 
 .coach-message-bubble {
   width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  padding: 0.85rem 0;
+  max-width: none;
+  padding: 1rem 0;
   border-radius: 0;
-  line-height: 1.65;
+  line-height: 1.72;
   background: transparent;
   border: none;
   box-shadow: none;
-  color: var(--ios-label-primary, #ffffff);
+  color: #e8eaef;
   box-sizing: border-box;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  font-size: var(--ios-body, 1.0625rem);
 }
 
 .coach-message--user .coach-message-bubble {
   width: fit-content;
   max-width: min(640px, 82%);
-  padding: 0.65rem 0.85rem;
-  border-radius: 18px;
-  background: var(
-    --ios-gradient-accent,
-    linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #5b21b6 100%)
-  );
-  border: none;
-  box-shadow: 0 2px 8px rgba(109, 40, 217, 0.2);
+  padding: 0.72rem 0.86rem;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(123, 92, 255, 0.96) 0%, rgba(89, 99, 255, 0.96) 100%);
+  border: 1px solid rgba(173, 159, 255, 0.24);
+  box-shadow: 0 10px 24px rgba(33, 32, 73, 0.26);
   color: #ffffff;
 }
 
@@ -987,7 +606,7 @@
 .coach-message-bubble code {
   padding: 0.16rem 0.36rem;
   border-radius: 8px;
-  background: #1a1a1a;
+  background: #141519;
   border: 1px solid rgba(255, 255, 255, 0.07);
   color: #f3f4f6;
   font-family: 'SFMono-Regular', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
@@ -1006,32 +625,14 @@
   opacity: 0;
   transform: translateY(4px);
   pointer-events: none;
-  transition:
-    opacity 0.16s ease,
-    transform 0.16s ease;
+  transition: opacity 0.16s ease, transform 0.16s ease;
 }
 
 .coach-message--user:hover .coach-message-actions--user,
-.coach-message--user:focus-within .coach-message-actions--user,
-.coach-message--user.is-touch-active .coach-message-actions--user {
+.coach-message--user:focus-within .coach-message-actions--user {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
-}
-
-/* Touch devices: no hover state, so keep the user message actions visible
- * at all times (slightly dimmed). Tap-and-hold the bubble still selects text
- * via the OS, while the explicit copy/edit pills stay reachable with a tap. */
-@media (hover: none) {
-  .coach-message-actions--user {
-    opacity: 0.85;
-    transform: none;
-    pointer-events: auto;
-  }
-  .coach-message--user:focus-within .coach-message-actions--user,
-  .coach-message--user:active .coach-message-actions--user {
-    opacity: 1;
-  }
 }
 
 .coach-message-action {
@@ -1049,12 +650,7 @@
   font: inherit;
   font-size: 0;
   cursor: pointer;
-  transition:
-    background 0.16s ease,
-    border-color 0.16s ease,
-    color 0.16s ease,
-    transform 0.12s cubic-bezier(0.33, 1, 0.68, 1);
-  -webkit-tap-highlight-color: transparent;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
 }
 
 .coach-message-action svg {
@@ -1069,139 +665,10 @@
   color: #e5e7eb;
 }
 
-.coach-message-action:active {
-  transform: scale(0.96);
-}
-
-.coach-message-action.is-copied {
-  color: #86efac;
-  border-color: rgba(134, 239, 172, 0.28);
-  background: rgba(134, 239, 172, 0.12);
-}
-
-/* Snappy "pop" on the checkmark — runs once when .is-copied appears so the
- * tap-to-checked transition feels acknowledged immediately. */
-.coach-message-action.is-copied svg {
-  animation: coach-copy-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-@keyframes coach-copy-pop {
-  0% {
-    transform: scale(0.5);
-    opacity: 0;
-  }
-  55% {
-    transform: scale(1.18);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .coach-message-action.is-copied svg {
-    animation: none;
-  }
-}
-
 .coach-message-action.is-active {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.14);
   color: #e5e7eb;
-}
-
-/* ---- Follow-up quick-action buttons ---- */
-.coach-followup-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.5rem;
-  animation: coach-followup-enter 0.36s cubic-bezier(0.33, 1, 0.68, 1) both;
-  will-change: opacity, transform;
-}
-
-@keyframes coach-followup-enter {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.coach-followup-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.45rem 0.75rem;
-  font-family: inherit;
-  font-size: 0.78rem;
-  font-weight: 550;
-  line-height: 1.3;
-  color: rgba(216, 204, 255, 0.88);
-  background: rgba(124, 58, 237, 0.08);
-  border: 1px solid rgba(124, 58, 237, 0.18);
-  border-radius: 12px;
-  cursor: pointer;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease,
-    transform 0.14s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.coach-followup-btn:hover {
-  background: rgba(124, 58, 237, 0.16);
-  border-color: rgba(124, 58, 237, 0.32);
-  color: #e8deff;
-}
-
-.coach-followup-btn:active {
-  transform: scale(0.98);
-  background: rgba(124, 58, 237, 0.22);
-}
-
-.coach-followup-btn-icon {
-  flex-shrink: 0;
-  width: 14px;
-  height: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(124, 58, 237, 0.7);
-}
-
-.coach-followup-btn-icon svg {
-  width: 14px;
-  height: 14px;
-}
-
-.coach-followup-btn-label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 280px;
-}
-
-@media (max-width: 520px) {
-  .coach-followup-actions {
-    flex-direction: column;
-  }
-
-  .coach-followup-btn {
-    font-size: 0.74rem;
-    padding: 0.4rem 0.65rem;
-  }
-
-  .coach-followup-btn-label {
-    max-width: none;
-    white-space: normal;
-  }
 }
 
 .coach-retry-menu-wrap {
@@ -1314,7 +781,7 @@
   max-height: min(56vh, 320px);
   overflow: auto;
   scrollbar-width: thin;
-  scrollbar-color: rgba(124, 58, 237, 0.28) transparent;
+  scrollbar-color: rgba(167, 139, 250, 0.28) transparent;
   box-shadow:
     0 14px 32px rgba(0, 0, 0, 0.24),
     0 1px 0 rgba(255, 255, 255, 0.08) inset;
@@ -1331,7 +798,7 @@
 }
 
 .coach-retry-menu::-webkit-scrollbar-thumb {
-  background: rgba(124, 58, 237, 0.24);
+  background: rgba(167, 139, 250, 0.24);
   border-radius: 999px;
 }
 
@@ -1347,11 +814,7 @@
   font-size: 0.76rem;
   font-weight: 700;
   cursor: pointer;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    transform 0.18s ease,
-    opacity 0.18s ease;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease, opacity 0.18s ease;
 }
 
 .coach-retry-option + .coach-retry-option,
@@ -1402,12 +865,9 @@
   margin-top: 1rem;
   padding: 1rem;
   border-radius: 16px;
-  background: #1a1a1a;
+  background: #111214;
   border: 1px solid rgba(255, 255, 255, 0.08);
   overflow-x: auto;
-  min-width: 0;
-  max-width: 100%;
-  box-sizing: border-box;
 }
 
 .coach-code-language {
@@ -1420,7 +880,7 @@
   color: #9ea7b4;
   font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
@@ -1443,7 +903,7 @@
 .coach-table {
   width: 100%;
   border-collapse: collapse;
-  background: #1a1a1a;
+  background: #111214;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   overflow: hidden;
@@ -1478,95 +938,6 @@
   min-height: 3.2rem;
 }
 
-/* Streaming text: soft entrance when bubble first appears (loader → content) */
-.coach-message-bubble--streaming {
-  animation: coachBubbleReveal 0.3s cubic-bezier(0.33, 1, 0.68, 1) both;
-}
-
-@keyframes coachBubbleReveal {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-/* Per-block fade-in inside streaming — each new section slides in smoothly */
-.coach-stream-block {
-  animation: coachBlockReveal 0.32s cubic-bezier(0.33, 1, 0.68, 1) both;
-  will-change: opacity, transform;
-}
-
-@keyframes coachBlockReveal {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* User / assistant message entrance animation */
-.coach-message--enter {
-  animation: coachMessageEnter 0.34s cubic-bezier(0.33, 1, 0.68, 1) both;
-}
-
-@keyframes coachMessageEnter {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Stop generation button — inline below streaming message */
-.coach-stop-gen-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  align-self: flex-start;
-  margin-top: 0.25rem;
-  padding: 0.3rem 0.7rem;
-  font-family: inherit;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: rgba(229, 229, 231, 0.6);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  cursor: pointer;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease,
-    transform 0.12s ease;
-  -webkit-tap-highlight-color: transparent;
-  animation: coachBlockReveal 0.3s cubic-bezier(0.33, 1, 0.68, 1) both;
-  animation-delay: 0.5s;
-}
-
-.coach-stop-gen-btn svg {
-  width: 10px;
-  height: 10px;
-  flex-shrink: 0;
-}
-
-.coach-stop-gen-btn:hover {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.28);
-  color: #fca5a5;
-}
-
-.coach-stop-gen-btn:active {
-  transform: scale(0.97);
-}
-
 .coach-assistant-loader {
   display: inline-flex;
   align-items: center;
@@ -1580,27 +951,15 @@
   height: 0.7rem;
   flex-shrink: 0;
   border-radius: 999px;
-  background: radial-gradient(
-    circle at 35% 35%,
-    #ffffff 0%,
-    #ddd6fe 24%,
-    #7c3aed 62%,
-    rgba(124, 58, 237, 0.14) 100%
-  );
+  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #ddd6fe 24%, #8b5cf6 62%, rgba(139, 92, 246, 0.14) 100%);
   box-shadow:
-    0 0 0 0 rgba(124, 58, 237, 0.24),
-    0 0 14px rgba(124, 58, 237, 0.2);
+    0 0 0 0 rgba(139, 92, 246, 0.24),
+    0 0 14px rgba(139, 92, 246, 0.2);
   animation: coachLoaderPulse 1.5s ease-in-out infinite;
 }
 
 .coach-assistant-loader.is-deep .coach-assistant-loader-orb {
-  background: radial-gradient(
-    circle at 35% 35%,
-    #ffffff 0%,
-    #fde68a 22%,
-    #f59e0b 58%,
-    rgba(245, 158, 11, 0.16) 100%
-  );
+  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #fde68a 22%, #f59e0b 58%, rgba(245, 158, 11, 0.16) 100%);
   box-shadow:
     0 0 0 0 rgba(245, 158, 11, 0.22),
     0 0 14px rgba(245, 158, 11, 0.2);
@@ -1666,8 +1025,7 @@
 }
 
 @keyframes coachLoaderPulse {
-  0%,
-  100% {
+  0%, 100% {
     transform: scale(0.94);
     opacity: 0.88;
   }
@@ -1695,9 +1053,7 @@
 }
 
 @keyframes coachTyping {
-  0%,
-  80%,
-  100% {
+  0%, 80%, 100% {
     transform: translateY(0);
     opacity: 0.35;
   }
@@ -1707,18 +1063,18 @@
   }
 }
 
-/* Scroll to bottom — bottom offset tracks measured composer stack (JS --coach-composer-stack-px) */
+/* Scroll to bottom button — entirely above input bar, smooth appear/disappear */
 .coach-scroll-to-bottom {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--coach-composer-stack-px, 148px) + 0.75rem);
+  /* Composer ~8rem + gap 0.5rem + button 2.5rem = 11rem from bottom */
+  bottom: calc(11rem + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%) translateY(8px);
   z-index: 4;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
   transition:
-    bottom 0.22s cubic-bezier(0.4, 0, 0.2, 1),
     opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
     visibility 0.28s;
@@ -1731,10 +1087,6 @@
   transform: translateX(-50%) translateY(0);
 }
 
-/* Matches the composer bar's glass recipe (see .coach-composer above):
- * same white vertical gradient, same 0.5px border, same 50px blur with
- * 190% saturation + 1.05 brightness. The button reads as "part of the
- * input family" rather than a foreign chip hovering above it. */
 .coach-scroll-to-bottom-btn {
   display: flex;
   align-items: center;
@@ -1743,44 +1095,24 @@
   height: 2.5rem;
   padding: 0;
   border-radius: 50%;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.03) 40%,
-    rgba(255, 255, 255, 0.01) 100%
-  );
-  backdrop-filter: blur(50px) saturate(190%) brightness(1.05);
-  -webkit-backdrop-filter: blur(50px) saturate(190%) brightness(1.05);
-  border: 0.5px solid rgba(255, 255, 255, 0.18);
+  background: rgba(48, 52, 64, 0.72);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   color: #e5e7eb;
   cursor: pointer;
   box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.15),
-    inset 0 -0.5px 0 rgba(255, 255, 255, 0.04),
-    0 0 0 0.5px rgba(0, 0, 0, 0.12),
-    0 4px 16px rgba(0, 0, 0, 0.18),
-    0 12px 40px rgba(0, 0, 0, 0.12);
-  transition:
-    border-color 0.22s cubic-bezier(0.25, 1, 0.5, 1),
-    box-shadow 0.22s cubic-bezier(0.25, 1, 0.5, 1),
-    transform 0.22s cubic-bezier(0.25, 1, 0.5, 1),
-    color 0.22s ease;
+    0 6px 20px rgba(0, 0, 0, 0.25),
+    0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .coach-scroll-to-bottom-btn:hover {
-  border-color: rgba(255, 255, 255, 0.28);
-  color: #ffffff;
+  background: rgba(56, 60, 76, 0.85);
+  border-color: rgba(255, 255, 255, 0.2);
   box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.2),
-    inset 0 -0.5px 0 rgba(255, 255, 255, 0.05),
-    0 0 0 0.5px rgba(0, 0, 0, 0.12),
-    0 6px 22px rgba(0, 0, 0, 0.22),
-    0 14px 44px rgba(0, 0, 0, 0.14);
-}
-
-.coach-scroll-to-bottom-btn:active {
-  transform: scale(0.94);
-  transition: transform 80ms ease;
+    0 8px 24px rgba(0, 0, 0, 0.3),
+    0 1px 0 rgba(255, 255, 255, 0.1) inset;
 }
 
 .coach-scroll-to-bottom-btn svg {
@@ -1788,175 +1120,26 @@
   height: 18px;
 }
 
-/* ---------------------------------------------------------------------------
- * Shared chat sub-tabbar — currently used by ThumbnailGenerator
- * (Prompt/Recreate/Analyze/Edit/Batch). Built on the <TabBar variant="segmented">
- * primitive and styled to match the top floating Coach tabbar (glass pill).
- * Sits VISUALLY DETACHED above the input composer with its own gap.
- * --------------------------------------------------------------------------- */
-.chat-subtabbar-wrap {
-  width: fit-content;
-  max-width: 100%;
-  margin: 0 auto 0.75rem;
-  flex-shrink: 0;
-  display: flex;
-  justify-content: center;
-  box-sizing: border-box;
-  pointer-events: auto;
-  position: relative;
-  z-index: 2;
-  animation: chatSubtabbarReveal 380ms cubic-bezier(0.33, 1, 0.68, 1) both;
-}
-
-@keyframes chatSubtabbarReveal {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Glass pill — mirrors `.tabbar.segmented.coach-tabbar--floating` (top tabbar) */
-.chat-subtabbar.tabbar.segmented {
-  width: auto;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  margin: 0;
-  padding: 4px;
-  gap: 3px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.03) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.09),
-    inset 0 -0.5px 0 rgba(255, 255, 255, 0.04),
-    0 0 0 0.5px rgba(0, 0, 0, 0.2),
-    0 8px 32px rgba(0, 0, 0, 0.35),
-    0 2px 8px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  justify-content: flex-start;
-  flex-wrap: nowrap;
-  transition:
-    box-shadow 0.3s cubic-bezier(0.33, 1, 0.68, 1),
-    border-color 0.3s cubic-bezier(0.33, 1, 0.68, 1);
-}
-
-.chat-subtabbar .tabbar-segment-highlight {
-  border-radius: 12px;
-  background: linear-gradient(
-    145deg,
-    rgba(180, 160, 255, 0.32) 0%,
-    rgba(147, 110, 250, 0.24) 50%,
-    rgba(120, 100, 245, 0.2) 100%
-  );
-  box-shadow:
-    0 0 0 1px rgba(200, 185, 255, 0.28),
-    0 4px 14px rgba(120, 90, 250, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-.chat-subtabbar .tabbar-tab {
-  flex: 0 0 auto;
-  min-width: 0;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: 12px;
-  font-size: 0.76rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: rgba(235, 235, 240, 0.5);
-  transition:
-    color 0.26s cubic-bezier(0.33, 1, 0.68, 1),
-    transform 0.14s ease;
-}
-
-.chat-subtabbar .tabbar-tab:hover {
-  color: rgba(245, 243, 255, 0.88);
-}
-
-.chat-subtabbar .tabbar-tab:active {
-  transform: scale(0.98);
-}
-
-.chat-subtabbar .tabbar-tab.is-active {
-  color: #f5f0ff;
-  background: transparent;
-  box-shadow: none;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
-}
-
-.chat-subtabbar .tabbar-tab-icon svg {
-  width: 14px;
-  height: 14px;
-  opacity: 0.92;
-}
-
-.chat-subtabbar .tabbar-tab:not(.is-active) .tabbar-tab-icon svg {
-  color: rgba(196, 181, 253, 0.55);
-  stroke: currentColor;
-}
-
-.chat-subtabbar .tabbar-tab.is-active .tabbar-tab-icon svg {
-  color: rgba(255, 255, 255, 0.95);
-  stroke: currentColor;
-}
-
-@media (max-width: 520px) {
-  .chat-subtabbar.tabbar.segmented {
-    padding: 3px;
-    border-radius: 14px;
-  }
-
-  .chat-subtabbar .tabbar-tab {
-    padding: 7px 11px;
-    font-size: 0.7rem;
-    border-radius: 11px;
-    gap: 5px;
-  }
-
-  .chat-subtabbar .tabbar-segment-highlight {
-    border-radius: 11px;
-  }
-
-  .chat-subtabbar .tabbar-tab-icon svg {
-    width: 12px;
-    height: 12px;
-  }
-}
-
 .coach-composer-wrap {
   position: sticky;
   bottom: 0;
   z-index: 3;
   margin-top: -4.2rem;
-  /* Horizontal padding matches `.coach-thread` and Dashboard's content gutter. */
-  padding: 0.25rem var(--dash-gutter-x, 1.75rem) 0.65rem;
+  padding: 0.25rem 0 0.4rem;
   background: transparent;
   pointer-events: none;
-  box-sizing: border-box;
 }
 
 .coach-composer-wrap::after {
   content: '';
   position: absolute;
   left: 50%;
-  bottom: 0.2rem;
+  bottom: 0.1rem;
   transform: translateX(-50%);
   width: min(calc(var(--coach-content-width) + 5rem), calc(100% - 1.25rem));
-  height: 4.5rem;
+  height: 4rem;
   border-radius: 999px;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(0, 0, 0, 0.34) 0%,
-    rgba(0, 0, 0, 0.16) 42%,
-    rgba(0, 0, 0, 0) 78%
-  );
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.34) 0%, rgba(0, 0, 0, 0.16) 42%, rgba(0, 0, 0, 0) 78%);
   filter: blur(18px);
   opacity: 0.9;
   pointer-events: none;
@@ -1989,46 +1172,34 @@
 
 .coach-composer {
   width: var(--coach-content-width);
-  max-width: 100%;
-  min-width: 0;
+  max-width: none;
   margin: 0 auto;
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  padding: 1.15rem 1rem;
-  border-radius: 22px;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.03) 40%,
-    rgba(255, 255, 255, 0.01) 100%
-  );
-  border: 0.5px solid rgba(255, 255, 255, 0.18);
+  gap: 0.5rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 20px;
+  background: rgba(48, 52, 64, 0.36);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   pointer-events: auto;
   box-sizing: border-box;
-  backdrop-filter: blur(50px) saturate(190%) brightness(1.05);
-  -webkit-backdrop-filter: blur(50px) saturate(190%) brightness(1.05);
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
   box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.15),
-    inset 0 -0.5px 0 rgba(255, 255, 255, 0.04),
-    0 0 0 0.5px rgba(0, 0, 0, 0.12),
-    0 4px 16px rgba(0, 0, 0, 0.12),
-    0 12px 40px rgba(0, 0, 0, 0.08);
-  transition:
-    border-color 0.35s cubic-bezier(0.25, 1, 0.5, 1),
-    box-shadow 0.35s cubic-bezier(0.25, 1, 0.5, 1),
-    border-radius 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+    0 6px 24px rgba(0, 0, 0, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.16) inset,
+    0 -1px 0 rgba(255, 255, 255, 0.06) inset;
 }
 
-.coach-composer:focus-within {
-  border-color: rgba(255, 255, 255, 0.25);
-  box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.18),
-    inset 0 -0.5px 0 rgba(255, 255, 255, 0.04),
-    0 0 0 0.5px rgba(0, 0, 0, 0.12),
-    0 6px 24px rgba(0, 0, 0, 0.15),
-    0 0 0 3px rgba(255, 255, 255, 0.04);
+.coach-composer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.01) 40%);
+  pointer-events: none;
+  opacity: 0.5;
 }
 
 .coach-file-input {
@@ -2037,30 +1208,26 @@
 
 .coach-composer-input-wrap {
   position: relative;
-  /* Do not flex-grow: filling leftover column space kept the bar “expanded” after the textarea shrank. */
-  flex: 0 1 auto;
+  flex: 1;
   min-width: 0;
-  min-height: 0;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
 }
 .coach-composer-input {
   width: 100%;
-  min-height: 3.1rem;
-  max-height: 240px;
+  min-height: 65px;
+  max-height: 140px;
   resize: none;
   border: none;
   outline: none;
   background: transparent;
   color: #f8fafc;
   font: inherit;
-  font-size: 0.95rem;
-  line-height: 1.55;
-  padding: 0.2rem 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  padding: 0.05rem 0;
   box-sizing: border-box;
   overflow-y: auto;
-  transition: height 0.26s cubic-bezier(0.25, 1, 0.5, 1);
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.5) transparent;
 }
@@ -2078,48 +1245,7 @@
   background: rgba(0, 0, 0, 0.65);
 }
 .coach-composer-input::placeholder {
-  color: transparent;
-}
-
-/* Rotating placeholder overlay — mirrors textarea text position exactly */
-.coach-composer-placeholder {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  pointer-events: none;
-  color: #7a8494;
-  font: inherit;
-  font-size: 0.95rem;
-  line-height: 1.55;
-  padding: 0.2rem 0;
-  overflow: hidden;
-  box-sizing: border-box;
-}
-
-.coach-composer-placeholder-text {
-  display: block;
-  opacity: 1;
-  transform: translateY(0);
-  transition:
-    opacity 0.38s cubic-bezier(0.33, 1, 0.68, 1),
-    transform 0.38s cubic-bezier(0.33, 1, 0.68, 1);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-.coach-composer-placeholder-text.is-exiting {
-  opacity: 0;
-  transform: translateY(-8px);
-  transition-duration: 0.35s;
-}
-
-.coach-composer-placeholder-text.is-entering {
-  opacity: 0;
-  transform: translateY(8px);
-  transition-duration: 0s;
+  color: #8c95a3;
 }
 
 .coach-composer.is-recording {
@@ -2173,9 +1299,7 @@
   transform-origin: center;
   transform: scaleY(var(--wave-scale, 0.2));
   opacity: 0.95;
-  transition:
-    transform 0.12s ease,
-    opacity 0.12s ease;
+  transition: transform 0.12s ease, opacity 0.12s ease;
 }
 
 .coach-composer-recording.is-transcribing .coach-composer-waveform-bar {
@@ -2224,9 +1348,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition:
-    background 0.12s ease,
-    opacity 0.12s ease;
+  transition: background 0.12s ease, opacity 0.12s ease;
 }
 
 .coach-composer-preview-remove:hover {
@@ -2266,17 +1388,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition:
-    background 0.14s ease,
-    border-color 0.14s ease,
-    opacity 0.14s ease,
-    color 0.14s ease,
-    transform 0.14s cubic-bezier(0.33, 1, 0.68, 1);
-  -webkit-tap-highlight-color: transparent;
-}
-
-.coach-composer-tool:active:not(:disabled) {
-  transform: scale(0.96);
+  transition: background 0.12s ease, border-color 0.12s ease, opacity 0.12s ease, color 0.12s ease;
 }
 
 .coach-composer-attachment-remove {
@@ -2307,37 +1419,20 @@
 }
 
 .coach-composer-tool--pill {
-  min-height: 2.15rem;
-  padding: 0.35rem 0.7rem;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.65rem;
   border-radius: 999px;
   gap: 0.35rem;
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  color: rgba(196, 181, 253, 0.8);
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
-  transition:
-    background 0.24s cubic-bezier(0.33, 1, 0.68, 1),
-    border-color 0.24s cubic-bezier(0.33, 1, 0.68, 1),
-    color 0.24s cubic-bezier(0.33, 1, 0.68, 1),
-    box-shadow 0.24s cubic-bezier(0.33, 1, 0.68, 1);
+  color: #c4b5fd;
 }
 
 .coach-composer-tool--pill.is-active {
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.2) 0%, rgba(120, 80, 240, 0.15) 100%);
-  border-color: rgba(124, 58, 237, 0.35);
-  color: #e2d5ff;
-  box-shadow:
-    0 0 8px rgba(124, 58, 237, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-}
-
-.coach-composer-send-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  flex-shrink: 0;
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.35);
+  color: #e9d5ff;
 }
 
 .coach-composer-send {
@@ -2347,17 +1442,15 @@
   padding: 0;
   flex-shrink: 0;
   border-radius: 50%;
-  border: 1px solid rgba(124, 58, 237, 0.28);
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.96) 0%, rgba(99, 102, 241, 0.96) 100%);
+  border: 1px solid rgba(167, 139, 250, 0.28);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.96) 0%, rgba(99, 102, 241, 0.96) 100%);
   color: white;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   font: inherit;
-  transition:
-    filter 0.14s ease,
-    opacity 0.14s ease;
+  transition: filter 0.14s ease, opacity 0.14s ease;
 }
 
 .coach-composer-primary-action {
@@ -2365,12 +1458,7 @@
     filter 0.14s ease,
     opacity 0.14s ease,
     background 0.14s ease,
-    border-color 0.14s ease,
-    transform 0.14s cubic-bezier(0.33, 1, 0.68, 1);
-}
-
-.coach-composer-primary-action:active:not(:disabled) {
-  transform: scale(0.96);
+    border-color 0.14s ease;
 }
 
 .coach-composer-primary-action.is-send {
@@ -2426,18 +1514,15 @@
 }
 
 .coach-composer-tool.coach-composer-deep-thinking:hover:not(:disabled) {
-  background: rgba(124, 58, 237, 0.1);
-  border-color: rgba(124, 58, 237, 0.22);
-  color: #d4c5ff;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #c4b5fd;
 }
 
 .coach-composer-tool.coach-composer-deep-thinking.is-active:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.26) 0%, rgba(120, 80, 240, 0.2) 100%);
-  border-color: rgba(124, 58, 237, 0.4);
-  color: #ede5ff;
-  box-shadow:
-    0 0 12px rgba(124, 58, 237, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.35);
+  color: #e9d5ff;
 }
 
 .coach-composer-tool:disabled {
@@ -2463,8 +1548,7 @@
 }
 
 @keyframes coachMicPulse {
-  0%,
-  100% {
+  0%, 100% {
     box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.18);
   }
   50% {
@@ -2473,8 +1557,7 @@
 }
 
 @keyframes coachWaveIdle {
-  0%,
-  100% {
+  0%, 100% {
     transform: scaleY(0.28);
     opacity: 0.56;
   }
@@ -2501,27 +1584,43 @@
   }
 
   .coach-chat-shell {
-    --coach-content-width: min(720px, 100%);
+    --coach-content-width: min(680px, calc(100% - 1.5rem));
   }
 }
 
 @media (max-width: 760px) {
   .coach-chat-shell {
-    --coach-content-width: 100%;
+    --coach-content-width: min(100%, calc(100% - 1rem));
+  }
+
+  /* Mobile: always keep composer at bottom, never center */
+  .coach-chat-shell--empty {
+    justify-content: flex-start;
+    align-items: stretch;
+  }
+
+  .coach-chat-shell--empty .coach-thread {
+    flex: 1;
+    padding-bottom: 5.2rem;
+  }
+
+  .coach-chat-shell--empty .coach-composer-wrap--empty {
+    position: sticky;
+    bottom: 0;
+    margin-top: -3.6rem;
+    width: auto;
+  }
+
+  .coach-chat-shell--empty .coach-composer-wrap--empty::after {
+    display: block;
   }
 
   .coach-main {
-    padding: 0.5rem 0 0.5rem;
+    padding: 0.5rem 0.75rem 0.5rem;
   }
 
   .coach-thread {
-    padding-top: 3rem;
-    padding-bottom: 4.5rem;
-  }
-
-  .coach-virtuoso-list {
-    padding-top: 3rem;
-    padding-bottom: 4.5rem;
+    padding: 0.2rem 0 4.5rem;
   }
 
   .coach-thread--empty {
@@ -2533,21 +1632,21 @@
   }
 
   .coach-empty-actions {
-    gap: 0.45rem;
-    margin-top: 0.65rem;
+    gap: 0.4rem;
+    margin-top: 0.6rem;
   }
 
   .coach-empty-action {
-    min-height: 4.6rem;
-    padding: 0.75rem 0.8rem;
-    gap: 0.5rem;
-    border-radius: 16px;
+    min-height: 4.5rem;
+    padding: 0.65rem 0.75rem;
+    gap: 0.45rem;
+    border-radius: 11px;
   }
 
   .coach-empty-action-icon-wrap {
     width: 2rem;
     height: 2rem;
-    border-radius: 10px;
+    border-radius: 9px;
   }
 
   .coach-empty-action-icon-wrap svg {
@@ -2563,16 +1662,20 @@
     max-width: 88%;
   }
 
+  .coach-scroll-to-bottom {
+    /* Mobile: composer ~7.5rem + gap + button */
+    bottom: calc(10.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
   .coach-composer-wrap {
     margin-top: -3.6rem;
-    padding-top: 0.2rem;
-    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.2rem 0 calc(0.3rem + env(safe-area-inset-bottom, 0px));
   }
 
   .coach-composer {
-    border-radius: 22px;
-    padding: 1.15rem 0.9rem;
-    gap: 0.55rem;
+    border-radius: 20px;
+    padding: 0.7rem 0.85rem;
+    gap: 0.5rem;
     background: rgba(48, 52, 64, 0.42);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
@@ -2584,16 +1687,10 @@
   }
 
   .coach-composer-input {
-    min-height: 2.75rem;
+    min-height: 52px;
     font-size: 0.95rem;
-    padding: 0.2rem 0;
+    padding: 0.4rem 0;
     line-height: 1.5;
-  }
-
-  .coach-composer-placeholder {
-    font-size: 0.95rem;
-    line-height: 1.5;
-    padding: 0.2rem 0;
   }
 
   .coach-composer-recording {
@@ -2662,20 +1759,18 @@
 
 @media (max-width: 560px) {
   .coach-chat-shell {
-    --coach-content-width: 100%;
+    --coach-content-width: calc(100% - 1.25rem);
+  }
+
+  .coach-chat-shell--empty .coach-composer-wrap--empty {
+    margin-top: -3.2rem;
   }
 
   .coach-main {
-    padding: 0.5rem 0 0.5rem;
+    padding: 0.5rem 0.65rem 0.5rem;
   }
 
   .coach-thread {
-    padding-top: 2.8rem;
-    padding-bottom: 4rem;
-  }
-
-  .coach-virtuoso-list {
-    padding-top: 2.8rem;
     padding-bottom: 4rem;
   }
 
@@ -2703,16 +1798,16 @@
   }
 
   .coach-empty-action {
-    min-height: 4.4rem;
-    padding: 0.7rem 0.7rem;
-    gap: 0.45rem;
-    border-radius: 14px;
+    min-height: 4.2rem;
+    padding: 0.6rem 0.65rem;
+    gap: 0.4rem;
+    border-radius: 10px;
   }
 
   .coach-empty-action-icon-wrap {
     width: 1.9rem;
     height: 1.9rem;
-    border-radius: 9px;
+    border-radius: 8px;
   }
 
   .coach-empty-action-icon-wrap svg {
@@ -2759,31 +1854,30 @@
     width: min(58%, 6rem);
   }
 
+  .coach-scroll-to-bottom {
+    /* Small mobile: composer ~7rem + gap + button */
+    bottom: calc(10rem + env(safe-area-inset-bottom, 0px));
+  }
+
   .coach-composer-wrap {
     margin-top: -3.2rem;
-    padding-top: 0.15rem;
-    padding-bottom: calc(0.4rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.15rem 0 calc(0.25rem + env(safe-area-inset-bottom, 0px));
   }
 
   .coach-composer {
-    gap: 0.45rem;
-    padding: 1.05rem 0.8rem;
-    border-radius: 20px;
+    gap: 0.4rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 18px;
   }
 
   .coach-composer-input-wrap {
-    padding: 0.15rem 0;
+    padding: 0.2rem 0;
   }
 
   .coach-composer-input {
-    min-height: 2.5rem;
+    min-height: 50px;
     font-size: 0.92rem;
-    padding: 0.15rem 0;
-  }
-
-  .coach-composer-placeholder {
-    font-size: 0.92rem;
-    padding: 0.15rem 0;
+    padding: 0.35rem 0;
   }
 
   .coach-composer-recording {
@@ -2864,23 +1958,4 @@
     padding: 0.38rem 0.62rem;
     font-size: 0.75rem;
   }
-}
-
-/* ── Empty-state centering — input bar + greeting float together ── */
-.coach-chat-shell--empty {
-  justify-content: center;
-}
-
-.coach-chat-shell--empty .coach-thread--empty {
-  flex: 0 0 auto;
-  overflow: visible;
-  padding-top: 0;
-  padding-bottom: 1rem;
-  min-height: 0;
-}
-
-.coach-chat-shell--empty .coach-composer-wrap {
-  position: static !important;
-  margin-top: 0 !important;
-  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.75rem);
 }

@@ -1,31 +1,8 @@
-@import './ios-theme.css';
-
-:root {
-  --font-sans: var(--ios-font);
-  --font: var(--font-sans);
-
-  /* Legacy aliases — map to iOS theme tokens for backward compat */
-  --app-canvas-bg: var(--ios-bg-canvas);
-  --dash-surface-page: var(--ios-bg-primary);
-  --dash-surface-sidebar: #0a0a0e;
-  --dash-surface-card: var(--ios-bg-secondary);
-  --dash-surface-card-hover: var(--ios-bg-tertiary);
-  --dash-surface-border: var(--ios-separator);
-  --dash-surface-border-hover: rgba(255, 255, 255, 0.12);
-  --dash-text-body: var(--ios-label-primary);
-  --dash-text-muted: var(--ios-label-secondary);
-}
-
-html {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
-}
-
 body {
   margin: 0;
-  font-family: var(--font-sans);
-  background: var(--app-canvas-bg);
-  color: var(--dash-text-body);
-  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  width: 100%;
 }
