@@ -24,7 +24,7 @@ export function PrivacyPolicy({ onBack }) {
 
         <header className="legal-header">
           <h1 className="legal-title">Privacy Policy</h1>
-          <p className="legal-updated">Last updated: March 2025</p>
+          <p className="legal-updated">Last updated: April 2026</p>
         </header>
 
         <div className="legal-content">
@@ -39,7 +39,9 @@ export function PrivacyPolicy({ onBack }) {
           <h3>Information you provide</h3>
           <ul>
             <li><strong>Account data:</strong> email address, password (stored in hashed form), and optionally username when you register or sign in.</li>
-            <li><strong>Profile and usage data:</strong> content you create (e.g. scripts, thumbnail preferences), settings, and how you use the Service.</li>
+            <li><strong>Profile and usage data:</strong> content you create (e.g. thumbnails, prompts, saved visual characters), settings, and how you use the Service.</li>
+            <li><strong>Billing data:</strong> when you subscribe or purchase credits, our payment processor (see §3) collects your name, billing address, tax/VAT ID where applicable, and payment instrument details. Scriptz AI receives only a customer reference, transaction status, and non-sensitive summary data — we <strong>never store full card numbers, CVV, or bank details</strong>.</li>
+            <li><strong>Uploaded content:</strong> images you upload as reference material for thumbnail generation. You confirm at upload time that you own these materials or have the rights to use them.</li>
             <li><strong>Communications:</strong> messages you send to us (e.g. support requests or feedback).</li>
           </ul>
           <h3>Information collected automatically</h3>
@@ -72,11 +74,39 @@ export function PrivacyPolicy({ onBack }) {
             We do not sell your personal information. We may share your information in the following circumstances:
           </p>
           <ul>
-            <li><strong>Service providers:</strong> with vendors who help us operate the Service (e.g. hosting, analytics, AI models), under contracts that limit their use of your data.</li>
+            <li><strong>Service providers (subprocessors):</strong> with vendors who help us operate the Service, under contracts that limit their use of your data. Current core subprocessors include:
+              <ul>
+                <li><strong>Paddle.com Market Ltd</strong> — Merchant of Record for all paid subscriptions and credit packs. Paddle collects your billing information directly, processes your payment, handles sales tax / VAT collection and remittance where required, and transmits a transaction reference back to Scriptz AI. Paddle&apos;s privacy notice is available at <a href="https://www.paddle.com/legal/privacy" target="_blank" rel="noopener">paddle.com/legal/privacy</a>.</li>
+                <li><strong>Supabase</strong> — authentication and account database.</li>
+                <li><strong>OpenAI</strong> — AI image generation on your prompts. Prompts and reference images you submit are transmitted to OpenAI per their API policy; we do not allow training on your data.</li>
+                <li><strong>Google (YouTube Data API)</strong> — when you connect your channel, with scopes you explicitly authorise.</li>
+                <li><strong>AWS</strong> — cloud hosting (compute, storage, CDN).</li>
+              </ul>
+            </li>
             <li><strong>Legal and safety:</strong> when required by law, court order, or government request, or to protect the rights, property, or safety of Scriptz AI, our users, or the public.</li>
             <li><strong>Business transfers:</strong> in connection with a merger, acquisition, or sale of assets, subject to the same privacy commitments.</li>
             <li><strong>With your consent:</strong> when you have given us explicit permission to share your information.</li>
           </ul>
+
+          <h2>3a. Payment Processing (Paddle — Merchant of Record)</h2>
+          <p>
+            Scriptz AI uses <strong>Paddle.com Market Ltd</strong> as its Merchant of Record for
+            all paid subscriptions, recurring renewals, and one-time credit pack purchases. That
+            means:
+          </p>
+          <ul>
+            <li>When you complete a purchase, your payment details (card number, billing address, tax details) are entered into Paddle&apos;s hosted checkout and are collected, stored, and processed by Paddle — not by Scriptz AI.</li>
+            <li>Paddle handles sales tax, VAT, GST, and equivalent transaction taxes on our behalf and remits them to the relevant authorities.</li>
+            <li>Your invoice, receipts, and renewal emails are issued by Paddle under our name.</li>
+            <li>Scriptz AI receives a customer ID, subscription status, and transaction metadata back from Paddle so we can grant and manage your account entitlements.</li>
+          </ul>
+          <p>
+            Paddle is an independent data controller for the payment data it processes. Its
+            privacy practices are governed by{' '}
+            <a href="https://www.paddle.com/legal/privacy" target="_blank" rel="noopener">Paddle&apos;s Privacy Notice</a>.
+            For refund requests, invoice corrections, or billing disputes, please contact us
+            first (see §10) — we coordinate with Paddle on your behalf.
+          </p>
 
           <h2>4. Data Retention</h2>
           <p>

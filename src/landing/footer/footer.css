@@ -12,19 +12,47 @@
 .ftr-inner {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 0 3vw;
+  padding: 1.5rem 3vw 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.ftr-legal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem 0.65rem;
+}
+
+.ftr-link {
+  color: rgba(255, 255, 255, 0.72);
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  transition: color 0.18s ease;
+}
+.ftr-link:hover {
+  color: #a78bfa;
+}
+
+.ftr-dot {
+  color: rgba(255, 255, 255, 0.2);
+  font-size: 0.75rem;
 }
 
 .ftr-bottom {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.25rem 0;
   text-align: center;
 }
 
 .ftr-copy {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: #52525f;
   margin: 0;
   line-height: 1.5;

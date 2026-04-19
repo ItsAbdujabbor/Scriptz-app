@@ -24,7 +24,7 @@ export function Terms({ onBack }) {
 
         <header className="legal-header">
           <h1 className="legal-title">Terms of Service</h1>
-          <p className="legal-updated">Last updated: March 2025</p>
+          <p className="legal-updated">Last updated: April 2026</p>
         </header>
 
         <div className="legal-content">
@@ -39,7 +39,7 @@ export function Terms({ onBack }) {
 
           <h2>2. Description of Service</h2>
           <p>
-            Scriptz AI provides AI-powered tools for YouTube creators, including but not limited to script generation, thumbnail creation, and growth insights. We reserve the right to modify, suspend, or discontinue any part of the Service at any time, with or without notice. We will not be liable to you or any third party for any such change.
+            Scriptz AI provides AI-powered tools for YouTube creators, including but not limited to thumbnail generation, title and metadata optimization, and audience-growth insights. We reserve the right to modify, suspend, or discontinue any part of the Service at any time, with or without notice. We will not be liable to you or any third party for any such change.
           </p>
 
           <h2>3. Account Registration and Security</h2>
@@ -53,14 +53,77 @@ export function Terms({ onBack }) {
           </p>
           <ul>
             <li>Use the Service in any way that violates applicable laws or regulations</li>
-            <li>Infringe or misappropriate the intellectual property or other rights of Scriptz AI or any third party</li>
+            <li>Infringe or misappropriate the intellectual property, publicity, likeness, or other rights of Scriptz AI or any third party</li>
             <li>Transmit malware, spam, or any harmful or illegal content</li>
             <li>Attempt to gain unauthorized access to the Service, other accounts, or our systems</li>
-            <li>Use the Service to generate content that is defamatory, harassing, or otherwise objectionable</li>
+            <li>Use the Service to generate content that is defamatory, harassing, sexually explicit, or otherwise objectionable</li>
             <li>Resell, sublicense, or commercially exploit the Service except as expressly permitted</li>
           </ul>
           <p>
             We may suspend or terminate your account if we reasonably believe you have violated these Terms or applicable law.
+          </p>
+
+          <h2>4a. User-Uploaded Content</h2>
+          <p>
+            You retain ownership of content you upload to the Service (such as reference photos,
+            product shots, or brand artwork). By uploading, you represent and warrant that{' '}
+            <strong>
+              you own the content you upload or have all the rights, licences, consents, and
+              permissions necessary
+            </strong>{' '}
+            to use that content with the Service and to grant us the limited licence described
+            in Section 5.
+          </p>
+          <p>You must not upload content that:</p>
+          <ul>
+            <li>
+              Contains the likeness, face, voice, or other identifying characteristics of any
+              real person (other than yourself) without that person&apos;s verifiable consent
+            </li>
+            <li>Depicts minors in any AI‑generation or likeness flow</li>
+            <li>
+              Infringes any copyright, trademark, right of publicity, right to privacy, or any
+              other right of a third party
+            </li>
+            <li>
+              Is obtained from search engines, social media, news sites, or stock libraries in
+              violation of their terms
+            </li>
+          </ul>
+          <p>
+            You are solely responsible for the content you upload and the outputs you generate
+            from it. Scriptz AI is not a service for impersonation, deepfakes, or creating the
+            appearance that a real person said or did something they did not.
+          </p>
+
+          <h2>4b. No Impersonation of Real Individuals</h2>
+          <p>
+            The Service is intended for{' '}
+            <strong>original and authorized content creation</strong>. You must not use the
+            Service to:
+          </p>
+          <ul>
+            <li>
+              Create, generate, or publish imagery that impersonates, misrepresents, or falsely
+              depicts any real public figure, celebrity, private individual, politician, or
+              creator
+            </li>
+            <li>
+              Produce content intended to deceive viewers into believing a real person endorsed,
+              appeared in, or created the content when they did not
+            </li>
+            <li>
+              Generate content that could reasonably be mistaken for an authentic recording,
+              statement, or endorsement of a real person
+            </li>
+          </ul>
+          <p>
+            Reusable &quot;character looks&quot; saved in the Service must be built from reference
+            material you own (for example, photos of yourself) or from AI‑generated originals
+            that do not resemble a specific real individual. Violations of this section are
+            considered a material breach of these Terms and may result in immediate account
+            suspension or termination, and we reserve the right to report clear cases to the
+            relevant platform or authority.
           </p>
 
           <h2>5. Intellectual Property</h2>
@@ -68,9 +131,32 @@ export function Terms({ onBack }) {
             The Service, including its design, features, and content (excluding user-generated content), is owned by Scriptz AI or our licensors and is protected by copyright, trademark, and other laws. You retain ownership of content you create using the Service. By using the Service, you grant us a limited, non-exclusive, royalty-free license to use, process, and display your content solely to provide and improve the Service and as described in our Privacy Policy.
           </p>
 
-          <h2>6. Subscription, Fees, and Refunds</h2>
+          <h2>6. Subscription, Fees, and Billing</h2>
           <p>
-            Some parts of the Service may be subject to fees. By subscribing to a paid plan, you agree to pay all applicable fees. Fees are generally non-refundable unless otherwise stated or required by law. We may change our pricing with reasonable notice; continued use after a price change constitutes acceptance. Refund requests are handled in accordance with our Refund Policy, available in the footer of our website.
+            Some parts of the Service (subscriptions, credit packs) are subject to fees. By
+            subscribing to a paid plan, you agree to pay all applicable fees. Subscription fees
+            are billed in advance on a recurring basis (monthly or annually, depending on the
+            plan you select) and renew automatically until cancelled. You may cancel at any
+            time from your account settings; cancellation takes effect at the end of the
+            current billing period.
+          </p>
+          <p>
+            <strong>Merchant of Record.</strong> All payments are processed by{' '}
+            <strong>Paddle.com Market Ltd</strong> (
+            <a href="https://www.paddle.com/legal/terms" target="_blank" rel="noopener">
+              paddle.com/legal/terms
+            </a>
+            ), which acts as our Merchant of Record. Paddle collects and remits applicable
+            taxes (sales tax, VAT, GST, etc.) on our behalf and issues invoices and receipts in
+            our name. By completing a purchase you also agree to Paddle&apos;s checkout terms.
+            Scriptz AI does not store your full card details; only a customer reference and
+            transaction status are shared with us.
+          </p>
+          <p>
+            We may change our pricing with reasonable notice; continued use after a price
+            change constitutes acceptance. Refund requests are handled in accordance with our{' '}
+            <a href="#refund">Refund Policy</a>, which is incorporated into these Terms by
+            reference.
           </p>
 
           <h2>7. Disclaimers</h2>
