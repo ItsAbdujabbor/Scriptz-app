@@ -1,0 +1,94 @@
+name: Deploy main to scriptz.app
+
+# Auto-deploys every push to `main` to the S3 bucket behind scriptz.app,
+# then invalidates the CloudFront cache so the new build is visible
+# immediately. Can also be triggered manually from the Actions tab.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  # Cancel in-flight deploys from older commits on the same branch so we
+  # never overwrite a newer build with an older one.
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      AWS_REGION: us-east-1
+      S3_BUCKET: scriptz-app-frontend
+      CLOUDFRONT_DISTRIBUTION_ID: E3JZROJ6M5S5NX
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 1. Sync the new build to S3, removing any files no longer present
+      #    (old hashed chunks from the previous deploy).
+      - name: Sync dist/ to S3
+        run: aws s3 sync dist/ s3://${{ env.S3_BUCKET }}/ --delete
+
+      # 2. Hashed assets are content-addressable → cache them forever.
+      - name: Set long cache on hashed assets
+        run: |
+          aws s3 cp s3://${{ env.S3_BUCKET }}/assets/ s3://${{ env.S3_BUCKET }}/assets/ \
+            --recursive \
+            --metadata-directive REPLACE \
+            --cache-control "public, max-age=31536000, immutable"
+
+      # 3. index.html must always be fresh so routing updates (like the
+      #    hash+pathname router) reach users immediately.
+      - name: Set no-cache on index.html
+        run: |
+          aws s3 cp s3://${{ env.S3_BUCKET }}/index.html s3://${{ env.S3_BUCKET }}/index.html \
+            --metadata-directive REPLACE \
+            --content-type "text/html; charset=utf-8" \
+            --cache-control "no-cache, must-revalidate"
+
+      # 4. Wipe CloudFront so /index.html and any pathname-fallback
+      #    routes (403/404 → /index.html) serve the new bundle.
+      - name: Invalidate CloudFront
+        run: |
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*" \
+            --query 'Invalidation.Id' \
+            --output text)
+          echo "Invalidation $INVALIDATION_ID queued"
+          aws cloudfront wait invalidation-completed \
+            --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --id "$INVALIDATION_ID"
+          echo "Invalidation $INVALIDATION_ID completed"
+
+      - name: Summary
+        run: |
+          echo "### Deploy complete" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bucket:** s3://${{ env.S3_BUCKET }}/" >> $GITHUB_STEP_SUMMARY
+          echo "- **Distribution:** ${{ env.CLOUDFRONT_DISTRIBUTION_ID }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Live URL:** https://scriptz.app" >> $GITHUB_STEP_SUMMARY
