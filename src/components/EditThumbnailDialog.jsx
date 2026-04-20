@@ -32,7 +32,7 @@ import { SegmentedTabs } from './ui/SegmentedTabs'
 import { PrimaryPill } from './ui/PrimaryPill'
 
 const Z_INDEX = 2147483647
-const PRIMARY_GRADIENT = 'linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)'
+const PRIMARY_GRADIENT = 'var(--accent-gradient)'
 const MASK_CSS_OPACITY = 0.4
 const MASK_THRESHOLD = 10
 const UNDO_CAP = 20

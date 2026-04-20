@@ -347,7 +347,7 @@ export function CreatePersonaDialog() {
               padding: '11px 22px',
               border: 'none',
               borderRadius: 999,
-              background: 'linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)',
+              background: 'var(--accent-gradient)',
               color: '#fff',
               fontSize: 14,
               fontWeight: 600,

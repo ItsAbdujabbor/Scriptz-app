@@ -25,7 +25,7 @@ const PANEL_BG = 'linear-gradient(180deg, #1a1a1f 0%, #131318 100%)'
 const PANEL_BORDER = '1px solid rgba(255, 255, 255, 0.08)'
 const PANEL_SHADOW =
   '0 32px 80px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.06)'
-const PRIMARY_GRADIENT = 'linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)'
+const PRIMARY_GRADIENT = 'var(--accent-gradient)'
 
 function IconX() {
   return (

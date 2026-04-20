@@ -209,7 +209,7 @@
   font-family: inherit;
   letter-spacing: -0.005em;
   color: #fff;
-  background: linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%);
+  background: var(--accent-gradient);
   border: none;
   border-radius: 999px;
   cursor: pointer;
