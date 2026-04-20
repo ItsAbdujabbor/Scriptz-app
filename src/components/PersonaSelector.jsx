@@ -256,18 +256,20 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
                     role="option"
                     aria-selected={p.id === selectedPersonaId}
                   >
-                    {p.image_url && (
-                      <span className="persona-selector-option-img">
-                        <img src={p.image_url} alt="" />
-                      </span>
-                    )}
+                    <span className="persona-selector-option-img">
+                      {p.image_url ? (
+                        <img src={p.image_url} alt="" loading="lazy" />
+                      ) : (
+                        <span className="persona-selector-option-fallback" aria-hidden>
+                          <IconPersona />
+                        </span>
+                      )}
+                    </span>
                     <span className="persona-selector-option-name">{p.name}</span>
-                    {pinnedIds.has(p.id) && <span className="persona-selector-pin">★</span>}
-                    {p.visibility === 'stock' && (
-                      <span className="persona-selector-badge">Stock</span>
-                    )}
-                    {p.visibility === 'admin' && (
-                      <span className="persona-selector-badge">Official</span>
+                    {pinnedIds.has(p.id) && (
+                      <span className="persona-selector-pin" aria-hidden>
+                        ★
+                      </span>
                     )}
                   </button>
                 ))}

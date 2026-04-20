@@ -277,18 +277,20 @@ export function PersonasModal({ onClose }) {
   const showGrid = !isPending && filteredItems.length > 0
 
   return (
-    <Dialog open onClose={requestClose} size="lg" ariaLabelledBy="personas-modal-title">
+    <Dialog open onClose={requestClose} size="xl" ariaLabelledBy="personas-modal-title">
       <div className="pm-body">
-        {/* Header */}
+        {/* Header — hero band with an accent glyph on the left */}
         <div className="pm-header">
-          <div className="pm-header-spacer" />
+          <div className="pm-header-crest" aria-hidden>
+            <IconUsers />
+          </div>
           <div className="pm-header-titles">
             <h2 id="personas-modal-title" className="pm-title">
-              Characters
+              Your characters
             </h2>
             <p className="pm-subtitle">
               {showGrid
-                ? `${filteredItems.length} character${filteredItems.length === 1 ? '' : 's'} · only you can see these`
+                ? `${filteredItems.length} saved · private to your account`
                 : 'Upload 3 photos to create a reusable character look'}
             </p>
           </div>

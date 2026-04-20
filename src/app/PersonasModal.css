@@ -8,24 +8,40 @@
   box-sizing: border-box;
 }
 
-/* ── Header ── */
+/* ── Header — hero band: crest · titles · close ── */
 .pm-header {
   display: grid;
-  grid-template-columns: 40px 1fr 40px;
+  grid-template-columns: 44px 1fr 36px;
   align-items: center;
   gap: var(--space-md);
   margin-bottom: var(--space-lg);
+  padding: var(--space-md) var(--space-md);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(167, 139, 250, 0.12) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.015) 100%);
+  border: 1px solid var(--border-card);
 }
-.pm-header-spacer {
-  width: 40px;
-  height: 40px;
+.pm-header-crest {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: rgba(167, 139, 250, 0.18);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  color: #c4b5fd;
+}
+.pm-header-crest svg {
+  width: 22px;
+  height: 22px;
 }
 .pm-header-titles {
-  text-align: center;
   min-width: 0;
 }
 .pm-title {
-  margin: 0 0 2px;
+  margin: 0 0 3px;
   font-size: var(--text-xl);
   font-weight: var(--font-weight-semibold);
   letter-spacing: -0.015em;
@@ -290,16 +306,19 @@
   color: var(--text-muted);
 }
 
-/* ── Grid + fixed-size card ── */
+/* ── Grid + fixed-size card ──
+ * Dialog is sized "xl" (~920 px), so we can fit 4–5 cards per row with
+ * smaller tiles. Card height is driven by the square image + a compact
+ * footer band so the grid reads as a gallery of faces, not a giant wall.
+ */
 .pm-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--space-lg);
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-md);
 }
 
 .pm-card--fixed {
   position: relative;
-  min-height: 300px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-card);
   background: rgba(255, 255, 255, 0.03);
@@ -376,8 +395,8 @@
 
 .pm-card-name {
   margin: 0;
-  padding: 12px 12px 8px;
-  font-size: var(--text-base);
+  padding: 10px 10px 6px;
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   color: var(--text-primary);
   text-align: center;
@@ -388,10 +407,10 @@
 
 .pm-card-fav {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 28px;
-  height: 28px;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -423,17 +442,17 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 8px;
-  padding: 0 12px 12px;
+  gap: 6px;
+  padding: 0 10px 10px;
 }
 .pm-card-action {
   flex: 1;
-  height: 30px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 0 10px;
+  padding: 0 6px;
   border: 1px solid var(--border-card);
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.03);
@@ -591,10 +610,7 @@
     gap: 8px;
   }
   .pm-grid {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: var(--space-md);
-  }
-  .pm-card--fixed {
-    min-height: 260px;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: var(--space-sm);
   }
 }

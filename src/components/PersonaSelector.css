@@ -95,16 +95,30 @@
   bottom: 100%;
   left: 0;
   margin-bottom: 6px;
-  min-width: 224px;
-  max-height: 300px;
+  min-width: 240px;
+  max-width: 280px;
+  max-height: 320px;
   overflow-y: auto;
+  padding: 6px;
   background: var(--surface-card);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  box-shadow:
+    0 20px 48px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.03);
   z-index: 100;
   transform-origin: bottom left;
   animation: persona-selector-pop-in 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.persona-selector-dropdown::-webkit-scrollbar {
+  width: 8px;
+}
+.persona-selector-dropdown::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-pill);
+}
+.persona-selector-dropdown::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.14);
 }
 
 /* Floating variant — portaled to <body> and positioned via inline top/left
@@ -120,15 +134,20 @@
 
 .persona-selector-loading,
 .persona-selector-empty {
-  padding: 18px 16px 16px;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 13px;
+  padding: 16px 12px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
   text-align: center;
+}
+.persona-selector-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .persona-selector-empty p {
-  margin: 0 0 12px;
-  color: rgba(255, 255, 255, 0.62);
+  margin: 0 0 10px;
+  color: var(--text-muted);
 }
 
 /* Primary "Create…" button — matches the canonical primary CTA used
@@ -174,52 +193,90 @@
 .persona-selector-option {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  padding: 11px 13px;
+  height: 40px;
+  padding: 0 10px;
   border: none;
+  border-radius: var(--radius-sm);
   background: none;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 13px;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-family: inherit;
   text-align: left;
   cursor: pointer;
   transition:
-    background 0.18s ease,
-    color 0.18s ease;
+    background var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard);
+}
+
+.persona-selector-option + .persona-selector-option {
+  margin-top: 2px;
 }
 
 .persona-selector-option:hover {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.persona-selector-option:focus-visible {
+  outline: none;
+  box-shadow: var(--accent-focus-ring);
+}
+
 .persona-selector-option.is-selected {
-  background: rgba(139, 92, 246, 0.2);
-  color: #b794f6;
+  background: rgba(167, 139, 250, 0.14);
+  color: #c4b5fd;
 }
 
 .persona-selector-option--clear {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 4px;
+  padding-bottom: 0;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-card);
+  border-radius: 0;
+  height: 36px;
 }
 
 .persona-selector-option--manage {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  color: #9061f0;
-  font-weight: 500;
+  margin-top: 4px;
+  padding-top: 0;
+  color: #c4b5fd;
+  border-top: 1px solid var(--border-card);
+  border-radius: 0;
+  height: 36px;
+  font-weight: var(--font-weight-medium);
 }
 
 .persona-selector-option-img {
   width: 28px;
   height: 28px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .persona-selector-option-img img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
+}
+
+.persona-selector-option-fallback {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.persona-selector-option-fallback svg {
+  width: 18px;
+  height: 18px;
 }
 
 .persona-selector-option-name {
@@ -230,17 +287,9 @@
 }
 
 .persona-selector-pin {
-  font-size: 10px;
+  font-size: 11px;
   color: #fbbf24;
-}
-
-.persona-selector-badge {
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 10px;
-  text-transform: uppercase;
+  line-height: 1;
 }
 
 /* Thumbnail toolbar: circular trigger + glass popover */
