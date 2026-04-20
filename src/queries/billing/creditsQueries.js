@@ -78,10 +78,10 @@ export function useInvalidateCredits() {
  * Convenience: `costOf("thumbnail_generate", 4)` → `{unit, total}` for the
  * caller's currently-selected SRX tier.
  *
- * `/api/billing/feature-costs` returns `{feature: {SRX-1:N, SRX-2:M, SRX-3:L}}`
- * so we pick the entry that matches `useModelTierStateQuery().selected`,
- * falling back to Pro (SRX-2) if the tier is missing. Legacy flat number
- * values are still accepted.
+ * `/api/billing/feature-costs` returns `{feature: {SRX-2:N, SRX-3:M}}` so we
+ * pick the entry that matches `useModelTierStateQuery().selected`, falling
+ * back to Pro (SRX-2) if the tier is missing. Legacy flat number values and
+ * legacy SRX-1 keys are still accepted (collapsed onto SRX-2).
  */
 export function useCostOf(featureKey, count = 1) {
   const { data } = useFeatureCostsQuery()
@@ -92,7 +92,7 @@ export function useCostOf(featureKey, count = 1) {
   if (typeof entry === 'number') {
     unit = entry
   } else if (entry && typeof entry === 'object') {
-    unit = entry[tier] ?? entry['SRX-2'] ?? entry['SRX-1'] ?? 0
+    unit = entry[tier] ?? entry['SRX-2'] ?? entry['SRX-3'] ?? 0
   }
   return { unit, total: unit * Math.max(1, Number(count) || 1), tier }
 }

@@ -362,15 +362,14 @@ function goToPro() {
 }
 
 // One-liner marketing blurb for the per-tier info popover. Kept short
-// (no credit cost — that's shown elsewhere in the billing UI).
+// (credit cost is shown next to the active-tier tag in the account panel).
 const MODEL_INFO = {
-  'SRX-1': 'Our fastest model — quick drafts and idea exploration.',
-  'SRX-2': 'A balanced everyday model — crisp detail, strong prompt fidelity.',
-  'SRX-3': 'Our most powerful model — top clarity for hero thumbnails.',
+  'SRX-2': 'gpt-image-1 · medium quality. Fast and crisp — 20 credits per thumbnail.',
+  'SRX-3': 'gpt-image-1 · high quality. Hero-grade clarity — 45 credits per thumbnail.',
 }
-const MODEL_TAG = { 'SRX-1': 'Lite', 'SRX-2': 'Pro', 'SRX-3': 'Ultra' }
-// Display order in the account panel — Ultra on top, Lite at the bottom.
-const MODEL_ORDER = { 'SRX-3': 0, 'SRX-2': 1, 'SRX-1': 2 }
+const MODEL_TAG = { 'SRX-2': 'Pro', 'SRX-3': 'Max' }
+// Display order in the account panel — Max on top, Pro below.
+const MODEL_ORDER = { 'SRX-3': 0, 'SRX-2': 1 }
 
 // Single row in the model-tier picker. Owns its own hover state so the
 // info popover can open on hover, and it portals the popover to <body>
@@ -729,11 +728,10 @@ export function Sidebar({
     tierState?.tiers && tierState.tiers.length
       ? tierState.tiers
       : [
-          { code: 'SRX-1', label: 'Lite', locked: false },
           { code: 'SRX-2', label: 'Pro', locked: false },
-          { code: 'SRX-3', label: 'Ultra', locked: false },
+          { code: 'SRX-3', label: 'Max', locked: true },
         ]
-  const currentTier = tierState?.selected || 'SRX-1'
+  const currentTier = tierState?.selected || 'SRX-2'
   // Press feedback for the New Chat liquid-glass pill (mirrors SidebarButton).
   const [newChatPressing, setNewChatPressing] = useState(false)
 
@@ -1042,13 +1040,13 @@ export function Sidebar({
 
   // Expanded account panel. Lives inline with the collapsed email row — when
   // `accountDialogOpen` is true the row + panel animate open together as one
-  // tall glass card. Contains: account actions (Account / Personas / Styles),
-  // a nested collapsible "AI Model" section with the three SRX pills, and a
-  // Log out pill pinned at the bottom.
+  // tall glass card. Contains: Account, a nested collapsible "AI Model"
+  // section with the Pro + Max SRX pills, and a Log out pill pinned at the
+  // bottom.
   const activeTierLabel =
     modelTiers.find((t) => t.code === currentTier)?.label ||
-    { 'SRX-1': 'Lite', 'SRX-2': 'Pro', 'SRX-3': 'Ultra' }[currentTier] ||
-    'Lite'
+    { 'SRX-2': 'Pro', 'SRX-3': 'Max' }[currentTier] ||
+    'Pro'
   const accountPanel = (
     <div
       ref={accountMenuPortalRef}

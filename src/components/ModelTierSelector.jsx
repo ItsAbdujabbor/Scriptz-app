@@ -1,8 +1,12 @@
 /**
- * ModelTierSelector — three pills (SRX-1 Lite / SRX-2 Pro / SRX-3 Ultra) with:
- *   • locked tiers visible (lock icon + upgrade hint)
+ * ModelTierSelector — two pills (SRX-2 Pro / SRX-3 Max) with:
+ *   • locked tier visible (lock icon + upgrade hint)
  *   • current selection highlighted
  *   • clicking an unlocked tier persists immediately + optimistic UI
+ *
+ * Tier mapping:
+ *   SRX-2 Pro → gpt-image-1 · medium quality · 20 credits / thumbnail
+ *   SRX-3 Max → gpt-image-1 · high   quality · 45 credits / thumbnail
  *
  * Backend re-validates against the user's plan entitlement (PLAN_TIER_GRANT),
  * so this UI is just a convenience layer.
@@ -58,7 +62,6 @@ export function ModelTierSelector() {
     return (
       <SkeletonGroup className="mts mts-loading" label="Loading model tiers">
         <div className="mts-grid">
-          <SkeletonCard ratio="7 / 3" lines={2} />
           <SkeletonCard ratio="7 / 3" lines={2} />
           <SkeletonCard ratio="7 / 3" lines={2} />
         </div>

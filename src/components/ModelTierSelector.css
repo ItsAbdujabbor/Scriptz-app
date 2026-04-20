@@ -1,4 +1,4 @@
-/* ModelTierSelector — three pills + lock + active-state */
+/* ModelTierSelector — two pills (Pro + Max) + lock + active-state */
 
 .mts {
   display: flex;
@@ -164,19 +164,13 @@
 }
 
 /* Tier-specific tag colors — calm hints, same intensity */
-.mts-tag--lite {
-  background: rgba(94, 234, 212, 0.14);
-  color: #99f6e4;
-  border-color: rgba(94, 234, 212, 0.32);
-}
-
 .mts-tag--pro {
   background: rgba(167, 139, 250, 0.16);
   color: #c4b5fd;
   border-color: rgba(196, 181, 253, 0.4);
 }
 
-.mts-tag--ultra {
+.mts-tag--max {
   background: rgba(251, 191, 36, 0.16);
   color: #fde68a;
   border-color: rgba(253, 224, 71, 0.36);

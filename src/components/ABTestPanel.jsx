@@ -7,7 +7,7 @@
  *   • If running (only A live): shows variation A stats + "Switch to B" form.
  *   • If running (A + B): shows side-by-side comparison, trend chart, winner.
  *   • Honest empty states ("Not enough data", "No clear winner").
- *   • SRX tier gated — Lite = basic, Pro = +trend chart, Ultra = +insights.
+ *   • SRX tier gated — Pro = trend chart, Max = +insights.
  *   • Plan gated server-side via `require_plan_feature("ab_testing")`.
  */
 import { useState } from 'react'
@@ -106,7 +106,7 @@ export function ABTestPanel({ video, channelId, currentTitle, currentThumbnailUr
   const videoId = video?.id
   const { canUse } = usePlanEntitlements()
   const { data: tierState } = useModelTierStateQuery()
-  const tier = tierState?.selected || 'SRX-1'
+  const tier = tierState?.selected || 'SRX-2'
 
   const { data: listData, isLoading: listLoading } = useABTestsForVideoQuery(videoId, channelId)
   const test =
@@ -366,7 +366,7 @@ export function ABTestPanel({ video, channelId, currentTitle, currentThumbnailUr
         </div>
       )}
 
-      {/* Trend chart — Pro / Ultra only */}
+      {/* Trend chart — Pro + Max */}
       {results?.trend && results.trend.length > 0 && (
         <div className="abtp-trend">
           <div className="abtp-trend-head">
@@ -384,7 +384,7 @@ export function ABTestPanel({ video, channelId, currentTitle, currentThumbnailUr
         </div>
       )}
 
-      {/* Ultra insights */}
+      {/* Max insights */}
       {results?.insights && results.insights.length > 0 && (
         <div className="abtp-insights">
           <span className="abtp-label">Why this result</span>
