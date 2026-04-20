@@ -16,6 +16,7 @@ import { thumbnailsApi } from '../api/thumbnails'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { extractYoutubeUrl } from '../lib/youtubeUrl'
 import { Dialog } from '../components/ui/Dialog'
+import { SegmentedTabs } from '../components/ui/SegmentedTabs'
 import { InlineSpinner, SkeletonCard, SkeletonGroup } from '../components/ui'
 
 const PRIMARY_GRADIENT = 'var(--accent-gradient)'
@@ -231,22 +232,16 @@ export function StylesModal({ onClose }) {
           Selected styles steer layout, color, and vibe.
         </p>
 
-        <div role="tablist" aria-label="Style sections" style={tabBarStyle}>
-          {[
-            { id: 'personal', label: 'Personal' },
-            { id: 'stock', label: 'Stock' },
-          ].map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={styleTab === t.id}
-              onClick={() => setStyleTab(t.id)}
-              style={tabBtnStyle(styleTab === t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+          <SegmentedTabs
+            value={styleTab}
+            onChange={setStyleTab}
+            options={[
+              { value: 'personal', label: 'Personal' },
+              { value: 'stock', label: 'Stock' },
+            ]}
+            ariaLabel="Style sections"
+          />
         </div>
 
         {styleTab === 'personal' && !showCreate && (
@@ -281,29 +276,19 @@ export function StylesModal({ onClose }) {
               New visual style
             </h3>
 
-            <div
-              role="tablist"
-              aria-label="How to add reference image"
-              style={{ ...tabBarStyle, marginBottom: 14 }}
-            >
-              {[
-                { id: 'upload', label: 'Upload image' },
-                { id: 'video', label: 'From YouTube' },
-              ].map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={createSourceTab === t.id}
-                  onClick={() => {
-                    setCreateError('')
-                    setCreateSourceTab(t.id)
-                  }}
-                  style={tabBtnStyle(createSourceTab === t.id)}
-                >
-                  {t.label}
-                </button>
-              ))}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+              <SegmentedTabs
+                value={createSourceTab}
+                onChange={(v) => {
+                  setCreateError('')
+                  setCreateSourceTab(v)
+                }}
+                options={[
+                  { value: 'upload', label: 'Upload image' },
+                  { value: 'video', label: 'From YouTube' },
+                ]}
+                ariaLabel="How to add reference image"
+              />
             </div>
 
             {createSourceTab === 'upload' && (
@@ -680,30 +665,6 @@ const closeBtn = {
   borderRadius: 8,
   cursor: 'pointer',
 }
-
-const tabBarStyle = {
-  display: 'flex',
-  gap: 4,
-  marginBottom: 16,
-  padding: 4,
-  background: 'rgba(0,0,0,0.3)',
-  borderRadius: 10,
-  border: '1px solid rgba(255,255,255,0.06)',
-}
-
-const tabBtnStyle = (active) => ({
-  flex: 1,
-  padding: '9px 14px',
-  border: 'none',
-  borderRadius: 7,
-  background: active ? 'rgba(255,255,255,0.08)' : 'transparent',
-  color: active ? '#fff' : 'rgba(255,255,255,0.6)',
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  transition: 'background 0.15s, color 0.15s',
-})
 
 const primaryBtn = {
   display: 'inline-flex',
