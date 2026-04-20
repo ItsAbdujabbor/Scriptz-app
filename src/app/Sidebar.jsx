@@ -77,6 +77,21 @@ const IconChart = () => (
     <path d="m19 9-5 5-4-4-3 3" />
   </svg>
 )
+const IconStyles = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="7" cy="12" r="2.2" />
+    <circle cx="12" cy="7" r="2.2" />
+    <circle cx="17" cy="12" r="2.2" />
+    <circle cx="12" cy="17" r="2.2" />
+  </svg>
+)
 const IconBilling = () => (
   <svg
     viewBox="0 0 24 24"
@@ -275,6 +290,13 @@ const IconUser = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
     <circle cx="12" cy="7" r="4" />
+  </svg>
+)
+const IconPersonalization = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M12 3a9 9 0 0 0 9 9c0-5-4-9-9-9z" />
+    <path d="M12 12a9 9 0 0 0 9 9" />
+    <path d="M12 12a9 9 0 0 1-9 9" />
   </svg>
 )
 const IconCpu = () => (
@@ -690,6 +712,8 @@ const HistoryItem = memo(function HistoryItem({
 export function Sidebar({
   user,
   onOpenSettings,
+  onOpenPersonas,
+  onOpenStyles,
   onLogout,
   currentScreen = 'dashboard',
   activeTab = 'coach',
@@ -930,6 +954,16 @@ export function Sidebar({
     closeMobile()
     onOpenSettings?.(section)
   }
+  const handleOpenPersonas = () => {
+    setAccountDialogOpen(false)
+    closeMobile()
+    onOpenPersonas?.()
+  }
+  const handleOpenStyles = () => {
+    setAccountDialogOpen(false)
+    closeMobile()
+    onOpenStyles?.()
+  }
   const handleNewChat = () => {
     closeMobile()
     setHistoryMenu({ conversationId: null, type: null, x: 0, y: 0 })
@@ -1040,9 +1074,10 @@ export function Sidebar({
 
   // Expanded account panel. Lives inline with the collapsed email row — when
   // `accountDialogOpen` is true the row + panel animate open together as one
-  // tall glass card. Contains: Account, a nested collapsible "AI Model"
-  // section with the Pro + Max SRX pills, and a Log out pill pinned at the
-  // bottom.
+  // tall glass card. Contains: Account, Characters (user's own persona
+  // library), Styles (visual style library — user-added + admin stock), a
+  // nested collapsible "AI Model" section with the Pro + Max SRX pills, and
+  // a Log out pill pinned at the bottom.
   const activeTierLabel =
     modelTiers.find((t) => t.code === currentTier)?.label ||
     { 'SRX-2': 'Pro', 'SRX-3': 'Max' }[currentTier] ||
@@ -1065,6 +1100,18 @@ export function Sidebar({
             <IconSettings />
           </span>
           <span className="sidebar-account-item-label">Account</span>
+        </button>
+        <button type="button" className="sidebar-account-item" onClick={handleOpenPersonas}>
+          <span className="sidebar-account-item-icon" aria-hidden>
+            <IconPersonalization />
+          </span>
+          <span className="sidebar-account-item-label">Characters</span>
+        </button>
+        <button type="button" className="sidebar-account-item" onClick={handleOpenStyles}>
+          <span className="sidebar-account-item-icon" aria-hidden>
+            <IconStyles />
+          </span>
+          <span className="sidebar-account-item-label">Styles</span>
         </button>
         {/* Nested collapsible — AI Model picker */}
         <div

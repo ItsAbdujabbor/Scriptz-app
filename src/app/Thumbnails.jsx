@@ -34,7 +34,7 @@ function setThumbnailConversationHash(conversationId = null) {
   window.location.hash = conversationId ? `#thumbnails?id=${conversationId}` : '#thumbnails'
 }
 
-export function Thumbnails() {
+export function Thumbnails({ onOpenPersonas, onOpenStyles }) {
   const youtube = useOnboardingStore((s) => s.youtube)
   const channelId = useMemo(
     () => youtube?.channelId || youtube?.channel_id || null,
@@ -54,6 +54,8 @@ export function Thumbnails() {
       <div className="coach-main-body">
         <ThumbnailGenerator
           channelId={channelId}
+          onOpenPersonas={onOpenPersonas}
+          onOpenStyles={onOpenStyles}
           conversationId={conversationId}
           onConversationCreated={setThumbnailConversationHash}
         />

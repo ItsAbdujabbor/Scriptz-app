@@ -51,6 +51,14 @@ export const queryKeys = {
       utcOffsetMinutes,
     ],
   },
+  personas: {
+    list: () => ['personas', 'list'],
+    detail: (id) => ['personas', 'detail', id ?? ''],
+  },
+  styles: {
+    list: () => ['styles', 'list'],
+    detail: (id) => ['styles', 'detail', id ?? ''],
+  },
   thumbnails: {
     conversations: (params = {}) => [
       'thumbnails',

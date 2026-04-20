@@ -1,10 +1,11 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, lazy, Suspense } from 'react'
 import { useAuthStore } from './stores/authStore'
 import { useSidebarStore } from './stores/sidebarStore'
 import { useCurrentScreen } from './lib/useCurrentScreen'
 import { emitShellEvent } from './lib/shellEvents'
 import { Sidebar } from './app/Sidebar'
 import { SharedSettingsModal } from './app/SharedSettingsModal'
+import { CreatePersonaDialog } from './components/CreatePersonaDialog'
 import { Dashboard } from './app/Dashboard'
 import { Thumbnails } from './app/Thumbnails'
 import { Optimize } from './app/Optimize'
@@ -31,6 +32,8 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsSection, setSettingsSection] = useState('account')
+  const [showPersonasModal, setShowPersonasModal] = useState(false)
+  const [showStylesModal, setShowStylesModal] = useState(false)
 
   const openSettings = useCallback((section) => {
     setSettingsSection(section ?? 'account')
@@ -51,6 +54,8 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
       <Sidebar
         user={user}
         onOpenSettings={openSettings}
+        onOpenPersonas={() => setShowPersonasModal(true)}
+        onOpenStyles={() => setShowStylesModal(true)}
         onLogout={handleLogout}
         currentScreen={screenState.currentScreen}
         onNewChat={handleNewChat}
@@ -78,7 +83,12 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
       case 'dashboard':
         return <Dashboard onLogout={onLogout} shellManaged />
       case 'thumbnails':
-        return <Thumbnails />
+        return (
+          <Thumbnails
+            onOpenPersonas={() => setShowPersonasModal(true)}
+            onOpenStyles={() => setShowStylesModal(true)}
+          />
+        )
       case 'optimize':
         return <Optimize onLogout={onLogout} shellManaged />
       case 'pro':
@@ -110,6 +120,38 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
         onClose={() => setSettingsOpen(false)}
         onLogout={handleLogout}
       />
+
+      {showPersonasModal && <PersonasModalLazy onClose={() => setShowPersonasModal(false)} />}
+      {showStylesModal && <StylesModalLazy onClose={() => setShowStylesModal(false)} />}
+
+      {/* Always-mounted create-persona dialog. Listens for the
+       * `app:open-create-persona-dialog` window event from anywhere in the
+       * app (currently the "Create persona from images" button inside
+       * PersonasModal). Mounted at this level — same as SharedSettingsModal
+       * — so it renders independently of any modal it's launched from. */}
+      <CreatePersonaDialog />
     </div>
+  )
+}
+
+const PersonasModalModule = lazy(() =>
+  import('./app/PersonasModal').then((m) => ({ default: m.PersonasModal }))
+)
+function PersonasModalLazy({ onClose }) {
+  return (
+    <Suspense fallback={null}>
+      <PersonasModalModule onClose={onClose} />
+    </Suspense>
+  )
+}
+
+const StylesModalModule = lazy(() =>
+  import('./app/StylesModal').then((m) => ({ default: m.StylesModal }))
+)
+function StylesModalLazy({ onClose }) {
+  return (
+    <Suspense fallback={null}>
+      <StylesModalModule onClose={onClose} />
+    </Suspense>
   )
 }
