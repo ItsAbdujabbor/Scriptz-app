@@ -97,6 +97,19 @@ Users can connect multiple YouTube channels. The active channel is tracked in `s
 
 `src/next-update-ideas/` holds the old Script Generator + Templates code that was intentionally cut from Sidebar/AuthenticatedRoutes (see commits `bb53460`, `9f74ac2`). Don't re-import unless restoring that feature.
 
+## Design system — reuse, don't redefine
+
+Every surface (Landing, Auth, in-app) should render through the same primitives so the product looks like one thing. New work **must** reuse these instead of rolling its own button/input/modal:
+
+- **Tokens** — [src/design-tokens.css](src/design-tokens.css) owns the single source of truth: `--accent-gradient` (the violet CTA), `--accent-focus-ring`, `--accent-shadow`, surface/border/radius/spacing/typography/motion scales, and `--btn-height-{sm,md,lg}`. Legacy aliases (`--dash-*`, `--vo-*`, `--auth-*`, `--pri-*`, `--legal-*`) still point at the canonical names, but new CSS must reference the canonical tokens directly.
+- **`<PrimaryPill>`** ([src/components/ui/PrimaryPill.jsx](src/components/ui/PrimaryPill.jsx)) — the only way to render a primary/ghost/danger CTA. Handles busy state, credit-cost chip (`featureKey` auto-resolves via `useCostOf`), three sizes (`sm`/`md`/`lg`), and `fullWidth`/`rect` variants. Never hand-roll a gradient button.
+- **`<Dialog>`** ([src/components/ui/Dialog.jsx](src/components/ui/Dialog.jsx)) — portal, backdrop, entrance motion, close-X. Use this for every modal; don't call `createPortal` from a feature file.
+- **`<SegmentedTabs>`** ([src/components/ui/SegmentedTabs.jsx](src/components/ui/SegmentedTabs.jsx)) — the canonical tabbar with CSS-slider indicator.
+- **`<Input>` / `<TextArea>`** ([src/components/ui/Input.jsx](src/components/ui/Input.jsx)) — unified form field, focus ring, radius, typography.
+- **Icons** ([src/components/ui/icons.jsx](src/components/ui/icons.jsx)) — all shared glyphs (`IconX`, `IconPlus`, `IconChevronDown`, `IconZapFilled`, `IconSparkle`, `IconCheck`, `IconTrash`, ~30 more). Keep one-off icons local to their feature file; shared ones come from here.
+
+The canonical accent gradient string is banned outside `design-tokens.css`. `npm run verify` runs [scripts/check-tokens.mjs](scripts/check-tokens.mjs) which fails the build if it reappears — replace with `var(--accent-gradient)`.
+
 ## Editor & build conventions
 
 - **Prettier**: no semicolons, single quotes, trailing commas `es5`, `printWidth: 100`, `arrowParens: always` ([.prettierrc](.prettierrc)).
