@@ -205,7 +205,12 @@ export function StylesModal({ onClose }) {
         >
           <h2
             id="styles-modal-title"
-            style={{ margin: 0, fontSize: 20, fontWeight: 600, color: 'rgba(255,255,255,0.95)' }}
+            style={{
+              margin: 0,
+              fontSize: 'var(--text-xl)',
+              fontWeight: 'var(--font-weight-semibold)',
+              color: 'rgba(255,255,255,0.95)',
+            }}
           >
             Thumbnail Styles
           </h2>

@@ -110,6 +110,15 @@ Every surface (Landing, Auth, in-app) should render through the same primitives 
 
 The canonical accent gradient string is banned outside `design-tokens.css`. `npm run verify` runs [scripts/check-tokens.mjs](scripts/check-tokens.mjs) which fails the build if it reappears — replace with `var(--accent-gradient)`.
 
+### Known follow-ups
+
+Deferred from the phase-5 polish pass because each carries pixel-shift or interaction-risk that's better done as a focused commit than bundled into a sweep:
+
+- [src/app/CoachChat.jsx](src/app/CoachChat.jsx) + [src/app/SharedSettingsModal.jsx](src/app/SharedSettingsModal.jsx) still render the legacy `<TabBar>` (`.coach-tabbar.modal`). Migrate to `<SegmentedTabs>` once someone can visually verify the composer layout doesn't shift.
+- [src/components/EditThumbnailDialog.jsx](src/components/EditThumbnailDialog.jsx) still rolls its own `createPortal`. Migrate to `<Dialog size="fullscreen">` once the mask + undo stack + canvas interactions are re-verified end-to-end.
+- Several feature files ([Sidebar.jsx](src/app/Sidebar.jsx), [VideoOptimizeModal.jsx](src/app/VideoOptimizeModal.jsx), [ThumbnailGenerator.jsx](src/app/ThumbnailGenerator.jsx), [Dashboard.jsx](src/app/Dashboard.jsx)) still define local `Icon*` components for glyphs the shared library already owns. Swapping in [icons.jsx](src/components/ui/icons.jsx) exports requires stroke-width + default-size overrides per call site to avoid pixel shifts — do the swap one file at a time with a visual diff.
+- Radius scale (10/14/18 literals vs 8/12/16 tokens) was not mechanically swept in phase 5 because many of those values encode intentional hierarchy (card container vs inner image cell). Close on a case-by-case basis only where a radius is a clear neighbour-of-scale drift.
+
 ## Editor & build conventions
 
 - **Prettier**: no semicolons, single quotes, trailing commas `es5`, `printWidth: 100`, `arrowParens: always` ([.prettierrc](.prettierrc)).

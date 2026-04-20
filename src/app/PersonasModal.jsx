@@ -206,8 +206,8 @@ export function PersonasModal({ onClose }) {
             id="personas-modal-title"
             style={{
               margin: 0,
-              fontSize: 17,
-              fontWeight: 600,
+              fontSize: 'var(--text-xl)',
+              fontWeight: 'var(--font-weight-semibold)',
               textAlign: 'center',
               color: 'rgba(255,255,255,0.95)',
               letterSpacing: '-0.01em',
