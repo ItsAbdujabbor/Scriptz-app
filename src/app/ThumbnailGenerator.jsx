@@ -15,7 +15,14 @@ import {
 import { useThumbnailChatActivityStore } from '../stores/thumbnailChatActivityStore'
 import { EditThumbnailDialog } from '../components/EditThumbnailDialog'
 import { TabBar } from '../components/TabBar'
-import { Dropdown, SegmentedTabs, Skeleton, SkeletonGroup, InlineSpinner } from '../components/ui'
+import {
+  Dropdown,
+  SegmentedTabs,
+  Skeleton,
+  SkeletonGroup,
+  InlineSpinner,
+  PrimaryPill,
+} from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion'
 import { ChatHistoryLoading } from '../components/ChatHistoryLoading'
@@ -26,7 +33,6 @@ import { extractYoutubeUrl } from '../lib/youtubeUrl'
 import { renderMessageContent } from '../lib/messageRender.jsx'
 import { useThreadScrollToBottom } from '../lib/useThreadScrollToBottom'
 import { CostHint } from '../components/CostHint'
-import { useCostOf } from '../queries/billing/creditsQueries'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 import { checkPromptForRealPerson, warningMessageFor } from '../lib/promptModeration'
 // import './ScriptGenerator.css' // next update — ScriptGenerator moved to src/next-update-ideas
@@ -73,22 +79,14 @@ function IconArrowUp() {
   )
 }
 
-function IconZapFilled() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M13 2 3 14h7l-1 8 11-13h-8l1-7z" />
-    </svg>
-  )
-}
-
 /**
- * Pill-shaped submit button that embeds the credit cost (zap + number)
- * inside the button itself, followed by the send arrow.
- *
- * Visual twin of the "+ Create" button on the A/B Testing screen —
- * same height, radius, gradient, and spring press.
- *
- * Unsubscribed users see only the arrow (no credits chip).
+ * Thin wrapper around the shared <PrimaryPill> primitive that keeps the
+ * old ThumbSendPill call sites working without change, while routing the
+ * visual spec to the canonical component. Only extra behaviour: hide the
+ * credit chip for unsubscribed users (they can't spend credits yet, so
+ * showing "⚡ 15" would be misleading). Once every screen has migrated
+ * to PrimaryPill directly, this wrapper can be deleted and each call
+ * site can pass `showCost={isSubscribed}` instead.
  */
 function ThumbSendPill({
   featureKey = null,
@@ -98,36 +96,23 @@ function ThumbSendPill({
   icon,
   label,
   type = 'submit',
+  className,
   ...buttonProps
 }) {
-  const { total } = useCostOf(featureKey || 'thumbnail_generate', count)
   const { isSubscribed } = usePlanEntitlements()
-  const showCost = Boolean(featureKey) && isSubscribed && total > 0
   return (
-    <button
+    <PrimaryPill
       type={type}
-      {...buttonProps}
-      className={[
-        'thumb-send-pill',
-        label ? 'thumb-send-pill--with-label' : null,
-        buttonProps.className,
-      ]
-        .filter(Boolean)
-        .join(' ')}
+      featureKey={featureKey || undefined}
+      count={count}
+      showCost={isSubscribed}
       disabled={disabled}
-      aria-label={ariaLabel}
-    >
-      {showCost && (
-        <span className="thumb-send-pill-cost" aria-hidden="true">
-          <span className="thumb-send-pill-zap">
-            <IconZapFilled />
-          </span>
-          <span className="thumb-send-pill-num">{total}</span>
-        </span>
-      )}
-      {label ? <span className="thumb-send-pill-label">{label}</span> : null}
-      <span className="thumb-send-pill-icon">{icon ?? <IconArrowUp />}</span>
-    </button>
+      ariaLabel={ariaLabel}
+      icon={icon ?? <IconArrowUp />}
+      label={label}
+      className={className}
+      {...buttonProps}
+    />
   )
 }
 

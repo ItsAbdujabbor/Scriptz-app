@@ -29,6 +29,7 @@ import { invalidateCredits, useCostOf } from '../queries/billing/creditsQueries'
 import { usePersonaStore } from '../stores/personaStore'
 import { PersonaSelector } from './PersonaSelector'
 import { SegmentedTabs } from './ui/SegmentedTabs'
+import { PrimaryPill } from './ui/PrimaryPill'
 
 const Z_INDEX = 2147483647
 const PRIMARY_GRADIENT = 'linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)'
@@ -446,9 +447,18 @@ function CircleBtn({ onClick, disabled, active, title, children, label, danger }
   )
 }
 
-/** Matches the `thumb-send-pill` pattern from ThumbnailGenerator: cost+zap
- *  on the left separated by a thin divider, label in the middle, icon on
- *  the right. Hover brightness, active scale.  */
+/**
+ * PrimaryActionBtn — thin adapter around the shared <PrimaryPill>. The
+ * dialog's call sites used to pass `creditCost` (a pre-computed number)
+ * instead of `featureKey`; we forward that as a display-only number via a
+ * `count` of 1 against a synthetic feature key — but since call sites
+ * actually know the cost already, we just render it as the label prefix
+ * when provided and skip the PrimaryPill cost chip. Simpler: we let
+ * PrimaryPill render its own `featureKey`-driven cost where we have a
+ * feature key, and fall back to a plain pill when we only have a raw
+ * number. Until call sites are updated to pass `featureKey`, we pass
+ * `creditCost` through via a tiny custom element that mimics the chip.
+ */
 function PrimaryActionBtn({
   onClick,
   disabled,
@@ -458,77 +468,23 @@ function PrimaryActionBtn({
   icon,
   fullWidth = false,
   ariaLabel,
-  creditCost, // number — live per-tier cost
+  creditCost,
 }) {
-  const enabled = !disabled
+  // Prepend the credit chip inline if a raw cost was given. PrimaryPill's
+  // built-in cost chip needs a featureKey; this dialog computes the cost
+  // upstream via useCostOf('thumbnail_edit_faceswap'), so we feed the
+  // number straight in as a leading span.
   const showCost = creditCost != null && creditCost > 0
   return (
-    <button
+    <PrimaryPill
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-label={ariaLabel || label}
-      aria-busy={busy || undefined}
-      style={{
-        position: 'relative',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '0.5rem',
-        width: fullWidth ? '100%' : 'auto',
-        height: 38,
-        padding: showCost ? '0 1rem 0 0.85rem' : '0 1.05rem',
-        border: 'none',
-        borderRadius: 999,
-        background: enabled ? PRIMARY_GRADIENT : 'rgba(255,255,255,0.08)',
-        color: enabled ? '#ffffff' : 'rgba(255,255,255,0.5)',
-        fontFamily: 'inherit',
-        fontSize: '0.84rem',
-        fontWeight: 700,
-        letterSpacing: '-0.005em',
-        whiteSpace: 'nowrap',
-        cursor: enabled ? 'pointer' : 'not-allowed',
-        opacity: enabled ? 1 : 0.5,
-        outline: 'none',
-        boxShadow: enabled ? 'inset 0 1px 0 rgba(255,255,255,0.18)' : 'none',
-        transition: 'filter 0.22s ease, opacity 0.14s ease, transform 0.15s ease',
-      }}
-      onMouseEnter={(e) => {
-        if (enabled) e.currentTarget.style.filter = 'brightness(1.08)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.filter = ''
-        e.currentTarget.style.transform = ''
-      }}
-      onPointerDown={(e) => {
-        if (enabled) {
-          e.currentTarget.style.transform = 'scale(0.97)'
-          e.currentTarget.style.filter = 'brightness(0.97)'
-        }
-      }}
-      onPointerUp={(e) => {
-        e.currentTarget.style.transform = ''
-        e.currentTarget.style.filter = enabled ? 'brightness(1.08)' : ''
-      }}
-    >
-      {busy ? (
-        <>
-          <span
-            style={{
-              width: 13,
-              height: 13,
-              borderRadius: '50%',
-              border: '2px solid rgba(255,255,255,0.3)',
-              borderTopColor: '#fff',
-              animation: 'etd-spin 0.7s linear infinite',
-            }}
-            aria-hidden
-          />
-          <span>{busyLabel || 'Working…'}</span>
-        </>
-      ) : (
-        <>
-          {showCost && (
+      busy={busy}
+      busyLabel={busyLabel || 'Working…'}
+      label={
+        showCost ? (
+          <>
             <span
               aria-hidden
               style={{
@@ -537,7 +493,8 @@ function PrimaryActionBtn({
                 gap: 3,
                 lineHeight: 1,
                 paddingRight: '0.5rem',
-                borderRight: '1px solid rgba(255, 255, 255, 0.24)',
+                marginRight: '0.15rem',
+                borderRight: '1px solid rgba(255, 255, 255, 0.22)',
               }}
             >
               <IconZapFilled size={12} />
@@ -552,29 +509,16 @@ function PrimaryActionBtn({
                 {creditCost}
               </span>
             </span>
-          )}
-          <span
-            style={{
-              textShadow: '0 1px 2px rgba(0, 0, 0, 0.18)',
-            }}
-          >
             {label}
-          </span>
-          {icon && (
-            <span
-              style={{
-                display: 'inline-grid',
-                placeItems: 'center',
-                width: 14,
-                height: 14,
-              }}
-            >
-              {icon}
-            </span>
-          )}
-        </>
-      )}
-    </button>
+          </>
+        ) : (
+          label
+        )
+      }
+      icon={icon}
+      fullWidth={fullWidth}
+      ariaLabel={ariaLabel || label}
+    />
   )
 }
 

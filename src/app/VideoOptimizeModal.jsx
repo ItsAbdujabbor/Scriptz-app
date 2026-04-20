@@ -9,6 +9,7 @@ import {
   SkeletonText,
   SkeletonThumbGrid,
   InlineSpinner,
+  PrimaryPill,
 } from '../components/ui'
 import { SegmentedTabs } from '../components/ui/SegmentedTabs'
 import { useYoutubeVideoOptimization } from '../queries/youtube/optimizationQueries'
@@ -66,8 +67,9 @@ function CreditBadge({ featureKey, count = 1 }) {
 }
 
 /**
- * VOSendPill — pill-shaped send button with embedded credit cost (zap + number)
- * followed by the send arrow. Matches the ThumbSendPill from ThumbnailGenerator.
+ * VOSendPill — thin wrapper around <PrimaryPill> so existing call sites
+ * don't have to change. Gates the credit chip on `isSubscribed` just
+ * like ThumbSendPill does in ThumbnailGenerator.
  */
 function VOSendPill({
   featureKey = null,
@@ -77,35 +79,20 @@ function VOSendPill({
   ariaLabel,
   onClick,
 }) {
-  const { total } = useCostOf(featureKey || 'thumbnail_generate', count)
   const { isSubscribed } = usePlanEntitlements()
-  const showCost = Boolean(featureKey) && isSubscribed && total > 0
   return (
-    <button
+    <PrimaryPill
       type="button"
-      className={`vo-send-pill ${loading ? 'vo-send-pill--loading' : ''}`}
+      featureKey={featureKey || undefined}
+      count={count}
+      showCost={isSubscribed}
       disabled={disabled}
+      busy={loading}
+      busyLabel=""
+      ariaLabel={ariaLabel}
+      icon={<IconArrowUp />}
       onClick={onClick}
-      aria-label={ariaLabel}
-    >
-      {showCost && !loading && (
-        <span className="vo-send-pill-cost" aria-hidden="true">
-          <span className="vo-send-pill-zap">
-            <IconZapFilled />
-          </span>
-          <span className="vo-send-pill-num">{total}</span>
-        </span>
-      )}
-      <span className="vo-send-pill-icon">
-        {loading ? (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <rect x="6" y="6" width="12" height="12" rx="2" />
-          </svg>
-        ) : (
-          <IconArrowUp />
-        )}
-      </span>
-    </button>
+    />
   )
 }
 
