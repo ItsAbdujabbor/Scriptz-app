@@ -1141,8 +1141,8 @@
 }
 
 .sidebar-upgrade-pro:focus-visible {
-  outline: 2px solid rgba(167, 139, 250, 0.7);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--accent-focus-ring);
 }
 
 .sidebar-upgrade-pro.active {
@@ -1499,7 +1499,7 @@
 
 .sidebar-history-row:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.4);
+  box-shadow: var(--accent-focus-ring);
 }
 
 /* ----- Selected: single purple wash across the whole pill ----- */
@@ -1671,7 +1671,7 @@
 
 .sidebar-history-row__menu:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.55);
+  box-shadow: var(--accent-focus-ring);
 }
 
 /* ----- Editing variant: replaces title with an input + save/cancel. --- */

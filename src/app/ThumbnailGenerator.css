@@ -513,8 +513,8 @@
 }
 
 .thumb-generated-img-btn:focus-visible {
-  outline: 2px solid rgba(167, 139, 250, 0.7);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--accent-focus-ring);
 }
 
 .thumb-gen-msg--highlight {
@@ -712,7 +712,7 @@
 }
 
 .thumb-batch-img-wrap--viewable:focus-visible {
-  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.65);
+  box-shadow: var(--accent-focus-ring);
 }
 
 .thumb-batch-img {
@@ -2469,8 +2469,8 @@
 }
 
 .thumb-msg-img-btn:focus-visible {
-  outline: 2px solid rgba(167, 139, 250, 0.7);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--accent-focus-ring);
 }
 
 .thumb-msg-img {
@@ -2815,8 +2815,8 @@
 }
 
 .thumb-send-pill:focus-visible {
-  outline: 2px solid rgba(167, 139, 250, 0.7);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--accent-focus-ring);
 }
 
 .thumb-send-pill:disabled {

@@ -1813,7 +1813,7 @@
   outline: none;
 }
 .video-opt-thumb-card:focus-visible .video-opt-thumb-card-img-wrap {
-  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.55);
+  box-shadow: var(--accent-focus-ring);
 }
 
 /* Selected state lives on the image wrapper — a calm violet border,
@@ -2812,8 +2812,8 @@
 }
 
 .vo-send-pill:focus-visible {
-  outline: 2px solid rgba(167, 139, 250, 0.7);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--accent-focus-ring);
 }
 
 .vo-send-pill:disabled {

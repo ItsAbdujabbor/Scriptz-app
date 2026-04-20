@@ -1495,8 +1495,8 @@ body.theme-light .settings-theme-option.active {
   transform: rotate(45deg) scale(1);
 }
 .settings-confirm-checkbox input:focus-visible + .settings-confirm-checkbox-box {
-  outline: 2px solid rgba(167, 139, 250, 0.6);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--accent-focus-ring);
 }
 .settings-confirm-checkbox-text {
   flex: 1;

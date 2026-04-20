@@ -233,8 +233,8 @@
   filter: brightness(0.97);
 }
 .abt-pro-cta:focus-visible {
-  outline: 2px solid rgba(167, 139, 250, 0.7);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--accent-focus-ring);
 }
 
 /* Crown floats at top-right corner of the button when locked. */
@@ -524,8 +524,8 @@
   transition: transform 80ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 .abt-locked-cta:focus-visible {
-  outline: 2px solid rgba(167, 139, 250, 0.6);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--accent-focus-ring);
 }
 .abt-locked-cta-arrow {
   display: inline-flex;

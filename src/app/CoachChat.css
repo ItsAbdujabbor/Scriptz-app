@@ -2405,7 +2405,7 @@
 }
 
 .coach-composer-stop:hover:not(:disabled) {
-  filter: brightness(1.04);
+  filter: brightness(1.08);
 }
 
 .coach-composer-send svg,
@@ -2416,7 +2416,7 @@
 }
 
 .coach-composer-send:hover:not(:disabled) {
-  filter: brightness(1.05);
+  filter: brightness(1.08);
 }
 
 .coach-composer-tool:hover:not(:disabled),
