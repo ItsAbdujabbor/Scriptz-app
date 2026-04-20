@@ -26,12 +26,10 @@
    * filters, isolation) can hoist itself above the dialog. */
   isolation: isolate;
   padding: 24px;
-  background:
-    radial-gradient(70% 50% at 50% 40%, rgba(124, 58, 237, 0.08) 0%, transparent 70%),
-    rgba(8, 6, 14, 0.68);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  animation: ui-dialog-overlay-in 0.26s cubic-bezier(0.32, 0.72, 0, 1) both;
+  background: rgba(8, 6, 14, 0.7);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  animation: ui-dialog-overlay-in 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
 @keyframes ui-dialog-overlay-in {
@@ -43,33 +41,31 @@
   }
 }
 
+/* Panel language lifted straight from SelectPill / the Optimize-screen
+ * dropdown: one tinted glass surface, one border, one drop shadow. No
+ * radial glows, no layered glass — keeps every dialog in the app
+ * visually identical to the Optimize filter menu. */
 .ui-dialog-panel {
   position: relative;
   width: 100%;
   max-height: 88vh;
   overflow-y: auto;
-  /* Soft vertical fade + a faint accent tint at the top so the panel
-   * feels lit from above rather than a flat slab. */
-  background:
-    radial-gradient(120% 60% at 50% 0%, rgba(167, 139, 250, 0.1) 0%, transparent 55%),
-    linear-gradient(180deg, #1b1b21 0%, #131318 60%, #101014 100%);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 24px;
-  /* Layered shadow: tight inner highlight + medium mid shadow + deep
-   * ambient. Reads softer than a single big drop shadow. */
+  background: rgba(22, 22, 28, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.025),
-    0 4px 12px rgba(0, 0, 0, 0.35),
-    0 24px 60px rgba(0, 0, 0, 0.55),
-    0 48px 120px rgba(124, 58, 237, 0.12);
-  animation: ui-dialog-panel-in 0.38s cubic-bezier(0.32, 0.72, 0, 1) both;
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 48px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(32px) saturate(1.5);
+  -webkit-backdrop-filter: blur(32px) saturate(1.5);
+  animation: ui-dialog-panel-in 0.32s cubic-bezier(0.32, 0.72, 0, 1) both;
   /* No padding — each consumer dialog adds its own internal padding via
    * its own existing classes. Keeps Dialog.css purely about chrome. */
 }
 
-/* Gentle scrollbar inside the panel so long content (like a persona
- * grid) doesn't feel like it's scraping against a sharp edge. */
+/* Plain scrollbar — matches the SelectPill menu which doesn't style its
+ * own scrollbar either. Keep it understated so content, not chrome,
+ * carries the visual weight. */
 .ui-dialog-panel::-webkit-scrollbar {
   width: 10px;
 }
@@ -83,7 +79,7 @@
   background-clip: padding-box;
 }
 .ui-dialog-panel::-webkit-scrollbar-thumb:hover {
-  background: rgba(167, 139, 250, 0.22);
+  background: rgba(255, 255, 255, 0.14);
   background-clip: padding-box;
   border: 3px solid transparent;
 }
@@ -91,7 +87,7 @@
 @keyframes ui-dialog-panel-in {
   from {
     opacity: 0;
-    transform: translateY(14px) scale(0.96);
+    transform: translateY(12px) scale(0.97);
   }
   to {
     opacity: 1;
@@ -104,13 +100,16 @@
   max-width: 400px;
 }
 .ui-dialog-panel--md {
-  max-width: 540px;
+  max-width: 520px;
 }
+/* Canonical content-heavy width: Personas, Styles, SettingsModal,
+ * CreditPacksModal all render here. Same width means dialogs feel
+ * interchangeable when the user jumps between them. */
 .ui-dialog-panel--lg {
-  max-width: 780px;
+  max-width: 720px;
 }
 .ui-dialog-panel--xl {
-  max-width: 960px;
+  max-width: 880px;
 }
 .ui-dialog-panel--fullscreen {
   max-width: min(1440px, calc(100vw - 3vw));
@@ -123,7 +122,7 @@
     padding: 12px;
   }
   .ui-dialog-panel {
-    border-radius: 20px;
+    border-radius: 16px;
     max-height: 92vh;
   }
 }

@@ -277,13 +277,10 @@ export function PersonasModal({ onClose }) {
   const showGrid = !isPending && filteredItems.length > 0
 
   return (
-    <Dialog open onClose={requestClose} size="xl" ariaLabelledBy="personas-modal-title">
+    <Dialog open onClose={requestClose} size="lg" ariaLabelledBy="personas-modal-title">
       <div className="pm-body">
-        {/* Header — hero band with an accent glyph on the left */}
+        {/* Header — title band, matches the Optimize-screen dropdown language */}
         <div className="pm-header">
-          <div className="pm-header-crest" aria-hidden>
-            <IconUsers />
-          </div>
           <div className="pm-header-titles">
             <h2 id="personas-modal-title" className="pm-title">
               Your characters

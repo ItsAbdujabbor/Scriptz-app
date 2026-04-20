@@ -1592,23 +1592,22 @@
   text-shadow: none;
 }
 
+/* Batch-count popover — same visual language as the Optimize-screen
+ * SelectPill menu and the Personas/Styles modal chrome. */
 .thumb-batch-circle-popover {
   position: absolute;
   bottom: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%);
   min-width: 196px;
-  padding: 8px;
-  border-radius: 18px;
+  padding: 4px;
+  border-radius: 12px;
   z-index: 120;
-  background: rgba(16, 14, 24, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.55),
-    0 4px 16px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(28px) saturate(200%);
-  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  background: rgba(22, 22, 28, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(32px) saturate(1.5);
+  -webkit-backdrop-filter: blur(32px) saturate(1.5);
 }
 
 /* Floating variant — portaled to <body>, positioned by useFloatingPosition.
@@ -1759,14 +1758,14 @@
 }
 
 .thumb-batch-circle-popover-title {
-  margin: 0 0 6px;
-  padding: 2px 4px;
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  margin: 0 0 4px;
+  padding: 6px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.35);
-  text-align: center;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: left;
 }
 
 .thumb-batch-circle-option {
@@ -1775,34 +1774,32 @@
   justify-content: space-between;
   width: 100%;
   gap: 10px;
-  padding: 9px 12px;
-  margin-bottom: 2px;
-  border: 1px solid transparent;
-  border-radius: 12px;
+  padding: 0.45rem 0.7rem;
+  border: 0;
+  border-radius: 8px;
   background: transparent;
   color: rgba(255, 255, 255, 0.72);
-  font-size: 13px;
+  font-size: 0.8rem;
+  font-weight: 500;
   font-family: inherit;
   cursor: pointer;
   transition:
-    background 0.14s ease,
-    border-color 0.14s ease,
-    color 0.14s ease;
+    background 0.12s ease,
+    color 0.12s ease;
 }
 
-.thumb-batch-circle-option:last-child {
-  margin-bottom: 0;
+.thumb-batch-circle-option + .thumb-batch-circle-option {
+  margin-top: 2px;
 }
 
 .thumb-batch-circle-option:hover {
   background: rgba(255, 255, 255, 0.07);
-  color: rgba(255, 255, 255, 0.92);
+  color: #ffffff;
 }
 
 .thumb-batch-circle-option.is-active {
-  background: rgba(139, 92, 246, 0.22);
-  border-color: rgba(167, 139, 250, 0.3);
-  color: #e9d5ff;
+  background: rgba(167, 139, 250, 0.14);
+  color: #ffffff;
 }
 
 .thumb-batch-circle-option-n {

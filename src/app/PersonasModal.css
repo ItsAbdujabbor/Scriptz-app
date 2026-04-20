@@ -2,57 +2,31 @@
  * Dialog.css. This file only styles the personas-specific content. */
 
 .pm-body {
-  padding: 28px 28px 24px;
+  padding: 22px 22px 20px;
   color: var(--text-body);
   font-family: inherit;
   box-sizing: border-box;
 }
 
-/* ── Header — hero band: crest · titles · close ── */
+/* ── Header — plain title row with a close-X, mirrors the SelectPill
+ *           menu header used on the Optimize screen. ── */
 .pm-header {
   display: grid;
-  grid-template-columns: 48px 1fr 38px;
+  grid-template-columns: 1fr 32px;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 22px;
-  padding: 14px 16px;
-  border-radius: 18px;
-  background:
-    radial-gradient(130% 160% at 0% 0%, rgba(167, 139, 250, 0.14) 0%, transparent 60%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.015) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-.pm-header-crest {
-  width: 48px;
-  height: 48px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 14px;
-  background: radial-gradient(
-    80% 80% at 30% 20%,
-    rgba(167, 139, 250, 0.3) 0%,
-    rgba(167, 139, 250, 0.1) 100%
-  );
-  border: 1px solid rgba(167, 139, 250, 0.28);
-  color: #c4b5fd;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 4px 16px rgba(124, 58, 237, 0.16);
-}
-.pm-header-crest svg {
-  width: 22px;
-  height: 22px;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .pm-header-titles {
   min-width: 0;
 }
 .pm-title {
-  margin: 0 0 3px;
-  font-size: var(--text-xl);
+  margin: 0 0 2px;
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.015em;
+  letter-spacing: -0.01em;
   color: var(--text-primary);
 }
 .pm-subtitle {
@@ -62,8 +36,8 @@
   line-height: 1.45;
 }
 .pm-icon-btn {
-  width: 38px;
-  height: 38px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -76,14 +50,14 @@
   justify-self: end;
   font-family: inherit;
   transition:
-    color 0.22s var(--ease-standard),
-    background 0.22s var(--ease-standard),
-    border-color 0.22s var(--ease-standard);
+    color 0.18s var(--ease-standard),
+    background 0.18s var(--ease-standard),
+    border-color 0.18s var(--ease-standard);
 }
 .pm-icon-btn:hover {
   color: var(--text-body);
-  background: rgba(255, 255, 255, 0.07);
-  border-color: var(--border-card-hover);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 .pm-icon-btn:focus-visible {
   outline: none;
@@ -95,8 +69,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  margin-bottom: 22px;
+  gap: 10px;
+  margin-bottom: 18px;
   flex-wrap: wrap;
 }
 .pm-manage-btn {
@@ -134,12 +108,11 @@
 
 /* ── Create form ── */
 .pm-create-form {
-  margin-bottom: 22px;
-  padding: 20px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: linear-gradient(180deg, rgba(167, 139, 250, 0.04) 0%, rgba(0, 0, 0, 0.2) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  margin-bottom: 18px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
 }
 .pm-rights-notice {
   margin: 0 0 14px;
@@ -282,34 +255,27 @@
 
 /* ── Empty state ── */
 .pm-empty {
-  padding: 48px 28px 32px;
+  padding: 36px 24px 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 10px;
-  border-radius: 20px;
-  border: 1px dashed rgba(255, 255, 255, 0.06);
-  background: radial-gradient(60% 70% at 50% 0%, rgba(167, 139, 250, 0.08) 0%, transparent 65%);
+  gap: 8px;
+  border-radius: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
 }
 .pm-empty-icon {
-  width: 80px;
-  height: 80px;
-  margin-bottom: 14px;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: radial-gradient(
-    80% 80% at 30% 20%,
-    rgba(167, 139, 250, 0.26) 0%,
-    rgba(167, 139, 250, 0.08) 100%
-  );
-  border: 1px solid rgba(167, 139, 250, 0.26);
+  background: rgba(167, 139, 250, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.22);
   color: #c4b5fd;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 8px 24px rgba(124, 58, 237, 0.18);
 }
 .pm-empty-title {
   margin: 0;
@@ -339,37 +305,23 @@
 
 .pm-card--fixed {
   position: relative;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.035) 0%,
-    rgba(255, 255, 255, 0.015) 100%
-  );
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
   overflow: hidden;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transition:
-    border-color 0.28s var(--ease-standard),
-    transform 0.28s var(--ease-standard),
-    box-shadow 0.28s var(--ease-standard),
-    background 0.28s var(--ease-standard);
+    border-color 0.18s var(--ease-standard),
+    background 0.18s var(--ease-standard),
+    transform 0.18s var(--ease-standard);
 }
 .pm-card--fixed:hover {
-  border-color: rgba(167, 139, 250, 0.34);
-  transform: translateY(-3px);
-  background: linear-gradient(180deg, rgba(167, 139, 250, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 14px 32px rgba(0, 0, 0, 0.32),
-    0 24px 60px rgba(124, 58, 237, 0.12);
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-1px);
 }
 .pm-card--fixed.pm-card--selected {
-  border-color: rgba(167, 139, 250, 0.6);
-  background: linear-gradient(180deg, rgba(167, 139, 250, 0.12) 0%, rgba(167, 139, 250, 0.03) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 0 0 1px rgba(167, 139, 250, 0.25),
-    0 14px 34px rgba(139, 92, 246, 0.22);
+  border-color: rgba(167, 139, 250, 0.55);
+  background: rgba(167, 139, 250, 0.08);
 }
 
 .pm-card-pick {
@@ -390,12 +342,8 @@
   aspect-ratio: 1 / 1;
   overflow: hidden;
   background: rgba(0, 0, 0, 0.3);
-  /* Match the parent card radius on the top corners; the bottom stays
-   * flush with the name band so they read as one piece. */
-  border-top-left-radius: 17px;
-  border-top-right-radius: 17px;
-  /* Soft glass divider between the image and the name strip below. */
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+  border-top-left-radius: 13px;
+  border-top-right-radius: 13px;
 }
 .pm-card-image img {
   width: 100%;
