@@ -19,3 +19,6 @@ export {
   InlineSpinner,
   PageSkeleton,
 } from './Skeleton'
+export * from './icons'
+export { PrimaryPill } from './PrimaryPill'
+export { Input, TextArea } from './Input'

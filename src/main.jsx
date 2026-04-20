@@ -1,5 +1,10 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+// design-tokens.css must load BEFORE every other stylesheet so its CSS
+// custom properties (--accent-gradient, --surface-card, --radius-md, etc.)
+// are resolved by every downstream rule. All app CSS should reference
+// these tokens; legacy --dash-*/--vo-*/--auth-* names are aliased here.
+import './design-tokens.css'
 import './index.css'
 import './dot-background.css'
 import App from './App.jsx'

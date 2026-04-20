@@ -1,0 +1,204 @@
+/**
+ * Scriptz-app — canonical design tokens.
+ *
+ * Imported once at the top of the CSS cascade from src/main.jsx. This is the
+ * ONE place to change a colour, radius, spacing step, typography size, or
+ * motion timing for the entire app. All new work should reference
+ * `var(--token-name)` from here. Hard-coding the violet gradient or a
+ * specific rgba value in a component CSS is a bug.
+ *
+ * Legacy token families (--dash-*, --vo-*, --auth-*, --pri-*, --legal-*) are
+ * preserved as aliases below so existing screens keep rendering while we
+ * migrate them one at a time. Do NOT add new refs to the legacy families —
+ * always use the canonical names in new code.
+ */
+
+:root {
+  /* ─ Accent (the one primary violet) ──────────────────────────────── */
+  --accent-50: #ede5ff;
+  --accent-100: #d8c7ff;
+  --accent-200: #c4b5fd;
+  --accent-300: #a78bfa;
+  --accent-400: #8b5cf6;
+  --accent-500: #7c3aed;
+  --accent-600: #6d28d9;
+  --accent-700: #5b21b6;
+  --accent-gradient: linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%);
+  --accent-gradient-hover: linear-gradient(135deg, #a078f5 0%, #8b4cf0 55%, #6a28c2 100%);
+  --accent-shadow: 0 4px 14px rgba(124, 58, 237, 0.32);
+  --accent-shadow-lg: 0 8px 24px rgba(124, 58, 237, 0.38);
+  --accent-focus-ring: 0 0 0 3px rgba(167, 139, 250, 0.32);
+  --accent-tint-weak: rgba(167, 139, 250, 0.08);
+  --accent-tint-strong: rgba(167, 139, 250, 0.16);
+
+  /* ─ Semantic colours ────────────────────────────────────────────── */
+  --color-positive: #30d158;
+  --color-warning: #ffd60a;
+  --color-negative: #ff453a;
+  --color-info: #0a84ff;
+  --color-danger: rgba(239, 68, 68, 1);
+  --color-danger-soft: rgba(239, 68, 68, 0.14);
+
+  /* ─ Surfaces (background stack) ─────────────────────────────────── */
+  --surface-page: #0e0e12;
+  --surface-sidebar: #0b0b0e;
+  --surface-card: #18181c;
+  --surface-card-hover: #222228;
+  --surface-card-raised: #1f1f24;
+  --surface-overlay-backdrop: rgba(8, 6, 14, 0.72);
+  --surface-input: rgba(255, 255, 255, 0.03);
+  --surface-input-hover: rgba(255, 255, 255, 0.05);
+
+  /* ─ Borders ─────────────────────────────────────────────────────── */
+  --border-card: rgba(255, 255, 255, 0.07);
+  --border-card-hover: rgba(255, 255, 255, 0.12);
+  --border-card-strong: rgba(255, 255, 255, 0.18);
+  --border-input: rgba(255, 255, 255, 0.08);
+  --border-input-hover: rgba(255, 255, 255, 0.14);
+  --border-input-focus: rgba(167, 139, 250, 0.45);
+  --border-divider: rgba(255, 255, 255, 0.06);
+
+  /* ─ Text ────────────────────────────────────────────────────────── */
+  --text-body: #ffffff;
+  --text-primary: rgba(255, 255, 255, 0.95);
+  --text-muted: rgba(229, 229, 231, 0.72);
+  --text-soft: rgba(229, 229, 231, 0.5);
+  --text-disabled: rgba(229, 229, 231, 0.32);
+
+  /* ─ Radius scale ────────────────────────────────────────────────── */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  /* ─ Spacing scale ───────────────────────────────────────────────── */
+  --space-xs: 0.35rem;
+  --space-sm: 0.5rem;
+  --space-md: 0.75rem;
+  --space-lg: 1rem;
+  --space-xl: 1.5rem;
+  --space-2xl: 2rem;
+  --space-3xl: 3rem;
+
+  /* ─ Typography scale ────────────────────────────────────────────── */
+  --text-xs: 0.72rem;
+  --text-sm: 0.82rem;
+  --text-base: 0.92rem;
+  --text-md: 1rem;
+  --text-lg: 1.15rem;
+  --text-xl: 1.35rem;
+  --text-2xl: 1.6rem;
+  --text-3xl: 2rem;
+  --text-hero: clamp(2rem, 3.2vw, 2.75rem);
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+
+  --line-height-tight: 1.2;
+  --line-height-snug: 1.35;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.65;
+
+  /* ─ Primary button canonical dimensions ─────────────────────────── */
+  --btn-height-sm: 32px;
+  --btn-height-md: 38px;
+  --btn-height-lg: 44px;
+  --btn-padding-x-sm: 0.85rem;
+  --btn-padding-x-md: 1rem;
+  --btn-padding-x-lg: 1.25rem;
+
+  /* ─ Motion ──────────────────────────────────────────────────────── */
+  --dur-fast: 180ms;
+  --dur-standard: 250ms;
+  --dur-slow: 340ms;
+  --ease-standard: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-emphasized: cubic-bezier(0.28, 0.11, 0.32, 1);
+
+  /* ─ Z-index layer ───────────────────────────────────────────────── */
+  --z-sticky: 100;
+  --z-dropdown: 1000;
+  --z-overlay: 2000;
+  --z-modal: 2147483646;
+  --z-toast: 2147483647;
+
+  /* ─ Shadows ─────────────────────────────────────────────────────── */
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.22);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.42);
+  --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * Back-compat aliases. These map the legacy token names to the
+ * canonical ones above. Every screen still renders while we migrate.
+ * Do NOT add new code that references these — use the canonical
+ * names. Remove this block (or individual families) in the cleanup
+ * phase once no screen references them.
+ * ────────────────────────────────────────────────────────────────── */
+:root {
+  /* ─ --dash-* family ─ */
+  --dash-radius-sm: var(--radius-sm);
+  --dash-radius-md: var(--radius-md);
+  --dash-radius-lg: var(--radius-lg);
+  --dash-radius-pill: var(--radius-pill);
+  --dash-space-xs: var(--space-xs);
+  --dash-space-sm: var(--space-sm);
+  --dash-space-md: var(--space-md);
+  --dash-space-lg: var(--space-lg);
+  --dash-surface-page: var(--surface-page);
+  --dash-surface-card: var(--surface-card);
+  --dash-surface-card-hover: var(--surface-card-hover);
+  --dash-surface-card-unified: var(--surface-card);
+  --dash-surface-border: var(--border-card);
+  --dash-surface-border-hover: var(--border-card-hover);
+  --dash-text-body: var(--text-body);
+  --dash-text-muted: var(--text-muted);
+  --dash-text-soft: var(--text-soft);
+  --dash-dur: var(--dur-standard);
+  --dash-dur-fast: var(--dur-fast);
+  --dash-ease: var(--ease-emphasized);
+  --dash-ease-out: var(--ease-spring);
+  --dash-accent-gradient: var(--accent-gradient);
+  --dash-accent-shadow: var(--accent-shadow);
+  --dash-accent-ring: var(--accent-focus-ring);
+
+  /* ─ --vo-* family (VideoOptimizeModal) ─ */
+  --vo-surface: var(--surface-card);
+  --vo-border: var(--border-card);
+  --vo-border-hover: var(--border-card-hover);
+  --vo-text: var(--text-body);
+  --vo-text-muted: var(--text-muted);
+  --vo-text-soft: var(--text-soft);
+  --vo-radius: var(--radius-md);
+  --vo-dur: var(--dur-fast);
+
+  /* ─ --auth-* family ─ */
+  --auth-bg: var(--surface-page);
+  --auth-surface: var(--surface-card);
+  --auth-border: var(--border-card);
+  --auth-text: var(--text-body);
+  --auth-accent: var(--accent-300);
+
+  /* ─ --pri-* family (Pro / Pricing) ─ */
+  --pri-bg: var(--surface-page);
+  --pri-card: var(--surface-card);
+  --pri-card-pop: var(--surface-card-raised);
+  --pri-bd: var(--border-card);
+  --pri-bd-h: var(--border-card-hover);
+  --pri-t1: var(--text-body);
+  --pri-t2: var(--text-muted);
+  --pri-t3: var(--text-soft);
+  --pri-accent: var(--accent-500);
+
+  /* ─ --legal-* family ─ */
+  --legal-bg: var(--surface-page);
+  --legal-surface: var(--surface-card);
+  --legal-text: var(--text-muted);
+  --legal-accent: var(--accent-300);
+}

@@ -1,0 +1,127 @@
+/**
+ * Input / TextArea — unified form control styling.
+ *
+ * Every value references design-tokens.css so all text inputs in the app
+ * share the same focus ring, border, padding, and typography.
+ */
+
+.ui-field {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  width: 100%;
+}
+
+.ui-field-label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.ui-input {
+  width: 100%;
+  height: var(--btn-height-md);
+  padding: 0 var(--space-md);
+  font-family: inherit;
+  font-size: var(--text-base);
+  color: var(--text-body);
+  background: var(--surface-input);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition:
+    border-color var(--dur-fast) ease,
+    background-color var(--dur-fast) ease,
+    box-shadow var(--dur-fast) ease;
+  box-sizing: border-box;
+}
+
+.ui-input::placeholder {
+  color: var(--text-soft);
+}
+
+.ui-input:hover:not(:disabled) {
+  background: var(--surface-input-hover);
+  border-color: var(--border-input-hover);
+}
+
+.ui-input:focus {
+  background: var(--surface-input-hover);
+  border-color: var(--border-input-focus);
+  box-shadow: var(--accent-focus-ring);
+}
+
+.ui-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ─ Pill variant (used in search bars etc.) ──────────────────────── */
+.ui-input--pill {
+  border-radius: var(--radius-pill);
+  padding-inline: var(--space-lg);
+}
+
+/* ─ Sizes ────────────────────────────────────────────────────────── */
+.ui-input--sm {
+  height: var(--btn-height-sm);
+  font-size: var(--text-sm);
+  padding-inline: var(--space-sm);
+}
+.ui-input--lg {
+  height: var(--btn-height-lg);
+  font-size: var(--text-md);
+  padding-inline: var(--space-lg);
+}
+
+/* ─ Textarea ─────────────────────────────────────────────────────── */
+.ui-textarea {
+  width: 100%;
+  min-height: 3em;
+  max-height: 9em;
+  padding: 0.55rem var(--space-md);
+  line-height: var(--line-height-normal);
+  font-family: inherit;
+  font-size: var(--text-base);
+  color: var(--text-body);
+  background: var(--surface-input);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-md);
+  outline: none;
+  resize: vertical;
+  overflow-y: auto;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+  transition:
+    border-color var(--dur-fast) ease,
+    background-color var(--dur-fast) ease,
+    box-shadow var(--dur-fast) ease;
+}
+
+.ui-textarea::placeholder {
+  color: var(--text-soft);
+}
+
+.ui-textarea:hover:not(:disabled) {
+  background: var(--surface-input-hover);
+  border-color: var(--border-input-hover);
+}
+
+.ui-textarea:focus {
+  background: var(--surface-input-hover);
+  border-color: var(--border-input-focus);
+  box-shadow: var(--accent-focus-ring);
+}
+
+.ui-textarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ui-textarea--resize-none {
+  resize: none;
+}

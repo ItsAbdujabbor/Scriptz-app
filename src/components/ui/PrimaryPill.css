@@ -1,0 +1,184 @@
+/**
+ * PrimaryPill — one canonical button component for the entire app.
+ *
+ * Sizes:   sm (32px) · md (38px) · lg (44px)
+ * Variants: primary (gradient) · ghost (translucent) · danger (red-tinted)
+ * Shape:   pill by default, rectangle via .pp--rect
+ * Slots:   optional credit chip (⚡ + number) on the left, label, icon on right
+ *
+ * Every value below is a token from design-tokens.css. Do not hard-code
+ * colours, radii, or durations here.
+ */
+
+.pp {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42rem;
+  height: var(--btn-height-md);
+  padding: 0 var(--btn-padding-x-md);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.005em;
+  color: var(--text-body);
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    filter var(--dur-standard) ease,
+    transform var(--dur-fast) ease,
+    opacity var(--dur-fast) ease,
+    background-color var(--dur-fast) ease,
+    border-color var(--dur-fast) ease;
+}
+
+.pp:focus-visible {
+  outline: none;
+  box-shadow: var(--accent-focus-ring);
+}
+
+.pp:disabled,
+.pp[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.25);
+}
+
+.pp:not(:disabled):active {
+  transform: scale(0.97);
+  filter: brightness(0.97);
+  transition:
+    transform 0.06s ease,
+    filter 0.06s ease;
+}
+
+/* ─ Sizes ────────────────────────────────────────────────────────── */
+
+.pp--sm {
+  height: var(--btn-height-sm);
+  padding: 0 var(--btn-padding-x-sm);
+  font-size: var(--text-xs);
+  gap: 0.35rem;
+}
+
+.pp--lg {
+  height: var(--btn-height-lg);
+  padding: 0 var(--btn-padding-x-lg);
+  font-size: var(--text-base);
+  gap: 0.5rem;
+}
+
+.pp--full {
+  width: 100%;
+}
+
+/* ─ Shape ────────────────────────────────────────────────────────── */
+
+.pp--rect {
+  border-radius: var(--radius-md);
+}
+
+/* ─ Variants ─────────────────────────────────────────────────────── */
+
+.pp--primary {
+  background: var(--accent-gradient);
+  box-shadow: var(--shadow-inset-top);
+  color: #fff;
+}
+
+.pp--primary:not(:disabled):hover {
+  filter: brightness(1.08);
+}
+
+.pp--ghost {
+  background: var(--surface-input);
+  border-color: var(--border-input);
+  color: var(--text-primary);
+}
+
+.pp--ghost:not(:disabled):hover {
+  background: var(--surface-input-hover);
+  border-color: var(--border-input-hover);
+  color: var(--text-body);
+}
+
+.pp--danger {
+  background: var(--color-danger-soft);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.pp--danger:not(:disabled):hover {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fecaca;
+}
+
+/* ─ Inner slots ──────────────────────────────────────────────────── */
+
+.pp-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  line-height: 1;
+  padding-right: 0.5rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+.pp--ghost .pp-cost,
+.pp--danger .pp-cost {
+  border-right-color: rgba(255, 255, 255, 0.16);
+  color: inherit;
+}
+
+.pp-cost-zap {
+  display: inline-grid;
+  place-items: center;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+.pp-cost-zap svg {
+  display: block;
+}
+
+.pp-cost-num {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.01em;
+}
+
+.pp-label {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+.pp--ghost .pp-label,
+.pp--danger .pp-label {
+  text-shadow: none;
+}
+
+.pp-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.pp-icon svg {
+  display: block;
+}
+
+.pp--sm .pp-icon {
+  width: 12px;
+  height: 12px;
+}
+.pp--lg .pp-icon {
+  width: 16px;
+  height: 16px;
+}
