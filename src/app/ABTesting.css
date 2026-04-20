@@ -66,58 +66,88 @@
   color: #fff;
 }
 
-/* Buttons */
+/* abt-btn — visually unified with <PrimaryPill> from src/components/ui.
+ * Shape matches the shared primitive exactly: pill radius, 38px height,
+ * same padding + typography, active scale(0.97), accent gradient for
+ * primary, accent focus ring. Kept as a utility class (not swapped for
+ * the component) because ABTesting's JSX passes multi-part children
+ * (spinner + label) that are more readable inline. */
 .abt-btn {
-  padding: 0.5rem 1rem;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  color: #f5f3ff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: var(--btn-height-md);
+  padding: 0 var(--btn-padding-x-md);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-input);
+  background: var(--surface-input);
+  color: var(--text-primary);
   font: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.005em;
   cursor: pointer;
+  white-space: nowrap;
   transition:
-    transform 0.12s ease,
-    background 0.12s ease;
+    transform var(--dur-fast) ease,
+    background var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    filter var(--dur-fast) ease;
 }
 .abt-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-input-hover);
+  border-color: var(--border-input-hover);
+}
+.abt-btn:active:not(:disabled) {
+  transform: scale(0.97);
+  transition: transform 0.06s ease;
+}
+.abt-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--accent-focus-ring);
 }
 .abt-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none;
 }
 
 .abt-btn--primary {
-  background: #7c3aed;
+  background: var(--accent-gradient);
   border-color: transparent;
   color: #fff;
-  font-weight: 600;
-  transition:
-    background var(--dash-dur-fast, 0.15s) ease,
-    transform 0.12s ease-out;
+  box-shadow: var(--shadow-inset-top);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
 }
 .abt-btn--primary:hover:not(:disabled) {
-  background: #8b5cf6;
-}
-.abt-btn--primary:active:not(:disabled) {
-  transform: scale(0.97);
-  transition: transform 0.06s ease;
+  background: var(--accent-gradient);
+  border-color: transparent;
+  filter: brightness(1.08);
 }
 
 .abt-btn--ghost {
   background: transparent;
 }
+
 .abt-btn--danger {
   border-color: rgba(248, 113, 113, 0.3);
   color: #fca5a5;
-  background: rgba(248, 113, 113, 0.08);
+  background: var(--color-danger-soft);
 }
 .abt-btn--danger:hover:not(:disabled) {
-  background: rgba(248, 113, 113, 0.14);
+  background: rgba(248, 113, 113, 0.22);
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fecaca;
+}
+
+.abt-btn--restore {
+  border-color: rgba(167, 139, 250, 0.35);
+  color: var(--accent-200);
+  background: var(--accent-tint-weak);
+}
+.abt-btn--restore:hover:not(:disabled) {
+  background: var(--accent-tint-strong);
+  border-color: rgba(196, 181, 253, 0.55);
 }
 
 .abt-filter {
