@@ -244,7 +244,7 @@
   aspect-ratio: 16 / 9;
   object-fit: cover;
   border-radius: 10px;
-  background: #1a1a1f;
+  background: var(--surface-card);
 }
 
 .abtp-var-title {

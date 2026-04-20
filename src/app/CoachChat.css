@@ -578,7 +578,7 @@
   padding: 1rem 1.1rem;
   border-radius: 18px;
   color: #b4bbc7;
-  background: #1a1a1a;
+  background: var(--surface-card);
   border: 1px solid rgba(255, 255, 255, 0.08);
   width: var(--coach-content-width);
   box-sizing: border-box;
@@ -987,7 +987,7 @@
 .coach-message-bubble code {
   padding: 0.16rem 0.36rem;
   border-radius: 8px;
-  background: #1a1a1a;
+  background: var(--surface-card);
   border: 1px solid rgba(255, 255, 255, 0.07);
   color: #f3f4f6;
   font-family: 'SFMono-Regular', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
@@ -1402,7 +1402,7 @@
   margin-top: 1rem;
   padding: 1rem;
   border-radius: 16px;
-  background: #1a1a1a;
+  background: var(--surface-card);
   border: 1px solid rgba(255, 255, 255, 0.08);
   overflow-x: auto;
   min-width: 0;
@@ -1443,7 +1443,7 @@
 .coach-table {
   width: 100%;
   border-collapse: collapse;
-  background: #1a1a1a;
+  background: var(--surface-card);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   overflow: hidden;

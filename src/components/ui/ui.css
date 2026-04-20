@@ -14,9 +14,9 @@
   --ui-text-muted: rgba(255, 255, 255, 0.64);
   --ui-text-dim: rgba(255, 255, 255, 0.36);
   --ui-accent: #9061f0;
-  --ui-surface: #1a1a1a;
+  --ui-surface: var(--surface-card);
   --ui-surface-hover: rgba(255, 255, 255, 0.08);
-  --ui-surface-active: #1a1a1a;
+  --ui-surface-active: var(--surface-card);
   --ui-border: rgba(255, 255, 255, 0.07);
   --ui-ring: rgba(139, 92, 246, 0.22);
 }

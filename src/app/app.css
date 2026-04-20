@@ -5,7 +5,7 @@
 
 .app-screen {
   --app-bg: #060607;
-  --app-surface: #1a1a1a;
+  --app-surface: var(--surface-card);
   --app-surface-2: #1f1f1f;
   --app-border: rgba(255, 255, 255, 0.065);
   --app-border-2: rgba(255, 255, 255, 0.12);
