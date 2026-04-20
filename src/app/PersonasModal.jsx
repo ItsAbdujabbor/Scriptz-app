@@ -1,13 +1,12 @@
 /**
- * PersonasModal — compact, animated, inline-styled portaled overlay.
+ * PersonasModal — character-look manager rendered inside the shared
+ * <Dialog> primitive so it inherits the same portal, backdrop, entrance
+ * motion, and close-X as every other modal in the app.
  *
- * Smooth fade / scale entry and exit (tracked via local `closing` state so
- * the parent's `onClose` fires only after the exit animation completes).
  * Uses SegmentedTabs for pill-shaped tabs and embeds CostHint inside the
  * Generate button (same chip style as the coach send button).
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useRef, useState } from 'react'
 import {
   usePersonasQuery,
   useCreatePersonaFromImagesMutation,
@@ -19,15 +18,11 @@ import {
 import { usePersonaStore } from '../stores/personaStore'
 import { CostHint } from '../components/CostHint'
 import { SegmentedTabs } from '../components/ui/SegmentedTabs'
+import { Dialog } from '../components/ui/Dialog'
 import { InlineSpinner } from '../components/ui'
+import './PersonasModal.css'
 
-const OVERLAY_Z = 2147483647
-const PANEL_BG = 'linear-gradient(180deg, #1a1a1f 0%, #131318 100%)'
-const PANEL_BORDER = '1px solid rgba(255, 255, 255, 0.08)'
-const PANEL_SHADOW =
-  '0 32px 80px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.06)'
 const PRIMARY_GRADIENT = 'var(--accent-gradient)'
-const EXIT_MS = 220
 
 const PHOTO_SLOTS = [
   { key: 'front', label: 'Front' },
@@ -99,7 +94,6 @@ export function PersonasModal({ onClose }) {
   const removeFavoriteMutation = useRemovePersonaFavoriteMutation()
   const { selectedPersonaId, setSelectedPersona } = usePersonaStore()
 
-  const [closing, setClosing] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [createImages, setCreateImages] = useState({ front: null, left: null, right: null })
   const [createName, setCreateName] = useState('')
@@ -108,37 +102,8 @@ export function PersonasModal({ onClose }) {
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
   const fileRefs = useRef({ front: null, left: null, right: null })
-  const closeTimerRef = useRef(null)
 
-  const requestClose = useCallback(() => {
-    if (closing) return
-    setClosing(true)
-    closeTimerRef.current = setTimeout(() => {
-      onClose?.()
-    }, EXIT_MS)
-  }, [closing, onClose])
-
-  useEffect(() => {
-    return () => {
-      if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
-    }
-  }, [])
-
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') requestClose()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [requestClose])
-
-  useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = prev
-    }
-  }, [])
+  const requestClose = () => onClose?.()
 
   const items = data?.items ?? []
   const pinnedIds = new Set(data?.pinned_ids ?? [])
@@ -217,73 +182,13 @@ export function PersonasModal({ onClose }) {
   const createDisabled =
     createMutation.isPending || !createImages.front || !createImages.left || !createImages.right
 
-  const dialog = (
-    <div
-      onClick={requestClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: OVERLAY_Z,
-        background: 'rgba(8, 6, 14, 0.78)',
-        backdropFilter: 'blur(14px) saturate(140%)',
-        WebkitBackdropFilter: 'blur(14px) saturate(140%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 20,
-        animation: closing
-          ? `pm-overlay-out ${EXIT_MS}ms cubic-bezier(0.32, 0.72, 0, 1) both`
-          : 'pm-overlay-in 0.24s cubic-bezier(0.32, 0.72, 0, 1) both',
-      }}
-      role="presentation"
-    >
-      <style>{`
-        @keyframes pm-overlay-in { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes pm-overlay-out { from { opacity: 1 } to { opacity: 0 } }
-        @keyframes pm-panel-in {
-          from { opacity: 0; transform: translateY(16px) scale(0.96); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes pm-panel-out {
-          from { opacity: 1; transform: translateY(0) scale(1); }
-          to   { opacity: 0; transform: translateY(10px) scale(0.97); }
-        }
-        @keyframes pm-card-in {
-          from { opacity: 0; transform: translateY(6px) scale(0.98); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        .pm-press { transition: transform 0.12s cubic-bezier(0.33, 1, 0.68, 1), filter 0.18s ease, box-shadow 0.18s ease, background 0.18s ease; }
-        .pm-press:hover { filter: brightness(1.06); }
-        .pm-press:active { transform: scale(0.95); transition: transform 0.06s ease; }
-        .pm-card { animation: pm-card-in 0.32s cubic-bezier(0.32, 0.72, 0, 1) both; transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease; }
-        .pm-card:hover { border-color: rgba(139,92,246,0.42) !important; transform: translateY(-1px); }
-        .pm-slot { transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease; }
-        .pm-slot:hover { border-color: rgba(139,92,246,0.5) !important; background: rgba(139,92,246,0.06) !important; }
-        .pm-slot:active { transform: scale(0.97); }
-        .pm-input:focus { outline: none; border-color: rgba(139,92,246,0.55) !important; background: rgba(0,0,0,0.4) !important; }
-        .pm-fav:hover { color: #fbbf24 !important; background: rgba(0,0,0,0.7) !important; }
-      `}</style>
-
+  return (
+    <Dialog open onClose={requestClose} size="md" ariaLabelledBy="personas-modal-title">
       <div
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="personas-modal-title"
         style={{
-          width: '100%',
-          maxWidth: 560,
-          maxHeight: '88vh',
-          overflowY: 'auto',
-          background: PANEL_BG,
-          border: PANEL_BORDER,
-          borderRadius: 20,
-          boxShadow: PANEL_SHADOW,
           padding: 20,
           color: '#fff',
           fontFamily: 'inherit',
-          animation: closing
-            ? `pm-panel-out ${EXIT_MS}ms cubic-bezier(0.32, 0.72, 0, 1) both`
-            : 'pm-panel-in 0.32s cubic-bezier(0.32, 0.72, 0, 1) both',
           boxSizing: 'border-box',
         }}
       >
@@ -722,10 +627,8 @@ export function PersonasModal({ onClose }) {
           </div>
         )}
       </div>
-    </div>
+    </Dialog>
   )
-
-  return createPortal(dialog, document.body)
 }
 
 const closeBtn = {

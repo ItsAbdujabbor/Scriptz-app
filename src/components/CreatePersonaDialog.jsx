@@ -1,14 +1,13 @@
 /**
- * CreatePersonaDialog — full-screen overlay for the 3-image persona flow.
- *
- * EVERYTHING is inline-styled and portaled to <body> so no CSS rule
- * anywhere in the app can possibly hide it. Triggered by
+ * CreatePersonaDialog — 3-image persona flow rendered inside the shared
+ * <Dialog> primitive so it inherits the same portal, backdrop, entrance
+ * motion, and close-X as every other modal in the app. Triggered by
  * `openCreatePersonaDialog()` from any button.
  */
 import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useCreatePersonaFromImagesMutation } from '../queries/personas/personaQueries'
 import { onOpenCreatePersonaDialog } from '../lib/personaModalBus'
+import { Dialog } from './ui/Dialog'
 import { InlineSpinner } from './ui'
 
 const SLOTS = [
@@ -37,28 +36,6 @@ export function CreatePersonaDialog() {
     return onOpenCreatePersonaDialog(() => setOpen(true))
   }, [])
 
-  // Escape closes.
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e) => {
-      if (e.key === 'Escape') close()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open])
-
-  // Body scroll lock.
-  useEffect(() => {
-    if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = prev
-    }
-  }, [open])
-
-  if (!open) return null
-
   function pickFile(slot, file) {
     if (!file?.type?.startsWith('image/')) return
     setImages((p) => ({ ...p, [slot]: file }))
@@ -85,54 +62,15 @@ export function CreatePersonaDialog() {
     }
   }
 
-  const dialog = (
-    <div
-      onClick={close}
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 2147483647,
-        background: 'rgba(8, 6, 14, 0.78)',
-        backdropFilter: 'blur(14px) saturate(140%)',
-        WebkitBackdropFilter: 'blur(14px) saturate(140%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px',
-        animation: 'cpd-overlay-in 0.22s cubic-bezier(0.32, 0.72, 0, 1) both',
-      }}
-    >
-      <style>{`
-        @keyframes cpd-overlay-in {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
-        @keyframes cpd-panel-in {
-          from { opacity: 0; transform: translateY(14px) scale(0.97); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-      `}</style>
-
+  return (
+    <Dialog open={open} onClose={close} size="md" ariaLabel="Create character">
       <form
-        onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
         style={{
-          width: '100%',
-          maxWidth: 560,
-          maxHeight: '88vh',
-          overflowY: 'auto',
-          background: 'linear-gradient(180deg, #1a1a1f 0%, #131318 100%)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: 18,
-          boxShadow:
-            '0 32px 80px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
           padding: 24,
           color: '#fff',
           fontFamily: 'inherit',
-          animation: 'cpd-panel-in 0.34s cubic-bezier(0.32, 0.72, 0, 1) both',
+          boxSizing: 'border-box',
         }}
       >
         {/* Header */}
@@ -386,10 +324,8 @@ export function CreatePersonaDialog() {
           </button>
         </div>
       </form>
-    </div>
+    </Dialog>
   )
-
-  return createPortal(dialog, document.body)
 }
 
 export default CreatePersonaDialog

@@ -4,6 +4,83 @@
   padding: 24px;
 }
 
+/* ============================================================
+ * pm-* helper classes moved out of the inline <style> block when
+ * PersonasModal was migrated to <Dialog>. Kept as utility classes
+ * so the existing JSX markup still animates + hovers correctly.
+ * ============================================================ */
+@keyframes pm-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.pm-press {
+  transition:
+    transform 0.12s cubic-bezier(0.33, 1, 0.68, 1),
+    filter 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+.pm-press:hover {
+  filter: brightness(1.06);
+}
+.pm-press:active {
+  transform: scale(0.95);
+  transition: transform 0.06s ease;
+}
+
+.pm-card {
+  animation: pm-card-in 0.32s cubic-bezier(0.32, 0.72, 0, 1) both;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+.pm-card:hover {
+  border-color: rgba(139, 92, 246, 0.42) !important;
+  transform: translateY(-1px);
+}
+
+.pm-slot {
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.12s ease;
+}
+.pm-slot:hover {
+  border-color: rgba(139, 92, 246, 0.5) !important;
+  background: rgba(139, 92, 246, 0.06) !important;
+}
+.pm-slot:active {
+  transform: scale(0.97);
+}
+
+.pm-input:focus {
+  outline: none;
+  border-color: rgba(139, 92, 246, 0.55) !important;
+  background: rgba(0, 0, 0, 0.4) !important;
+}
+
+.pm-fav:hover {
+  color: #fbbf24 !important;
+  background: rgba(0, 0, 0, 0.7) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-card,
+  .pm-press,
+  .pm-slot {
+    animation: none;
+    transition: none;
+  }
+}
+
 .personas-modal-header {
   display: flex;
   align-items: center;

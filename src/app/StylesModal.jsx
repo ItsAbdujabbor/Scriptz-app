@@ -1,12 +1,9 @@
 /**
- * StylesModal — fully inline-styled, portaled overlay.
- *
- * Same bulletproof chrome approach as PersonasModal / CreatePersonaDialog:
- * portal to <body>, max z-index, inline styles on everything so no global
- * CSS can hide or reposition it.
+ * StylesModal — style-library manager rendered inside the shared <Dialog>
+ * primitive so it inherits the same portal, backdrop, entrance motion,
+ * and close-X as every other modal in the app.
  */
 import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import {
   useStylesQuery,
   useCreateStyleFromUploadMutation,
@@ -18,13 +15,9 @@ import { useStyleStore } from '../stores/styleStore'
 import { thumbnailsApi } from '../api/thumbnails'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { extractYoutubeUrl } from '../lib/youtubeUrl'
+import { Dialog } from '../components/ui/Dialog'
 import { InlineSpinner, SkeletonCard, SkeletonGroup } from '../components/ui'
 
-const OVERLAY_Z = 2147483647
-const PANEL_BG = 'linear-gradient(180deg, #1a1a1f 0%, #131318 100%)'
-const PANEL_BORDER = '1px solid rgba(255, 255, 255, 0.08)'
-const PANEL_SHADOW =
-  '0 32px 80px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.06)'
 const PRIMARY_GRADIENT = 'var(--accent-gradient)'
 
 function IconX() {
@@ -84,22 +77,6 @@ export function StylesModal({ onClose }) {
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
   const fileInputRef = useRef(null)
-
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = prev
-    }
-  }, [])
 
   useEffect(() => {
     const url = extractYoutubeUrl(createYoutubeUrl)
@@ -208,50 +185,13 @@ export function StylesModal({ onClose }) {
     setShowCreate(false)
   }
 
-  const dialog = (
-    <div
-      onClick={() => onClose?.()}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: OVERLAY_Z,
-        background: 'rgba(8, 6, 14, 0.78)',
-        backdropFilter: 'blur(14px) saturate(140%)',
-        WebkitBackdropFilter: 'blur(14px) saturate(140%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 20,
-        animation: 'sm-overlay-in 0.22s cubic-bezier(0.32, 0.72, 0, 1) both',
-      }}
-      role="presentation"
-    >
-      <style>{`
-        @keyframes sm-overlay-in { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes sm-panel-in {
-          from { opacity: 0; transform: translateY(14px) scale(0.97) }
-          to { opacity: 1; transform: translateY(0) scale(1) }
-        }
-      `}</style>
-
+  return (
+    <Dialog open onClose={() => onClose?.()} size="lg" ariaLabelledBy="styles-modal-title">
       <div
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="styles-modal-title"
         style={{
-          width: '100%',
-          maxWidth: 640,
-          maxHeight: '88vh',
-          overflowY: 'auto',
-          background: PANEL_BG,
-          border: PANEL_BORDER,
-          borderRadius: 18,
-          boxShadow: PANEL_SHADOW,
           padding: 24,
           color: '#fff',
           fontFamily: 'inherit',
-          animation: 'sm-panel-in 0.34s cubic-bezier(0.32, 0.72, 0, 1) both',
           boxSizing: 'border-box',
         }}
       >
@@ -718,10 +658,8 @@ export function StylesModal({ onClose }) {
             })}
         </div>
       </div>
-    </div>
+    </Dialog>
   )
-
-  return createPortal(dialog, document.body)
 }
 
 const closeBtn = {
