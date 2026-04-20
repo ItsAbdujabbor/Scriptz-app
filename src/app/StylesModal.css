@@ -2,23 +2,48 @@
  * Dialog.css. This file only styles the styles-specific content. */
 
 .sm-body {
-  padding: var(--space-xl) var(--space-xl) var(--space-lg);
+  padding: 28px 28px 24px;
   color: var(--text-body);
   font-family: inherit;
   box-sizing: border-box;
 }
 
-/* ── Header ── */
+/* ── Header — hero band (mirrors PersonasModal) ── */
 .sm-header {
   display: grid;
-  grid-template-columns: 40px 1fr 40px;
+  grid-template-columns: 48px 1fr 38px;
   align-items: center;
-  gap: var(--space-md);
-  margin-bottom: var(--space-lg);
+  gap: 14px;
+  margin-bottom: 22px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background:
+    radial-gradient(130% 160% at 0% 0%, rgba(167, 139, 250, 0.14) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.015) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
-.sm-header-spacer {
-  width: 40px;
-  height: 40px;
+.sm-header-crest {
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: radial-gradient(
+    80% 80% at 30% 20%,
+    rgba(167, 139, 250, 0.3) 0%,
+    rgba(167, 139, 250, 0.1) 100%
+  );
+  border: 1px solid rgba(167, 139, 250, 0.28);
+  color: #c4b5fd;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 4px 16px rgba(124, 58, 237, 0.16);
+}
+.sm-header-crest svg {
+  width: 22px;
+  height: 22px;
 }
 .sm-header-titles {
   text-align: center;
@@ -38,13 +63,13 @@
   line-height: 1.45;
 }
 .sm-icon-btn {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border-card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-muted);
   border-radius: var(--radius-pill);
@@ -52,9 +77,9 @@
   justify-self: end;
   font-family: inherit;
   transition:
-    color var(--dur-fast) var(--ease-standard),
-    background var(--dur-fast) var(--ease-standard),
-    border-color var(--dur-fast) var(--ease-standard);
+    color 0.22s var(--ease-standard),
+    background 0.22s var(--ease-standard),
+    border-color 0.22s var(--ease-standard);
 }
 .sm-icon-btn:hover {
   color: var(--text-body);
@@ -80,11 +105,12 @@
 
 /* ── Create card ── */
 .sm-create-card {
-  margin-bottom: var(--space-lg);
-  padding: var(--space-lg);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-card);
-  background: rgba(0, 0, 0, 0.22);
+  margin-bottom: 22px;
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, rgba(167, 139, 250, 0.04) 0%, rgba(0, 0, 0, 0.2) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 .sm-create-title {
   margin: 0 0 var(--space-md);
@@ -119,10 +145,11 @@
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: var(--radius-lg);
+  border-radius: 16px;
   overflow: hidden;
-  border: 1px solid var(--border-card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   background: #0c0c10;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 .sm-upload-preview img {
   width: 100%;
@@ -157,18 +184,18 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  border: 1.5px dashed rgba(255, 255, 255, 0.18);
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.02);
+  gap: 10px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.16);
+  border-radius: 16px;
+  background: radial-gradient(70% 60% at 50% 40%, rgba(255, 255, 255, 0.03) 0%, transparent 60%);
   color: rgba(255, 255, 255, 0.55);
   font-size: var(--text-sm);
   font-family: inherit;
   cursor: pointer;
   transition:
-    border-color 0.15s ease,
-    background 0.15s ease,
-    color 0.15s ease;
+    border-color 0.22s ease,
+    background 0.22s ease,
+    color 0.22s ease;
 }
 .sm-upload-empty:hover {
   border-color: rgba(167, 139, 250, 0.5);
@@ -195,10 +222,11 @@
   width: 100%;
   max-width: 320px;
   aspect-ratio: 16 / 9;
-  border-radius: var(--radius-lg);
+  border-radius: 16px;
   overflow: hidden;
-  border: 1px solid var(--border-card);
-  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.32);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -225,18 +253,18 @@
   width: 100%;
   box-sizing: border-box;
   margin-bottom: var(--space-sm);
-  padding: 10px 14px;
-  border: 1px solid var(--border-input);
+  padding: 11px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-pill);
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.28);
   color: var(--text-body);
   font-size: var(--text-sm);
   font-family: inherit;
   outline: none;
   transition:
-    border-color var(--dur-fast) var(--ease-standard),
-    box-shadow var(--dur-fast) var(--ease-standard),
-    background var(--dur-fast) var(--ease-standard);
+    border-color 0.22s var(--ease-standard),
+    box-shadow 0.22s var(--ease-standard),
+    background 0.22s var(--ease-standard);
 }
 .sm-input:hover {
   border-color: var(--border-input-hover);
@@ -264,24 +292,34 @@
 
 /* ── Empty state ── */
 .sm-empty {
-  padding: 36px 24px 16px;
+  padding: 48px 28px 32px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 8px;
+  gap: 10px;
+  border-radius: 20px;
+  border: 1px dashed rgba(255, 255, 255, 0.06);
+  background: radial-gradient(60% 70% at 50% 0%, rgba(167, 139, 250, 0.08) 0%, transparent 65%);
 }
 .sm-empty-icon {
-  width: 72px;
-  height: 72px;
-  margin-bottom: var(--space-md);
+  width: 80px;
+  height: 80px;
+  margin-bottom: 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-pill);
-  background: rgba(167, 139, 250, 0.1);
-  border: 1px solid rgba(167, 139, 250, 0.22);
+  border-radius: 50%;
+  background: radial-gradient(
+    80% 80% at 30% 20%,
+    rgba(167, 139, 250, 0.26) 0%,
+    rgba(167, 139, 250, 0.08) 100%
+  );
+  border: 1px solid rgba(167, 139, 250, 0.26);
   color: #c4b5fd;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 24px rgba(124, 58, 237, 0.18);
 }
 .sm-empty-title {
   margin: 0;
@@ -307,26 +345,37 @@
 
 .sm-card--fixed {
   position: relative;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-card);
-  background: rgba(255, 255, 255, 0.03);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.035) 0%,
+    rgba(255, 255, 255, 0.015) 100%
+  );
   overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transition:
-    border-color var(--dur-fast) var(--ease-standard),
-    transform var(--dur-fast) var(--ease-standard),
-    box-shadow var(--dur-fast) var(--ease-standard);
+    border-color 0.28s var(--ease-standard),
+    transform 0.28s var(--ease-standard),
+    box-shadow 0.28s var(--ease-standard),
+    background 0.28s var(--ease-standard);
 }
 .sm-card--fixed:hover {
-  border-color: rgba(167, 139, 250, 0.4);
-  transform: translateY(-2px);
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
+  border-color: rgba(167, 139, 250, 0.34);
+  transform: translateY(-3px);
+  background: linear-gradient(180deg, rgba(167, 139, 250, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 14px 32px rgba(0, 0, 0, 0.32),
+    0 24px 60px rgba(124, 58, 237, 0.12);
 }
 .sm-card--fixed.sm-card--selected {
-  border-color: rgba(167, 139, 250, 0.7);
-  background: rgba(167, 139, 250, 0.08);
+  border-color: rgba(167, 139, 250, 0.6);
+  background: linear-gradient(180deg, rgba(167, 139, 250, 0.12) 0%, rgba(167, 139, 250, 0.03) 100%);
   box-shadow:
-    0 0 0 1px rgba(167, 139, 250, 0.3),
-    0 12px 28px rgba(139, 92, 246, 0.18);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(167, 139, 250, 0.25),
+    0 14px 34px rgba(139, 92, 246, 0.22);
 }
 
 .sm-card-pick {
@@ -346,6 +395,9 @@
   aspect-ratio: 16 / 9;
   overflow: hidden;
   background: rgba(0, 0, 0, 0.3);
+  border-top-left-radius: 17px;
+  border-top-right-radius: 17px;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04);
 }
 .sm-card-image img {
   width: 100%;
@@ -394,18 +446,18 @@
   align-items: center;
   justify-content: center;
   padding: 0 10px;
-  border: 1px solid var(--border-card);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text-muted);
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   font-family: inherit;
   transition:
-    color var(--dur-fast) var(--ease-standard),
-    background var(--dur-fast) var(--ease-standard),
-    border-color var(--dur-fast) var(--ease-standard);
+    color 0.22s var(--ease-standard),
+    background 0.22s var(--ease-standard),
+    border-color 0.22s var(--ease-standard);
 }
 .sm-card-action:hover {
   color: var(--text-body);

@@ -259,9 +259,11 @@ export function StylesModal({ onClose }) {
   return (
     <Dialog open onClose={() => onClose?.()} size="lg" ariaLabelledBy="styles-modal-title">
       <div className="sm-body">
-        {/* Header */}
+        {/* Header — hero band with an accent-tinted crest */}
         <div className="sm-header">
-          <div className="sm-header-spacer" />
+          <div className="sm-header-crest" aria-hidden>
+            <IconPalette />
+          </div>
           <div className="sm-header-titles">
             <h2 id="styles-modal-title" className="sm-title">
               Thumbnail styles

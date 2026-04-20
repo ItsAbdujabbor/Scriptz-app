@@ -25,11 +25,13 @@
   /* Fresh stacking context so nothing in the underlying tree (transforms,
    * filters, isolation) can hoist itself above the dialog. */
   isolation: isolate;
-  padding: 20px;
-  background: rgba(8, 6, 14, 0.72);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  animation: ui-dialog-overlay-in 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
+  padding: 24px;
+  background:
+    radial-gradient(70% 50% at 50% 40%, rgba(124, 58, 237, 0.08) 0%, transparent 70%),
+    rgba(8, 6, 14, 0.68);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  animation: ui-dialog-overlay-in 0.26s cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
 @keyframes ui-dialog-overlay-in {
@@ -42,25 +44,54 @@
 }
 
 .ui-dialog-panel {
+  position: relative;
   width: 100%;
-  max-height: 85vh;
+  max-height: 88vh;
   overflow-y: auto;
-  background: linear-gradient(180deg, #1a1a1f 0%, #131318 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
+  /* Soft vertical fade + a faint accent tint at the top so the panel
+   * feels lit from above rather than a flat slab. */
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(167, 139, 250, 0.1) 0%, transparent 55%),
+    linear-gradient(180deg, #1b1b21 0%, #131318 60%, #101014 100%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 24px;
+  /* Layered shadow: tight inner highlight + medium mid shadow + deep
+   * ambient. Reads softer than a single big drop shadow. */
   box-shadow:
-    0 32px 80px rgba(0, 0, 0, 0.65),
-    0 0 0 1px rgba(255, 255, 255, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  animation: ui-dialog-panel-in 0.34s cubic-bezier(0.32, 0.72, 0, 1) both;
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.025),
+    0 4px 12px rgba(0, 0, 0, 0.35),
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    0 48px 120px rgba(124, 58, 237, 0.12);
+  animation: ui-dialog-panel-in 0.38s cubic-bezier(0.32, 0.72, 0, 1) both;
   /* No padding — each consumer dialog adds its own internal padding via
    * its own existing classes. Keeps Dialog.css purely about chrome. */
+}
+
+/* Gentle scrollbar inside the panel so long content (like a persona
+ * grid) doesn't feel like it's scraping against a sharp edge. */
+.ui-dialog-panel::-webkit-scrollbar {
+  width: 10px;
+}
+.ui-dialog-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ui-dialog-panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+.ui-dialog-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(167, 139, 250, 0.22);
+  background-clip: padding-box;
+  border: 3px solid transparent;
 }
 
 @keyframes ui-dialog-panel-in {
   from {
     opacity: 0;
-    transform: translateY(14px) scale(0.97);
+    transform: translateY(14px) scale(0.96);
   }
   to {
     opacity: 1;
@@ -70,21 +101,31 @@
 
 /* ── Sizes ── */
 .ui-dialog-panel--sm {
-  max-width: 380px;
+  max-width: 400px;
 }
 .ui-dialog-panel--md {
-  max-width: 520px;
+  max-width: 540px;
 }
 .ui-dialog-panel--lg {
-  max-width: 760px;
+  max-width: 780px;
 }
 .ui-dialog-panel--xl {
-  max-width: 920px;
+  max-width: 960px;
 }
 .ui-dialog-panel--fullscreen {
   max-width: min(1440px, calc(100vw - 3vw));
   max-height: calc(100dvh - 3vh);
   height: 100%;
+}
+
+@media (max-width: 640px) {
+  .ui-dialog-overlay {
+    padding: 12px;
+  }
+  .ui-dialog-panel {
+    border-radius: 20px;
+    max-height: 92vh;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
