@@ -51,25 +51,6 @@ export const queryKeys = {
       utcOffsetMinutes,
     ],
   },
-  coach: {
-    conversations: (params = {}) => [
-      'coach',
-      'conversations',
-      params.limit ?? 50,
-      params.offset ?? 0,
-      params.search ?? '',
-      params.isActive ?? 'all',
-    ],
-    conversation: (conversationId) => ['coach', 'conversation', conversationId ?? 'new'],
-  },
-  personas: {
-    list: () => ['personas', 'list'],
-    detail: (id) => ['personas', 'detail', id ?? ''],
-  },
-  styles: {
-    list: () => ['styles', 'list'],
-    detail: (id) => ['styles', 'detail', id ?? ''],
-  },
   thumbnails: {
     conversations: (params = {}) => [
       'thumbnails',
@@ -85,16 +66,6 @@ export const queryKeys = {
      * URL (often a 400KB data URL) is never used as part of the key.
      */
     rating: (imageFingerprint) => ['thumbnails', 'rating', imageFingerprint ?? ''],
-  },
-  scripts: {
-    conversations: (params = {}) => [
-      'scripts',
-      'conversations',
-      params.limit ?? 50,
-      params.offset ?? 0,
-      params.channelId ?? '',
-    ],
-    conversation: (conversationId) => ['scripts', 'conversation', conversationId ?? 'new'],
   },
   billing: {
     credits: ['billing', 'credits'],

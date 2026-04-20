@@ -26,8 +26,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { thumbnailsApi } from '../api/thumbnails'
 import { invalidateCredits, useCostOf } from '../queries/billing/creditsQueries'
-import { usePersonaStore } from '../stores/personaStore'
-import { PersonaSelector } from './PersonaSelector'
 import { SegmentedTabs } from './ui/SegmentedTabs'
 import { PrimaryPill } from './ui/PrimaryPill'
 
@@ -105,17 +103,6 @@ const IconFaceSwap = (p) => (
         <polyline points="7.2 4.2 7 6.3 9 6.5" />
         <path d="M21 13.5a6 6 0 0 1-4 4.2" />
         <polyline points="16.8 19.8 17 17.7 15 17.5" />
-      </>
-    }
-  />
-)
-const IconPersonaHead = (p) => (
-  <Svg
-    {...p}
-    path={
-      <>
-        <circle cx="12" cy="8" r="4" />
-        <path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6" />
       </>
     }
   />
@@ -570,9 +557,8 @@ function popoverOptionStyle(isActive) {
 
 /* ── Component ────────────────────────────────────────────────────── */
 export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
-  const [tab, setTab] = useState('edit') // 'edit' | 'face'
   const [editPrompt, setEditPrompt] = useState('')
-  const [batch, setBatch] = useState(1)
+  const [batch] = useState(1)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
@@ -588,7 +574,6 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
 
   const editTextareaRef = useRef(null)
   const queryClient = useQueryClient()
-  const selectedPersona = usePersonaStore((s) => s.selectedPersona)
 
   // Live per-tier credit cost for the action the user is about to take.
   // Backend charges the same cost for edit + faceswap, so one key covers both.
@@ -622,7 +607,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onClose, busy, tab, editPrompt, selectedPersona, batch])
+  }, [onClose, busy, editPrompt, batch])
 
   useEffect(() => {
     const prev = document.body.style.overflow
@@ -633,8 +618,8 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
   }, [])
 
   useEffect(() => {
-    if (tab === 'edit') editTextareaRef.current?.focus()
-  }, [tab])
+    editTextareaRef.current?.focus()
+  }, [])
 
   // Load the image + size the canvas to its natural dimensions.
   useEffect(() => {
@@ -753,7 +738,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
 
   /* ── Pointer handlers ─────────────────────────────────────────── */
   const onPointerDown = (e) => {
-    if (busy || tab !== 'edit') return
+    if (busy) return
     const pos = getCanvasCoords(e)
     if (!pos) return
     e.currentTarget.setPointerCapture?.(e.pointerId)
@@ -890,28 +875,10 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     return res?.image_url || null
   }
 
-  async function callFaceSwapOnce(token) {
-    const imageB64 = extractBase64FromDataUrl(imageUrl)
-    const faceB64 = extractBase64FromDataUrl(selectedPersona.image_url)
-    const res = await thumbnailsApi.faceSwap(token, {
-      thumbnail_image_base64: imageB64 || undefined,
-      thumbnail_image_url: imageB64 ? undefined : imageUrl,
-      face_image_base64: faceB64 || undefined,
-      face_image_url: faceB64 ? undefined : selectedPersona.image_url,
-      extra_hint: editPrompt.trim() || undefined,
-    })
-    return res?.image_url || null
-  }
-
   async function handleSubmit() {
     if (busy) return
     if (!imageUrl) return setError('No thumbnail to edit.')
-    if (tab === 'edit' && !editPrompt.trim()) {
-      return setError('Describe the change you want.')
-    }
-    if (tab === 'face' && !selectedPersona?.image_url) {
-      return setError('Select a persona to swap the face with.')
-    }
+    if (!editPrompt.trim()) return setError('Describe the change you want.')
 
     setError(null)
     setBusy(true)
@@ -919,11 +886,8 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Sign in required.')
 
-      let maskB64 = null
-      if (tab === 'edit') maskB64 = await exportMaskBase64()
-
-      const oneCall =
-        tab === 'edit' ? () => callEditOnce(token, maskB64) : () => callFaceSwapOnce(token)
+      const maskB64 = await exportMaskBase64()
+      const oneCall = () => callEditOnce(token, maskB64)
 
       const settled = await Promise.allSettled(Array.from({ length: batch }, () => oneCall()))
       const urls = settled.filter((r) => r.status === 'fulfilled' && r.value).map((r) => r.value)
@@ -935,25 +899,15 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
       onApply?.(urls.length === 1 ? urls[0] : urls)
       onClose?.()
     } catch (err) {
-      setError(
-        err?.message ||
-          (tab === 'edit'
-            ? 'Edit failed. Try a different prompt.'
-            : 'Character swap failed. Try another character.')
-      )
+      setError(err?.message || 'Edit failed. Try a different prompt.')
       setBusy(false)
     }
   }
 
-  const canSubmit =
-    !busy && !!imageUrl && (tab === 'edit' ? !!editPrompt.trim() : !!selectedPersona?.image_url)
+  const canSubmit = !busy && !!imageUrl && !!editPrompt.trim()
 
   const placeholder =
-    tab === 'edit'
-      ? 'Describe the change — paint a region for targeted edits, or leave blank to edit the whole thumbnail.'
-      : selectedPersona
-        ? `Optional hint — e.g. keep beard, match ${selectedPersona.name}'s lighting…`
-        : 'Pick a persona →  then describe any extra hint (optional)…'
+    'Describe the change — paint a region for targeted edits, or leave blank to edit the whole thumbnail.'
 
   const dialog = (
     <div
@@ -1202,9 +1156,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
                 aria-hidden
               />
               <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.88)' }}>
-                {tab === 'edit'
-                  ? `AI is editing${batch > 1 ? ` ${batch} variants` : ''}…`
-                  : `Swapping character${batch > 1 ? ` × ${batch}` : ''}…`}
+                {`AI is editing${batch > 1 ? ` ${batch} variants` : ''}…`}
               </span>
             </div>
           )}
@@ -1434,23 +1386,6 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
           </div>
         </div>
 
-        {/* Tabbar — shared SegmentedTabs for the unified app-wide look. */}
-        <div style={{ alignSelf: 'center' }}>
-          <SegmentedTabs
-            value={tab}
-            onChange={(v) => {
-              setTab(v)
-              setError(null)
-            }}
-            ariaLabel="Editor mode"
-            layoutId="etd-mode-toggle"
-            options={[
-              { value: 'edit', label: 'Edit', icon: <IconPencil size={14} /> },
-              { value: 'face', label: 'Character swap', icon: <IconFaceSwap size={14} /> },
-            ]}
-          />
-        </div>
-
         {/* Error */}
         {error && (
           <p
@@ -1471,107 +1406,70 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
           </p>
         )}
 
-        {/* Input area — compact, matchy between tabs. */}
-        {tab === 'edit' ? (
-          <div
-            style={{
-              alignSelf: 'center',
-              width: '100%',
-              maxWidth: 560,
-              display: 'flex',
-              alignItems: 'flex-end',
-              gap: 8,
-              padding: '0.55rem 0.55rem 0.55rem 0.75rem',
-              borderRadius: 14,
-              background:
-                'linear-gradient(180deg, rgba(124,58,237,0.06) 0%, rgba(14,14,18,0.55) 70%)',
-              backdropFilter: 'blur(48px) saturate(1.6)',
-              WebkitBackdropFilter: 'blur(48px) saturate(1.6)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 -4px 24px rgba(0, 0, 0, 0.2)',
-              animation: 'etd-fade-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) both',
+        {/* Input area */}
+        <div
+          style={{
+            alignSelf: 'center',
+            width: '100%',
+            maxWidth: 560,
+            display: 'flex',
+            alignItems: 'flex-end',
+            gap: 8,
+            padding: '0.55rem 0.55rem 0.55rem 0.75rem',
+            borderRadius: 14,
+            background:
+              'linear-gradient(180deg, rgba(124,58,237,0.06) 0%, rgba(14,14,18,0.55) 70%)',
+            backdropFilter: 'blur(48px) saturate(1.6)',
+            WebkitBackdropFilter: 'blur(48px) saturate(1.6)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 -4px 24px rgba(0, 0, 0, 0.2)',
+            animation: 'etd-fade-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) both',
+          }}
+        >
+          <textarea
+            ref={editTextareaRef}
+            value={editPrompt}
+            onChange={(e) => {
+              setEditPrompt(e.target.value)
+              if (error) setError(null)
             }}
-          >
-            <textarea
-              ref={editTextareaRef}
-              value={editPrompt}
-              onChange={(e) => {
-                setEditPrompt(e.target.value)
-                if (error) setError(null)
-              }}
-              placeholder={placeholder}
-              rows={1}
-              maxLength={400}
-              disabled={busy}
-              onKeyDown={(e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                  e.preventDefault()
-                  handleSubmit()
-                }
-              }}
-              style={{
-                flex: 1,
-                padding: '0.5rem 0.2rem',
-                fontSize: '0.86rem',
-                fontFamily: 'inherit',
-                color: 'rgba(255,255,255,0.95)',
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                lineHeight: 1.5,
-                resize: 'none',
-                minHeight: '1.5em',
-                maxHeight: '6em',
-                overflowY: 'auto',
-                boxSizing: 'border-box',
-              }}
-            />
-            <PrimaryActionBtn
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-              busy={busy}
-              label="Generate"
-              busyLabel="Generating…"
-              icon={<IconArrowUp size={13} />}
-              creditCost={unitCost ? (batch > 1 ? totalCost : unitCost) : null}
-            />
-          </div>
-        ) : (
-          <div
-            className="etd-face-panel"
-            style={{
-              alignSelf: 'center',
-              width: '100%',
-              maxWidth: 380,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-              padding: 12,
-              borderRadius: 18,
-              background:
-                'linear-gradient(180deg, rgba(124,58,237,0.06) 0%, rgba(14,14,18,0.55) 70%)',
-              backdropFilter: 'blur(48px) saturate(1.6)',
-              WebkitBackdropFilter: 'blur(48px) saturate(1.6)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 -4px 24px rgba(0, 0, 0, 0.2)',
-              animation: 'etd-fade-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) both',
+            placeholder={placeholder}
+            rows={1}
+            maxLength={400}
+            disabled={busy}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault()
+                handleSubmit()
+              }
             }}
-          >
-            <PersonaSelector />
-            <BatchRowBtn value={batch} onChange={setBatch} disabled={busy} />
-            <PrimaryActionBtn
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-              busy={busy}
-              label="Swap character"
-              busyLabel="Swapping character…"
-              icon={<IconFaceSwap size={16} />}
-              fullWidth
-              ariaLabel="Swap character"
-              creditCost={unitCost ? (batch > 1 ? totalCost : unitCost) : null}
-            />
-          </div>
-        )}
+            style={{
+              flex: 1,
+              padding: '0.5rem 0.2rem',
+              fontSize: '0.86rem',
+              fontFamily: 'inherit',
+              color: 'rgba(255,255,255,0.95)',
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              lineHeight: 1.5,
+              resize: 'none',
+              minHeight: '1.5em',
+              maxHeight: '6em',
+              overflowY: 'auto',
+              boxSizing: 'border-box',
+            }}
+          />
+          <PrimaryActionBtn
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            busy={busy}
+            label="Generate"
+            busyLabel="Generating…"
+            icon={<IconArrowUp size={13} />}
+            creditCost={unitCost ? (batch > 1 ? totalCost : unitCost) : null}
+          />
+        </div>
       </div>
     </div>
   )

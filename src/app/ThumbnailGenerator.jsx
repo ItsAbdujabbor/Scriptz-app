@@ -2,10 +2,6 @@ import { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react
 import { createPortal } from 'react-dom'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { thumbnailsApi } from '../api/thumbnails'
-import { usePersonaStore } from '../stores/personaStore'
-import { useStyleStore } from '../stores/styleStore'
-import { PersonaSelector } from '../components/PersonaSelector'
-import { StyleSelector } from '../components/StyleSelector'
 import {
   useThumbnailConversationQuery,
   useThumbnailChatMutation,
@@ -665,13 +661,6 @@ async function createFullMaskBase64(imageUrl) {
   return canvas.toDataURL('image/png').split(',')[1]
 }
 
-function buildSelectionHint(selectedPersona, selectedStyle) {
-  const hints = []
-  if (selectedPersona?.name) hints.push(`Use persona inspiration: ${selectedPersona.name}.`)
-  if (selectedStyle?.name) hints.push(`Match visual style: ${selectedStyle.name}.`)
-  return hints.join(' ')
-}
-
 function buildAnalyzeSummary(rating, videoTitle) {
   const tier = rating?.tier ? `${rating.tier} ` : ''
   const score = Math.round(rating?.overall_score ?? 0)
@@ -992,13 +981,7 @@ function ThumbnailLightbox({ url, onClose }) {
   )
 }
 
-export function ThumbnailGenerator({
-  channelId,
-  onOpenPersonas,
-  onOpenStyles,
-  conversationId,
-  onConversationCreated,
-}) {
+export function ThumbnailGenerator({ channelId, conversationId, onConversationCreated }) {
   const [lightbox, setLightbox] = useState(null)
   const [copiedMessageId, setCopiedMessageId] = useState(null)
   const [thumbMode, setThumbMode] = useState(() => parseThumbModeFromHash())
@@ -1046,10 +1029,6 @@ export function ThumbnailGenerator({
   const recreateFetchRef = useRef(null)
   const analyzeFetchRef = useRef(null)
   const editFetchRef = useRef(null)
-  const selectedPersonaId = usePersonaStore((s) => s.selectedPersonaId)
-  const selectedPersona = usePersonaStore((s) => s.selectedPersona)
-  const selectedStyleId = useStyleStore((s) => s.selectedStyleId)
-  const selectedStyle = useStyleStore((s) => s.selectedStyle)
   const threadRef = useRef(null)
   const messagesEndRef = useRef(null)
   const composerFooterRef = useRef(null)
@@ -1600,7 +1579,7 @@ export function ThumbnailGenerator({
       if (promptImageDataUrl) {
         const imageUrl = await runWholeImageEdit({
           imageUrl: promptImageDataUrl,
-          prompt: `${combined} ${buildSelectionHint(selectedPersona, selectedStyle)}`.trim(),
+          prompt: combined,
         })
         // Append only the assistant — the user message is already rendered
         // from the optimistic push above.
@@ -1621,8 +1600,6 @@ export function ThumbnailGenerator({
           message: combined,
           conversation_id: activeConversationId || undefined,
           num_thumbnails: numThumbnails,
-          persona_id: selectedPersonaId || undefined,
-          style_id: selectedStyleId || undefined,
           channel_id: channelId || undefined,
         })
         const thumbs = result?.thumbnails || []
@@ -1723,8 +1700,6 @@ export function ThumbnailGenerator({
           message: userRequest,
           conversation_id: conversationId || undefined,
           num_thumbnails: 1,
-          persona_id: selectedPersonaId || undefined,
-          style_id: selectedStyleId || undefined,
           channel_id: channelId || undefined,
         })
         const thumbnails = result?.thumbnails || []
@@ -1749,15 +1724,7 @@ export function ThumbnailGenerator({
         setPendingUserMessage(null)
       }
     },
-    [
-      chatMutation,
-      conversationId,
-      selectedPersonaId,
-      selectedStyleId,
-      channelId,
-      pendingAssistant,
-      finishLoading,
-    ]
+    [chatMutation, conversationId, channelId, pendingAssistant, finishLoading]
   )
 
   const handleRecreateFileChange = async (e) => {
@@ -1779,16 +1746,13 @@ export function ThumbnailGenerator({
       setSendErrorMeta(null)
       return
     }
-    if (!instructions && !selectedPersonaId && !selectedStyleId) {
-      setSendError('Add what should change, or pick a persona or style.')
+    if (!instructions) {
+      setSendError('Add what should change in the recreated thumbnail.')
       setSendErrorMeta(null)
       return
     }
-    const selectionHint = buildSelectionHint(selectedPersona, selectedStyle)
-    const userText = instructions
-      ? `Recreate this thumbnail — ${instructions}`
-      : 'Recreate this thumbnail.'
-    const editPrompt = [`Recreate this thumbnail for YouTube.`, instructions, selectionHint]
+    const userText = `Recreate this thumbnail — ${instructions}`
+    const editPrompt = [`Recreate this thumbnail for YouTube.`, instructions]
       .filter(Boolean)
       .join(' ')
     setSendError('')
@@ -2265,8 +2229,6 @@ export function ThumbnailGenerator({
                         >
                           <IconPaperclip />
                         </button>
-                        <PersonaSelector onOpenLibrary={onOpenPersonas} variant="glassCircle" />
-                        <StyleSelector onOpenLibrary={onOpenStyles} variant="glassCircle" />
                         <ThumbBatchCirclePicker
                           value={numThumbnails}
                           onChange={(v) => setNumThumbnails(Number(v))}
@@ -2355,8 +2317,6 @@ export function ThumbnailGenerator({
                     </div>
                     <div className="coach-composer-actions thumb-gen-toolbar">
                       <div className="thumb-gen-toolbar-tools">
-                        <PersonaSelector onOpenLibrary={onOpenPersonas} variant="glassCircle" />
-                        <StyleSelector onOpenLibrary={onOpenStyles} variant="glassCircle" />
                         <ThumbBatchCirclePicker
                           value={numRecreateThumbnails}
                           onChange={(v) => setNumRecreateThumbnails(Number(v))}

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repo identity
 
-`Scriptz-app` is the **end-user React 19 + Vite SPA** for Scriptz — a credit-billed AI tool for YouTube creators (script ideas, AI coach, video optimization, thumbnail generation, A/B testing, billing). Two sibling repos make up the full product:
+`Scriptz-app` is the **end-user React 19 + Vite SPA** for Scriptz — a credit-billed AI tool for YouTube creators (thumbnail generation, video optimization, A/B testing, billing). Two sibling repos make up the full product:
 
 - `../Scriptz-Api` — FastAPI backend (`/api/**`)
 - `../Scriptz-Admin` — separate admin React app (`/api/admin/**`)
@@ -53,7 +53,7 @@ When the user changes (different `id` from last session), [src/lib/sessionReset.
 
 ### Routing is a hash router by hand, not React Router
 
-[src/App.jsx](src/App.jsx) reads `window.location.hash` and switches a `view` enum (`landing` / `login` / `signup` / `dashboard` / `coach` / `optimize` / `pro` / `ab-testing` / `billing` / `banned` / `terms` / `privacy`). All authenticated views render through [src/AuthenticatedRoutes.jsx](src/AuthenticatedRoutes.jsx) which mounts **a single shared shell** (Sidebar + SettingsModal + main outlet). Switching between dashboard/coach/optimize keeps the same DOM root — the comment in `AuthenticatedRoutes.jsx` explains why (avoids history refetches, sidebar scroll resets, modal state loss). Adding a new authenticated screen means: add a `view` string in `App.jsx`, add a case in `AuthenticatedRoutes.jsx`, and a sidebar entry.
+[src/App.jsx](src/App.jsx) reads `window.location.hash` and switches a `view` enum (`landing` / `login` / `signup` / `dashboard` / `thumbnails` / `optimize` / `pro` / `ab-testing` / `billing` / `banned` / `terms` / `privacy`). All authenticated views render through [src/AuthenticatedRoutes.jsx](src/AuthenticatedRoutes.jsx) which mounts **a single shared shell** (Sidebar + SettingsModal + main outlet). Switching between screens keeps the same DOM root — the comment in `AuthenticatedRoutes.jsx` explains why (avoids history refetches, sidebar scroll resets, modal state loss). Adding a new authenticated screen means: add a `view` string in `App.jsx`, add a case in `AuthenticatedRoutes.jsx`, and a sidebar entry.
 
 Banned users see only `BannedScreen` ([src/auth/BannedScreen.jsx](src/auth/BannedScreen.jsx)) — multiple effects in `App.jsx` redirect them to `#banned` regardless of where they navigate.
 
@@ -64,13 +64,13 @@ Banned users see only `BannedScreen` ([src/auth/BannedScreen.jsx](src/auth/Banne
 
 ### React Query keys live in one file
 
-All query keys are centralized in [src/lib/query/queryKeys.js](src/lib/query/queryKeys.js) under `queryKeys.{user,youtube,dashboard,coach,personas,styles,thumbnails,scripts,billing,modelTier,abTests,thumbnailTemplates}`. Hooks in `src/queries/<domain>/` import these. New API surfaces should add a key namespace here, never inline an array in a `useQuery`.
+All query keys are centralized in [src/lib/query/queryKeys.js](src/lib/query/queryKeys.js) under `queryKeys.{user,youtube,dashboard,thumbnails,billing,modelTier,abTests,thumbnailTemplates}`. Hooks in `src/queries/<domain>/` import these. New API surfaces should add a key namespace here, never inline an array in a `useQuery`.
 
 `invalidateCredits(queryClient)` from [src/queries/billing/creditsQueries.js](src/queries/billing/creditsQueries.js) is called in `onSuccess`/`onError` of every AI mutation so the sidebar credit badge refreshes after a debit.
 
 ### API modules are flat per-domain
 
-[src/api/](src/api/) has one file per backend domain (`auth.js`, `coach.js`, `dashboard.js`, `thumbnails.js`, etc.). Each exports a `*Api` object of plain functions that accept `(token, ...args)` and call `getApiBaseUrl() + path` from [src/lib/env.js](src/lib/env.js). Token is fetched via `getAccessTokenOrNull()` from `src/lib/query/authToken.js` inside the React Query hooks — never call API modules directly from components.
+[src/api/](src/api/) has one file per backend domain (`auth.js`, `dashboard.js`, `thumbnails.js`, etc.). Each exports a `*Api` object of plain functions that accept `(token, ...args)` and call `getApiBaseUrl() + path` from [src/lib/env.js](src/lib/env.js). Token is fetched via `getAccessTokenOrNull()` from `src/lib/query/authToken.js` inside the React Query hooks — never call API modules directly from components.
 
 ### Multi-channel YouTube context
 
@@ -82,20 +82,18 @@ Users can connect multiple YouTube channels. The active channel is tracked in `s
 
 ## Big-picture: where features live
 
-| Feature                                                      | Entry component                                                                                                                                     | Sidebar route             |
-| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| Dashboard insights, channel audit, growth, best time to post | [src/app/Dashboard.jsx](src/app/Dashboard.jsx)                                                                                                      | `#dashboard`              |
-| AI Coach (chat, conversations, deep think)                   | [src/app/CoachChat.jsx](src/app/CoachChat.jsx) + `src/app/coach/CoachChatVirtuosoShell.jsx`                                                         | `#coach`                  |
-| Video Optimize (titles/desc/tags + per-video thumbnails)     | [src/app/Optimize.jsx](src/app/Optimize.jsx) + [src/app/VideoOptimizeModal.jsx](src/app/VideoOptimizeModal.jsx)                                     | `#optimize`               |
-| Thumbnail Generator (chat, edit dialog, raters)              | [src/app/ThumbnailGenerator.jsx](src/app/ThumbnailGenerator.jsx) + [src/components/EditThumbnailDialog.jsx](src/components/EditThumbnailDialog.jsx) | inside dashboard/optimize |
-| A/B Testing                                                  | [src/app/ABTesting.jsx](src/app/ABTesting.jsx) + [src/components/ABTestPanel.jsx](src/components/ABTestPanel.jsx)                                   | `#ab-testing`             |
-| Pricing / paywall                                            | [src/app/Pro.jsx](src/app/Pro.jsx) + `ProPricingContent.jsx`                                                                                        | `#pro`                    |
-| Billing settings (subscription, credit packs, ledger)        | [src/app/Billing.jsx](src/app/Billing.jsx) + `src/components/BillingSettingsPanel.jsx` + `CreditPacksModal.jsx`                                     | `#billing`                |
-| Personas / Styles modals                                     | [src/app/PersonasModal.jsx](src/app/PersonasModal.jsx) / [src/app/StylesModal.jsx](src/app/StylesModal.jsx)                                         | sidebar buttons           |
-| Settings (account, model tier, theme, delete)                | [src/app/SharedSettingsModal.jsx](src/app/SharedSettingsModal.jsx) + `SettingsModal.jsx`                                                            | sidebar                   |
-| Landing page (waitlist, pricing, FAQ, demo)                  | [src/landing/LandingPage.jsx](src/landing/LandingPage.jsx) + `src/landing/sections/*`                                                               | `#`                       |
+| Feature                                                      | Entry component                                                                                                                                                                                        | Sidebar route |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
+| Dashboard insights, channel audit, growth, best time to post | [src/app/Dashboard.jsx](src/app/Dashboard.jsx)                                                                                                                                                         | `#dashboard`  |
+| Thumbnail Generator (chat, edit dialog, raters)              | [src/app/Thumbnails.jsx](src/app/Thumbnails.jsx) + [src/app/ThumbnailGenerator.jsx](src/app/ThumbnailGenerator.jsx) + [src/components/EditThumbnailDialog.jsx](src/components/EditThumbnailDialog.jsx) | `#thumbnails` |
+| Video Optimize (titles/desc/tags + per-video thumbnails)     | [src/app/Optimize.jsx](src/app/Optimize.jsx) + [src/app/VideoOptimizeModal.jsx](src/app/VideoOptimizeModal.jsx)                                                                                        | `#optimize`   |
+| A/B Testing                                                  | [src/app/ABTesting.jsx](src/app/ABTesting.jsx) + [src/components/ABTestPanel.jsx](src/components/ABTestPanel.jsx)                                                                                      | `#ab-testing` |
+| Pricing / paywall                                            | [src/app/Pro.jsx](src/app/Pro.jsx) + `ProPricingContent.jsx`                                                                                                                                           | `#pro`        |
+| Billing settings (subscription, credit packs, ledger)        | [src/app/Billing.jsx](src/app/Billing.jsx) + `src/components/BillingSettingsPanel.jsx` + `CreditPacksModal.jsx`                                                                                        | `#billing`    |
+| Settings (account, model tier, theme, delete)                | [src/app/SharedSettingsModal.jsx](src/app/SharedSettingsModal.jsx) + `SettingsModal.jsx`                                                                                                               | sidebar       |
+| Landing page (waitlist, pricing, FAQ, demo)                  | [src/landing/LandingPage.jsx](src/landing/LandingPage.jsx) + `src/landing/sections/*`                                                                                                                  | `#`           |
 
-`src/next-update-ideas/` holds the old Script Generator + Templates code that was intentionally cut from Sidebar/AuthenticatedRoutes (see commits `bb53460`, `9f74ac2`). Don't re-import unless restoring that feature.
+**Retired features** (code fully removed, do not restore without product sign-off): AI Coach chat, Script Generator, Templates library, Personas (character looks), Styles library. The Coach/Scripts/Templates code was moved to `src/next-update-ideas/` in earlier commits; the Personas/Styles code was deleted outright. `src/next-update-ideas/` should not be imported.
 
 ## Design system — reuse, don't redefine
 
@@ -114,7 +112,6 @@ The canonical accent gradient string is banned outside `design-tokens.css`. `npm
 
 Deferred from the phase-5 polish pass because each carries pixel-shift or interaction-risk that's better done as a focused commit than bundled into a sweep:
 
-- [src/app/CoachChat.jsx](src/app/CoachChat.jsx) + [src/app/SharedSettingsModal.jsx](src/app/SharedSettingsModal.jsx) still render the legacy `<TabBar>` (`.coach-tabbar.modal`). Migrate to `<SegmentedTabs>` once someone can visually verify the composer layout doesn't shift.
 - [src/components/EditThumbnailDialog.jsx](src/components/EditThumbnailDialog.jsx) still rolls its own `createPortal`. Migrate to `<Dialog size="fullscreen">` once the mask + undo stack + canvas interactions are re-verified end-to-end.
 - Several feature files ([Sidebar.jsx](src/app/Sidebar.jsx), [VideoOptimizeModal.jsx](src/app/VideoOptimizeModal.jsx), [ThumbnailGenerator.jsx](src/app/ThumbnailGenerator.jsx), [Dashboard.jsx](src/app/Dashboard.jsx)) still define local `Icon*` components for glyphs the shared library already owns. Swapping in [icons.jsx](src/components/ui/icons.jsx) exports requires stroke-width + default-size overrides per call site to avoid pixel shifts — do the swap one file at a time with a visual diff.
 - Radius scale (10/14/18 literals vs 8/12/16 tokens) was not mechanically swept in phase 5 because many of those values encode intentional hierarchy (card container vs inner image cell). Close on a case-by-case basis only where a radius is a clear neighbour-of-scale drift.

@@ -14,8 +14,6 @@ import {
 import { SegmentedTabs } from '../components/ui/SegmentedTabs'
 import { useYoutubeVideoOptimization } from '../queries/youtube/optimizationQueries'
 import { videoThumbnailsApi } from '../api/videoThumbnails'
-import { PersonaSelector } from '../components/PersonaSelector'
-import { StyleSelector } from '../components/StyleSelector'
 import { EditThumbnailDialog } from '../components/EditThumbnailDialog'
 import { useCostOf } from '../queries/billing/creditsQueries'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
@@ -775,8 +773,6 @@ export function VideoOptimizeModal({
         channel_id: channelId || undefined,
         message,
         num_thumbnails: thumbBatchCount,
-        persona_id: undefined,
-        style_id: undefined,
       })
       const thumbs = res?.thumbnails || []
       setThumbnailsByVideo((prev) => ({
@@ -1946,8 +1942,6 @@ export function VideoOptimizeModal({
                         <polyline points="21 15 16 10 5 21" />
                       </svg>
                     </button>
-                    <PersonaSelector variant="glassCircle" />
-                    <StyleSelector variant="glassCircle" />
                   </div>
                   <div className="video-opt-float-actions-right">
                     <BatchCirclePicker

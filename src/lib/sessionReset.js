@@ -4,8 +4,6 @@
  */
 
 import { useOnboardingStore } from '../stores/onboardingStore'
-import { useStyleStore } from '../stores/styleStore'
-import { usePersonaStore } from '../stores/personaStore'
 import { useSidebarStore } from '../stores/sidebarStore'
 import { resetPrefetchFlag } from './query/prefetchHistoryConversations'
 import { API_AUTH_STORAGE_KEY } from './authMode'
@@ -21,8 +19,6 @@ export const LAST_AUTH_USER_ID_KEY = 'scriptz_last_auth_user_id'
 
 const ONBOARDING_KEY = 'scriptz_onboarding'
 const SIDEBAR_KEY = 'scriptz_sidebar_ui'
-const STYLE_PERSIST_KEY = 'scriptz_selected_style'
-const PERSONA_PERSIST_KEY = 'scriptz_selected_persona'
 const MILESTONE_PREFIX = 'scriptz-milestone-visit-v1:'
 
 function removeMilestoneVisitKeys() {
@@ -53,8 +49,6 @@ export function resetClientCachesForUserChange() {
       localStorage.removeItem(API_AUTH_STORAGE_KEY)
       localStorage.removeItem(ONBOARDING_KEY)
       localStorage.removeItem(SIDEBAR_KEY)
-      localStorage.removeItem(STYLE_PERSIST_KEY)
-      localStorage.removeItem(PERSONA_PERSIST_KEY)
       removeMilestoneVisitKeys()
     }
   } catch (_) {
@@ -64,24 +58,10 @@ export function resetClientCachesForUserChange() {
   useOnboardingStore.getState().clearLocalData()
   useOnboardingStore.getState().load()
 
-  useStyleStore.setState({ selectedStyleId: null, selectedStyle: null })
-  usePersonaStore.setState({ selectedPersonaId: null, selectedPersona: null })
-
   useSidebarStore.setState({
     collapsed: false,
     mobileOpen: false,
     toolsExpanded: false,
     accountDialogOpen: false,
   })
-
-  try {
-    useStyleStore.persist?.clearStorage?.()
-  } catch (_) {
-    /* ignore */
-  }
-  try {
-    usePersonaStore.persist?.clearStorage?.()
-  } catch (_) {
-    /* ignore */
-  }
 }

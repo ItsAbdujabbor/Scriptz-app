@@ -40,7 +40,7 @@ const RefundPolicy = lazy(() =>
   import('./legal/RefundPolicy').then((m) => ({ default: m.RefundPolicy }))
 )
 
-/** Dashboard, Coach, Optimize, Pro, Templates — one lazy chunk; in-app navigation does not flash full-screen. */
+/** Dashboard, Optimize, Pro, Billing, A/B Testing — one lazy chunk; in-app navigation does not flash full-screen. */
 const AuthenticatedRoutes = lazy(() => import('./AuthenticatedRoutes.jsx'))
 
 const LoadingFallback = () => (
@@ -95,15 +95,12 @@ function getView() {
   if (h === 'onboarding') return 'dashboard'
   if (h === 'optimizing') return 'dashboard'
   if (h === 'dashboard') return 'dashboard'
-  if (h === 'coach' || h.startsWith('coach/')) return 'coach'
   if (h === 'thumbnails' || h.startsWith('thumbnails/') || h.startsWith('thumbnails?'))
-    return 'coach'
+    return 'thumbnails'
   if (h === 'optimize') return 'optimize'
   if (h === 'pro') return 'pro'
   if (h === 'ab-testing' || h.startsWith('ab-testing/')) return 'ab-testing'
   if (h === 'billing') return 'billing'
-  // if (h === 'library') return 'templates'  // next update
-  // if (h === 'templates') return 'templates' // next update
   if (h === 'app-youtube') return 'dashboard'
   return 'landing'
 }
@@ -239,7 +236,7 @@ function App() {
 
   useEffect(() => {
     if (!sessionChecked) return
-    const appViews = ['dashboard', 'coach', 'optimize', 'pro', 'templates', 'ab-testing', 'billing']
+    const appViews = ['dashboard', 'thumbnails', 'optimize', 'pro', 'ab-testing', 'billing']
     if (appViews.includes(view) && !accessToken) {
       window.location.hash = 'login'
       setView('login')
@@ -280,15 +277,10 @@ function App() {
     )
   }
 
-  const appViews = ['dashboard', 'coach', 'optimize', 'pro', 'templates']
+  const appViews = ['dashboard', 'thumbnails', 'optimize', 'pro', 'ab-testing', 'billing']
   const needsSessionBeforeRender = appViews.includes(view)
   if (needsSessionBeforeRender && !sessionChecked) {
-    if (
-      ['dashboard', 'coach', 'optimize', 'pro', 'templates', 'ab-testing', 'billing'].includes(view)
-    ) {
-      return <AppShellLoading view={view} onLogout={onLogout} />
-    }
-    return <LoadingFallback />
+    return <AppShellLoading view={view} onLogout={onLogout} />
   }
   if (appViews.includes(view) && !accessToken) {
     return null
@@ -333,14 +325,12 @@ function App() {
         return <RefundPolicy onBack={goBack} />
       case 'dashboard':
         return <AuthenticatedRouteBoundary view="dashboard" onLogout={onLogout} />
-      case 'coach':
-        return <AuthenticatedRouteBoundary view="coach" onLogout={onLogout} />
+      case 'thumbnails':
+        return <AuthenticatedRouteBoundary view="thumbnails" onLogout={onLogout} />
       case 'optimize':
         return <AuthenticatedRouteBoundary view="optimize" onLogout={onLogout} />
       case 'pro':
         return <AuthenticatedRouteBoundary view="pro" onLogout={onLogout} />
-      case 'templates':
-        return <AuthenticatedRouteBoundary view="templates" onLogout={onLogout} />
       case 'ab-testing':
         return <AuthenticatedRouteBoundary view="ab-testing" onLogout={onLogout} />
       case 'billing':

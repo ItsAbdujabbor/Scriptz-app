@@ -15,21 +15,27 @@ import {
   useSetModelTierMutation,
 } from '../queries/modelTier/modelTierQueries'
 import { openCreditsModal } from '../lib/creditsModalBus'
-import {
-  prefetchCoachConversation,
-  useDeleteCoachConversationMutation,
-  useUpdateCoachConversationMutation,
-} from '../queries/coach/coachQueries'
-// Script queries — next update (moved to src/next-update-ideas/ScriptGenerator)
-const prefetchScriptConversation = () => {} // next update stub
+// Coach + Scripts chats are retired; the sidebar only surfaces Thumbnail
+// conversations. These stubs keep the merge/render code below that still
+// references the old mutation types working without any network calls.
+const prefetchCoachConversation = () => {}
+const useDeleteCoachConversationMutation = () => ({
+  mutateAsync: async () => {},
+  isPending: false,
+})
+const useUpdateCoachConversationMutation = () => ({
+  mutateAsync: async () => {},
+  isPending: false,
+})
+const prefetchScriptConversation = () => {}
 const useDeleteScriptConversationMutation = () => ({
   mutateAsync: async () => {},
   isPending: false,
-}) // next update stub
+})
 const useUpdateScriptConversationMutation = () => ({
   mutateAsync: async () => {},
   isPending: false,
-}) // next update stub
+})
 import {
   prefetchThumbnailConversationCache,
   useThumbnailConversationsQuery,
@@ -69,21 +75,6 @@ const IconChart = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M3 3v18h18" />
     <path d="m19 9-5 5-4-4-3 3" />
-  </svg>
-)
-const IconStyles = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <circle cx="7" cy="12" r="2.2" />
-    <circle cx="12" cy="7" r="2.2" />
-    <circle cx="17" cy="12" r="2.2" />
-    <circle cx="12" cy="17" r="2.2" />
   </svg>
 )
 const IconBilling = () => (
@@ -284,13 +275,6 @@ const IconUser = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
     <circle cx="12" cy="7" r="4" />
-  </svg>
-)
-const IconPersonalization = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M12 3a9 9 0 0 0 9 9c0-5-4-9-9-9z" />
-    <path d="M12 12a9 9 0 0 0 9 9" />
-    <path d="M12 12a9 9 0 0 1-9 9" />
   </svg>
 )
 const IconCpu = () => (
@@ -707,8 +691,6 @@ const HistoryItem = memo(function HistoryItem({
 export function Sidebar({
   user,
   onOpenSettings,
-  onOpenPersonas,
-  onOpenStyles,
   onLogout,
   currentScreen = 'dashboard',
   activeTab = 'coach',
@@ -950,16 +932,6 @@ export function Sidebar({
     closeMobile()
     onOpenSettings?.(section)
   }
-  const handleOpenPersonas = () => {
-    setAccountDialogOpen(false)
-    closeMobile()
-    onOpenPersonas?.()
-  }
-  const handleOpenStyles = () => {
-    setAccountDialogOpen(false)
-    closeMobile()
-    onOpenStyles?.()
-  }
   const handleNewChat = () => {
     closeMobile()
     setHistoryMenu({ conversationId: null, type: null, x: 0, y: 0 })
@@ -1096,19 +1068,6 @@ export function Sidebar({
           </span>
           <span className="sidebar-account-item-label">Account</span>
         </button>
-        <button type="button" className="sidebar-account-item" onClick={handleOpenPersonas}>
-          <span className="sidebar-account-item-icon" aria-hidden>
-            <IconPersonalization />
-          </span>
-          <span className="sidebar-account-item-label">Characters</span>
-        </button>
-        <button type="button" className="sidebar-account-item" onClick={handleOpenStyles}>
-          <span className="sidebar-account-item-icon" aria-hidden>
-            <IconStyles />
-          </span>
-          <span className="sidebar-account-item-label">Styles</span>
-        </button>
-
         {/* Nested collapsible — AI Model picker */}
         <div
           className={`sidebar-account-model ${modelTierOpen ? 'sidebar-account-model--open' : ''}`}
