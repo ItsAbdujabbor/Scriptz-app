@@ -9745,6 +9745,69 @@ img.dashboard-youtube-avatar {
   font-size: 0.9rem;
 }
 
+/* Staggered fade-in for skeleton groups inside dashboard sections.
+ * Pairs with the shared `.sk-shim` shimmer family so chat skeletons,
+ * dashboard skeletons, and any future placeholder all feel like one
+ * coherent loading language. ~80ms between siblings keeps the page
+ * feeling alive without being chaotic.
+ *
+ * Scoped to .sk-group children so we don't accidentally animate the
+ * spinner version of `.dashboard-loading` (which has no children). */
+.dashboard-loading.sk-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+.dashboard-loading.sk-group > *,
+.cpulse-grid.sk-group > * {
+  opacity: 0;
+  animation: dashboardSkelIn 320ms cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+.dashboard-loading.sk-group > *:nth-child(1),
+.cpulse-grid.sk-group > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.dashboard-loading.sk-group > *:nth-child(2),
+.cpulse-grid.sk-group > *:nth-child(2) {
+  animation-delay: 80ms;
+}
+.dashboard-loading.sk-group > *:nth-child(3),
+.cpulse-grid.sk-group > *:nth-child(3) {
+  animation-delay: 160ms;
+}
+.dashboard-loading.sk-group > *:nth-child(4),
+.cpulse-grid.sk-group > *:nth-child(4) {
+  animation-delay: 240ms;
+}
+.dashboard-loading.sk-group > *:nth-child(5),
+.cpulse-grid.sk-group > *:nth-child(5) {
+  animation-delay: 320ms;
+}
+.dashboard-loading.sk-group > *:nth-child(6),
+.cpulse-grid.sk-group > *:nth-child(6) {
+  animation-delay: 400ms;
+}
+
+@keyframes dashboardSkelIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-loading.sk-group > *,
+  .cpulse-grid.sk-group > * {
+    animation: none;
+    opacity: 1;
+  }
+}
+
 .dashboard-loading-spinner {
   width: 28px;
   height: 28px;

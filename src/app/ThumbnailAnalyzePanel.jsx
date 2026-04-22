@@ -1,9 +1,25 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useMemo } from 'react'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { thumbnailsApi } from '../api/thumbnails'
+import { toast } from '../lib/toast'
+import { friendlyTitleFor, parseApiError } from '../lib/errorMessages'
+import GenerationProgress from '../components/GenerationProgress'
 import './ThumbnailRater.css'
 
 const YOUTUBE_URL_RE = /https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[a-zA-Z0-9_-]+/
+
+const CRITERIA_ORDER = [
+  'visual_hierarchy',
+  'subject_clarity',
+  'emotional_hook',
+  'background_discipline',
+  'color_and_contrast',
+  'lighting_quality',
+  'mobile_readability',
+  'curiosity_gap',
+  'composition',
+  'production_polish',
+]
 
 function extractYoutubeUrl(text) {
   const m = String(text || '').match(YOUTUBE_URL_RE)
@@ -26,12 +42,52 @@ async function pollJobUntilDone(token, jobId, intervalMs = 2000, maxAttempts = 6
   throw new Error('Improvement timed out')
 }
 
-function scoreTierClass(score) {
-  if (score == null) return ''
+function gradeFromScore(score) {
   const n = Number(score)
-  if (n >= 85) return 'thumb-rater-tier--high'
-  if (n >= 60) return 'thumb-rater-tier--mid'
-  return 'thumb-rater-tier--low'
+  if (!Number.isFinite(n)) return '—'
+  if (n >= 90) return 'A+'
+  if (n >= 80) return 'A'
+  if (n >= 70) return 'B'
+  if (n >= 60) return 'C'
+  if (n >= 50) return 'D'
+  return 'F'
+}
+
+function gradeTierClass(grade) {
+  const g = String(grade || '').toUpperCase()
+  if (g.startsWith('A')) return 'thumb-grade--a'
+  if (g.startsWith('B')) return 'thumb-grade--b'
+  if (g.startsWith('C')) return 'thumb-grade--c'
+  if (g.startsWith('D')) return 'thumb-grade--d'
+  if (g.startsWith('F')) return 'thumb-grade--f'
+  return ''
+}
+
+function ctrTierClass(band) {
+  const b = String(band || '').toLowerCase()
+  if (b.includes('top')) return 'thumb-ctr--top'
+  if (b.includes('above')) return 'thumb-ctr--above'
+  if (b.includes('average') && !b.includes('above') && !b.includes('below')) return 'thumb-ctr--avg'
+  if (b.includes('below')) return 'thumb-ctr--below'
+  if (b.includes('bottom')) return 'thumb-ctr--bottom'
+  return 'thumb-ctr--avg'
+}
+
+function verdictClass(verdict) {
+  const v = String(verdict || '').toLowerCase()
+  if (v.includes('strong')) return 'thumb-verdict--strong'
+  if (v.includes('solid')) return 'thumb-verdict--solid'
+  if (v.includes('adequate') || v.includes('loose')) return 'thumb-verdict--adequate'
+  if (v.includes('weak')) return 'thumb-verdict--weak'
+  if (v.includes('poor') || v.includes('mismatch')) return 'thumb-verdict--poor'
+  return 'thumb-verdict--solid'
+}
+
+function humanizeKey(key) {
+  return String(key || '')
+    .split('_')
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(' ')
 }
 
 function IconSparkle() {
@@ -65,6 +121,34 @@ function IconUpload() {
       <polyline points="17 8 12 3 7 8" />
       <line x1="12" y1="3" x2="12" y2="15" />
     </svg>
+  )
+}
+
+function CriterionCard({ entry }) {
+  const score = entry?.score
+  const verdict = entry?.verdict || ''
+  return (
+    <div className="thumb-criterion-card">
+      <div className="thumb-criterion-head">
+        <span className="thumb-criterion-label">{entry?.label || humanizeKey(entry?.key)}</span>
+        <div className="thumb-criterion-score-row">
+          <span className="thumb-criterion-score">
+            {score != null ? Number(score).toFixed(score % 1 === 0 ? 0 : 1) : '—'}
+            <span className="thumb-criterion-score-max">/10</span>
+          </span>
+          {verdict && (
+            <span className={`thumb-verdict-pill ${verdictClass(verdict)}`}>{verdict}</span>
+          )}
+        </div>
+      </div>
+      {entry?.explanation && <p className="thumb-criterion-text">{entry.explanation}</p>}
+      {entry?.suggestion && (
+        <div className="thumb-criterion-suggest">
+          <span className="thumb-criterion-suggest-label">Try this</span>
+          <span className="thumb-criterion-suggest-text">{entry.suggestion}</span>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -134,7 +218,9 @@ export function ThumbnailAnalyzePanel() {
       setRatingId(null)
       setImprovedUrl(null)
     } catch (err) {
-      setRateError(err?.message || 'Could not fetch thumbnail')
+      const { code, message } = parseApiError(err, 'Could not fetch thumbnail')
+      setRateError(message)
+      toast.error(message, { code: code || undefined, title: friendlyTitleFor(code) })
     } finally {
       setLoadingPreview(false)
     }
@@ -170,7 +256,9 @@ export function ThumbnailAnalyzePanel() {
       setRating(res)
       setRatingId(res?.rating_id ?? null)
     } catch (err) {
-      setRateError(err?.message || 'Analysis failed')
+      const { code, message } = parseApiError(err, 'Analysis failed')
+      setRateError(message)
+      toast.error(message, { code: code || undefined, title: friendlyTitleFor(code) })
     } finally {
       setLoadingRate(false)
     }
@@ -191,22 +279,72 @@ export function ThumbnailAnalyzePanel() {
       if (imageUrl) setImprovedUrl(imageUrl)
       else throw new Error('No improved image in result')
     } catch (err) {
-      setRateError(err?.message || 'Improvement failed')
+      const { code, message } = parseApiError(err, 'Improvement failed')
+      setRateError(message)
+      toast.error(message, { code: code || undefined, title: friendlyTitleFor(code) })
     } finally {
       setImproving(false)
     }
   }, [ratingId])
 
-  const sub = rating?.subscores
-  const analysisLines = Array.isArray(rating?.analysis) ? rating.analysis.filter(Boolean) : []
+  // Derive presentation values from the rating with legacy fallbacks.
+  const overallScore = useMemo(() => {
+    if (!rating) return null
+    const n = Number(rating.overall_score)
+    return Number.isFinite(n) ? Math.round(n) : null
+  }, [rating])
+
+  const grade = useMemo(() => {
+    if (!rating) return null
+    if (rating.overall_grade) return String(rating.overall_grade)
+    return gradeFromScore(rating.overall_score)
+  }, [rating])
+
+  const orderedCriteria = useMemo(() => {
+    const arr = Array.isArray(rating?.criteria) ? rating.criteria.filter(Boolean) : []
+    if (arr.length === 0) return []
+    const byKey = new Map(arr.map((c) => [c?.key, c]))
+    const ordered = []
+    for (const key of CRITERIA_ORDER) {
+      if (byKey.has(key)) {
+        ordered.push(byKey.get(key))
+        byKey.delete(key)
+      }
+    }
+    // Append any unexpected keys at the end so we never drop server data.
+    for (const remaining of byKey.values()) ordered.push(remaining)
+    return ordered
+  }, [rating])
+
+  const topStrengths = useMemo(() => {
+    if (!rating) return []
+    if (Array.isArray(rating.top_strengths) && rating.top_strengths.length > 0) {
+      return rating.top_strengths.slice(0, 3)
+    }
+    if (Array.isArray(rating.strengths)) return rating.strengths.slice(0, 3)
+    return []
+  }, [rating])
+
+  const topFixes = useMemo(() => {
+    if (!rating) return []
+    if (Array.isArray(rating.top_fixes) && rating.top_fixes.length > 0) {
+      return rating.top_fixes.slice(0, 3)
+    }
+    if (Array.isArray(rating.recommendations)) return rating.recommendations.slice(0, 3)
+    return []
+  }, [rating])
+
+  const titleSynergy = rating?.title_synergy || null
+  const oneLiner = rating?.one_liner || rating?.specific_advice || ''
+  const ctrBand = rating?.predicted_ctr_band || ''
 
   return (
     <div className="thumb-rater thumb-analyze">
       <div className="thumb-rater-hero">
         <h2 className="thumb-rater-title">Analyze</h2>
         <p className="thumb-rater-sub">
-          Upload a thumbnail or fetch one from YouTube. You get scores, rubric breakdown, strengths
-          and weaknesses, and step-by-step recommendations to improve CTR.
+          Upload a thumbnail or fetch one from YouTube. You get a graded breakdown across 10
+          criteria, predicted CTR band, and the highest-leverage fixes.
         </p>
       </div>
 
@@ -317,132 +455,119 @@ export function ThumbnailAnalyzePanel() {
 
       {rateError && <div className="thumb-rater-error">{rateError}</div>}
 
-      {rating && (
+      {loadingRate && (
+        <div className="thumb-analyze-loading">
+          <GenerationProgress estimatedDurationMs={14000} />
+        </div>
+      )}
+
+      {rating && !loadingRate && (
         <div className="thumb-rater-results thumb-analyze-results">
-          <div className={`thumb-rater-score-card ${scoreTierClass(rating.overall_score)}`}>
-            <div className="thumb-rater-score-main">
-              <span className="thumb-rater-score-value">
-                {Math.round(Number(rating.overall_score) || 0)}
-              </span>
-              <span className="thumb-rater-score-label">Overall quality</span>
+          {/* Hero card */}
+          <div className={`thumb-hero-card ${gradeTierClass(grade)}`}>
+            <div className="thumb-hero-grade-wrap">
+              <span className="thumb-hero-grade">{grade || '—'}</span>
+              <span className="thumb-hero-grade-label">Overall grade</span>
             </div>
-            {rating.tier && <span className="thumb-rater-tier-badge">{rating.tier}</span>}
-          </div>
-
-          <div className="thumb-rater-metrics">
-            <div className="thumb-rater-metric">
-              <span className="thumb-rater-metric-label">CTR potential</span>
-              <span className="thumb-rater-metric-val">
-                {Math.round(Number(rating.ctr_potential_score) || 0)}
-              </span>
-            </div>
-            <div className="thumb-rater-metric">
-              <span className="thumb-rater-metric-label">Visual appeal</span>
-              <span className="thumb-rater-metric-val">
-                {Math.round(Number(rating.visual_appeal_score) || 0)}
-              </span>
-            </div>
-            <div className="thumb-rater-metric">
-              <span className="thumb-rater-metric-label">Composition</span>
-              <span className="thumb-rater-metric-val">
-                {Math.round(Number(rating.composition_score) || 0)}
-              </span>
-            </div>
-            <div className="thumb-rater-metric">
-              <span className="thumb-rater-metric-label">Contrast</span>
-              <span className="thumb-rater-metric-val">
-                {Math.round(Number(rating.color_contrast_score) || 0)}
-              </span>
-            </div>
-            {rating.text_readability_score != null && (
-              <div className="thumb-rater-metric">
-                <span className="thumb-rater-metric-label">Text readability</span>
-                <span className="thumb-rater-metric-val">
-                  {Math.round(Number(rating.text_readability_score) || 0)}
+            <div className="thumb-hero-body">
+              <div className="thumb-hero-score-row">
+                <span className="thumb-hero-score">
+                  {overallScore != null ? overallScore : '—'}
+                  <span className="thumb-hero-score-max"> / 100</span>
                 </span>
+                {ctrBand && (
+                  <span className={`thumb-ctr-pill ${ctrTierClass(ctrBand)}`}>
+                    Predicted CTR · {ctrBand}
+                  </span>
+                )}
               </div>
-            )}
-            <div className="thumb-rater-metric">
-              <span className="thumb-rater-metric-label">Emotional appeal</span>
-              <span className="thumb-rater-metric-val">
-                {Math.round(Number(rating.emotional_appeal_score) || 0)}
-              </span>
+              {oneLiner && <p className="thumb-hero-oneliner">{oneLiner}</p>}
+              {(videoTitle || niche) && (
+                <div className="thumb-hero-meta">
+                  {videoTitle && (
+                    <span className="thumb-hero-meta-item">
+                      <span className="thumb-hero-meta-key">Title</span>
+                      <span className="thumb-hero-meta-val">{videoTitle}</span>
+                    </span>
+                  )}
+                  {niche && (
+                    <span className="thumb-hero-meta-item">
+                      <span className="thumb-hero-meta-key">Niche</span>
+                      <span className="thumb-hero-meta-val">{niche}</span>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
-          {sub && (
-            <div className="thumb-rater-subscores">
-              <span className="thumb-rater-section-title">Mobile-first rubric (raw)</span>
-              <ul className="thumb-rater-sub-list">
-                <li>
-                  Clarity / readability{' '}
-                  <strong>{sub.clarity != null ? Math.round(sub.clarity) : '—'}</strong> / 25
-                </li>
-                <li>
-                  Contrast <strong>{sub.contrast != null ? Math.round(sub.contrast) : '—'}</strong>{' '}
-                  / 20
-                </li>
-                <li>
-                  Hook <strong>{sub.hook != null ? Math.round(sub.hook) : '—'}</strong> / 25
-                </li>
-                <li>
-                  Hierarchy{' '}
-                  <strong>{sub.hierarchy != null ? Math.round(sub.hierarchy) : '—'}</strong> / 20
-                </li>
-                <li>
-                  Composition{' '}
-                  <strong>{sub.composition != null ? Math.round(sub.composition) : '—'}</strong> /
-                  10
-                </li>
-              </ul>
+          {/* Criterion cards grid */}
+          {orderedCriteria.length > 0 ? (
+            <div className="thumb-criteria-grid">
+              {orderedCriteria.map((c, i) => (
+                <CriterionCard key={c?.key || `crit-${i}`} entry={c} />
+              ))}
+            </div>
+          ) : (
+            <div className="thumb-criteria-empty">
+              Detailed criteria not available — re-run analysis to get the new breakdown.
             </div>
           )}
 
-          {analysisLines.length > 0 && (
-            <div className="thumb-rater-block thumb-analyze-deep">
-              <span className="thumb-rater-section-title">Detailed breakdown</span>
-              <ul className="thumb-rater-bullets">
-                {analysisLines.map((line, i) => (
-                  <li key={`a-${i}`}>{line}</li>
-                ))}
-              </ul>
+          {/* Title synergy (only when title was provided AND synergy returned) */}
+          {titleSynergy && (
+            <div className="thumb-synergy-card">
+              <div className="thumb-synergy-head">
+                <span className="thumb-synergy-title">Title ↔ Thumbnail</span>
+                <div className="thumb-synergy-meta">
+                  {titleSynergy.score != null && (
+                    <span className="thumb-synergy-score">
+                      {Number(titleSynergy.score).toFixed(titleSynergy.score % 1 === 0 ? 0 : 1)}
+                      <span className="thumb-criterion-score-max">/10</span>
+                    </span>
+                  )}
+                  {titleSynergy.verdict && (
+                    <span className={`thumb-verdict-pill ${verdictClass(titleSynergy.verdict)}`}>
+                      {titleSynergy.verdict}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {titleSynergy.explanation && (
+                <p className="thumb-criterion-text">{titleSynergy.explanation}</p>
+              )}
+              {titleSynergy.suggestion && (
+                <div className="thumb-criterion-suggest">
+                  <span className="thumb-criterion-suggest-label">Try this</span>
+                  <span className="thumb-criterion-suggest-text">{titleSynergy.suggestion}</span>
+                </div>
+              )}
             </div>
           )}
 
-          {rating.strengths?.length > 0 && (
-            <div className="thumb-rater-block">
-              <span className="thumb-rater-section-title">Strengths</span>
-              <ul className="thumb-rater-bullets">
-                {rating.strengths.map((s, i) => (
-                  <li key={`s-${i}`}>{s}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {rating.weaknesses?.length > 0 && (
-            <div className="thumb-rater-block">
-              <span className="thumb-rater-section-title">Weaknesses</span>
-              <ul className="thumb-rater-bullets thumb-rater-bullets--weak">
-                {rating.weaknesses.map((s, i) => (
-                  <li key={`w-${i}`}>{s}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {rating.recommendations?.length > 0 && (
-            <div className="thumb-rater-block">
-              <span className="thumb-rater-section-title">Recommendations</span>
-              <ol className="thumb-rater-numbered">
-                {rating.recommendations.map((s, i) => (
-                  <li key={`r-${i}`}>{s}</li>
-                ))}
-              </ol>
-            </div>
-          )}
-          {rating.specific_advice && (
-            <div className="thumb-rater-advice">
-              <span className="thumb-rater-section-title">Expert summary</span>
-              <p>{rating.specific_advice}</p>
+          {/* Strengths + Fixes */}
+          {(topStrengths.length > 0 || topFixes.length > 0) && (
+            <div className="thumb-takeaways-grid">
+              {topStrengths.length > 0 && (
+                <div className="thumb-takeaway-card thumb-takeaway--strengths">
+                  <span className="thumb-takeaway-title">Top strengths</span>
+                  <ul className="thumb-takeaway-list">
+                    {topStrengths.map((s, i) => (
+                      <li key={`str-${i}`}>{s}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {topFixes.length > 0 && (
+                <div className="thumb-takeaway-card thumb-takeaway--fixes">
+                  <span className="thumb-takeaway-title">Top fixes</span>
+                  <ul className="thumb-takeaway-list">
+                    {topFixes.map((s, i) => (
+                      <li key={`fix-${i}`}>{s}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 

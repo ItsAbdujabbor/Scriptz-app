@@ -22,6 +22,7 @@ import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 // ABTestPanel removed from Video Optimize — A/B Testing has its own top-level screen.
 import { queryKeys } from '../lib/query/queryKeys'
 import { invalidateCredits } from '../queries/billing/creditsQueries'
+import GenerationProgress from '../components/GenerationProgress'
 import './VideoOptimizeModal.css'
 
 function IconZapFilled() {
@@ -1599,8 +1600,7 @@ export function VideoOptimizeModal({
                             >
                               <div className="video-opt-thumb-card-img-wrap">
                                 <div className="video-opt-thumb-generating-placeholder">
-                                  <span className="video-opt-btn-spinner" aria-hidden />
-                                  <span>Generating…</span>
+                                  <GenerationProgress estimatedDurationMs={25000} />
                                 </div>
                               </div>
                             </motion.div>

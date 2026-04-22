@@ -11,9 +11,9 @@ import { Dialog } from './ui/Dialog'
 import { InlineSpinner } from './ui'
 
 const SLOTS = [
-  { key: 'front', label: 'Front', desc: 'Straight-on view of the face' },
-  { key: 'left', label: 'Left side', desc: 'Left profile' },
-  { key: 'right', label: 'Right side', desc: 'Right profile' },
+  { key: 'front', label: 'Front' },
+  { key: 'left', label: 'Left' },
+  { key: 'right', label: 'Right' },
 ]
 
 export function CreatePersonaDialog() {
@@ -84,21 +84,9 @@ export function CreatePersonaDialog() {
           }}
         >
           <div>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: '#fff' }}>
-              Create a new character
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: '#fff' }}>
+              Create character
             </h2>
-            <p
-              style={{
-                margin: '6px 0 0',
-                fontSize: 13,
-                lineHeight: 1.5,
-                color: 'rgba(255,255,255,0.62)',
-              }}
-            >
-              Upload three reference photos <strong>you own or have rights to</strong>. The three
-              photos are combined into one on‑brand character look used in your thumbnails.
-              Impersonating another person is not permitted.
-            </p>
           </div>
           <button
             type="button"
@@ -128,13 +116,21 @@ export function CreatePersonaDialog() {
         <div
           style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 18 }}
         >
-          {SLOTS.map(({ key, label, desc }) => {
+          {SLOTS.map(({ key, label }) => {
             const file = images[key]
             return (
               <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>{label}</span>
-                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.3 }}>
-                  {desc}
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: 'rgba(255,255,255,0.62)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    textAlign: 'center',
+                  }}
+                >
+                  {label}
                 </span>
                 <input
                   ref={(el) => {
@@ -238,13 +234,14 @@ export function CreatePersonaDialog() {
             display: 'block',
             width: '100%',
             marginTop: 16,
-            padding: '11px 14px',
+            padding: '11px 16px',
             border: '1px solid rgba(255,255,255,0.12)',
-            borderRadius: 10,
+            borderRadius: 999,
             background: 'rgba(0,0,0,0.3)',
             color: '#fff',
             fontSize: 14,
             fontFamily: 'inherit',
+            textAlign: 'center',
             outline: 'none',
             boxSizing: 'border-box',
           }}
@@ -255,18 +252,19 @@ export function CreatePersonaDialog() {
         )}
 
         {/* Actions */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 18 }}>
           <button
             type="button"
             onClick={close}
             disabled={mutation.isPending}
             style={{
-              padding: '11px 22px',
+              padding: '7px 16px',
+              height: 32,
               border: '1px solid rgba(255,255,255,0.12)',
               borderRadius: 999,
               background: 'rgba(255,255,255,0.06)',
               color: 'rgba(255,255,255,0.85)',
-              fontSize: 14,
+              fontSize: 12,
               fontWeight: 600,
               fontFamily: 'inherit',
               cursor: mutation.isPending ? 'not-allowed' : 'pointer',
@@ -281,13 +279,14 @@ export function CreatePersonaDialog() {
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 8,
-              padding: '11px 22px',
+              gap: 6,
+              padding: '7px 16px',
+              height: 32,
               border: 'none',
               borderRadius: 999,
               background: 'var(--accent-gradient)',
               color: '#fff',
-              fontSize: 14,
+              fontSize: 12,
               fontWeight: 600,
               fontFamily: 'inherit',
               cursor: mutation.isPending ? 'not-allowed' : 'pointer',
@@ -299,24 +298,24 @@ export function CreatePersonaDialog() {
             {mutation.isPending ? (
               <span className="sk-btn-pending">
                 <InlineSpinner size={12} />
-                Generating…
+                Creating…
               </span>
             ) : (
-              'Generate character'
+              'Create'
             )}
             <span
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 4,
-                padding: '3px 9px',
+                gap: 3,
+                padding: '2px 7px',
                 borderRadius: 999,
                 background: 'rgba(0,0,0,0.28)',
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: 700,
               }}
             >
-              <svg viewBox="0 0 24 24" width={12} height={12} fill="currentColor" aria-hidden>
+              <svg viewBox="0 0 24 24" width={10} height={10} fill="currentColor" aria-hidden>
                 <path d="M13 2 3 14h7l-1 8 11-13h-8l1-7z" />
               </svg>
               45

@@ -265,9 +265,7 @@ export function StylesModal({ onClose }) {
             <h2 id="styles-modal-title" className="sm-title">
               Thumbnail styles
             </h2>
-            <p className="sm-subtitle">
-              Reference looks that steer layout, color and vibe during generation
-            </p>
+            <p className="sm-subtitle">Reference looks for your thumbnails</p>
           </div>
           <button
             type="button"
@@ -298,8 +296,8 @@ export function StylesModal({ onClose }) {
             <PrimaryPill
               onClick={() => setShowCreate(true)}
               label="Create style"
-              icon={<IconPlus size={14} />}
-              size="md"
+              icon={<IconPlus size={12} />}
+              size="sm"
             />
           </div>
         )}
@@ -307,8 +305,6 @@ export function StylesModal({ onClose }) {
         {/* Inline create form */}
         {showCreate && styleTab === 'personal' && (
           <div className="sm-create-card">
-            <h3 className="sm-create-title">New visual style</h3>
-
             <div className="sm-create-source-tabs">
               <SegmentedTabs
                 value={createSourceTab}
@@ -326,9 +322,6 @@ export function StylesModal({ onClose }) {
 
             {createSourceTab === 'upload' && (
               <form onSubmit={handleCreate}>
-                <p className="sm-form-hint">
-                  Drop in a reference thumbnail — we'll match its look when you generate.
-                </p>
                 <div className="sm-upload-wrap">
                   <input
                     ref={fileInputRef}
@@ -377,7 +370,7 @@ export function StylesModal({ onClose }) {
                     onClick={clearCreateForm}
                     label="Cancel"
                     variant="ghost"
-                    size="md"
+                    size="sm"
                     type="button"
                   />
                   <PrimaryPill
@@ -385,9 +378,9 @@ export function StylesModal({ onClose }) {
                     onClick={() => {}}
                     disabled={createMutation.isPending || !createImage}
                     busy={createMutation.isPending}
-                    label="Create style"
+                    label="Create"
                     busyLabel="Creating…"
-                    size="md"
+                    size="sm"
                   />
                 </div>
               </form>
@@ -395,9 +388,6 @@ export function StylesModal({ onClose }) {
 
             {createSourceTab === 'video' && (
               <form onSubmit={handleCreateFromYoutube}>
-                <p className="sm-form-hint">
-                  We'll use that video's current thumbnail as the style reference.
-                </p>
                 <label htmlFor="styles-yt-url" className="sm-field-label">
                   Video URL
                 </label>
@@ -447,7 +437,7 @@ export function StylesModal({ onClose }) {
                     onClick={clearCreateForm}
                     label="Cancel"
                     variant="ghost"
-                    size="md"
+                    size="sm"
                     type="button"
                   />
                   <PrimaryPill
@@ -459,9 +449,9 @@ export function StylesModal({ onClose }) {
                       !extractYoutubeUrl(createYoutubeUrl)
                     }
                     busy={createFromUrlMutation.isPending}
-                    label="Create style"
+                    label="Create"
                     busyLabel="Creating…"
-                    size="md"
+                    size="sm"
                   />
                 </div>
               </form>
@@ -491,8 +481,8 @@ export function StylesModal({ onClose }) {
             </h3>
             <p className="sm-empty-body">
               {styleTab === 'personal'
-                ? 'Create one by uploading a reference thumbnail or pasting a YouTube link.'
-                : 'Our stock style library will appear here. Check back soon.'}
+                ? 'Upload a thumbnail or paste a YouTube link.'
+                : 'Stock styles will appear here soon.'}
             </p>
           </div>
         )}

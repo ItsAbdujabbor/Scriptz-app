@@ -10,6 +10,7 @@ import { getAccessTokenOrNull } from '../../lib/query/authToken'
 import { queryKeys } from '../../lib/query/queryKeys'
 import { queryFreshness } from '../../lib/query/queryConfig'
 import { invalidateCredits } from '../billing/creditsQueries'
+import { touchConversation } from './conversationLRU'
 
 /** Warm React Query after a chat turn so the thread is ready when the URL gains ?id= */
 export async function prefetchThumbnailConversationCache(queryClient, conversationId) {
@@ -19,7 +20,13 @@ export async function prefetchThumbnailConversationCache(queryClient, conversati
   try {
     await queryClient.prefetchQuery({
       queryKey: queryKeys.thumbnails.conversation(conversationId),
-      queryFn: () => thumbnailsApi.getConversation(token, conversationId),
+      queryFn: async () => {
+        const data = await thumbnailsApi.getConversation(token, conversationId)
+        // Hover-prefetch counts as a recency signal — bumping the LRU
+        // here matches the hover→click intent.
+        touchConversation(conversationId)
+        return data
+      },
       ...chatThreadQueryOptions,
     })
   } catch {
@@ -42,9 +49,18 @@ export function useThumbnailConversationsQuery(params = {}) {
         }
       return thumbnailsApi.listConversations(token, params)
     },
-    staleTime: queryFreshness.long,
-    gcTime: queryFreshness.chatThreadGc,
+    // Sidebar list — fresh for 30s, kept around 5min so re-mounting the
+    // sidebar (e.g. closing a modal) is instant. Background refetch
+    // happens silently after staleTime — no spinner flash.
+    staleTime: queryFreshness.chatList,
+    gcTime: queryFreshness.chatListGc,
     placeholderData: (prev) => prev,
+    // Refetch on tab focus only when the data is older than 60s — avoids
+    // a refetch on every Cmd-Tab.
+    refetchOnWindowFocus: (query) => {
+      const updatedAt = query?.state?.dataUpdatedAt ?? 0
+      return Date.now() - updatedAt > queryFreshness.chatListFocusThreshold
+    },
   })
 }
 
@@ -64,15 +80,30 @@ export function useThumbnailConversationQuery(conversationId, options = {}) {
     queryFn: async () => {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Not authenticated')
-      return thumbnailsApi.getConversation(token, conversationId)
+      const data = await thumbnailsApi.getConversation(token, conversationId)
+      // Each successful fetch is a recency signal — moves this id to
+      // the front of the in-memory LRU. When the cache exceeds 50
+      // chats the oldest gets evicted from React Query.
+      touchConversation(conversationId)
+      return data
     },
-    ...chatThreadQueryOptions,
+    // Detail tier: 5min stale (instant re-renders when switching back),
+    // 30min gc (keeps recently-visited threads in memory across nav).
+    // The LRU bookkeeper caps it at 50 conversations regardless.
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
     refetchInterval: pollWhilePending ? 4000 : false,
     refetchIntervalInBackground: pollWhilePending,
     // When pending we want the latest server truth — ignore the short
     // staleTime that otherwise suppresses mount-time refetches.
-    refetchOnMount: pollWhilePending ? 'always' : true,
-    placeholderData: (prev) => prev,
+    refetchOnMount: pollWhilePending ? 'always' : false,
+    // NOTE: `placeholderData: (prev) => prev` was deliberately removed
+    // here. In v5 it bleeds the previous query's data across queryKey
+    // changes, so switching from chat A to chat B made chat A's
+    // messages keep showing on the screen even though the URL was on
+    // B — the user perceived this as "history doesn't open." A clean
+    // pending state + the matching skeleton is the right behavior.
   })
 }
 

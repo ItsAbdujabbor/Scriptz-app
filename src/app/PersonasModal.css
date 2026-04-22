@@ -11,13 +11,32 @@
 /* ── Header — plain title row with a close-X, mirrors the SelectPill
  *           menu header used on the Optimize screen. ── */
 .pm-header {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr 32px;
   align-items: center;
   gap: 12px;
   margin-bottom: 18px;
   padding-bottom: 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 0;
+}
+/* Hairline divider that fades to transparent at both ends so it tapers
+ * to a sharp point instead of slamming into the modal edges. */
+.pm-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.14) 18%,
+    rgba(255, 255, 255, 0.14) 82%,
+    transparent 100%
+  );
+  pointer-events: none;
 }
 .pm-header-titles {
   min-width: 0;
@@ -34,6 +53,9 @@
   font-size: var(--text-xs);
   color: var(--text-muted);
   line-height: 1.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .pm-icon-btn {
   width: 32px;
@@ -76,14 +98,14 @@
 .pm-manage-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 14px;
-  height: var(--btn-height-md);
+  gap: 5px;
+  padding: 0 12px;
+  height: var(--btn-height-sm);
   border: 1px solid rgba(248, 113, 113, 0.28);
   border-radius: var(--radius-pill);
   background: rgba(248, 113, 113, 0.08);
   color: #f87171;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   font-family: inherit;
@@ -113,16 +135,33 @@
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
+  animation: pm-create-form-in 0.34s cubic-bezier(0.32, 0.72, 0, 1) both;
+  transform-origin: top center;
+}
+
+@keyframes pm-create-form-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 .pm-rights-notice {
-  margin: 0 0 14px;
-  padding: 12px 14px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
   font-size: var(--text-xs);
-  line-height: 1.55;
+  line-height: 1.4;
   color: var(--text-muted);
   background: rgba(167, 139, 250, 0.08);
   border: 1px solid rgba(167, 139, 250, 0.2);
-  border-radius: 14px;
+  border-radius: 10px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .pm-slots-grid {
   display: grid;
@@ -207,13 +246,14 @@
   display: block;
   width: 100%;
   box-sizing: border-box;
-  padding: 11px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 11px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-pill);
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(0, 0, 0, 0.32);
   color: var(--text-body);
   font-size: var(--text-sm);
   font-family: inherit;
+  text-align: center;
   outline: none;
   transition:
     border-color 0.22s var(--ease-standard),
@@ -240,11 +280,31 @@
 }
 
 .pm-form-actions {
+  position: relative;
   display: flex;
   gap: var(--space-md);
   margin-top: var(--space-md);
+  padding-top: var(--space-md);
   justify-content: center;
   flex-wrap: wrap;
+}
+/* Tapered hairline above the action row — separates the name input
+ * area from the Cancel/Create buttons with matching sharp-tapered ends. */
+.pm-form-actions::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.14) 18%,
+    rgba(255, 255, 255, 0.14) 82%,
+    transparent 100%
+  );
+  pointer-events: none;
 }
 
 .pm-generate-label {
@@ -288,8 +348,11 @@
   margin: 0;
   max-width: 420px;
   font-size: var(--text-sm);
-  line-height: 1.55;
+  line-height: 1.4;
   color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Grid + fixed-size card ──
@@ -542,17 +605,51 @@
 
 .pm-press {
   transition:
-    transform 0.12s cubic-bezier(0.33, 1, 0.68, 1),
+    transform 0.22s cubic-bezier(0.32, 0.72, 0, 1),
     filter 0.18s ease,
-    box-shadow 0.18s ease,
-    background 0.18s ease;
+    box-shadow 0.2s ease,
+    background 0.18s ease,
+    border-color 0.18s ease;
 }
 .pm-press:hover {
-  filter: brightness(1.06);
+  filter: brightness(1.08);
+  transform: translateY(-1px);
 }
 .pm-press:active {
-  transform: scale(0.95);
-  transition: transform 0.06s ease;
+  transform: scale(0.94) translateY(0);
+  transition: transform 0.08s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+/* Upload slots — softer elastic press + glow on hover to feel alive. */
+.pm-slot-empty {
+  transition:
+    transform 0.22s cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 0.22s ease,
+    background 0.22s ease,
+    color 0.22s ease,
+    box-shadow 0.22s ease;
+}
+.pm-slot-empty:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(167, 139, 250, 0.18);
+}
+.pm-slot-empty:active {
+  transform: scale(0.97);
+}
+
+/* Slot preview (after upload) — scale-in so the drop feels responsive. */
+.pm-slot-preview {
+  animation: pm-slot-preview-in 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes pm-slot-preview-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .pm-card {
@@ -574,9 +671,16 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pm-card,
-  .pm-press {
+  .pm-press,
+  .pm-create-form,
+  .pm-slot-preview,
+  .pm-slot-empty {
     animation: none;
     transition: none;
+  }
+  .pm-press:hover,
+  .pm-slot-empty:hover {
+    transform: none;
   }
   .pm-card--fixed:hover {
     transform: none;

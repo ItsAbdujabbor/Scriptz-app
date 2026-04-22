@@ -73,7 +73,6 @@ export function ThumbBackgroundFX() {
   return (
     <div ref={rootRef} className="thumb-bg-fx" aria-hidden="true">
       <div className="thumb-bg-fx__base" />
-      <div className="thumb-bg-fx__bottom-glow" />
       <div className="thumb-bg-fx__grid" />
       <div className="thumb-bg-fx__spotlight" />
     </div>

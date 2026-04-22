@@ -103,7 +103,7 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
   })()
 
   const pageClass = isThumbnails ? 'coach-page' : 'dashboard-page'
-  const mainClass = isThumbnails ? 'coach-main-wrap' : 'dashboard-main-wrap'
+  const mainClass = isThumbnails ? 'coach-main-wrap coach-main-wrap--thumb' : 'dashboard-main-wrap'
 
   return (
     <div className={pageClass}>

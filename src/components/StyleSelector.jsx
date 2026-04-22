@@ -60,6 +60,22 @@ function IconChevronDown() {
   )
 }
 
+function IconPlus() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
 export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
   const { data, isPending } = useStylesQuery()
   const { selectedStyleId, selectedStyle, setSelectedStyle, clearSelectedStyle } = useStyleStore()
@@ -205,7 +221,6 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
             )}
             {!isPending && items.length === 0 && (
               <div className="style-selector-empty">
-                <p>No styles yet.</p>
                 {onOpenLibrary && (
                   <button
                     type="button"
@@ -215,7 +230,8 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
                       onOpenLibrary()
                     }}
                   >
-                    Create your first style
+                    <IconPlus />
+                    Create
                   </button>
                 )}
               </div>
@@ -253,17 +269,19 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
                   </button>
                 ))}
                 {onOpenLibrary && (
-                  <button
-                    type="button"
-                    className="style-selector-option style-selector-option--manage"
-                    onClick={() => {
-                      setOpen(false)
-                      onOpenLibrary()
-                    }}
-                    role="option"
-                  >
-                    Manage styles
-                  </button>
+                  <div className="style-selector-footer">
+                    <button
+                      type="button"
+                      className="style-selector-create"
+                      onClick={() => {
+                        setOpen(false)
+                        onOpenLibrary()
+                      }}
+                    >
+                      <IconPlus />
+                      Create
+                    </button>
+                  </div>
                 )}
               </>
             )}

@@ -1928,18 +1928,16 @@
   background: rgba(239, 68, 68, 0.85);
 }
 
-/* Generating placeholder */
+/* Generating placeholder — hosts the shared <GenerationProgress />.
+ * Centred inside the 16:9 thumbnail card slot with horizontal padding
+ * so the bar has room to breathe and the percentage stays legible. */
 .video-opt-thumb-generating-placeholder {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
   width: 100%;
   height: 100%;
-  color: rgba(255, 255, 255, 0.35);
-  font-size: 0.78rem;
-  font-weight: 500;
+  padding: 0 0.85rem;
 }
 
 /* Action trio — sits INSIDE the image, pinned close to the bottom edge. */

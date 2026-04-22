@@ -26,8 +26,10 @@ import { useQueryClient } from '@tanstack/react-query'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { thumbnailsApi } from '../api/thumbnails'
 import { invalidateCredits, useCostOf } from '../queries/billing/creditsQueries'
-import { SegmentedTabs } from './ui/SegmentedTabs'
 import { PrimaryPill } from './ui/PrimaryPill'
+import { PersonaSelector } from './PersonaSelector'
+import { usePersonaStore } from '../stores/personaStore'
+import GenerationProgress from './GenerationProgress'
 
 const Z_INDEX = 2147483647
 const PRIMARY_GRADIENT = 'var(--accent-gradient)'
@@ -557,10 +559,12 @@ function popoverOptionStyle(isActive) {
 
 /* ── Component ────────────────────────────────────────────────────── */
 export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
+  const [mode, setMode] = useState('edit') // 'edit' | 'faceswap'
   const [editPrompt, setEditPrompt] = useState('')
   const [batch] = useState(1)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const { selectedPersona } = usePersonaStore()
 
   // Drawing state
   const [tool, setTool] = useState('brush') // 'rect' | 'brush' | 'eraser'
@@ -875,10 +879,30 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     return res?.image_url || null
   }
 
+  async function callFaceSwapOnce(token) {
+    const imageB64 = extractBase64FromDataUrl(imageUrl)
+    const faceUrl = selectedPersona?.image_url
+    const faceB64 = extractBase64FromDataUrl(faceUrl)
+    const res = await thumbnailsApi.faceSwap(token, {
+      thumbnail_image_base64: imageB64 || undefined,
+      thumbnail_image_url: imageB64 ? undefined : imageUrl,
+      face_image_base64: faceB64 || undefined,
+      face_image_url: faceB64 ? undefined : faceUrl,
+      extra_hint: editPrompt.trim() || undefined,
+    })
+    return res?.image_url || null
+  }
+
   async function handleSubmit() {
     if (busy) return
     if (!imageUrl) return setError('No thumbnail to edit.')
-    if (!editPrompt.trim()) return setError('Describe the change you want.')
+    if (mode === 'faceswap') {
+      if (!selectedPersona?.image_url) {
+        return setError('Pick a character to swap the face with.')
+      }
+    } else if (!editPrompt.trim()) {
+      return setError('Describe the change you want.')
+    }
 
     setError(null)
     setBusy(true)
@@ -886,28 +910,47 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Sign in required.')
 
-      const maskB64 = await exportMaskBase64()
-      const oneCall = () => callEditOnce(token, maskB64)
+      let oneCall
+      if (mode === 'faceswap') {
+        oneCall = () => callFaceSwapOnce(token)
+      } else {
+        // Resolve the mask once up-front so each batch call reuses it.
+        const maskB64 = await exportMaskBase64()
+        oneCall = () => callEditOnce(token, maskB64)
+      }
 
       const settled = await Promise.allSettled(Array.from({ length: batch }, () => oneCall()))
       const urls = settled.filter((r) => r.status === 'fulfilled' && r.value).map((r) => r.value)
       if (urls.length === 0) {
         const firstErr = settled.find((r) => r.status === 'rejected')
-        throw new Error(firstErr?.reason?.message || 'No image returned.')
+        throw new Error(
+          firstErr?.reason?.message ||
+            (mode === 'faceswap' ? 'Face swap failed.' : 'No image returned.')
+        )
       }
       invalidateCredits(queryClient)
       onApply?.(urls.length === 1 ? urls[0] : urls)
       onClose?.()
     } catch (err) {
-      setError(err?.message || 'Edit failed. Try a different prompt.')
+      setError(
+        err?.message ||
+          (mode === 'faceswap'
+            ? 'Face swap failed. Try a different character.'
+            : 'Edit failed. Try a different prompt.')
+      )
       setBusy(false)
     }
   }
 
-  const canSubmit = !busy && !!imageUrl && !!editPrompt.trim()
+  const canSubmit =
+    !busy &&
+    !!imageUrl &&
+    (mode === 'faceswap' ? !!selectedPersona?.image_url : !!editPrompt.trim())
 
   const placeholder =
-    'Describe the change — paint a region for targeted edits, or leave blank to edit the whole thumbnail.'
+    mode === 'faceswap'
+      ? 'Optional hint — e.g. "keep the same expression" or "match the lighting".'
+      : 'Describe the change — paint a region for targeted edits, or leave blank to edit the whole thumbnail.'
 
   const dialog = (
     <div
@@ -1062,19 +1105,21 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
           Edit thumbnail
         </div>
 
-        {/* Thumbnail + canvas — 16:9 card, no dead space. */}
+        {/* Thumbnail + canvas — 16:9 card, bigger stage so the image
+         * reads clearly while masking and you can see faceswap results. */}
         <div
           ref={stageRef}
           style={{
             position: 'relative',
             alignSelf: 'center',
             width: '100%',
-            maxWidth: 640,
+            maxWidth: 880,
             aspectRatio: '16 / 9',
-            borderRadius: 14,
+            borderRadius: 16,
             overflow: 'hidden',
             background: 'rgba(12, 10, 18, 0.55)',
-            border: '0.5px solid rgba(255,255,255,0.1)',
+            border: '0.5px solid rgba(255,255,255,0.12)',
+            boxShadow: 'inset 0 0.5px 0 rgba(255,255,255,0.08), 0 14px 40px rgba(0,0,0,0.38)',
           }}
         >
           {imageUrl ? (
@@ -1137,39 +1182,32 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                flexDirection: 'column',
-                gap: 10,
+                padding: '0 1.5rem',
                 background: 'rgba(8, 6, 14, 0.72)',
                 backdropFilter: 'blur(6px)',
                 WebkitBackdropFilter: 'blur(6px)',
               }}
             >
-              <span
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: '50%',
-                  border: '2px solid rgba(255,255,255,0.16)',
-                  borderTopColor: 'rgba(255,255,255,0.9)',
-                  animation: 'etd-spin 0.9s linear infinite',
-                }}
-                aria-hidden
-              />
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.88)' }}>
-                {`AI is editing${batch > 1 ? ` ${batch} variants` : ''}…`}
-              </span>
+              {/* Same shared loader as the main thumbnail-generation flow.
+               * Edit / face-swap takes a touch longer than a single
+               * generate (mask round-trip + variant batching), so estimate
+               * 30 s for one variant and +6 s per extra variant. */}
+              <div style={{ width: '100%', maxWidth: 420 }}>
+                <GenerationProgress estimatedDurationMs={30000 + Math.max(0, batch - 1) * 6000} />
+              </div>
             </div>
           )}
         </div>
 
-        {/* Toolbar — visible in both tabs. Centered under the thumbnail,
-         * constrained to the same max-width so it shares the column. */}
+        {/* Toolbar — visible only in Edit mode. Centered under the
+         * thumbnail, constrained to the same max-width so it shares the
+         * column. Hidden on the Face-swap tab to keep that UI focused. */}
         <div
           style={{
             alignSelf: 'center',
             width: '100%',
-            maxWidth: 640,
-            display: 'flex',
+            maxWidth: 880,
+            display: mode === 'edit' ? 'flex' : 'none',
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 8,
@@ -1386,6 +1424,87 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
           </div>
         </div>
 
+        {/* Mode tabbar — Edit (paint + prompt) vs Face swap (persona). */}
+        <div
+          role="tablist"
+          aria-label="Edit mode"
+          style={{
+            alignSelf: 'center',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: 4,
+            borderRadius: 999,
+            background: 'rgba(14, 14, 18, 0.55)',
+            border: '0.5px solid rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(22px) saturate(1.4)',
+            WebkitBackdropFilter: 'blur(22px) saturate(1.4)',
+          }}
+        >
+          <TabButton
+            active={mode === 'edit'}
+            onClick={() => setMode('edit')}
+            icon={<IconPencil size={13} />}
+            label="Edit"
+          />
+          <TabButton
+            active={mode === 'faceswap'}
+            onClick={() => setMode('faceswap')}
+            icon={<IconFaceSwap size={14} />}
+            label="Face swap"
+          />
+        </div>
+
+        {/* Face-swap panel — persona picker. Shown only when face-swap
+         * mode is active; the drawing toolbar above is hidden in this
+         * case so the UI stays focused. */}
+        {mode === 'faceswap' && (
+          <div
+            className="etd-face-panel"
+            style={{
+              alignSelf: 'center',
+              width: '100%',
+              maxWidth: 560,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              padding: 14,
+              borderRadius: 14,
+              background: 'rgba(14, 14, 18, 0.45)',
+              border: '0.5px solid rgba(255, 255, 255, 0.08)',
+              backdropFilter: 'blur(22px) saturate(1.4)',
+              WebkitBackdropFilter: 'blur(22px) saturate(1.4)',
+              animation: 'etd-fade-in 0.24s cubic-bezier(0.32, 0.72, 0, 1) both',
+            }}
+          >
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: 'rgba(255,255,255,0.55)',
+                textAlign: 'center',
+              }}
+            >
+              Swap face with
+            </span>
+            <PersonaSelector />
+            {!selectedPersona && (
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 12,
+                  color: 'rgba(255,255,255,0.5)',
+                  textAlign: 'center',
+                }}
+              >
+                Pick a character above to use their face.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Error */}
         {error && (
           <p
@@ -1406,23 +1525,26 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
           </p>
         )}
 
-        {/* Input area */}
+        {/* Input area — liquid-glass pill matching the app language:
+         * dark black-tint gradient, heavy blur, thin highlight border.
+         * In faceswap mode the prompt is optional (hint only), in edit
+         * mode it's the main driver. */}
         <div
           style={{
             alignSelf: 'center',
             width: '100%',
-            maxWidth: 560,
+            maxWidth: 640,
             display: 'flex',
             alignItems: 'flex-end',
-            gap: 8,
-            padding: '0.55rem 0.55rem 0.55rem 0.75rem',
-            borderRadius: 14,
-            background:
-              'linear-gradient(180deg, rgba(124,58,237,0.06) 0%, rgba(14,14,18,0.55) 70%)',
-            backdropFilter: 'blur(48px) saturate(1.6)',
-            WebkitBackdropFilter: 'blur(48px) saturate(1.6)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 -4px 24px rgba(0, 0, 0, 0.2)',
+            gap: 10,
+            padding: '0.55rem 0.55rem 0.55rem 0.9rem',
+            borderRadius: 999,
+            background: 'linear-gradient(180deg, rgba(0,0,0,0.48) 0%, rgba(0,0,0,0.3) 100%)',
+            backdropFilter: 'blur(30px) saturate(1.8)',
+            WebkitBackdropFilter: 'blur(30px) saturate(1.8)',
+            border: '0.5px solid rgba(255, 255, 255, 0.14)',
+            boxShadow:
+              'inset 0 0.5px 0 rgba(255,255,255,0.2), inset 0 -0.5px 0 rgba(255,255,255,0.04), 0 6px 22px rgba(0, 0, 0, 0.32)',
             animation: 'etd-fade-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) both',
           }}
         >

@@ -38,30 +38,6 @@
   background: var(--app-canvas-bg, #0a0a0c);
 }
 
-/* ---------- 1b. bottom glow ----------
- * Soft purple aurora rising from the bottom edge — anchors the panel
- * and matches the cursor spotlight's hue so they read as one palette.
- * Sits above the base canvas, below the dot grid. */
-.thumb-bg-fx__bottom-glow {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(
-      ellipse 60% 38% at 50% 100%,
-      rgba(167, 139, 250, 0.55) 0%,
-      rgba(139, 92, 246, 0.32) 35%,
-      rgba(139, 92, 246, 0.12) 65%,
-      transparent 85%
-    ),
-    radial-gradient(
-      ellipse 95% 55% at 50% 110%,
-      rgba(139, 92, 246, 0.22) 0%,
-      rgba(139, 92, 246, 0.08) 50%,
-      transparent 80%
-    );
-  mix-blend-mode: screen;
-}
-
 /* ---------- 2. dot grid ----------
  * 28px repeating white dot pattern, masked so the dots are most
  * visible in the middle of the panel and fade toward every edge —

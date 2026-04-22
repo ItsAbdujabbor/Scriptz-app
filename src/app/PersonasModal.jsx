@@ -287,8 +287,8 @@ export function PersonasModal({ onClose }) {
             </h2>
             <p className="pm-subtitle">
               {showGrid
-                ? `${filteredItems.length} saved · private to your account`
-                : 'Upload 3 photos to create a reusable character look'}
+                ? `${filteredItems.length} saved · private to you`
+                : 'Reusable faces for your thumbnails'}
             </p>
           </div>
           <button
@@ -307,8 +307,8 @@ export function PersonasModal({ onClose }) {
             <PrimaryPill
               onClick={() => setShowCreate(true)}
               label="Create character"
-              icon={<IconPlus size={14} />}
-              size="md"
+              icon={<IconPlus size={12} />}
+              size="sm"
             />
             {showGrid && (
               <button
@@ -337,11 +337,6 @@ export function PersonasModal({ onClose }) {
         {/* Inline create form */}
         {showCreate && (
           <form onSubmit={handleCreate} className="pm-create-form">
-            <p className="pm-rights-notice">
-              Upload photos <strong>you own or have rights to</strong> — typically photos of
-              yourself. This tool is for original and authorized content creation; impersonating
-              another person is not permitted.
-            </p>
             <div className="pm-slots-grid">
               {PHOTO_SLOTS.map(({ key, label }) => {
                 const file = createImages[key]
@@ -403,7 +398,7 @@ export function PersonasModal({ onClose }) {
                 onClick={clearCreateForm}
                 label="Cancel"
                 variant="ghost"
-                size="md"
+                size="sm"
                 type="button"
               />
               <PrimaryPill
@@ -413,12 +408,12 @@ export function PersonasModal({ onClose }) {
                 busy={createMutation.isPending}
                 label={
                   <span className="pm-generate-label">
-                    Generate
+                    Create
                     <CostHint featureKey="persona_generate" />
                   </span>
                 }
-                busyLabel="Generating…"
-                size="md"
+                busyLabel="Creating…"
+                size="sm"
               />
             </div>
           </form>
@@ -431,10 +426,7 @@ export function PersonasModal({ onClose }) {
               <IconUsers />
             </div>
             <h3 className="pm-empty-title">No characters yet</h3>
-            <p className="pm-empty-body">
-              Create your first character by uploading 3 photos of yourself — front, left, and
-              right. Only you will see it.
-            </p>
+            <p className="pm-empty-body">Upload 3 photos — front, left, right.</p>
           </div>
         )}
 

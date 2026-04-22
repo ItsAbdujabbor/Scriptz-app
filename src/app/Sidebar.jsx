@@ -567,12 +567,36 @@ const HistoryItem = memo(function HistoryItem({
 }) {
   const queryClient = useQueryClient()
   const conversationId = conversation?.id
-  const prefetchThread = useCallback(() => {
+  const hoverTimerRef = useRef(0)
+
+  const fireThreadPrefetch = useCallback(() => {
     if (conversationId == null) return
     if (type === 'thumbnail') void prefetchThumbnailConversationCache(queryClient, conversationId)
     else if (type === 'script') void prefetchScriptConversation(queryClient, conversationId)
     else void prefetchCoachConversation(queryClient, conversationId)
   }, [queryClient, conversationId, type])
+
+  // Debounced prefetch: only fire if the cursor lingers ≥150ms.
+  // Casual flyovers (mouse traveling across the sidebar) don't trigger
+  // a request — only an "I'm reading this row" hover does.
+  const startHoverPrefetch = useCallback(() => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
+    hoverTimerRef.current = window.setTimeout(fireThreadPrefetch, 150)
+  }, [fireThreadPrefetch])
+
+  const cancelHoverPrefetch = useCallback(() => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current)
+      hoverTimerRef.current = 0
+    }
+  }, [])
+
+  useEffect(
+    () => () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
+    },
+    []
+  )
 
   if (isEditing) {
     return (
@@ -663,8 +687,9 @@ const HistoryItem = memo(function HistoryItem({
           handleRowClick()
         }
       }}
-      onPointerEnter={prefetchThread}
-      onFocus={prefetchThread}
+      onPointerEnter={startHoverPrefetch}
+      onPointerLeave={cancelHoverPrefetch}
+      onFocus={fireThreadPrefetch}
       aria-current={isActive ? 'true' : undefined}
     >
       <span

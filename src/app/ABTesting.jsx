@@ -30,6 +30,7 @@ import {
   useLoadInsightsMutation,
 } from '../queries/abTests/abTestsQueries'
 import { celebrate } from '../lib/celebrate'
+import { toast } from '../lib/toast'
 import { useCostOf, useCreditsQuery } from '../queries/billing/creditsQueries'
 
 import './Optimize.css'
@@ -130,10 +131,16 @@ export function ABTesting() {
   })()
 
   // Mirror Optimize's shell wrappers so horizontal padding + vertical
-  // rhythm match exactly across the two screens.
+  // rhythm match exactly across the two screens — *including* the
+  // outer .dashboard-main-scroll. Without it, this page sat inside
+  // .dashboard-main-wrap (overflow:hidden, height:100dvh) with no
+  // scrollable child, so any content past the fold was clipped and
+  // the wheel did nothing.
   return (
-    <div className="dashboard-main dashboard-main--subpage">
-      <div className="dashboard-content-shell dashboard-content-shell--page">{content}</div>
+    <div className="dashboard-main-scroll">
+      <div className="dashboard-main dashboard-main--subpage">
+        <div className="dashboard-content-shell dashboard-content-shell--page">{content}</div>
+      </div>
     </div>
   )
 }
@@ -844,7 +851,6 @@ function ExperimentDetail({ testId }) {
   const [showAdd, setShowAdd] = useState(false)
   const [newVariant, setNewVariant] = useState({ title: '', thumbnail_url: '' })
   const [confirmKind, setConfirmKind] = useState(null) // 'restore' | 'delete' | null
-  const [toastErr, setToastErr] = useState('')
 
   const variations = results?.variations || {}
   const ranking = results?.comparison?.ranking || []
@@ -861,7 +867,7 @@ function ExperimentDetail({ testId }) {
           variant: 'success',
         })
       } catch (e) {
-        setToastErr(e?.payload?.detail || e?.message || 'Could not switch variant')
+        toast.error(e?.payload?.detail || e?.message || 'Could not switch variant')
       }
     },
     [testId, activateMut]
@@ -879,7 +885,7 @@ function ExperimentDetail({ testId }) {
           confetti: true,
         })
       } catch (e) {
-        setToastErr(e?.payload?.detail || e?.message || 'Could not apply winner')
+        toast.error(e?.payload?.detail || e?.message || 'Could not apply winner')
       }
     },
     [testId, promoteMut]
@@ -896,7 +902,7 @@ function ExperimentDetail({ testId }) {
       })
       setConfirmKind(null)
     } catch (e) {
-      setToastErr(e?.payload?.detail || e?.message || 'Could not restore original')
+      toast.error(e?.payload?.detail || e?.message || 'Could not restore original')
       setConfirmKind(null)
     }
   }, [testId, restoreMut])
@@ -906,7 +912,7 @@ function ExperimentDetail({ testId }) {
       await deleteMut.mutateAsync(testId)
       goTo('')
     } catch (e) {
-      setToastErr(e?.payload?.detail || e?.message || 'Could not delete experiment')
+      toast.error(e?.payload?.detail || e?.message || 'Could not delete experiment')
       setConfirmKind(null)
     }
   }, [testId, deleteMut])
@@ -923,7 +929,7 @@ function ExperimentDetail({ testId }) {
       setNewVariant({ title: '', thumbnail_url: '' })
       setShowAdd(false)
     } catch (e) {
-      setToastErr(e?.payload?.detail || e?.message || 'Could not add variant')
+      toast.error(e?.payload?.detail || e?.message || 'Could not add variant')
     }
   }, [testId, addVariantMut, newVariant])
 
@@ -1081,10 +1087,6 @@ function ExperimentDetail({ testId }) {
           </button>
         </div>
       </header>
-
-      <ToastInline tone="error" onDismiss={() => setToastErr('')}>
-        {toastErr}
-      </ToastInline>
 
       <ConfirmDialog
         open={confirmKind === 'restore'}
@@ -1893,20 +1895,6 @@ function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
-  )
-}
-
-function ToastInline({ tone = 'error', children, onDismiss }) {
-  if (!children) return null
-  return (
-    <div className={`abt-toast abt-toast--${tone}`}>
-      <span>{children}</span>
-      {onDismiss && (
-        <button type="button" className="abt-toast-close" onClick={onDismiss} aria-label="Dismiss">
-          ×
-        </button>
-      )}
     </div>
   )
 }

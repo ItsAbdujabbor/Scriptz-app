@@ -64,6 +64,22 @@ function IconChevronDown() {
   )
 }
 
+function IconPlus() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
 export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' }) {
   const { data, isPending } = usePersonasQuery()
   const { selectedPersonaId, selectedPersona, setSelectedPersona, clearSelectedPersona } =
@@ -220,7 +236,6 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
             )}
             {!isPending && items.length === 0 && (
               <div className="persona-selector-empty">
-                <p>No characters yet.</p>
                 {onOpenLibrary && (
                   <button
                     type="button"
@@ -230,7 +245,8 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
                       onOpenLibrary()
                     }}
                   >
-                    Create your first character
+                    <IconPlus />
+                    Create
                   </button>
                 )}
               </div>
@@ -274,16 +290,19 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
                   </button>
                 ))}
                 {onOpenLibrary && (
-                  <button
-                    type="button"
-                    className="persona-selector-option persona-selector-option--manage"
-                    onClick={() => {
-                      setOpen(false)
-                      onOpenLibrary()
-                    }}
-                  >
-                    Manage characters…
-                  </button>
+                  <div className="persona-selector-footer">
+                    <button
+                      type="button"
+                      className="persona-selector-create"
+                      onClick={() => {
+                        setOpen(false)
+                        onOpenLibrary()
+                      }}
+                    >
+                      <IconPlus />
+                      Create
+                    </button>
+                  </div>
                 )}
               </>
             )}

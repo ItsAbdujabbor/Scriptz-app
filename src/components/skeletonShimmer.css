@@ -1,0 +1,115 @@
+/* ─────────────────────────────────────────────────────────────────────
+ * Shared skeleton shimmer — one canonical animation reused by chat
+ * history bubbles, dashboard cards, and any future content-shaped
+ * loading state. Mirrors the violet → white → violet gradient + 2.5s
+ * loop used by GenerationProgress so loading surfaces all feel like
+ * the same family.
+ *
+ * Compose `.sk-shim` onto a sized box to get the placeholder look:
+ *
+ *   <span className="sk-shim" style={{ width: '60%', height: 14 }} />
+ *
+ * The `.sk-shim-fade` modifier adds a soft fade-in (use to stagger
+ * groups of placeholders so they feel orchestrated, not chaotic).
+ * ───────────────────────────────────────────────────────────────────── */
+
+@keyframes sk-shim-sweep {
+  0% {
+    background-position: 110% 0;
+  }
+  100% {
+    background-position: -30% 0;
+  }
+}
+
+@keyframes sk-shim-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sk-shim-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.sk-shim {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  box-sizing: border-box;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.045) 0%,
+    rgba(255, 255, 255, 0.075) 50%,
+    rgba(255, 255, 255, 0.045) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.sk-shim::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 40%,
+    rgba(167, 139, 250, 0.09) 49%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(167, 139, 250, 0.09) 51%,
+    transparent 60%
+  );
+  background-size: 220% 100%;
+  background-position: 100% 0;
+  mix-blend-mode: screen;
+  animation: sk-shim-sweep 2.5s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+}
+
+.sk-shim-fade {
+  animation: sk-shim-fade-in 240ms cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+/* Fade-out helper used by the chat history skeleton when the real
+ * thread arrives — pair with a 120ms unmount delay. */
+.sk-shim-leaving {
+  animation: sk-shim-fade-out 120ms ease-out both;
+}
+
+/* Soft fade-in for newly-rendered real content so the swap feels
+ * intentional rather than a jump. */
+@keyframes sk-shim-content-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.sk-shim-content-in {
+  animation: sk-shim-content-in 120ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-shim::after {
+    animation: none;
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .sk-shim-fade,
+  .sk-shim-leaving,
+  .sk-shim-content-in {
+    animation: none;
+  }
+}
