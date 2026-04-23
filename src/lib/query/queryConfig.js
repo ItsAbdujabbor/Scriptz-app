@@ -10,10 +10,10 @@ export const queryFreshness = {
   /** Loaded thread bodies: stay fresh after explicit cache writes; avoids refetch churn when switching chats. */
   chatThread: 1000 * 60 * 30, // 30 minutes
   /** Keep thread + list entries in memory across navigation (React Query gc). */
-  chatThreadGc: 1000 * 60 * 60 * 24, // 24 hours
+  chatThreadGc: 1000 * 60 * 60 * 2, // 2 hours — was 24h; conversations stay ~forever because the LRU keeps the top 50 pinned, so a 24h gcTime on top of that let idle chats bloat the cache into hundreds of MB.
   weekly: 1000 * 60 * 60 * 24 * 7,
   /** Chat history sidebar list — kept very fresh so a refetch only happens once per active session. */
-  chatList: 1000 * 30, // 30 seconds
+  chatList: 1000 * 60, // 60 seconds — was 30s. Sidebar refetched twice per minute; bumped to halve the background re-renders of the memoised HistoryItem list. `refetchOnWindowFocus` still kicks in after 60s so cross-tab staleness is unchanged.
   chatListGc: 1000 * 60 * 5, // 5 minutes
   chatListFocusThreshold: 1000 * 60, // refetch on tab-focus only if older than 60s
   /** Dashboard KPI / overview tier — fast revisits feel instant, slow background refresh. */

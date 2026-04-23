@@ -19,6 +19,7 @@ import { useStyleStore } from '../stores/styleStore'
 import { thumbnailsApi } from '../api/thumbnails'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { extractYoutubeUrl } from '../lib/youtubeUrl'
+import { useObjectURL } from '../lib/useObjectURL'
 import { Dialog } from '../components/ui/Dialog'
 import { SegmentedTabs } from '../components/ui/SegmentedTabs'
 import { PrimaryPill } from '../components/ui/PrimaryPill'
@@ -133,6 +134,7 @@ export function StylesModal({ onClose }) {
   const [showCreate, setShowCreate] = useState(false)
   const [createSourceTab, setCreateSourceTab] = useState('upload')
   const [createImage, setCreateImage] = useState(null)
+  const createImagePreviewUrl = useObjectURL(createImage)
   const [createYoutubeUrl, setCreateYoutubeUrl] = useState('')
   const [createYoutubePreview, setCreateYoutubePreview] = useState(null)
   const [createYoutubeFetching, setCreateYoutubeFetching] = useState(false)
@@ -332,7 +334,7 @@ export function StylesModal({ onClose }) {
                   />
                   {createImage ? (
                     <div className="sm-upload-preview">
-                      <img src={URL.createObjectURL(createImage)} alt="Preview" />
+                      <img src={createImagePreviewUrl} alt="Preview" />
                       <button
                         type="button"
                         className="sm-press sm-preview-remove"

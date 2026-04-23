@@ -15,12 +15,15 @@ import {
 import { useThumbnailChatActivityStore } from '../stores/thumbnailChatActivityStore'
 import { EditThumbnailDialog } from '../components/EditThumbnailDialog'
 import { TabBar } from '../components/TabBar'
-import { Dropdown, SegmentedTabs, InlineSpinner, PrimaryPill } from '../components/ui'
+import { Dropdown, InlineSpinner, PrimaryPill } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion'
 import { ChatHistorySkeleton } from '../components/ChatHistorySkeleton'
 import GenerationProgress from '../components/GenerationProgress'
 import { AnimatedComposerHint } from '../components/AnimatedComposerHint'
+import { LazyImg } from '../components/LazyImg'
+import { ThumbPillTabs } from '../components/ThumbPillTabs'
+import { ThumbBackgroundFX } from '../components/ThumbBackgroundFX'
 import { stripPrefillFromHash } from '../lib/dashboardActionPayload'
 import { useFloatingPosition } from '../lib/useFloatingPosition'
 import { extractYoutubeUrl } from '../lib/youtubeUrl'
@@ -31,8 +34,50 @@ import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 import { checkPromptForRealPerson, warningMessageFor } from '../lib/promptModeration'
 import { toast } from '../lib/toast'
 import { friendlyTitleFor, parseApiError } from '../lib/errorMessages'
+import { canvasToBase64Png } from '../lib/canvasToBase64'
 // import './ScriptGenerator.css' // next update — ScriptGenerator moved to src/next-update-ideas
 import './ThumbnailGenerator.css'
+
+// Source-type options for the Recreate / Analyze / Edit tabbars. Icons
+// built once as JSX constants so `ThumbPillTabs`'s memoised props stay
+// referentially stable across parent re-renders.
+const SRC_ICON_LINK = (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5" />
+    <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5" />
+  </svg>
+)
+const SRC_ICON_UPLOAD = (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="17 8 12 3 7 8" />
+    <line x1="12" y1="3" x2="12" y2="15" />
+  </svg>
+)
+const SRC_OPTIONS_YOUTUBE = [
+  { value: 'youtube', label: 'Link', icon: SRC_ICON_LINK },
+  { value: 'upload', label: 'Upload', icon: SRC_ICON_UPLOAD },
+]
+const SRC_OPTIONS_URL = [
+  { value: 'url', label: 'Link', icon: SRC_ICON_LINK },
+  { value: 'upload', label: 'Upload', icon: SRC_ICON_UPLOAD },
+]
 
 const THUMB_COMPOSER_HINTS = [
   'A smiling explorer on a misty mountain peak, bold yellow text “I SURVIVED 7 DAYS”',
@@ -255,7 +300,7 @@ function pushThumbModeHash(conversationId, mode) {
 // iOS-style cubic-bezier for layout/size transitions and screen fade-ins.
 // (0.32, 0.72, 0, 1) is the standard approximation Apple uses across iOS.
 const IOS_EASE = [0.32, 0.72, 0, 1]
-const IOS_RESIZE_TRANSITION = { duration: 0.42, ease: IOS_EASE }
+const IOS_RESIZE_TRANSITION = { duration: 0.22, ease: IOS_EASE }
 
 /**
  * SmoothHeight — wraps children in a container that animates its height
@@ -304,32 +349,47 @@ function PromptModerationNotice({ prompt }) {
   )
 }
 
+/**
+ * SmoothHeight — animates its container's height as children change.
+ *
+ * Previous revisions used framer-motion's `animate={{ height }}` plus a
+ * ResizeObserver + React state roundtrip. That chain woke the React
+ * reconciler and framer-motion's imperative animator on every nested
+ * resize (textarea growth, DropZone mounts, etc.) — cheap individually
+ * but it accumulated during long sessions.
+ *
+ * This version is plain DOM + one ResizeObserver that writes
+ * `element.style.height` directly. CSS handles the actual interpolation
+ * via a `height` transition. No React re-renders, no animation objects,
+ * no motion lib. Cheapest way to get a smooth height animation.
+ */
 function SmoothHeight({ children, className = '' }) {
+  const outerRef = useRef(null)
   const innerRef = useRef(null)
-  const [height, setHeight] = useState('auto')
 
   useLayoutEffect(() => {
-    const el = innerRef.current
-    if (!el) return
-    setHeight(el.scrollHeight)
-    if (typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(() => {
-      const h = el.scrollHeight
-      setHeight((prev) => (prev === h ? prev : h))
-    })
-    ro.observe(el)
+    const outer = outerRef.current
+    const inner = innerRef.current
+    if (!outer || !inner) return undefined
+    const apply = () => {
+      const h = inner.scrollHeight
+      if (outer.style.height !== `${h}px`) outer.style.height = `${h}px`
+    }
+    apply()
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const ro = new ResizeObserver(apply)
+    ro.observe(inner)
     return () => ro.disconnect()
   }, [])
 
   return (
-    <motion.div
-      className={className}
-      animate={{ height }}
-      transition={IOS_RESIZE_TRANSITION}
+    <div
+      ref={outerRef}
+      className={`thumb-smooth-height ${className}`}
       style={{ overflow: 'hidden' }}
     >
       <div ref={innerRef}>{children}</div>
-    </motion.div>
+    </div>
   )
 }
 
@@ -406,6 +466,15 @@ const THUMB_GEN_SUB_TABS = [
     ),
   },
 ]
+
+// Reshape into the `{value,label,icon}` contract expected by ThumbPillTabs.
+// Done once at module load — stable reference so the memoised tab row
+// never invalidates on parent re-renders.
+const THUMB_GEN_MODE_OPTIONS = THUMB_GEN_SUB_TABS.map((t) => ({
+  value: t.id,
+  label: t.label,
+  icon: t.icon,
+}))
 
 function ThumbBatchCirclePicker({ value, onChange, disabled }) {
   const [open, setOpen] = useState(false)
@@ -658,7 +727,7 @@ async function createFullMaskBase64(imageUrl) {
   const ctx = canvas.getContext('2d')
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, canvas.width, canvas.height)
-  return canvas.toDataURL('image/png').split(',')[1]
+  return canvasToBase64Png(canvas)
 }
 
 function buildSelectionHint(selectedPersona, selectedStyle) {
@@ -781,18 +850,18 @@ function ThumbnailBatchCard({
 
   return (
     <div className="thumb-batch-card-wrap" data-thumb-slot={index}>
-      {/* YouTube-style ambient glow — the thumbnail image itself, blurred
-       *  and scaled, sitting behind the card so the halo picks up the
-       *  dominant colours of the image (same trick YouTube uses). */}
-      {t?.image_url ? (
-        <div
-          className="thumb-batch-card-ambient"
-          aria-hidden="true"
-          style={{ backgroundImage: `url(${t.image_url})` }}
-        />
-      ) : null}
-
       <div className="thumb-batch-card">
+        {/* Colour tint — the thumbnail image itself, heavily blurred,
+         *  painted INSIDE the card so the card surface adopts the image's
+         *  dominant colours without producing any halo behind the card. */}
+        {t?.image_url ? (
+          <div
+            className="thumb-batch-card-ambient"
+            aria-hidden="true"
+            style={{ backgroundImage: `url(${t.image_url})` }}
+          />
+        ) : null}
+
         {/* Ambient starfield + soft glow — decorative, pointer-events none */}
         <div className="thumb-batch-card-bg" aria-hidden="true" />
 
@@ -810,7 +879,7 @@ function ThumbnailBatchCard({
             }}
             aria-label={`View ${label} full size`}
           >
-            <img src={t.image_url} alt={label} className="thumb-batch-img" />
+            <LazyImg src={t.image_url} alt={label} className="thumb-batch-img" />
 
             {/* Score pill — glass, glowing, tier-tinted. Sits over the image. */}
             {scoreTier && (
@@ -1152,6 +1221,15 @@ export function ThumbnailGenerator({
   const recreateFetchRef = useRef(null)
   const analyzeFetchRef = useRef(null)
   const editFetchRef = useRef(null)
+
+  useEffect(() => {
+    return () => {
+      if (finishLoadingRef.current) clearTimeout(finishLoadingRef.current)
+      if (recreateFetchRef.current) clearTimeout(recreateFetchRef.current)
+      if (analyzeFetchRef.current) clearTimeout(analyzeFetchRef.current)
+      if (editFetchRef.current) clearTimeout(editFetchRef.current)
+    }
+  }, [])
   const threadRef = useRef(null)
   const messagesEndRef = useRef(null)
   const composerFooterRef = useRef(null)
@@ -1461,38 +1539,28 @@ export function ThumbnailGenerator({
     }, 550)
   }, [])
 
+  // Textarea auto-resize — SIMPLE version. `height: auto` measures the
+  // natural height in the same layout pass; we immediately set the final
+  // pixel value. No transition on the textarea itself — SmoothHeight's
+  // outer transition handles the visual smoothness at the pill level.
+  // Running two competing height animations (textarea + SmoothHeight)
+  // on every keystroke caused visible jitter on the whole composer.
   useLayoutEffect(() => {
     const el = textareaRef.current
     if (!el) return
-    const prev = el.offsetHeight
-    el.style.transition = 'none'
-    el.style.overflow = 'hidden'
-    el.style.height = '0px'
+    el.style.height = 'auto'
     const target = Math.max(28, Math.min(el.scrollHeight, 140))
-    el.style.height = `${prev}px`
-    void el.offsetHeight
-    el.style.transition = 'height 0.26s cubic-bezier(0.25, 1, 0.5, 1)'
-    requestAnimationFrame(() => {
-      el.style.height = `${target}px`
-      if (target >= 140) el.style.overflow = ''
-    })
+    el.style.height = `${target}px`
+    el.style.overflow = target >= 140 ? '' : 'hidden'
   }, [draft])
 
   useLayoutEffect(() => {
     const el = recreateTextareaRef.current
     if (!el) return
-    const prev = el.offsetHeight
-    el.style.transition = 'none'
-    el.style.overflow = 'hidden'
-    el.style.height = '0px'
+    el.style.height = 'auto'
     const target = Math.max(28, Math.min(el.scrollHeight, 140))
-    el.style.height = `${prev}px`
-    void el.offsetHeight
-    el.style.transition = 'height 0.26s cubic-bezier(0.25, 1, 0.5, 1)'
-    requestAnimationFrame(() => {
-      el.style.height = `${target}px`
-      if (target >= 140) el.style.overflow = ''
-    })
+    el.style.height = `${target}px`
+    el.style.overflow = target >= 140 ? '' : 'hidden'
   }, [recreateDraft])
 
   useEffect(() => {
@@ -1590,6 +1658,30 @@ export function ThumbnailGenerator({
   }, [editSourceMode, editUrlInput, editDataUrl])
 
   const pushLocalAssistantMessage = useCallback((userContent, assistant) => {
+    // Warm the browser's HTTP cache for any freshly-generated thumbnail
+    // URLs. By the time the user scrolls down to see the card or opens
+    // the lightbox, the image is already decoded — the card swaps from
+    // a blank `<LazyImg>` placeholder to a fully-loaded image without a
+    // visible fetch. Only the NEW message's images are prefetched;
+    // older messages stay lazy-loaded by `LazyImg` to keep RAM flat.
+    const prefetchUrls = new Set()
+    if (assistant.imageUrl) prefetchUrls.add(assistant.imageUrl)
+    if (Array.isArray(assistant.thumbnails)) {
+      for (const t of assistant.thumbnails) {
+        if (t?.image_url) prefetchUrls.add(t.image_url)
+      }
+    }
+    for (const url of prefetchUrls) {
+      if (typeof url !== 'string' || !url || url.startsWith('data:')) continue
+      try {
+        const img = new Image()
+        img.decoding = 'async'
+        img.src = url
+      } catch (_) {
+        /* ignore */
+      }
+    }
+
     setMessages((prev) => [
       ...prev,
       {
@@ -1999,6 +2091,7 @@ export function ThumbnailGenerator({
       role="tabpanel"
       aria-labelledby="coach-tab-thumbnails"
     >
+      <ThumbBackgroundFX />
       <motion.section
         className={`coach-chat-shell${isEmptyScreen ? ' coach-chat-shell--thumb-empty' : ''}`}
         initial={{ opacity: 0, y: 8 }}
@@ -2051,7 +2144,7 @@ export function ThumbnailGenerator({
                   <div className="coach-user-message-stack">
                     {msg.imageUrl && (
                       <div className="thumb-user-sent-image">
-                        <img
+                        <LazyImg
                           src={msg.imageUrl}
                           alt="Sent thumbnail"
                           className="thumb-user-sent-img"
@@ -2108,6 +2201,7 @@ export function ThumbnailGenerator({
                       src={pendingUserImageUrl}
                       alt="Sent thumbnail"
                       className="thumb-user-sent-img"
+                      decoding="async"
                     />
                   </div>
                 )}
@@ -2153,7 +2247,7 @@ export function ThumbnailGenerator({
           ref={composerFooterRef}
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.46, ease: IOS_EASE, delay: 0.06 }}
+          transition={{ duration: 0.28, ease: IOS_EASE }}
           className="coach-composer-wrap coach-composer-wrap--thumb-tools"
         >
           {/* Scroll-to-bottom — same pattern as ScriptGenerator */}
@@ -2193,58 +2287,51 @@ export function ThumbnailGenerator({
               </div>
             )}
 
-            {/* Single glass composer pill — tabbar at top, mode content below.
-             * The tabbar row is a plain `<div>` (no layout animation) so the
-             * Prompt/Recreate/Analyze/Edit indicator doesn't twitch when the
-             * mode-pane below resizes. The form pane itself wraps in a
-             * motion.div with `layout="size"` so only its bounding box
-             * grows/shrinks when the user toggles Link/Upload — the controls
-             * inside swap instantly without morphing. */}
-            <div className="coach-composer script-gen-composer thumb-gen-glass-composer">
-              <div className="thumb-gen-tab-row">
-                <SegmentedTabs
-                  value={thumbMode}
-                  onChange={handleThumbModeTab}
-                  ariaLabel="Thumbnail modes"
-                  layoutId="thumb-gen-mode-toggle"
-                  className="thumb-gen-mode-segtabs"
-                  options={THUMB_GEN_SUB_TABS.map((t) => ({
-                    value: t.id,
-                    label: t.label,
-                    icon: t.icon,
-                  }))}
+            {/* Floating mode tabbar — each mode is its own pill, active
+             * one fills with violet. Tab rendering lives in
+             * <ThumbPillTabs/> (memoised) so typing in the composer
+             * doesn't re-render the tab row. */}
+            <div className="thumb-gen-tab-row" role="tablist" aria-label="Thumbnail modes">
+              <ThumbPillTabs
+                options={THUMB_GEN_MODE_OPTIONS}
+                value={thumbMode}
+                onChange={handleThumbModeTab}
+                ariaLabel="Thumbnail modes"
+              />
+              {thumbMode === 'recreate' && (
+                <ThumbPillTabs
+                  options={SRC_OPTIONS_YOUTUBE}
+                  value={recreateSourceMode}
+                  onChange={setRecreateSourceMode}
+                  ariaLabel="Source type"
+                  align="right"
                 />
-                {thumbMode !== 'prompt' &&
-                  (() => {
-                    const linkVal = thumbMode === 'edit' ? 'url' : 'youtube'
-                    const srcMode =
-                      thumbMode === 'recreate'
-                        ? recreateSourceMode
-                        : thumbMode === 'analyze'
-                          ? analyzeSourceMode
-                          : editSourceMode
-                    const setSrcMode =
-                      thumbMode === 'recreate'
-                        ? setRecreateSourceMode
-                        : thumbMode === 'analyze'
-                          ? setAnalyzeSourceMode
-                          : setEditSourceMode
-                    return (
-                      <SegmentedTabs
-                        value={srcMode}
-                        onChange={setSrcMode}
-                        ariaLabel="Source type"
-                        layoutId={`thumb-source-mode-${thumbMode}`}
-                        className="thumb-source-segtabs"
-                        options={[
-                          { value: linkVal, label: 'Link' },
-                          { value: 'upload', label: 'Upload' },
-                        ]}
-                      />
-                    )
-                  })()}
-              </div>
+              )}
+              {thumbMode === 'analyze' && (
+                <ThumbPillTabs
+                  options={SRC_OPTIONS_YOUTUBE}
+                  value={analyzeSourceMode}
+                  onChange={setAnalyzeSourceMode}
+                  ariaLabel="Source type"
+                  align="right"
+                />
+              )}
+              {thumbMode === 'edit' && (
+                <ThumbPillTabs
+                  options={SRC_OPTIONS_URL}
+                  value={editSourceMode}
+                  onChange={setEditSourceMode}
+                  ariaLabel="Source type"
+                  align="right"
+                />
+              )}
+            </div>
 
+            {/* Single glass composer pill — mode content only. The tab row
+             * floats above as a sibling. The form pane wraps in a motion.div
+             * with `layout="size"` so only its bounding box grows/shrinks
+             * when the user toggles Link/Upload. */}
+            <div className="coach-composer script-gen-composer thumb-gen-glass-composer">
               <SmoothHeight className="thumb-gen-mode-pane">
                 {thumbMode === 'prompt' && (
                   <form onSubmit={handleSubmit} className="thumb-gen-mode-form">
@@ -2279,9 +2366,10 @@ export function ThumbnailGenerator({
                           }
                         }}
                       />
-                      {!draft && !promptImageDataUrl ? (
-                        <AnimatedComposerHint hints={THUMB_COMPOSER_HINTS} />
-                      ) : null}
+                      <AnimatedComposerHint
+                        hints={THUMB_COMPOSER_HINTS}
+                        hidden={!!draft || !!promptImageDataUrl}
+                      />
                       <PromptModerationNotice prompt={draft} />
                     </div>
                     <div className="coach-composer-actions thumb-gen-toolbar">

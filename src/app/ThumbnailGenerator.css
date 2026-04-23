@@ -1,5 +1,23 @@
 /* Thumbnail Generator — same coach/script layout, thumbnail-specific blocks */
 
+/* ══════════════════════════════════════════════════════════════════════
+ * Scoped perf rule — kills backdrop-filter ONLY on the composer stack
+ * (pill, floating tab row, toolbar buttons, footer chrome). Those were
+ * the layers most expensive to composite.
+ *
+ * Explicitly does NOT touch `.thumb-batch-card*`, `.thumb-score-pill`,
+ * `.thumb-batch-card-float`, or the persona/style/batch popovers — the
+ * thumbnail card's frosted frame + ambient blurred-image glow need the
+ * filter to look right.
+ * ════════════════════════════════════════════════════════════════════ */
+.coach-composer-wrap--thumb-tools,
+.coach-composer-wrap--thumb-tools *,
+.coach-composer-wrap--thumb-tools *::before,
+.coach-composer-wrap--thumb-tools *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 /* ──────────────────────────────────────────────────────────────────────
  * Screen chrome for the Thumbnail Generator panel.
  *
@@ -270,12 +288,14 @@
   display: none;
 }
 
-/* Wrap: completely transparent and zero-sized around the pill. The
- * shared rule has `margin-top: -4.2rem` + `padding: 0.25rem gutter
- * 0.65rem`; both are reset here so the wrap contributes nothing
- * visible around the floating bar. */
+/* Wrap: completely transparent, zero padding — but keep a negative
+ * margin-top so the pill overlaps the thread's bottom padding and
+ * floats over the last message (content scrolls behind it, so the
+ * backdrop-blur on the pill actually has something to blur). Without
+ * this overlap the wrap occupied its own layout band under the thread
+ * and read as a dark rectangle around the bar. */
 .coach-main--thumb .coach-composer-wrap {
-  margin: 0;
+  margin: -4.2rem 0 0;
   padding: 0;
   background: transparent;
 }
@@ -299,26 +319,21 @@
 .coach-main--thumb .coach-composer {
   width: min(780px, calc(100% - 1.5rem));
   max-width: min(780px, calc(100% - 1.5rem));
-  background: transparent;
-  border: 0.5px solid rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(50px) saturate(190%) brightness(1.05);
-  -webkit-backdrop-filter: blur(50px) saturate(190%) brightness(1.05);
-  box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.15),
-    inset 0 -0.5px 0 rgba(255, 255, 255, 0.04),
-    0 0 0 0.5px rgba(0, 0, 0, 0.12),
-    0 4px 16px rgba(0, 0, 0, 0.18),
-    0 12px 40px rgba(0, 0, 0, 0.12);
+  /* Solid dark bg — no blur, no translucency. Reads as a flat dark
+   * card. Cheaper to paint than the old 50px backdrop-filter. */
+  background: #181820;
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  /* Single shadow — no stacked inset highlights. */
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.36);
+  transition:
+    border-color 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .coach-main--thumb .coach-composer:focus-within {
-  border-color: rgba(167, 139, 250, 0.32);
-  box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.22),
-    inset 0 -0.5px 0 rgba(255, 255, 255, 0.04),
-    0 0 0 0.5px rgba(0, 0, 0, 0.12),
-    0 6px 24px rgba(0, 0, 0, 0.2),
-    0 0 0 3px rgba(139, 92, 246, 0.15);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
 }
 
 /* Thumbnail shown in user's sent message (analyze mode) */
@@ -649,16 +664,14 @@
  * Slightly narrower than the full thread width so the card reads as a
  * polished element inside the message column. Two-up layouts (4 items)
  * override this via the grid below. */
-/* Wrapper — hosts the ambient glow and the glass card. Provides the
- * positioning context, max-width, centering, and the entrance animation
- * so the ambient halo + card rise together. */
+/* Wrapper — positioning context + centering. No entrance animation:
+ * cards render in their final state, no fade/scale/slide. */
 .thumb-batch-card-wrap {
   position: relative;
   isolation: isolate;
   max-width: 720px;
   width: 100%;
   margin: 0 auto;
-  animation: thumb-batch-card-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* YouTube-style ambient glow — the thumbnail itself as a heavily blurred
@@ -666,22 +679,26 @@
  * adopts the dominant colours of the image. Extends a bit past the card
  * edges for a soft fall-off, kept behind the glass via z-index: -1
  * inside the wrapper's isolation context. */
+/* Colour tint — JSX sets `background-image: url(...)` inline. Now
+ * lives INSIDE `.thumb-batch-card` so it's clipped to the card's
+ * rounded footprint by the card's `overflow: hidden`, with no halo
+ * behind the card. DOM order places it before `.thumb-batch-card-inner`
+ * (which has `z-index: 1`), so the real image paints on top. */
 .thumb-batch-card-ambient {
   position: absolute;
-  inset: -14px -6px -26px -6px;
-  z-index: -1;
+  inset: 0;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  filter: blur(42px) saturate(1.55);
-  opacity: 0.52;
-  border-radius: 40px;
+  filter: blur(28px) saturate(1.4);
+  opacity: 0.55;
   pointer-events: none;
-  transition: opacity 0.22s ease;
-}
-
-.thumb-batch-card-wrap:hover .thumb-batch-card-ambient {
-  opacity: 0.68;
+  /* `contain: paint` stops the 28 px blur from bleeding one sub-pixel
+     past this element at non-integer browser zoom (125/150/175 %).
+     Without it, the filter leaks outside the parent's rounded-corner
+     `overflow: hidden` clip and shows a coloured halo at the card's
+     bottom-left tail when zooming. */
+  contain: paint;
 }
 
 .thumb-batch-card {
@@ -708,61 +725,13 @@
     0 0 0 0.5px rgba(0, 0, 0, 0.14),
     0 6px 18px rgba(0, 0, 0, 0.22),
     0 16px 48px rgba(0, 0, 0, 0.28);
-  transition:
-    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 0.22s ease,
-    border-color 0.22s ease;
-}
-
-.thumb-batch-card-wrap:hover .thumb-batch-card {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.32);
-  box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.26),
-    inset 0 -0.5px 0 rgba(255, 255, 255, 0.07),
-    0 0 0 0.5px rgba(0, 0, 0, 0.16),
-    0 8px 24px rgba(0, 0, 0, 0.28),
-    0 22px 56px rgba(0, 0, 0, 0.32);
-}
-
-@keyframes thumb-batch-card-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* Stagger the entrance when multiple cards render in a batch. Single card
- * stays at delay 0; 2-4 cards cascade in at 70ms intervals for a calm
- * "sequence" feel rather than a simultaneous pop. Targets the wrapper so
- * the ambient glow + card lift in together. */
-.thumb-batch-grid > .thumb-batch-card-wrap:nth-child(2) {
-  animation-delay: 0.07s;
-}
-.thumb-batch-grid > .thumb-batch-card-wrap:nth-child(3) {
-  animation-delay: 0.14s;
-}
-.thumb-batch-grid > .thumb-batch-card-wrap:nth-child(4) {
-  animation-delay: 0.21s;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .thumb-batch-card-wrap,
-  .thumb-batch-grid > .thumb-batch-card-wrap:nth-child(n) {
-    animation: none;
-    animation-delay: 0s;
-  }
-  .thumb-batch-card,
-  .thumb-batch-card-ambient {
-    transition: none;
-  }
-  .thumb-batch-card-wrap:hover .thumb-batch-card {
-    transform: none;
-  }
+  /* Promote the card to its own compositing layer so the 0.5 px
+     hairlines, the inner image-wrap radius, and the float pill all
+     rasterise against the same pixel grid at non-integer browser
+     zoom. Without this, each child composites on a different pass
+     and you see 1-px seams at the tail corner under Cmd/Ctrl-+. */
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 /* Removed — no decorative layer on the finished card. Kept as a
@@ -793,6 +762,15 @@
   background: rgba(0, 0, 0, 0.35);
   box-sizing: border-box;
   min-height: 120px;
+  /* Deterministic pre-load shape. LazyImg overrides this inline with
+     the real naturalWidth/naturalHeight ratio once the image decodes;
+     the 16/9 fallback means the wrapper never has to reflow from
+     "min-height only" → "natural ratio" when the image swaps in.
+     That reflow is what produced the 1-px gap under the image at
+     browser zoom. 16/9 matches the most common thumbnail format so
+     the jump on swap-in is imperceptible even when the real ratio
+     is 1/1 or 3/2. */
+  aspect-ratio: 16 / 9;
 }
 
 /* Cursor becomes pointer (CSS "pressing" hand) when hovering the clickable
@@ -833,7 +811,11 @@
   position: absolute;
   left: 50%;
   bottom: 6px;
-  transform: translateX(-50%);
+  /* translateZ(0) paired with the centering translate promotes the
+     float bar to its own layer on the same pixel grid as the card,
+     so the frosted pill no longer shows a hairline seam where it
+     meets the image underneath at zoom. */
+  transform: translateX(-50%) translateZ(0);
   z-index: 3;
   display: inline-flex;
   align-items: center;
@@ -1335,7 +1317,11 @@
   width: 100%;
   max-width: 100%;
   margin: 0 auto;
-  pointer-events: auto;
+  /* Chrome is full-width, but click/scroll should pass through its
+   * transparent left/right areas to the thread behind. Children that
+   * need interaction (the pill itself, the error banner) restore
+   * `pointer-events: auto` via their own rules. */
+  pointer-events: none;
   position: relative;
   z-index: 6;
   display: flex;
@@ -1344,6 +1330,24 @@
   border: none;
   box-shadow: none;
   overflow: visible;
+}
+
+/* Soft dark halo behind the pill — radial gradient only, no blur
+ * filter and no negative insets. Previous versions extended the halo
+ * past the chrome's right edge with `-2rem` insets, which on some
+ * widths triggered a horizontal scrollbar and visible layout shift. */
+.thumb-gen-footer-chrome::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 72% 80% at 50% 72%,
+    rgba(0, 0, 0, 0.42) 0%,
+    rgba(0, 0, 0, 0.22) 32%,
+    rgba(0, 0, 0, 0.08) 58%,
+    rgba(0, 0, 0, 0) 85%
+  );
 }
 
 .thumb-gen-footer-error {
@@ -1577,16 +1581,17 @@
 }
 
 .thumb-prompt-input-wrap {
-  padding: 0.3rem 0.55rem 0.1rem;
+  padding: 0.15rem 0.55rem 0.05rem;
 }
 
-/* Allow the rotating hint to wrap to 2 lines so full prompt examples
- * can read naturally on narrow widths. */
+/* Hint overlay aligned exactly with the textarea's first line — top
+ * matches the wrap's padding-top (0.15rem) + textarea's padding-top
+ * (0.05rem). Left/right use 0 because the wrap already pads them. */
 .thumb-prompt-input-wrap .coach-composer-placeholder {
-  top: 0.3rem;
-  left: 0.55rem;
-  right: 0.55rem;
-  padding: 0.1rem 0;
+  top: 0.2rem;
+  left: 0;
+  right: 0;
+  padding: 0.05rem 0;
   font-size: 0.88rem;
   line-height: 1.35;
   overflow: visible;
@@ -1600,11 +1605,11 @@
 }
 
 .thumb-prompt-textarea {
-  min-height: 2.4rem;
+  min-height: 1.9rem;
   text-align: left;
   line-height: 1.35;
   font-size: 0.88rem;
-  padding: 0.1rem 0;
+  padding: 0.05rem 0;
 }
 
 .thumb-single-line-input {
@@ -1628,9 +1633,9 @@
 }
 
 .thumb-gen-toolbar-attach {
-  width: 32px !important;
-  height: 32px !important;
-  min-width: 32px;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px;
   padding: 0 !important;
   border-radius: 50% !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
@@ -1655,8 +1660,35 @@
 }
 
 .thumb-gen-toolbar-attach svg {
-  width: 14px !important;
-  height: 14px !important;
+  width: 17px !important;
+  height: 17px !important;
+}
+
+/* Unified toolbar-button sizing on the thumbnail screen — persona,
+ * style, and batch triggers bumped from 32px → 40px so they match
+ * the attach button and read as a single row of equal chips. */
+.coach-main--thumb .persona-selector--glass-circle .persona-selector-trigger--circle,
+.coach-main--thumb .style-selector--glass-circle .style-selector-trigger--circle,
+.coach-main--thumb .thumb-batch-circle-trigger {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+}
+
+.coach-main--thumb .persona-selector--glass-circle .persona-selector-icon svg,
+.coach-main--thumb .style-selector--glass-circle .style-selector-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.coach-main--thumb .persona-selector--glass-circle .persona-selector-trigger-img,
+.coach-main--thumb .style-selector--glass-circle .style-selector-trigger-img {
+  width: 28px;
+  height: 28px;
+}
+
+.coach-main--thumb .thumb-batch-circle-trigger-badge {
+  font-size: 0.78rem;
 }
 
 /* Batch size — circle + glass popover */
@@ -2612,45 +2644,113 @@
   height: 16px;
 }
 
-/* ── Tabbar row — inside the glass composer ── */
+/* ── Tabbar row — floats OUTSIDE the pill, above it ──
+ * Width + centering matches `.coach-main--thumb .coach-composer` so the
+ * mode chips align with the pill's left edge and the source-type tabs
+ * align with its right edge. */
 .thumb-gen-tab-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding-bottom: 0.5rem;
-  /* Gradient fade divider — matches the glass aesthetic */
-  background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(255, 255, 255, 0.07) 12%,
-      rgba(255, 255, 255, 0.07) 88%,
-      transparent 100%
-    )
-    no-repeat center bottom / 100% 1px;
+  width: min(780px, calc(100% - 1.5rem));
+  max-width: 100%;
+  margin: 0 auto 0.55rem;
+  background: transparent;
+  /* Parent `.thumb-gen-footer-chrome` is pointer-events: none so the
+   * empty areas stay click-through; the tabbar needs auto to receive
+   * clicks on its own bounds. */
+  pointer-events: auto;
+}
+
+/* ── Discrete pill buttons for the mode tabs ──
+ * Each mode (Prompt/Recreate/Analyze/Edit) is its own floating chip.
+ * Inactive chips are subtle glass; the active one fills with the app's
+ * violet accent and carries a soft glow so it reads as selected. */
+.thumb-gen-pill-tab-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  /* Group lives on the LEFT side of the tab row by default */
+  justify-content: flex-start;
+}
+
+.thumb-gen-pill-tab-group--right {
+  justify-content: flex-end;
+}
+
+.thumb-gen-pill-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  /* Flat solid dark chip — cheapest possible paint (no gradient, no
+   * blur, no stacked shadows). Readable against any canvas. */
+  background: #1c1c24;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(235, 235, 240, 0.82);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.16s cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 0.16s cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 0.16s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.08s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+/* Hover mirrors selected — same flat violet so the click lands with
+ * zero visual delta. No multi-layer glow; a single solid fill. */
+.thumb-gen-pill-tab:hover,
+.thumb-gen-pill-tab--active,
+.thumb-gen-pill-tab--active:hover {
+  background: #7c3aed;
+  border-color: rgba(221, 214, 254, 0.5);
+  color: #ffffff;
+}
+
+.thumb-gen-pill-tab:active,
+.thumb-gen-pill-tab--active:active {
+  transform: scale(0.96);
+  transition-duration: 0.06s, 0.06s, 0.06s, 0.06s;
+}
+
+.thumb-gen-pill-tab--active svg {
+  stroke-width: 2.2;
+}
+
+.thumb-gen-pill-tab svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
 }
 
 .thumb-gen-tab-row .chat-subtabbar-wrap {
   margin: 0;
 }
 
-/* Source-mode tabs — right side of tab row */
 .thumb-gen-tab-row .thumb-source-mode-tabs {
   flex-shrink: 0;
   align-self: center;
 }
 
-/* Glass composer — wraps tab row + mode forms */
+/* Glass composer — mode content only (tab row lives above as sibling) */
 .thumb-gen-glass-composer {
   gap: 0;
-  padding: 0.7rem 1.2rem 0.6rem;
+  padding: 0.35rem 0.9rem 0.3rem;
 }
 
 .thumb-gen-mode-form {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  padding-top: 0.5rem;
+  gap: 0.25rem;
+  padding-top: 0;
 }
 
 /* Mode-pane wrapper (motion.div with layout="size"). Clip overflow so when
@@ -2660,6 +2760,22 @@
 .thumb-gen-mode-pane {
   overflow: hidden;
   width: 100%;
+}
+
+/* CSS-driven height animation used by <SmoothHeight>. A ResizeObserver
+ * writes `height: Xpx` inline when the inner content's scrollHeight
+ * changes (tab switch, DropZone mount, textarea growth); this rule
+ * interpolates the change over 220ms. No framer-motion, no React
+ * re-renders per frame. */
+.thumb-smooth-height {
+  transition: height 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: height;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb-smooth-height {
+    transition: none;
+  }
 }
 
 /* Scroll-to-bottom — darker liquid-glass treatment on the thumbnail
@@ -2890,9 +3006,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.42rem;
-  height: 34px;
-  padding: 0 0.82rem;
+  gap: 0.5rem;
+  height: 40px;
+  padding: 0 1rem;
   border: none;
   border-radius: 999px;
   font: inherit;
@@ -2943,20 +3059,20 @@
 .thumb-send-pill-zap {
   display: inline-grid;
   place-items: center;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   color: #ffffff;
   flex-shrink: 0;
 }
 .thumb-send-pill-zap svg {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   display: block;
 }
 
 .thumb-send-pill-num {
   font-variant-numeric: tabular-nums;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   font-weight: 700;
   letter-spacing: 0.01em;
 }
@@ -2964,13 +3080,13 @@
 .thumb-send-pill-icon {
   display: inline-grid;
   place-items: center;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
 }
 .thumb-send-pill-icon svg {
-  width: 13px;
-  height: 13px;
+  width: 15px;
+  height: 15px;
   display: block;
 }
 

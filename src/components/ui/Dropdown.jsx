@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import FloatingMenu from './FloatingMenu'
+import { rafThrottle } from '../../lib/rafThrottle'
 
 /**
  * Custom dropdown — pill-shaped trigger + FloatingMenu (glass backdrop + portal).
@@ -72,13 +73,13 @@ export function Dropdown({
   useEffect(() => {
     if (!open) return
     positionMenu()
-    const handleResize = () => positionMenu()
-    const handleScroll = () => positionMenu()
-    window.addEventListener('resize', handleResize)
-    window.addEventListener('scroll', handleScroll, true)
+    const throttled = rafThrottle(positionMenu)
+    window.addEventListener('resize', throttled)
+    window.addEventListener('scroll', throttled, true)
     return () => {
-      window.removeEventListener('resize', handleResize)
-      window.removeEventListener('scroll', handleScroll, true)
+      throttled.cancel()
+      window.removeEventListener('resize', throttled)
+      window.removeEventListener('scroll', throttled, true)
     }
   }, [open, positionMenu])
 

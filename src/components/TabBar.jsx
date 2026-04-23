@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { rafThrottle } from '../lib/rafThrottle'
 import './TabBar.css'
 
 /**
@@ -68,14 +69,15 @@ export function TabBar({
 
   useEffect(() => {
     if (!usesSlider) return
-    const run = () => requestAnimationFrame(() => updateSegment())
-    run()
-    const ro = new ResizeObserver(run)
+    const throttled = rafThrottle(updateSegment)
+    throttled()
+    const ro = new ResizeObserver(throttled)
     if (tabsRef.current) ro.observe(tabsRef.current)
-    window.addEventListener('resize', run)
+    window.addEventListener('resize', throttled)
     return () => {
+      throttled.cancel()
       ro.disconnect()
-      window.removeEventListener('resize', run)
+      window.removeEventListener('resize', throttled)
     }
   }, [usesSlider, value, tabs.length, updateSegment])
 

@@ -24,7 +24,13 @@ import { CostHint } from '../components/CostHint'
 import { Dialog } from '../components/ui/Dialog'
 import { PrimaryPill } from '../components/ui/PrimaryPill'
 import { InlineSpinner } from '../components/ui'
+import { useObjectURL } from '../lib/useObjectURL'
 import './PersonasModal.css'
+
+function SlotImage({ file, alt }) {
+  const url = useObjectURL(file)
+  return <img src={url} alt={alt} />
+}
 
 const PHOTO_SLOTS = [
   { key: 'front', label: 'Front' },
@@ -354,7 +360,7 @@ export function PersonasModal({ onClose }) {
                     />
                     {file ? (
                       <div className="pm-slot-preview">
-                        <img src={URL.createObjectURL(file)} alt={label} />
+                        <SlotImage file={file} alt={label} />
                         <button
                           type="button"
                           className="pm-press pm-slot-clear"

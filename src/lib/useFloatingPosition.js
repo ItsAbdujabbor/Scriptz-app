@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { rafThrottle } from './rafThrottle'
 
 /**
  * useFloatingPosition — anchors a popover to a trigger element using fixed
@@ -107,21 +108,21 @@ export function useFloatingPosition({
     // so the user never sees a flash at (0, 0).
     compute()
 
-    const onResize = () => compute()
-    const onScroll = () => compute()
-    window.addEventListener('resize', onResize)
+    const throttled = rafThrottle(compute)
+    window.addEventListener('resize', throttled)
     // Capture so we hear scroll on every ancestor, not just window.
-    window.addEventListener('scroll', onScroll, true)
+    window.addEventListener('scroll', throttled, true)
 
     let ro
     if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(() => compute())
+      ro = new ResizeObserver(throttled)
       ro.observe(popover)
     }
 
     return () => {
-      window.removeEventListener('resize', onResize)
-      window.removeEventListener('scroll', onScroll, true)
+      throttled.cancel()
+      window.removeEventListener('resize', throttled)
+      window.removeEventListener('scroll', throttled, true)
       if (ro) ro.disconnect()
     }
     // placement / offset / padding are config — re-running on change is fine.

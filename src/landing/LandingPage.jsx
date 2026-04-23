@@ -23,12 +23,12 @@ import { Faq } from './components/Faq'
 import { FinalCta } from './components/FinalCta'
 import { Footer } from './components/Footer'
 import { DemoModal } from './components/DemoModal'
+import { rafThrottle } from '../lib/rafThrottle'
 
 export function LandingPage() {
   useEffect(() => {
     const prefersReducedMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
     const headerEl = document.getElementById('header')
     function updateHeaderScroll() {
@@ -37,7 +37,8 @@ export function LandingPage() {
       headerEl.classList.toggle('scrolled', isScrolled)
       if (isScrolled) headerEl.classList.add('header-ready')
     }
-    window.addEventListener('scroll', updateHeaderScroll, { passive: true })
+    const throttledHeaderScroll = rafThrottle(updateHeaderScroll)
+    window.addEventListener('scroll', throttledHeaderScroll, { passive: true })
     updateHeaderScroll()
     if (headerEl) {
       headerEl.classList.add('header-ready')
@@ -55,7 +56,7 @@ export function LandingPage() {
     }
 
     // Make any generic .reveal elements visible immediately to avoid scroll-time work
-    document.querySelectorAll('.reveal').forEach(el => {
+    document.querySelectorAll('.reveal').forEach((el) => {
       el.classList.add('revealed')
     })
 
@@ -77,42 +78,38 @@ export function LandingPage() {
       }
     }
 
-    openDemoButtons.forEach(btn =>
-      btn.addEventListener('click', openDemo),
-    )
-    closeDemoButtons.forEach(btn =>
-      btn.addEventListener('click', closeDemo),
-    )
+    openDemoButtons.forEach((btn) => btn.addEventListener('click', openDemo))
+    closeDemoButtons.forEach((btn) => btn.addEventListener('click', closeDemo))
     if (demoModal) {
-      demoModal.addEventListener('keydown', e => {
+      demoModal.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') closeDemo()
       })
     }
 
     // "Another 10 of 10" scroll reveal
     // Instantly mark "Another 10 of 10" elements as visible (no scroll observers for smoother scrolling)
-    document.querySelectorAll('.a10-reveal').forEach(el => {
+    document.querySelectorAll('.a10-reveal').forEach((el) => {
       el.classList.add('a10-visible')
     })
 
     // Solution section scroll reveal
     // Solution section — make all reveal elements visible immediately
-    document.querySelectorAll('.sol-reveal').forEach(el => {
+    document.querySelectorAll('.sol-reveal').forEach((el) => {
       el.classList.add('sol-visible')
     })
 
     // Results section scroll reveal
-    document.querySelectorAll('.res-reveal').forEach(el => {
+    document.querySelectorAll('.res-reveal').forEach((el) => {
       el.classList.add('res-visible')
     })
 
     // Social proof section scroll reveal
-    document.querySelectorAll('.sp-reveal').forEach(el => {
+    document.querySelectorAll('.sp-reveal').forEach((el) => {
       el.classList.add('sp-visible')
     })
 
     // Pricing section: scroll reveal + billing toggle
-    document.querySelectorAll('.pri-reveal').forEach(el => {
+    document.querySelectorAll('.pri-reveal').forEach((el) => {
       el.classList.add('pri-visible')
     })
 
@@ -125,48 +122,37 @@ export function LandingPage() {
       const priBilledEls = pricingSection.querySelectorAll('.pri-billed')
       const priMoEls = pricingSection.querySelectorAll('.pri-billed-mo')
 
-      const applyPricingMode = mode => {
+      const applyPricingMode = (mode) => {
         const annual = mode === 'annual'
-        priBtns.forEach(btn => {
-          btn.classList.toggle(
-            'pri-toggle-active',
-            btn.dataset.period === mode,
-          )
+        priBtns.forEach((btn) => {
+          btn.classList.toggle('pri-toggle-active', btn.dataset.period === mode)
         })
         if (priSaveMsg) {
           priSaveMsg.classList.toggle('pri-show', annual)
         }
-        priCurEls.forEach(el => {
+        priCurEls.forEach((el) => {
           const span = el
           const monthly = span.getAttribute('data-monthly')
           const annualPrice = span.getAttribute('data-annual')
           span.textContent = annual ? annualPrice : monthly
         })
-        priOldEls.forEach(el =>
-          el.classList.toggle('pri-hidden', !annual),
-        )
-        priBilledEls.forEach(el =>
-          el.classList.toggle('pri-hidden', !annual),
-        )
-        priMoEls.forEach(el =>
-          el.classList.toggle('pri-hidden', annual),
-        )
+        priOldEls.forEach((el) => el.classList.toggle('pri-hidden', !annual))
+        priBilledEls.forEach((el) => el.classList.toggle('pri-hidden', !annual))
+        priMoEls.forEach((el) => el.classList.toggle('pri-hidden', annual))
       }
 
-      priBtns.forEach(btn => {
-        btn.addEventListener('click', () =>
-          applyPricingMode(btn.dataset.period || 'monthly'),
-        )
+      priBtns.forEach((btn) => {
+        btn.addEventListener('click', () => applyPricingMode(btn.dataset.period || 'monthly'))
       })
     }
 
     // FAQ section: reveal + accordion
-    document.querySelectorAll('.faq-reveal').forEach(el => {
+    document.querySelectorAll('.faq-reveal').forEach((el) => {
       el.classList.add('faq-visible')
     })
 
     const faqItems = document.querySelectorAll('.faq-item')
-    faqItems.forEach(item => {
+    faqItems.forEach((item) => {
       const btn = item.querySelector('.faq-q')
       const panel = item.querySelector('.faq-a')
       if (!btn || !panel) return
@@ -174,7 +160,7 @@ export function LandingPage() {
       btn.addEventListener('click', () => {
         const isOpen = item.classList.contains('faq-open')
 
-        faqItems.forEach(i => {
+        faqItems.forEach((i) => {
           i.classList.remove('faq-open')
           const p = i.querySelector('.faq-a')
           if (p) p.style.maxHeight = null
@@ -191,7 +177,7 @@ export function LandingPage() {
     })
 
     // Final CTA reveal
-    document.querySelectorAll('.fcta-reveal').forEach(el => {
+    document.querySelectorAll('.fcta-reveal').forEach((el) => {
       el.classList.add('fcta-visible')
     })
 
@@ -204,9 +190,7 @@ export function LandingPage() {
       faq: 'nav-faq',
     }
     const sectionIds = Object.keys(SECTION_NAV)
-    const sectionEls = sectionIds
-      .map((id) => document.getElementById(id))
-      .filter(Boolean)
+    const sectionEls = sectionIds.map((id) => document.getElementById(id)).filter(Boolean)
 
     function clearHeaderActive() {
       headerEl?.querySelectorAll('.header-nav-link, .header-mobile-link').forEach((l) => {
@@ -232,7 +216,7 @@ export function LandingPage() {
             if (entry.isIntersecting) setHeaderActive(entry.target.id)
           })
         },
-        { rootMargin: '-12% 0px -58% 0px', threshold: 0 },
+        { rootMargin: '-12% 0px -58% 0px', threshold: 0 }
       )
       sectionEls.forEach((el) => navObserver.observe(el))
     }
@@ -280,7 +264,9 @@ export function LandingPage() {
       }
     }
     burger?.addEventListener('click', handleBurgerClick)
-    const handleEscape = (e) => { if (e.key === 'Escape') closeMobile() }
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') closeMobile()
+    }
     document.addEventListener('keydown', handleEscape)
 
     return () => {
@@ -288,7 +274,8 @@ export function LandingPage() {
       navLinks.forEach((link) => link.removeEventListener('click', handleNavClick))
       burger?.removeEventListener('click', handleBurgerClick)
       document.removeEventListener('keydown', handleEscape)
-      window.removeEventListener('scroll', updateHeaderScroll)
+      throttledHeaderScroll.cancel()
+      window.removeEventListener('scroll', throttledHeaderScroll)
       openDemoButtons.forEach((btn) => btn.removeEventListener('click', openDemo))
       closeDemoButtons.forEach((btn) => btn.removeEventListener('click', closeDemo))
     }
@@ -316,4 +303,3 @@ export function LandingPage() {
     </>
   )
 }
-

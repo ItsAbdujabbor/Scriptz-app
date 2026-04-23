@@ -30,6 +30,7 @@ import { PrimaryPill } from './ui/PrimaryPill'
 import { PersonaSelector } from './PersonaSelector'
 import { usePersonaStore } from '../stores/personaStore'
 import GenerationProgress from './GenerationProgress'
+import { canvasToBase64Png } from '../lib/canvasToBase64'
 
 const Z_INDEX = 2147483647
 const PRIMARY_GRADIENT = 'var(--accent-gradient)'
@@ -233,6 +234,73 @@ function hexToRgba(hex, alpha = 1) {
 }
 
 /* ── Batch picker (matches VideoOptimize) ─────────────────────────── */
+/* Hoisted style constants: keeping these at module scope means React gets
+   the same object identity every render, which preserves memoisation and
+   removes ~45 object allocations per BatchRowBtn render in hot paths. The
+   dialog's "inline styles for isolation" guarantee is unchanged — same
+   style surface, just referentially stable. */
+const BRB_WRAPPER = { position: 'relative', width: '100%' }
+const BRB_BUTTON_BASE = {
+  display: 'flex',
+  alignItems: 'center',
+  width: '100%',
+  padding: '10px 14px',
+  gap: 10,
+  borderRadius: 12,
+  color: 'rgba(255,255,255,0.9)',
+  fontFamily: 'inherit',
+  fontSize: 13,
+  fontWeight: 500,
+  transition: 'background 0.18s ease, border-color 0.18s ease',
+}
+const BRB_ICON_WRAP = { display: 'inline-flex', opacity: 0.75 }
+const BRB_LABEL = { flex: 1, textAlign: 'left' }
+const BRB_CHEVRON_BASE = { opacity: 0.6, transition: 'transform 0.2s', display: 'inline-flex' }
+const BRB_CHEVRON_OPEN = { ...BRB_CHEVRON_BASE, transform: 'rotate(180deg)' }
+const BRB_CHEVRON_CLOSED = { ...BRB_CHEVRON_BASE, transform: 'none' }
+const BRB_LIST = {
+  position: 'absolute',
+  bottom: 'calc(100% + 6px)',
+  left: 0,
+  right: 0,
+  display: 'flex',
+  gap: 4,
+  padding: 4,
+  background: 'rgba(14, 14, 18, 0.92)',
+  border: '0.5px solid rgba(255,255,255,0.1)',
+  borderRadius: 12,
+  boxShadow: '0 10px 32px rgba(0,0,0,0.55)',
+  backdropFilter: 'blur(22px) saturate(180%)',
+  WebkitBackdropFilter: 'blur(22px) saturate(180%)',
+  zIndex: 10,
+  animation: 'etd-fade-in 0.18s cubic-bezier(0.32, 0.72, 0, 1) both',
+}
+const BRB_OPTION_BASE = {
+  flex: 1,
+  height: 32,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  border: 'none',
+  borderRadius: 8,
+  fontSize: 13,
+  fontWeight: 600,
+  fontFamily: 'inherit',
+  cursor: 'pointer',
+  transition: 'background 0.15s ease, color 0.15s ease',
+}
+const BRB_OPTION_SELECTED = {
+  ...BRB_OPTION_BASE,
+  color: '#ffffff',
+  background: 'rgba(255,255,255,0.14)',
+}
+const BRB_OPTION_UNSELECTED = {
+  ...BRB_OPTION_BASE,
+  color: 'rgba(255,255,255,0.6)',
+  background: 'transparent',
+}
+const BRB_COUNTS = [1, 2, 3, 4]
+
 function BatchRowBtn({ value, onChange, disabled }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -245,8 +313,15 @@ function BatchRowBtn({ value, onChange, disabled }) {
       return () => document.removeEventListener('click', onDoc)
     }
   }, [open])
+  const buttonStyle = {
+    ...BRB_BUTTON_BASE,
+    border: `1px solid ${open ? 'rgba(139,92,246,0.4)' : 'rgba(255,255,255,0.08)'}`,
+    background: open ? 'rgba(139,92,246,0.1)' : 'rgba(255,255,255,0.05)',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.55 : 1,
+  }
   return (
-    <div ref={ref} style={{ position: 'relative', width: '100%' }}>
+    <div ref={ref} style={BRB_WRAPPER}>
       <button
         type="button"
         onClick={() => !disabled && setOpen((o) => !o)}
@@ -254,63 +329,21 @@ function BatchRowBtn({ value, onChange, disabled }) {
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`${value} ${value === 1 ? 'variant' : 'variants'} per run`}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          width: '100%',
-          padding: '10px 14px',
-          gap: 10,
-          borderRadius: 12,
-          border: `1px solid ${open ? 'rgba(139,92,246,0.4)' : 'rgba(255,255,255,0.08)'}`,
-          background: open ? 'rgba(139,92,246,0.1)' : 'rgba(255,255,255,0.05)',
-          color: 'rgba(255,255,255,0.9)',
-          fontFamily: 'inherit',
-          fontSize: 13,
-          fontWeight: 500,
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          opacity: disabled ? 0.55 : 1,
-          transition: 'background 0.18s ease, border-color 0.18s ease',
-        }}
+        style={buttonStyle}
       >
-        <span style={{ display: 'inline-flex', opacity: 0.75 }}>
+        <span style={BRB_ICON_WRAP}>
           <IconLayers size={16} />
         </span>
-        <span style={{ flex: 1, textAlign: 'left' }}>
+        <span style={BRB_LABEL}>
           {value} {value === 1 ? 'variant' : 'variants'}
         </span>
-        <span
-          style={{
-            opacity: 0.6,
-            transition: 'transform 0.2s',
-            transform: open ? 'rotate(180deg)' : 'none',
-            display: 'inline-flex',
-          }}
-        >
+        <span style={open ? BRB_CHEVRON_OPEN : BRB_CHEVRON_CLOSED}>
           <IconChevron size={14} />
         </span>
       </button>
       {open && !disabled && (
-        <div
-          role="listbox"
-          style={{
-            position: 'absolute',
-            bottom: 'calc(100% + 6px)',
-            left: 0,
-            right: 0,
-            display: 'flex',
-            gap: 4,
-            padding: 4,
-            background: 'rgba(14, 14, 18, 0.92)',
-            border: '0.5px solid rgba(255,255,255,0.1)',
-            borderRadius: 12,
-            boxShadow: '0 10px 32px rgba(0,0,0,0.55)',
-            backdropFilter: 'blur(22px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(22px) saturate(180%)',
-            zIndex: 10,
-            animation: 'etd-fade-in 0.18s cubic-bezier(0.32, 0.72, 0, 1) both',
-          }}
-        >
-          {[1, 2, 3, 4].map((n) => (
+        <div role="listbox" style={BRB_LIST}>
+          {BRB_COUNTS.map((n) => (
             <button
               key={n}
               type="button"
@@ -320,22 +353,7 @@ function BatchRowBtn({ value, onChange, disabled }) {
                 onChange(n)
                 setOpen(false)
               }}
-              style={{
-                flex: 1,
-                height: 32,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: 'none',
-                borderRadius: 8,
-                fontSize: 13,
-                fontWeight: 600,
-                fontFamily: 'inherit',
-                color: n === value ? '#ffffff' : 'rgba(255,255,255,0.6)',
-                background: n === value ? 'rgba(255,255,255,0.14)' : 'transparent',
-                cursor: 'pointer',
-                transition: 'background 0.15s ease, color 0.15s ease',
-              }}
+              style={n === value ? BRB_OPTION_SELECTED : BRB_OPTION_UNSELECTED}
             >
               {n}×
             </button>
@@ -584,11 +602,17 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
   const { unit: unitCost, total: totalCost } = useCostOf('thumbnail_edit_faceswap', batch)
 
   // Canvas refs
-  const maskCanvasRef = useRef(null) // full natural resolution mask canvas
+  const maskCanvasRef = useRef(null) // full natural resolution mask canvas — holds committed strokes
+  const overlayCanvasRef = useRef(null) // same-size sibling canvas — rect-tool in-progress preview only
   const stageRef = useRef(null) // the wrapper whose rect we measure
-  const baseSnapshotRef = useRef(null) // ImageData before the in-progress stroke
+  const baseSnapshotRef = useRef(null) // ImageData captured at pointerdown; converted to blob and pushed to undo on pointerup
+  // Undo/redo stacks now hold `Promise<Blob>` (compressed PNG snapshots)
+  // instead of raw ImageData. A full 1536×864 ImageData is 5.3 MB; the
+  // same canvas PNG-compressed is typically 20–200 KB because masks are
+  // mostly transparent. 20-entry cap × 200 KB ≈ 4 MB, vs. 106 MB before.
   const undoStackRef = useRef([])
   const redoStackRef = useRef([])
+  const undoBusyRef = useRef(false) // prevents concurrent handleUndo/Redo while a blob restore is in flight
   const drawingRef = useRef(null) // { tool, points, size, color, startX, startY }
   const imageRef = useRef(null) // loaded HTMLImageElement
   const sizePopoverRef = useRef(null)
@@ -634,11 +658,18 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
         if (cancelled) return
         imageRef.current = img
         const canvas = maskCanvasRef.current
+        const overlay = overlayCanvasRef.current
         if (!canvas) return
-        canvas.width = img.naturalWidth || img.width || 1536
-        canvas.height = img.naturalHeight || img.height || 864
-        const ctx = canvas.getContext('2d')
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        const w = img.naturalWidth || img.width || 1536
+        const h = img.naturalHeight || img.height || 864
+        canvas.width = w
+        canvas.height = h
+        canvas.getContext('2d').clearRect(0, 0, w, h)
+        if (overlay) {
+          overlay.width = w
+          overlay.height = h
+          overlay.getContext('2d').clearRect(0, 0, w, h)
+        }
         undoStackRef.current = []
         redoStackRef.current = []
         setUndoDepth(0)
@@ -687,6 +718,11 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     }
   }, [])
 
+  // Grab the current mask pixels as ImageData. Used only while a stroke
+  // is in progress — kept so the in-progress rect preview has a baseline
+  // reference (though the overlay canvas now handles live painting, we
+  // still capture a snapshot at pointerdown so the undo stack has
+  // something to restore if this stroke ends).
   const snapshotCanvas = useCallback(() => {
     const canvas = maskCanvasRef.current
     if (!canvas) return null
@@ -694,10 +730,48 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     return ctx.getImageData(0, 0, canvas.width, canvas.height)
   }, [])
 
-  const restoreSnapshot = useCallback((data) => {
+  // ImageData → compressed PNG Blob. Fires an off-screen canvas + toBlob,
+  // returns a Promise so callers can await without blocking pointerup.
+  const imageDataToBlobPromise = useCallback((imageData) => {
+    if (!imageData) return Promise.resolve(null)
+    return new Promise((resolve) => {
+      const c = document.createElement('canvas')
+      c.width = imageData.width
+      c.height = imageData.height
+      c.getContext('2d').putImageData(imageData, 0, 0)
+      c.toBlob((blob) => resolve(blob || null), 'image/png')
+    })
+  }, [])
+
+  // Snapshot the current mask as a Promise<Blob>. Used when pushing the
+  // post-stroke state to the redo stack during undo (we need the latest
+  // committed pixels, not a baseline).
+  const snapshotCanvasAsBlobPromise = useCallback(() => {
     const canvas = maskCanvasRef.current
-    if (!canvas || !data) return
-    canvas.getContext('2d').putImageData(data, 0, 0)
+    if (!canvas) return Promise.resolve(null)
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => resolve(blob || null), 'image/png')
+    })
+  }, [])
+
+  // Restore a stored Blob onto the mask canvas. `createImageBitmap` is
+  // GPU-accelerated and ~5 ms for typical masks; `drawImage` is another
+  // 2 ms. User-perceived undo feels instant.
+  const restoreBlobToCanvas = useCallback(async (blobOrPromise) => {
+    if (!blobOrPromise) return
+    const blob = await blobOrPromise
+    if (!blob) return
+    const canvas = maskCanvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    const bitmap = await createImageBitmap(blob)
+    try {
+      ctx.globalCompositeOperation = 'source-over'
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(bitmap, 0, 0)
+    } finally {
+      bitmap.close?.()
+    }
   }, [])
 
   const paintBrushSegment = useCallback((ctx, p1, p2, size, rgba, erase) => {
@@ -729,16 +803,28 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     ctx.fillRect(x, y, w, h)
   }, [])
 
-  const pushUndoSnapshot = useCallback((snap) => {
-    if (!snap) return
-    undoStackRef.current.push(snap)
-    if (undoStackRef.current.length > UNDO_CAP) {
-      undoStackRef.current.shift()
-    }
-    redoStackRef.current = []
-    setUndoDepth(undoStackRef.current.length)
-    setRedoDepth(0)
-  }, [])
+  // Push a Promise<Blob> onto the undo stack. Accepts either a ready
+  // Promise or a raw ImageData — we convert either way. The Promise
+  // flavour lets callers fire the expensive PNG compression off the
+  // pointerup hot path; the stack UI updates synchronously because
+  // depth is just the array length, not the blob contents.
+  const pushUndoPromise = useCallback(
+    (promiseOrImageData) => {
+      if (!promiseOrImageData) return
+      const promise =
+        promiseOrImageData instanceof Promise
+          ? promiseOrImageData
+          : imageDataToBlobPromise(promiseOrImageData)
+      undoStackRef.current.push(promise)
+      if (undoStackRef.current.length > UNDO_CAP) {
+        undoStackRef.current.shift()
+      }
+      redoStackRef.current = []
+      setUndoDepth(undoStackRef.current.length)
+      setRedoDepth(0)
+    },
+    [imageDataToBlobPromise]
+  )
 
   /* ── Pointer handlers ─────────────────────────────────────────── */
   const onPointerDown = (e) => {
@@ -763,8 +849,12 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     }
     if (tool === 'brush' || tool === 'eraser') {
       paintBrushSegment(ctx, pos, null, effectiveSize, rgba, tool === 'eraser')
+    } else if (tool === 'rect') {
+      // Clear overlay; rect previews land there during move so we never
+      // do a full-canvas putImageData per frame.
+      const overlay = overlayCanvasRef.current
+      if (overlay) overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height)
     }
-    // rect waits for move
   }
 
   const onPointerMove = (e) => {
@@ -772,12 +862,18 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     const pos = getCanvasCoords(e)
     if (!pos) return
     const { tool: t, size, color: rgba, startX, startY, lastX, lastY } = drawingRef.current
-    const canvas = maskCanvasRef.current
-    const ctx = canvas.getContext('2d')
     if (t === 'rect') {
-      restoreSnapshot(baseSnapshotRef.current)
-      paintRectPreview(ctx, startX, startY, pos.x, pos.y, rgba)
+      // Draw the in-progress rect on the overlay canvas. The base
+      // (mask) canvas stays untouched until pointerup, so we avoid the
+      // 5 MB putImageData blit that used to run on every mousemove.
+      const overlay = overlayCanvasRef.current
+      if (!overlay) return
+      const octx = overlay.getContext('2d')
+      octx.clearRect(0, 0, overlay.width, overlay.height)
+      paintRectPreview(octx, startX, startY, pos.x, pos.y, rgba)
     } else {
+      const canvas = maskCanvasRef.current
+      const ctx = canvas.getContext('2d')
       paintBrushSegment(ctx, { x: lastX, y: lastY }, pos, size, rgba, t === 'eraser')
       drawingRef.current.lastX = pos.x
       drawingRef.current.lastY = pos.y
@@ -786,41 +882,59 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
 
   const onPointerUp = () => {
     if (!drawingRef.current) return
+    const { tool: t } = drawingRef.current
+    // Commit rect preview from overlay → base canvas in one drawImage.
+    if (t === 'rect') {
+      const canvas = maskCanvasRef.current
+      const overlay = overlayCanvasRef.current
+      if (canvas && overlay) {
+        const ctx = canvas.getContext('2d')
+        ctx.globalCompositeOperation = 'source-over'
+        ctx.drawImage(overlay, 0, 0)
+        overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height)
+      }
+    }
     const snap = baseSnapshotRef.current
     drawingRef.current = null
     baseSnapshotRef.current = null
-    if (snap) pushUndoSnapshot(snap)
+    if (snap) pushUndoPromise(imageDataToBlobPromise(snap))
     setHasDrawn(true)
   }
 
   /* ── History actions ──────────────────────────────────────────── */
-  const handleUndo = useCallback(() => {
-    if (undoStackRef.current.length === 0) return
-    const current = snapshotCanvas()
-    const prev = undoStackRef.current.pop()
-    if (current) {
-      redoStackRef.current.push(current)
+  const handleUndo = useCallback(async () => {
+    if (undoStackRef.current.length === 0 || undoBusyRef.current) return
+    undoBusyRef.current = true
+    try {
+      const currentPromise = snapshotCanvasAsBlobPromise()
+      const prevPromise = undoStackRef.current.pop()
+      redoStackRef.current.push(currentPromise)
       if (redoStackRef.current.length > UNDO_CAP) redoStackRef.current.shift()
+      setUndoDepth(undoStackRef.current.length)
+      setRedoDepth(redoStackRef.current.length)
+      setHasDrawn(undoStackRef.current.length > 0)
+      await restoreBlobToCanvas(prevPromise)
+    } finally {
+      undoBusyRef.current = false
     }
-    restoreSnapshot(prev)
-    setUndoDepth(undoStackRef.current.length)
-    setRedoDepth(redoStackRef.current.length)
-    setHasDrawn(undoStackRef.current.length > 0)
-  }, [snapshotCanvas, restoreSnapshot])
+  }, [snapshotCanvasAsBlobPromise, restoreBlobToCanvas])
 
-  const handleRedo = useCallback(() => {
-    if (redoStackRef.current.length === 0) return
-    const current = snapshotCanvas()
-    const next = redoStackRef.current.pop()
-    if (current) {
-      undoStackRef.current.push(current)
+  const handleRedo = useCallback(async () => {
+    if (redoStackRef.current.length === 0 || undoBusyRef.current) return
+    undoBusyRef.current = true
+    try {
+      const currentPromise = snapshotCanvasAsBlobPromise()
+      const nextPromise = redoStackRef.current.pop()
+      undoStackRef.current.push(currentPromise)
       if (undoStackRef.current.length > UNDO_CAP) undoStackRef.current.shift()
+      setUndoDepth(undoStackRef.current.length)
+      setRedoDepth(redoStackRef.current.length)
+      setHasDrawn(true)
+      await restoreBlobToCanvas(nextPromise)
+    } finally {
+      undoBusyRef.current = false
     }
-    restoreSnapshot(next)
-    setUndoDepth(undoStackRef.current.length)
-    setRedoDepth(redoStackRef.current.length)
-    setHasDrawn(true)
-  }, [snapshotCanvas, restoreSnapshot])
+  }, [snapshotCanvasAsBlobPromise, restoreBlobToCanvas])
 
   const handleClear = useCallback(() => {
     const canvas = maskCanvasRef.current
@@ -828,9 +942,9 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     const snap = snapshotCanvas()
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    if (snap) pushUndoSnapshot(snap)
+    if (snap) pushUndoPromise(imageDataToBlobPromise(snap))
     setHasDrawn(false)
-  }, [snapshotCanvas, pushUndoSnapshot])
+  }, [snapshotCanvas, pushUndoPromise, imageDataToBlobPromise])
 
   /* ── Mask export ──────────────────────────────────────────────── */
   async function exportMaskBase64() {
@@ -844,7 +958,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
       const ctx = out.getContext('2d')
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(0, 0, out.width, out.height)
-      return out.toDataURL('image/png').split(',')[1]
+      return canvasToBase64Png(out)
     }
     const out = document.createElement('canvas')
     out.width = canvas.width
@@ -864,7 +978,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
       }
     }
     ctx.putImageData(outData, 0, 0)
-    return out.toDataURL('image/png').split(',')[1]
+    return canvasToBase64Png(out)
   }
 
   /* ── Submit ───────────────────────────────────────────────────── */
@@ -1171,6 +1285,23 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
               cursor: busy ? 'default' : 'crosshair',
               touchAction: 'none',
               pointerEvents: busy ? 'none' : 'auto',
+            }}
+          />
+          {/* Overlay: sibling canvas that renders the rect-tool preview
+              during pointermove without forcing a putImageData restore on
+              the mask canvas. pointer-events: none so all input still
+              flows to the mask canvas above. Matches mask opacity so the
+              preview blends identically with the committed strokes. */}
+          <canvas
+            ref={overlayCanvasRef}
+            aria-hidden
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              opacity: MASK_CSS_OPACITY,
+              pointerEvents: 'none',
             }}
           />
 

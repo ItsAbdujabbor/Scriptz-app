@@ -72,11 +72,15 @@
   --dash-border-strong: rgba(255, 255, 255, 0.15);
   --dash-shadow-card: none;
   --dash-shadow-accent: 0 4px 16px rgba(99, 102, 241, 0.15);
+  /* box-shadow dropped from the shared token — every element using
+     --dash-transition was repainting on every hover/state change. The
+     shadow values still change on hover, they just snap in. Same deal
+     for the filter token (blur on hover was causing scroll jank). */
   --dash-transition:
     border-color var(--dash-dur) var(--dash-ease),
-    background-color var(--dash-dur) var(--dash-ease), box-shadow var(--dash-dur) var(--dash-ease),
-    color var(--dash-dur) var(--dash-ease), opacity var(--dash-dur) var(--dash-ease);
-  --dash-transition-filters: filter var(--dash-dur) var(--dash-ease);
+    background-color var(--dash-dur) var(--dash-ease), color var(--dash-dur) var(--dash-ease),
+    opacity var(--dash-dur) var(--dash-ease);
+  --dash-transition-filters: opacity var(--dash-dur) var(--dash-ease);
 
   /* ── iOS Typography ── */
   --dash-text-body: #ffffff;

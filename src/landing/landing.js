@@ -17,7 +17,16 @@
       header.classList.toggle('scrolled', isScrolled)
       if (isScrolled) header.classList.add('header-ready')
     }
-    window.addEventListener('scroll', updateHeaderScroll, { passive: true })
+    let scrollScheduled = false
+    function onScroll() {
+      if (scrollScheduled) return
+      scrollScheduled = true
+      requestAnimationFrame(function () {
+        scrollScheduled = false
+        updateHeaderScroll()
+      })
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
     updateHeaderScroll()
 
     /* Header-ready set immediately so no animation on refresh; expand/tighten only when scrolling */

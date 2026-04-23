@@ -27,7 +27,16 @@
     function updateScrolled() {
       header.classList.toggle('scrolled', window.scrollY > 50)
     }
-    window.addEventListener('scroll', updateScrolled, { passive: true })
+    let scrollScheduled = false
+    function onScroll() {
+      if (scrollScheduled) return
+      scrollScheduled = true
+      requestAnimationFrame(function () {
+        scrollScheduled = false
+        updateScrolled()
+      })
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
     updateScrolled()
 
     /* ── 2. Hamburger toggle ──────────────────────────────────────────────── */

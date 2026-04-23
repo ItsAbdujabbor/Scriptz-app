@@ -9,6 +9,19 @@ import { useCreatePersonaFromImagesMutation } from '../queries/personas/personaQ
 import { onOpenCreatePersonaDialog } from '../lib/personaModalBus'
 import { Dialog } from './ui/Dialog'
 import { InlineSpinner } from './ui'
+import { useObjectURL } from '../lib/useObjectURL'
+
+const SLOT_IMG_STYLE = {
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover',
+  display: 'block',
+}
+
+function SlotImage({ file, alt }) {
+  const url = useObjectURL(file)
+  return <img src={url} alt={alt} style={SLOT_IMG_STYLE} />
+}
 
 const SLOTS = [
   { key: 'front', label: 'Front' },
@@ -153,16 +166,7 @@ export function CreatePersonaDialog() {
                       background: '#0c0c10',
                     }}
                   >
-                    <img
-                      src={URL.createObjectURL(file)}
-                      alt={label}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        display: 'block',
-                      }}
-                    />
+                    <SlotImage file={file} alt={label} />
                     <button
                       type="button"
                       onClick={() => {

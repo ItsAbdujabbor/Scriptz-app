@@ -29,3 +29,116 @@ body {
   color: var(--dash-text-body);
   overflow-x: hidden;
 }
+
+/* When the browser reports the tab as hidden (background, minimized),
+   pause every running CSS animation tree-wide. Saves real CPU/GPU on
+   idle pulses (linPulse, landing-soon-orbit, faqPulse, shimmer) that
+   would otherwise keep painting offscreen. Toggled from src/main.jsx
+   on document visibilitychange. */
+body.page-hidden,
+body.page-hidden *,
+body.page-hidden *::before,
+body.page-hidden *::after {
+  animation-play-state: paused !important;
+}
+
+/* ── Cmd/Ctrl-+ zoom-glitch guard ───────────────────────────────────
+   At non-integer browser zoom (125 / 150 / 175 %) the compositor lands
+   adjacent glass / card / pill surfaces on different pixel grids, so
+   0.5 px borders, rounded-corner clips, and backdrop-filter edges
+   appear as hairline seams, corner halos, or flicker.
+
+   Fix: give every recurring glass-surface class its own GPU layer
+   (`translateZ(0)` + `backface-visibility: hidden`). Each layer then
+   rasterises against its own pixel grid in one pass — seams go away
+   without changing the visual at 100 % zoom, and without touching 30+
+   individual CSS files. The class list is the subset that both uses
+   `backdrop-filter` AND renders on the main screens (thumbnail
+   generator, dashboard, optimize, sidebar, modals). */
+[class*='thumb-batch-card'],
+[class*='thumb-score-pill'],
+[class*='thumb-model-trigger'],
+[class*='thumb-model-menu'],
+[class*='coach-composer'],
+[class*='ios-glass'],
+[class*='glass-card'],
+[class*='-popover'],
+[class*='-float-btn'],
+.video-opt-thumb-card,
+.video-opt-thumb-card-float,
+.sidebar-new-chat-pill,
+.sidebar-account-btn,
+.sidebar-upgrade-pro,
+.header-credits-badge,
+.persona-selector-pill,
+.style-selector-pill,
+.tabbar,
+.dialog-panel,
+.drawer-panel {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Glass surfaces that already use `backdrop-filter` must also contain
+   their paint — otherwise at zoom the blur bleeds one sub-pixel past
+   the rounded-corner clip of their parent and you see a coloured halo
+   at corners. `contain: paint` is safe here because none of these
+   surfaces position children outside their own box. */
+[class*='thumb-batch-card'],
+[class*='thumb-score-pill'],
+[class*='thumb-model-menu'],
+.video-opt-thumb-card,
+.video-opt-thumb-card-float,
+.dialog-panel,
+.drawer-panel {
+  contain: paint;
+}
+
+/* ── Zoom-in-progress freeze (paired with src/main.jsx zoom detector).
+
+   While `body.zoom-settling` is on (first ~600 ms of any zoom gesture),
+   the entire tree is forced onto the browser's default rendering
+   recipe: no promoted layers, no containment, no blur / filter, no
+   animations or transitions. Each of those primitives has to be
+   re-rasterised when zoom geometry changes, and the re-rasterisation
+   is what produces visible tile-popping, seams, and flicker in a
+   blur-heavy UI.
+
+   The ~600 ms window covers the full pinch duration (not just the
+   first ms) because the settle timer keeps refreshing on each wheel /
+   gesture event. Continuous pinch → glass stays flat for the whole
+   gesture → 600 ms of tail → crisp snap back to normal. No mid-zoom
+   re-rasterisation work = no glitch.
+
+   Every `backdrop-filter` rule in this codebase was already paired
+   with a `background: rgba(...)` that looks reasonable by itself, so
+   the "flat" state during zoom is just a slightly more opaque version
+   of the same card, not a missing surface. */
+body.zoom-settling,
+body.zoom-settling *,
+body.zoom-settling *::before,
+body.zoom-settling *::after {
+  /* 1. No filter pipelines — both the card's ambient blur and the
+        glass surfaces flatten to their solid fallback. This is the
+        biggest single cause of pinch-zoom flicker in this app. */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+
+  /* 2. Clear compositor hints — browser can merge GPU layers back
+        into the parent's layer and doesn't have to rebuild tile grids
+        mid-pinch. `transform` itself is left alone on purpose: it's
+        used for layout (centering pills, sliding drawers) and
+        wiping it would snap elements to wrong positions. */
+  will-change: auto !important;
+  backface-visibility: visible !important;
+
+  /* 3. Stop everything in motion. `animation-duration: 0s` (rather
+        than `animation: none`) preserves the final keyframe state
+        for `fill-mode: both` animations so they don't jump back to
+        their pre-entrance position when settle ends. */
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  transition: none !important;
+}
