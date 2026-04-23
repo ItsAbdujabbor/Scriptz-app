@@ -48,29 +48,30 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # 1. Sync the new build to S3, removing any files no longer present
-      #    (old hashed chunks from the previous deploy).
-      - name: Sync dist/ to S3
-        run: aws s3 sync dist/ s3://${{ env.S3_BUCKET }}/ --delete
-
-      # 2. Hashed assets are content-addressable → cache them forever.
-      - name: Set long cache on hashed assets
+      # 1. Hashed assets → always upload fresh so Content-Type and
+      #    Cache-Control are guaranteed, even on reruns where the
+      #    bundle hash is unchanged. `aws s3 cp` infers Content-Type
+      #    from the file extension (.js → application/javascript,
+      #    .css → text/css) — critical because browsers refuse to
+      #    execute `type="module"` scripts with a wrong MIME type.
+      - name: Upload hashed assets to S3 (immutable cache)
         run: |
-          aws s3 cp s3://${{ env.S3_BUCKET }}/assets/ s3://${{ env.S3_BUCKET }}/assets/ \
+          aws s3 cp dist/assets/ s3://${{ env.S3_BUCKET }}/assets/ \
             --recursive \
-            --metadata-directive REPLACE \
             --cache-control "public, max-age=31536000, immutable"
 
-      # 3. index.html must always be fresh so routing updates (like the
-      #    hash+pathname router) reach users immediately.
-      - name: Set no-cache on index.html
+      # 2. Top-level files (index.html, favicon, icons) — no cache so
+      #    routing and SEO updates reach users on the next request.
+      #    `--delete` cleans up removed top-level files; `--exclude
+      #    "assets/*"` leaves the hashed asset folder untouched.
+      - name: Sync top-level files to S3 (no cache)
         run: |
-          aws s3 cp s3://${{ env.S3_BUCKET }}/index.html s3://${{ env.S3_BUCKET }}/index.html \
-            --metadata-directive REPLACE \
-            --content-type "text/html; charset=utf-8" \
+          aws s3 sync dist/ s3://${{ env.S3_BUCKET }}/ \
+            --delete \
+            --exclude "assets/*" \
             --cache-control "no-cache, must-revalidate"
 
-      # 4. Wipe CloudFront so /index.html and any pathname-fallback
+      # 3. Wipe CloudFront so /index.html and any pathname-fallback
       #    routes (403/404 → /index.html) serve the new bundle.
       - name: Invalidate CloudFront
         run: |
