@@ -19,4 +19,16 @@ export const queryFreshness = {
   /** Dashboard KPI / overview tier — fast revisits feel instant, slow background refresh. */
   dashboardKpi: 1000 * 30, // 30 seconds
   dashboardKpiGc: 1000 * 60 * 10, // 10 minutes
+  /**
+   * Auto-refresh cadence for the dashboard widgets while the user is on the
+   * page. React Query pauses interval-based refetches when the tab is hidden
+   * (default `refetchIntervalInBackground: false`) and stops them entirely
+   * when the Dashboard component unmounts, so this only fires for active
+   * users actually viewing the screen — no quota waste.
+   *
+   * Sized longer than the staleTime so the interval is the *upper* bound on
+   * staleness, not a duplicate poll: clicking around the dashboard already
+   * triggers fresh fetches via React Query's mount/focus rules.
+   */
+  dashboardAutoRefresh: 1000 * 60 * 5, // 5 minutes
 }

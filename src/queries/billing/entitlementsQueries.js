@@ -6,7 +6,7 @@
  *     tier: "free" | "starter" | "creator" | "ultimate",
  *     isSubscribed: boolean,   // true for active / trialing / past_due
  *     isTrial: boolean,
- *     features: { personas, styles, faceswap, ab_testing, priority_support, advanced_analytics, ... },
+ *     features: { personas, styles, faceswap, priority_support, advanced_analytics, ... },
  *     canUse: (key) => boolean,
  *   }
  *
@@ -24,7 +24,6 @@ const FREE_FEATURES = {
   personas: false,
   styles: false,
   faceswap: false,
-  ab_testing: false,
   priority_support: false,
   advanced_analytics: false,
 }

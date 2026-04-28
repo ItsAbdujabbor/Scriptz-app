@@ -10,6 +10,7 @@ import { onOpenCreatePersonaDialog } from '../lib/personaModalBus'
 import { Dialog } from './ui/Dialog'
 import { InlineSpinner } from './ui'
 import { useObjectURL } from '../lib/useObjectURL'
+import { friendlyMessage } from '../lib/aiErrors'
 
 const SLOT_IMG_STYLE = {
   width: '100%',
@@ -71,7 +72,7 @@ export function CreatePersonaDialog() {
       })
       close()
     } catch (err) {
-      setError(err?.message || 'Could not create character.')
+      setError(friendlyMessage(err) || 'Could not create character.')
     }
   }
 

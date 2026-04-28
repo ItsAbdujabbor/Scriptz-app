@@ -36,6 +36,56 @@ function removeMilestoneVisitKeys() {
 }
 
 /**
+ * Clear cached user data (React Query entries + persona/style stores +
+ * onboarding preferences + sidebar UI + milestone visits) WITHOUT
+ * touching the auth session. Called after "Delete my data" so the user
+ * sees a truly blank slate on the next render — no stale thumbnails,
+ * experiments, personas, or chat histories — while staying signed in.
+ */
+export function resetClientCachesForDataDelete() {
+  try {
+    queryClientRef?.clear()
+    resetPrefetchFlag()
+  } catch (_) {
+    /* ignore */
+  }
+
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(ONBOARDING_KEY)
+      localStorage.removeItem(SIDEBAR_KEY)
+      localStorage.removeItem(PERSONA_PERSIST_KEY)
+      localStorage.removeItem(STYLE_PERSIST_KEY)
+      removeMilestoneVisitKeys()
+    }
+  } catch (_) {
+    /* ignore */
+  }
+
+  useOnboardingStore.getState().clearLocalData()
+
+  useSidebarStore.setState({
+    collapsed: false,
+    mobileOpen: false,
+    toolsExpanded: false,
+    accountDialogOpen: false,
+  })
+
+  try {
+    usePersonaStore.setState({ selectedPersonaId: null, selectedPersona: null })
+    usePersonaStore.persist?.clearStorage?.()
+  } catch (_) {
+    /* ignore */
+  }
+  try {
+    useStyleStore.setState({ selectedStyleId: null, selectedStyle: null })
+    useStyleStore.persist?.clearStorage?.()
+  } catch (_) {
+    /* ignore */
+  }
+}
+
+/**
  * Clear TanStack Query cache and all user-scoped persisted UI state.
  * Keeps theme (scriptz_theme) and Supabase session storage intact.
  */

@@ -1,5 +1,20 @@
 /** Thumbnail generation and chat API. */
 import { getApiBaseUrl } from '../lib/env.js'
+import { parseApiError } from '../lib/aiErrors.js'
+
+/** UUID-ish key for the Idempotency-Key header — see api/videoThumbnails.js
+ *  for the full design. One key per *click intent*, reused on retries. */
+function newIdempotencyKey() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return (
+    Date.now().toString(36) +
+    '-' +
+    Math.random().toString(36).slice(2, 12) +
+    Math.random().toString(36).slice(2, 12)
+  )
+}
 
 function request(method, path, accessToken, body = null, headers = {}, fetchInit = {}) {
   const url = getApiBaseUrl() + path
@@ -14,10 +29,8 @@ function request(method, path, accessToken, body = null, headers = {}, fetchInit
     const isJson = contentType.includes('application/json')
     const data = isJson ? await res.json().catch(() => ({})) : {}
     if (!res.ok) {
-      const msg = data?.detail || data?.message || res.statusText
-      const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
-      err.status = res.status
-      throw err
+      // Rich error: status, code, retryAfterMs, feature — see lib/aiErrors.
+      throw parseApiError(res, data)
     }
     return data
   })
@@ -34,8 +47,8 @@ function fetchThumbnailUrl(accessToken, youtubeUrl) {
     },
   }).then(async (r) => {
     if (!r.ok) {
-      const err = await r.json().catch(() => ({}))
-      throw new Error(err?.detail || r.statusText)
+      const data = await r.json().catch(() => ({}))
+      throw parseApiError(r, data)
     }
     return r.json()
   })
@@ -48,8 +61,22 @@ export const thumbnailsApi = {
   generateConcepts(accessToken, payload) {
     return request('POST', '/api/thumbnails/concepts', accessToken, payload)
   },
-  generateBatch(accessToken, payload) {
-    return request('POST', '/api/thumbnails/generate-batch', accessToken, payload)
+  /**
+   * Generate 1-4 thumbnails. Sends an Idempotency-Key so a double-click
+   * or a network-layer retry can't create two batches and double-charge.
+   * Pass ``options.idempotencyKey`` to control retry semantics from the
+   * caller (e.g. share one key across automatic retries of the same
+   * click intent); otherwise a fresh key is generated per call.
+   */
+  generateBatch(accessToken, payload, options = {}) {
+    const key = options.idempotencyKey || newIdempotencyKey()
+    return request(
+      'POST',
+      '/api/thumbnails/generate-batch',
+      accessToken,
+      payload,
+      { 'Idempotency-Key': key },
+    )
   },
   regenerateWithPersona(accessToken, payload) {
     return request('POST', '/api/thumbnails/regenerate-with-persona', accessToken, payload)
@@ -83,7 +110,7 @@ export const thumbnailsApi = {
       accessToken
     )
   },
-  getConversation(accessToken, conversationId, params = {}) {
+  getConversation(accessToken, conversationId, params = {}, fetchInit = {}) {
     const search = new URLSearchParams()
     Object.entries(params).forEach(([k, v]) => {
       if (v != null && v !== '') search.set(k, String(v))
@@ -94,7 +121,10 @@ export const thumbnailsApi = {
       qs
         ? `/api/thumbnails/conversations/${conversationId}?${qs}`
         : `/api/thumbnails/conversations/${conversationId}`,
-      accessToken
+      accessToken,
+      null,
+      {},
+      fetchInit
     )
   },
   chat(accessToken, payload, fetchInit = {}) {
@@ -105,6 +135,15 @@ export const thumbnailsApi = {
   },
   deleteConversation(accessToken, conversationId) {
     return request('DELETE', `/api/thumbnails/conversations/${conversationId}`, accessToken)
+  },
+  /** Mark the conversation as seen — clears the unread dot server-side.
+   *  Idempotent: only bumps last_seen_at forward. */
+  markConversationSeen(accessToken, conversationId) {
+    return request(
+      'POST',
+      `/api/thumbnails/conversations/${conversationId}/seen`,
+      accessToken
+    )
   },
   rate(accessToken, payload, fetchInit = {}) {
     return request('POST', '/api/thumbnails/rate', accessToken, payload, {}, fetchInit)

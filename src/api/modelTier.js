@@ -1,5 +1,6 @@
 /** SRX model tier API. */
 import { getApiBaseUrl } from '../lib/env.js'
+import { parseApiError } from '../lib/aiErrors.js'
 
 function request(method, path, accessToken, body = null) {
   const url = getApiBaseUrl() + path
@@ -10,13 +11,7 @@ function request(method, path, accessToken, body = null) {
   return fetch(url, opts).then(async (res) => {
     const ct = res.headers.get('Content-Type') || ''
     const data = ct.includes('application/json') ? await res.json().catch(() => ({})) : {}
-    if (!res.ok) {
-      const msg = data?.detail || data?.message || res.statusText
-      const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
-      err.status = res.status
-      err.payload = data
-      throw err
-    }
+    if (!res.ok) throw parseApiError(res, data)
     return data
   })
 }

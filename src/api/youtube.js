@@ -4,6 +4,7 @@
  */
 
 import { getApiBaseUrl } from '../lib/env.js'
+import { parseApiError } from '../lib/aiErrors.js'
 
 function request(method, path, accessToken, body = null, headers = {}) {
   const url = getApiBaseUrl() + path
@@ -16,10 +17,8 @@ function request(method, path, accessToken, body = null, headers = {}) {
     const isJson = contentType.indexOf('application/json') !== -1
     const data = isJson ? await res.json().catch(() => ({})) : {}
     if (!res.ok) {
-      const msg = data?.detail || data?.message || res.statusText
-      const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
-      err.status = res.status
-      throw err
+      // Rich error: status, code, retryAfterMs, feature — see lib/aiErrors.
+      throw parseApiError(res, data)
     }
     return data
   })
@@ -140,6 +139,19 @@ export const youtubeApi = {
       accessToken,
       body,
       headers
+    )
+  },
+
+  /**
+   * Read cached AI artifacts (titles, tags, refined description) for a video.
+   * GET /api/youtube/videos/{video_id}/ai-cache.
+   * Free — no credits charged. Used to hydrate the Optimize modal on open.
+   */
+  getVideoAICache(accessToken, videoId) {
+    return request(
+      'GET',
+      `/api/youtube/videos/${encodeURIComponent(videoId)}/ai-cache`,
+      accessToken
     )
   },
 }

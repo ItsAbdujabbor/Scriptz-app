@@ -8,6 +8,7 @@ import { useAuthStore } from '../stores/authStore'
 import { useOnboardingStore } from '../stores/onboardingStore'
 import { youtubeApi } from '../api/youtube'
 import { queryKeys } from '../lib/query/queryKeys'
+import { resetClientCachesForDataDelete } from '../lib/sessionReset'
 import { SettingsModal } from './SettingsModal'
 
 export function SharedSettingsModal({ open, initialSection, onClose, onLogout }) {
@@ -43,9 +44,18 @@ export function SharedSettingsModal({ open, initialSection, onClose, onLogout })
     setPreferredCtaStyle,
     setIncludePersonalStories,
     setUseFirstPerson,
-    clearLocalData,
     syncToBackend,
   } = useOnboardingStore()
+
+  // "Delete my data" clears the server-side state (/api/user/data DELETE),
+  // then calls this to drop every cached artifact of the previous data:
+  // React Query entries (chats, thumbnails, personas/styles),
+  // persona/style selection stores, onboarding preferences, and sidebar
+  // UI state. Auth session is preserved — the user stays signed in with
+  // a fully blank slate.
+  const clearLocalData = useCallback(() => {
+    resetClientCachesForDataDelete()
+  }, [])
 
   const queryClient = useQueryClient()
   const [youtubeChannels, setYoutubeChannels] = useState([])

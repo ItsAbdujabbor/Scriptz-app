@@ -1,0 +1,109 @@
+/* NotFound — full-screen 404 with a deep-purple gradient glyph and
+ * ambient violet blobs. Standalone surface (no app shell, no card
+ * chrome) so the content reads as a clean stop-sign rather than a
+ * dressed-up feature screen. */
+
+.notfound-root {
+  /* Local accent tokens — scoped to this surface so the rest of the
+   * app's palette is untouched. Rich-violet ramp (no pink), distinct
+   * from the brighter --ios-purple used for primary CTAs elsewhere. */
+  --nf-violet-deep: #4c1d95;
+  --nf-violet-mid:  #6d28d9;
+  --nf-violet-glow: #7c3aed;
+  --nf-indigo-deep: #312e81;
+
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1rem, 4vw, 3rem);
+  background: var(--ios-bg-canvas, #0a0a0c);
+  color: var(--ios-label-primary, #fff);
+  min-height: 100dvh;
+  min-height: 100vh; /* fallback */
+  overflow: hidden;
+}
+
+/* Decorative violet blobs — sit behind the content for depth. */
+.notfound-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
+}
+.notfound-bg-blob {
+  position: absolute;
+  width: 44rem;
+  height: 44rem;
+  border-radius: 50%;
+  filter: blur(110px);
+  opacity: 0.42;
+}
+.notfound-bg-blob--a {
+  background: radial-gradient(circle, var(--nf-violet-mid), transparent 60%);
+  top: -18%;
+  left: -12%;
+}
+.notfound-bg-blob--b {
+  background: radial-gradient(circle, var(--nf-indigo-deep), transparent 60%);
+  bottom: -18%;
+  right: -12%;
+  opacity: 0.36;
+}
+
+.notfound-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.75rem;
+  max-width: 28rem;
+  width: 100%;
+}
+.notfound-content > .primary-pill,
+.notfound-content > button {
+  margin-top: 1rem;
+}
+
+/* The 404 glyph — deep-violet gradient text with matching bloom. */
+.notfound-404 {
+  font-family: var(--ios-font-rounded, system-ui, sans-serif);
+  font-size: clamp(6rem, 18vw, 10rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+  background: linear-gradient(
+    135deg,
+    var(--nf-violet-deep) 0%,
+    var(--nf-violet-mid) 50%,
+    var(--nf-violet-glow) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  filter: drop-shadow(0 8px 40px rgba(109, 40, 217, 0.5));
+}
+
+.notfound-title {
+  font-size: clamp(1.5rem, 3vw, 1.875rem);
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.01em;
+  color: var(--ios-label-primary, #fff);
+}
+
+.notfound-subtitle {
+  font-size: var(--ios-callout, 1rem);
+  font-weight: 400;
+  margin: 0;
+  line-height: 1.5;
+  color: var(--ios-label-secondary, #8e8e93);
+  max-width: 24rem;
+}

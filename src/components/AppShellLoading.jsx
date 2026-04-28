@@ -1,28 +1,16 @@
 import { useAuthStore } from '../stores/authStore'
 import { AppShellLayout } from './AppShellLayout'
-import { PageSkeleton, SkeletonCard, SkeletonGroup, SkeletonText } from './ui'
 import { Sidebar } from '../app/Sidebar'
 import '../app/Sidebar.css'
 import '../app/Dashboard.css'
+import '../app/Optimize.css'
 import './AppShellLoading.css'
-
-function RouteSpinner({ label = 'Loading page' }) {
-  return (
-    <div className="route-loading-pane">
-      <PageSkeleton label={label}>
-        <SkeletonGroup label={label}>
-          <SkeletonCard ratio="16 / 6" lines={2} />
-          <SkeletonCard ratio="16 / 9" lines={2} />
-          <SkeletonText lines={2} lineHeight={14} />
-        </SkeletonGroup>
-      </PageSkeleton>
-    </div>
-  )
-}
 
 /**
  * Shown while the authenticated route chunk loads or session hydrates.
- * Keeps the sidebar mounted so navigation does not flash a full-screen blank state.
+ * Keeps the sidebar mounted so navigation does not flash a full-screen blank
+ * state. Content area is intentionally empty — each view renders its own
+ * loading state once its module resolves.
  */
 export function AppShellLoading({ view, onLogout }) {
   const user = useAuthStore((s) => s.user)
@@ -37,11 +25,9 @@ export function AppShellLoading({ view, onLogout }) {
           ? 'optimize'
           : view === 'pro'
             ? 'pro'
-            : view === 'ab-testing'
-              ? 'ab-testing'
-              : view === 'billing'
-                ? 'billing'
-                : 'dashboard'
+            : view === 'billing'
+              ? 'billing'
+              : 'dashboard'
 
   if (view === 'thumbnails') {
     return (
@@ -58,7 +44,7 @@ export function AppShellLoading({ view, onLogout }) {
             />
           }
         >
-          <RouteSpinner label="Loading thumbnails" />
+          {null}
         </AppShellLayout>
       </div>
     )
@@ -78,13 +64,7 @@ export function AppShellLoading({ view, onLogout }) {
           />
         }
       >
-        <div className="dashboard-main-scroll">
-          <div className="dashboard-main dashboard-main--subpage">
-            <div className="dashboard-content-shell dashboard-content-shell--page">
-              <RouteSpinner label="Loading page" />
-            </div>
-          </div>
-        </div>
+        {null}
       </AppShellLayout>
     </div>
   )

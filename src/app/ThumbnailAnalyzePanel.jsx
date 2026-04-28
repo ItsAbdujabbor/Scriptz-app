@@ -379,6 +379,8 @@ export function ThumbnailAnalyzePanel() {
                 src={preview.src}
                 alt="Thumbnail to analyze"
                 className="thumb-rater-preview-img"
+                loading="lazy"
+                decoding="async"
               />
               <div className="thumb-rater-preview-actions">
                 <button type="button" className="thumb-rater-text-btn" onClick={clearImage}>
@@ -596,6 +598,8 @@ export function ThumbnailAnalyzePanel() {
                 src={improvedUrl}
                 alt="AI-improved thumbnail"
                 className="thumb-rater-improved-img"
+                loading="lazy"
+                decoding="async"
               />
               <div className="thumb-rater-improved-actions">
                 <a

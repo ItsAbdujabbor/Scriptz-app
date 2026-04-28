@@ -4,7 +4,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import './Sidebar.css'
 import '../components/ui/ui.css'
 import { useSidebarStore } from '../stores/sidebarStore'
-import { useThumbnailChatActivityStore } from '../stores/thumbnailChatActivityStore'
 import { useShallow } from 'zustand/react/shallow'
 import { emitShellEvent } from '../lib/shellEvents'
 import { useFloatingPosition } from '../lib/useFloatingPosition'
@@ -15,27 +14,6 @@ import {
   useSetModelTierMutation,
 } from '../queries/modelTier/modelTierQueries'
 import { openCreditsModal } from '../lib/creditsModalBus'
-// Coach + Scripts chats are retired; the sidebar only surfaces Thumbnail
-// conversations. These stubs keep the merge/render code below that still
-// references the old mutation types working without any network calls.
-const prefetchCoachConversation = () => {}
-const useDeleteCoachConversationMutation = () => ({
-  mutateAsync: async () => {},
-  isPending: false,
-})
-const useUpdateCoachConversationMutation = () => ({
-  mutateAsync: async () => {},
-  isPending: false,
-})
-const prefetchScriptConversation = () => {}
-const useDeleteScriptConversationMutation = () => ({
-  mutateAsync: async () => {},
-  isPending: false,
-})
-const useUpdateScriptConversationMutation = () => ({
-  mutateAsync: async () => {},
-  isPending: false,
-})
 import {
   prefetchThumbnailConversationCache,
   useThumbnailConversationsQuery,
@@ -43,6 +21,7 @@ import {
   useUpdateThumbnailConversationMutation,
 } from '../queries/thumbnails/thumbnailQueries'
 import logoSrc from '../assets/logo.jpg'
+import { prefetchView } from '../lazyViews'
 
 const IconDashboard = () => (
   <svg
@@ -106,21 +85,6 @@ const IconBilling = () => (
     <path d="M7 15h4" />
   </svg>
 )
-const IconABTest = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M4 20 L7.5 9 L11 20" />
-    <path d="M5 16 h5.2" />
-    <path d="M14 9 h3.5 a2.5 2.5 0 0 1 0 5 H14 z" />
-    <path d="M14 14 h3.8 a2.5 2.5 0 0 1 0 5 H14 z" />
-  </svg>
-)
 const IconFolder = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
@@ -177,18 +141,6 @@ const IconPanelExpand = () => (
 const IconCloseMenu = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
     <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
-  </svg>
-)
-const IconMessage = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
   </svg>
 )
 const IconDots = () => (
@@ -357,24 +309,6 @@ const IconLogout = () => (
   </svg>
 )
 
-function getCoachConversationIdFromHash() {
-  const hash = (typeof window !== 'undefined' && window.location.hash) || ''
-  const normalized = hash.replace(/^#/, '').replace(/^\/+/, '')
-  const [route, search = ''] = normalized.split('?')
-  if (route !== 'coach') return null
-  const params = new URLSearchParams(search)
-  const rawId = params.get('id')
-  return rawId && /^\d+$/.test(rawId) ? Number(rawId) : null
-}
-
-function goToCoachConversation(conversationId = null) {
-  window.location.hash = conversationId ? `#coach?id=${conversationId}` : '#coach'
-}
-
-function goToScriptConversation(conversationId = null) {
-  window.location.hash = conversationId ? `#coach/scripts?id=${conversationId}` : '#coach/scripts'
-}
-
 function goToThumbnailConversation(conversationId = null) {
   window.location.hash = conversationId ? `#thumbnails?id=${conversationId}` : '#thumbnails'
 }
@@ -518,23 +452,6 @@ function ModelTierRow({
   )
 }
 
-const IconScript = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-    <polyline points="14 2 14 8 20 8" />
-    <path d="M16 13H8" />
-    <path d="M16 17H8" />
-    <path d="M10 9H8" />
-  </svg>
-)
-
 const IconThumbnail = () => (
   <svg
     viewBox="0 0 24 24"
@@ -571,10 +488,8 @@ const HistoryItem = memo(function HistoryItem({
 
   const fireThreadPrefetch = useCallback(() => {
     if (conversationId == null) return
-    if (type === 'thumbnail') void prefetchThumbnailConversationCache(queryClient, conversationId)
-    else if (type === 'script') void prefetchScriptConversation(queryClient, conversationId)
-    else void prefetchCoachConversation(queryClient, conversationId)
-  }, [queryClient, conversationId, type])
+    void prefetchThumbnailConversationCache(queryClient, conversationId)
+  }, [queryClient, conversationId])
 
   // Debounced prefetch: only fire if the cursor lingers ≥150ms.
   // Casual flyovers (mouse traveling across the sidebar) don't trigger
@@ -641,9 +556,6 @@ const HistoryItem = memo(function HistoryItem({
     )
   }
 
-  const isThumbnail = type === 'thumbnail'
-  const isScript = type === 'script'
-
   const rowClassName = [
     'sidebar-history-row',
     isActive ? 'is-active' : '',
@@ -653,15 +565,11 @@ const HistoryItem = memo(function HistoryItem({
     .filter(Boolean)
     .join(' ')
 
-  const displayTitle =
-    conversation.title ||
-    (isThumbnail ? 'Untitled thumbnails' : isScript ? 'Untitled script' : 'Untitled chat')
+  const displayTitle = conversation.title || 'Untitled thumbnails'
 
   const handleRowClick = () => {
     closeMobile()
-    if (isThumbnail) goToThumbnailConversation(conversation.id)
-    else if (isScript) goToScriptConversation(conversation.id)
-    else goToCoachConversation(conversation.id)
+    goToThumbnailConversation(conversation.id)
   }
 
   const handleMenuClick = (e) => {
@@ -692,11 +600,8 @@ const HistoryItem = memo(function HistoryItem({
       onFocus={fireThreadPrefetch}
       aria-current={isActive ? 'true' : undefined}
     >
-      <span
-        className={`sidebar-history-row__icon ${isThumbnail ? 'icon-thumbnail' : isScript ? 'icon-script' : 'icon-coach'}`}
-        aria-hidden="true"
-      >
-        {isThumbnail ? <IconThumbnail /> : isScript ? <IconScript /> : <IconMessage />}
+      <span className="sidebar-history-row__icon icon-thumbnail" aria-hidden="true">
+        <IconThumbnail />
       </span>
 
       <span className="sidebar-history-row__title">{displayTitle}</span>
@@ -741,9 +646,6 @@ export function Sidebar({
   onOpenStyles,
   onLogout,
   currentScreen = 'dashboard',
-  activeTab = 'coach',
-  activeConversationId = null,
-  activeScriptConversationId = null,
   activeThumbnailConversationId = null,
   onNewChat,
 }) {
@@ -874,72 +776,30 @@ export function Sidebar({
     setTierMutation.mutate(t.code)
   }
 
-  /* Coach + Scripts chat tabs are hidden for now — only Thumbnails is exposed to
-   * users. We skip the two extra queries to avoid needless network traffic and
-   * only render thumbnail conversations in the history list below. */
-  const coachConversationsQuery = { data: { items: [] }, isFetched: true }
-  const scriptConversationsQuery = { data: { items: [] }, isFetched: true }
   const thumbnailConversationsQuery = useThumbnailConversationsQuery({ limit: 50 })
-  // Pending generations + unread dots are a local concern — sourced from a
-  // persisted zustand store so reload / tab switch preserves the state.
-  const pendingConvs = useThumbnailChatActivityStore((s) => s.pending)
-  const lastSeenAt = useThumbnailChatActivityStore((s) => s.lastSeenAt)
-  const updateCoachMutation = useUpdateCoachConversationMutation()
-  const deleteCoachMutation = useDeleteCoachConversationMutation()
-  const updateScriptMutation = useUpdateScriptConversationMutation()
-  const deleteScriptMutation = useDeleteScriptConversationMutation()
+  // Pending + unread state lives on the server — each conversation row
+  // already carries `is_pending` and `last_seen_at`, so we derive the
+  // sidebar dots/spinners straight off the row in the render below.
   const updateThumbnailMutation = useUpdateThumbnailConversationMutation()
   const deleteThumbnailMutation = useDeleteThumbnailConversationMutation()
 
-  const coachItems = useMemo(
-    () => coachConversationsQuery.data?.items || [],
-    [coachConversationsQuery.data]
-  )
-  const scriptItems = useMemo(
-    () => scriptConversationsQuery.data?.items || [],
-    [scriptConversationsQuery.data]
-  )
   const thumbnailItems = useMemo(
     () => thumbnailConversationsQuery.data?.items || [],
     [thumbnailConversationsQuery.data]
   )
 
   const mergedHistoryItems = useMemo(() => {
-    const dateCache = new Map()
-    const parseDate = (str) => {
-      if (!str) return 0
-      let v = dateCache.get(str)
-      if (v === undefined) {
-        v = new Date(str).getTime()
-        dateCache.set(str, v)
-      }
-      return v
-    }
-    const withType = [
-      ...coachItems.map((c) => ({
-        ...c,
-        _type: 'coach',
-        _sortTs: parseDate(c.last_message_at || c.created_at),
-      })),
-      ...scriptItems.map((c) => ({
-        ...c,
-        _type: 'script',
-        _sortTs: parseDate(c.last_message_at || c.created_at),
-      })),
-      ...thumbnailItems.map((c) => ({
-        ...c,
-        _type: 'thumbnail',
-        _sortTs: parseDate(c.last_message_at || c.created_at),
-      })),
-    ]
+    const parseDate = (str) => (str ? new Date(str).getTime() : 0)
+    const withType = thumbnailItems.map((c) => ({
+      ...c,
+      _type: 'thumbnail',
+      _sortTs: parseDate(c.last_message_at || c.created_at),
+    }))
     withType.sort((a, b) => b._sortTs - a._sortTs)
     return withType
-  }, [coachItems, scriptItems, thumbnailItems])
+  }, [thumbnailItems])
 
-  const allHistoryFetched =
-    coachConversationsQuery.isFetched &&
-    scriptConversationsQuery.isFetched &&
-    thumbnailConversationsQuery.isFetched
+  const allHistoryFetched = thumbnailConversationsQuery.isFetched
 
   /** Empty + still waiting on at least one list — show skeleton. As soon as we have rows, show them (partial OK). */
   const isHistoryLoading = mergedHistoryItems.length === 0 && !allHistoryFetched
@@ -995,13 +855,11 @@ export function Sidebar({
     setEditingConversationId(null)
     setEditingConversationType(null)
     setEditingTitle('')
-    // Always land on Thumbnails first — Coach + Scripts are reachable
-    // from the top tab bar inside the screen.
     goToThumbnailConversation(null)
     // Force a state reset even when the hash didn't change (user was
     // already on #thumbnails). `onNewChat` is the inline parent
-    // callback; emitShellEvent is the global bus so any mounted Coach
-    // screen also clears its draft / recording / messages.
+    // callback; emitShellEvent is the global bus so the mounted
+    // Thumbnails screen also clears its draft / recording / messages.
     onNewChat?.()
     emitShellEvent('newChat')
   }
@@ -1036,15 +894,8 @@ export function Sidebar({
   const submitConversationRename = async (conversationId) => {
     const nextTitle = editingTitle.trim()
     if (!nextTitle) return
-    const type = editingConversationType
-    const mutation =
-      type === 'thumbnail'
-        ? updateThumbnailMutation
-        : type === 'script'
-          ? updateScriptMutation
-          : updateCoachMutation
     try {
-      await mutation.mutateAsync({
+      await updateThumbnailMutation.mutateAsync({
         conversationId,
         payload: { title: nextTitle },
       })
@@ -1071,24 +922,12 @@ export function Sidebar({
 
   const confirmDeleteConversation = async () => {
     const conversationId = deleteChatConversationId
-    const type = deleteChatConversationType
     if (!conversationId) return
     closeDeleteChatDialog()
-    const mutation =
-      type === 'thumbnail'
-        ? deleteThumbnailMutation
-        : type === 'script'
-          ? deleteScriptMutation
-          : deleteCoachMutation
     try {
-      await mutation.mutateAsync(conversationId)
+      await deleteThumbnailMutation.mutateAsync(conversationId)
       const isSelected =
-        (type === 'thumbnail' &&
-          Number(activeThumbnailConversationId) === Number(conversationId)) ||
-        (type === 'script' && Number(activeScriptConversationId) === Number(conversationId)) ||
-        (type === 'coach' &&
-          Number(activeConversationId ?? getCoachConversationIdFromHash()) ===
-            Number(conversationId))
+        Number(activeThumbnailConversationId) === Number(conversationId)
       if (isSelected) handleNewChat()
     } catch (error) {
       console.error('Failed to delete conversation', error)
@@ -1330,6 +1169,12 @@ export function Sidebar({
                 label="Dashboard"
                 active={currentScreen === 'dashboard'}
                 collapsed={collapsed}
+                // Hover (or focus) starts the lazy chunk download before the
+                // click lands, so click→render feels instant once the user
+                // commits. Calling prefetchView again after the chunk is
+                // cached is free.
+                onPointerEnter={() => prefetchView('dashboard')}
+                onFocus={() => prefetchView('dashboard')}
                 onClick={(e) => {
                   e.preventDefault()
                   closeMobile()
@@ -1343,23 +1188,12 @@ export function Sidebar({
                 label="Optimize"
                 active={currentScreen === 'optimize'}
                 collapsed={collapsed}
+                onPointerEnter={() => prefetchView('optimize')}
+                onFocus={() => prefetchView('optimize')}
                 onClick={(e) => {
                   e.preventDefault()
                   closeMobile()
                   window.location.hash = 'optimize'
-                }}
-              />
-
-              <SidebarButton
-                href="#ab-testing"
-                icon={<IconABTest />}
-                label="A/B Testing"
-                active={currentScreen === 'ab-testing'}
-                collapsed={collapsed}
-                onClick={(e) => {
-                  e.preventDefault()
-                  closeMobile()
-                  window.location.hash = 'ab-testing'
                 }}
               />
 
@@ -1381,6 +1215,8 @@ export function Sidebar({
                 <button
                   type="button"
                   className={`sidebar-upgrade-pro ${currentScreen === 'pro' ? 'active' : ''} ${collapsed ? 'sidebar-upgrade-pro--collapsed' : ''}`}
+                  onPointerEnter={() => prefetchView('pro')}
+                  onFocus={() => prefetchView('pro')}
                   onClick={() => {
                     closeMobile()
                     window.location.hash = 'pro'
@@ -1522,40 +1358,25 @@ export function Sidebar({
                     return (
                       <>
                         {visible.map((conversation) => {
-                          const isScript = conversation._type === 'script'
-                          const isThumbnail = conversation._type === 'thumbnail'
-                          const type = isThumbnail ? 'thumbnail' : isScript ? 'script' : 'coach'
-                          const isActive = isThumbnail
-                            ? currentScreen === 'coach' &&
-                              activeTab === 'thumbnails' &&
-                              Number(activeThumbnailConversationId) === Number(conversation.id)
-                            : isScript
-                              ? currentScreen === 'coach' &&
-                                activeTab === 'scripts' &&
-                                Number(activeScriptConversationId) === Number(conversation.id)
-                              : currentScreen === 'coach' &&
-                                activeTab === 'coach' &&
-                                Number(activeConversationId ?? getCoachConversationIdFromHash()) ===
-                                  Number(conversation.id)
+                          const type = 'thumbnail'
+                          const isActive =
+                            currentScreen === 'thumbnails' &&
+                            Number(activeThumbnailConversationId) === Number(conversation.id)
                           const isEditing =
                             editingConversationId === conversation.id &&
                             editingConversationType === type
-                          const updateMutation = isThumbnail
-                            ? updateThumbnailMutation
-                            : isScript
-                              ? updateScriptMutation
-                              : updateCoachMutation
-                          const convKey = String(conversation.id)
-                          const isPending = isThumbnail && Boolean(pendingConvs[convKey])
-                          // Unread: last_message_at is newer than the local
-                          // "last seen" stamp and we're not actively generating
-                          // (a spinner wins over a dot).
+                          const isPending = Boolean(conversation.is_pending)
+                          // Unread = last_message_at is newer than server
+                          // last_seen_at. Pending wins over unread (spinner
+                          // beats dot).
                           let isUnread = false
-                          if (isThumbnail && !isPending) {
+                          if (!isPending) {
                             const lastTs = conversation.last_message_at
                               ? Date.parse(conversation.last_message_at)
                               : 0
-                            const seenTs = lastSeenAt[convKey] || 0
+                            const seenTs = conversation.last_seen_at
+                              ? Date.parse(conversation.last_seen_at)
+                              : 0
                             isUnread = Number.isFinite(lastTs) && lastTs > seenTs
                           }
                           return (
@@ -1569,7 +1390,7 @@ export function Sidebar({
                               setEditingTitle={setEditingTitle}
                               submitConversationRename={submitConversationRename}
                               cancelRenamingConversation={cancelRenamingConversation}
-                              updateMutation={updateMutation}
+                              updateMutation={updateThumbnailMutation}
                               closeMobile={closeMobile}
                               openHistoryMenu={openHistoryMenu}
                               isPending={isPending}
@@ -1612,12 +1433,24 @@ export function Sidebar({
                     >
                       {planLabel}
                     </span>
-                    <button
-                      type="button"
+                    {/* Rendered as role="button" <span> rather than a real
+                     * <button> because it lives inside another <button>
+                     * (the account menu) and HTML forbids nested buttons.
+                     * Keyboard + pointer handlers keep it accessible. */}
+                    <span
+                      role="button"
+                      tabIndex={0}
                       className="sidebar-account-credits"
                       onClick={(e) => {
                         e.stopPropagation()
                         openCreditsModal()
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          openCreditsModal()
+                        }
                       }}
                       aria-label={`${totalCredits ?? '—'} credits — buy more`}
                       title="Buy more credits"
@@ -1634,7 +1467,7 @@ export function Sidebar({
                         <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                       </svg>
                       <span className="sidebar-account-credits-num">{creditsLabel}</span>
-                    </button>
+                    </span>
                   </span>
                 </span>
                 <span className="sidebar-account-chevron" aria-hidden>
@@ -1670,13 +1503,9 @@ export function Sidebar({
               type="button"
               className="floating-menu__item"
               onClick={() => {
-                const items =
-                  historyMenu.type === 'thumbnail'
-                    ? thumbnailItems
-                    : historyMenu.type === 'script'
-                      ? scriptItems
-                      : coachItems
-                const conversation = items.find((item) => item.id === historyMenu.conversationId)
+                const conversation = thumbnailItems.find(
+                  (item) => item.id === historyMenu.conversationId
+                )
                 if (conversation) startRenamingConversation(conversation, historyMenu.type)
               }}
             >

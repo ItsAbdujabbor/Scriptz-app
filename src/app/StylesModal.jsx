@@ -24,6 +24,7 @@ import { Dialog } from '../components/ui/Dialog'
 import { SegmentedTabs } from '../components/ui/SegmentedTabs'
 import { PrimaryPill } from '../components/ui/PrimaryPill'
 import { InlineSpinner, SkeletonCard, SkeletonGroup } from '../components/ui'
+import { friendlyMessage } from '../lib/aiErrors'
 import './StylesModal.css'
 
 function IconX({ size = 18 }) {
@@ -192,7 +193,7 @@ export function StylesModal({ onClose }) {
       setSelectedStyle(style)
       clearCreateForm()
     } catch (err) {
-      setCreateError(err?.message || 'Could not create style.')
+      setCreateError(friendlyMessage(err) || 'Could not create style.')
     }
   }
 
@@ -217,7 +218,7 @@ export function StylesModal({ onClose }) {
       setSelectedStyle(style)
       clearCreateForm()
     } catch (err) {
-      setCreateError(err?.message || 'Could not create style from link.')
+      setCreateError(friendlyMessage(err) || 'Could not create style from link.')
     }
   }
 

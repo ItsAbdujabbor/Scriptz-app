@@ -104,8 +104,8 @@ export function RefundPolicy({ onBack }) {
 
           <h2>5. AI-Generated Content</h2>
           <p>
-            Credits spent on AI generation (thumbnails, titles, scripts, SEO optimisations, A/B
-            tests, etc.) are{' '}
+            Credits spent on AI generation (thumbnails, titles, scripts, SEO optimisations, etc.)
+            are{' '}
             <strong>not refundable once the generation has completed successfully</strong>,
             regardless of whether you choose to use the result. If a generation fails due to a
             verified error on our side (e.g. provider outage, server error), credits are

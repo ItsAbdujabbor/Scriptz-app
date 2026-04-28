@@ -57,6 +57,10 @@ export function useDashboardAudit(channelId) {
     gcTime: queryFreshness.chatThreadGc,
     placeholderData: (prev) => prev,
     refetchOnWindowFocus: false,
+    // Auto-refresh while the dashboard is mounted AND the tab is visible.
+    // Background tabs / unmounted dashboards do nothing — see the comment
+    // on dashboardAutoRefresh in queryConfig.js for the full rationale.
+    refetchInterval: queryFreshness.dashboardAutoRefresh,
   })
 }
 
@@ -73,6 +77,7 @@ export function useDashboardGrowth(channelId) {
     gcTime: queryFreshness.chatThreadGc,
     placeholderData: (prev) => prev,
     refetchOnWindowFocus: false,
+    refetchInterval: queryFreshness.dashboardAutoRefresh,
   })
 }
 
@@ -89,6 +94,7 @@ export function useDashboardSnapshot(channelId, from, to) {
     gcTime: queryFreshness.chatThreadGc,
     placeholderData: (prev) => prev,
     refetchOnWindowFocus: false,
+    refetchInterval: queryFreshness.dashboardAutoRefresh,
   })
 }
 

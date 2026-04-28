@@ -1,4 +1,5 @@
 import { QueryClient, QueryCache, MutationCache } from '@tanstack/react-query'
+import { aiAwareShouldRetry, aiAwareRetryDelay } from '../aiErrors'
 
 // Global paywall interceptor — any query or mutation that comes back as
 // 402 NO_ACTIVE_SUBSCRIPTION redirects the user to the pricing screen.
@@ -20,11 +21,12 @@ export function createAppQueryClient() {
     mutationCache: new MutationCache({ onError: maybeRedirectToPaywall }),
     defaultOptions: {
       queries: {
-        retry: (failureCount, error) => {
-          const s = error?.status
-          if (s === 401 || s === 402 || s === 403 || s === 404) return false
-          return failureCount < 2
-        },
+        // Use the shared retry-policy: skips 4xx (except idempotency
+        // 409), backs off with Retry-After honoring + exponential
+        // fallback. Without this, a single Gemini rate-limit could
+        // amplify into a tight retry loop across the whole app.
+        retry: aiAwareShouldRetry,
+        retryDelay: aiAwareRetryDelay,
         staleTime: 1000 * 60 * 3,
         gcTime: 1000 * 60 * 30,
         refetchOnWindowFocus: false,
@@ -33,6 +35,10 @@ export function createAppQueryClient() {
         networkMode: 'offlineFirst',
       },
       mutations: {
+        // Mutations don't auto-retry by default — a duplicate mutation
+        // can have side effects (charge credits, send a message). Routes
+        // that opt in to retry can override per-mutation; the
+        // Idempotency-Key header on generate routes covers safety there.
         retry: 0,
         networkMode: 'offlineFirst',
       },

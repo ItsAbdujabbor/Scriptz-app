@@ -13,13 +13,22 @@ import {
 } from '../components/ui'
 import { SegmentedTabs } from '../components/ui/SegmentedTabs'
 import { useYoutubeVideoOptimization } from '../queries/youtube/optimizationQueries'
+import {
+  useVideoAICache,
+  useActiveThumbnailJob,
+  useThumbnailJob,
+  useVideoThumbnails,
+  useRateVideoThumbnail,
+  lazyRateUnrated,
+  videoOptimizeKeys,
+} from '../queries/youtube/videoOptimizeQueries'
 import { videoThumbnailsApi } from '../api/videoThumbnails'
+import { friendlyMessage } from '../lib/aiErrors'
 import { PersonaSelector } from '../components/PersonaSelector'
 import { StyleSelector } from '../components/StyleSelector'
 import { EditThumbnailDialog } from '../components/EditThumbnailDialog'
 import { useCostOf } from '../queries/billing/creditsQueries'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
-// ABTestPanel removed from Video Optimize — A/B Testing has its own top-level screen.
 import { queryKeys } from '../lib/query/queryKeys'
 import { invalidateCredits } from '../queries/billing/creditsQueries'
 import GenerationProgress from '../components/GenerationProgress'
@@ -230,7 +239,18 @@ function ThumbResultCard({
       }}
     >
       <div className="video-opt-thumb-card-img-wrap">
-        <img src={imageUrl} alt={alt || ''} className="video-opt-thumb-card-img" />
+        {/* loading=lazy: browser defers off-screen images until they're
+         *  about to scroll into view — the thumbnail grid can have many
+         *  cards, only ~3-4 are visible at once. decoding=async lets the
+         *  browser decode JPEG/PNG off the main thread so scrolling stays
+         *  smooth even with several large images on screen at once. */}
+        <img
+          src={imageUrl}
+          alt={alt || ''}
+          className="video-opt-thumb-card-img"
+          loading="lazy"
+          decoding="async"
+        />
         {selected && (
           <span className="video-opt-thumb-card-check" aria-hidden>
             <svg
@@ -380,6 +400,12 @@ export function VideoOptimizeModal({
   const [refineDropdownOpen, setRefineDropdownOpen] = useState(false)
   const [refineLoading, setRefineLoading] = useState(false)
   const [seoNotice, setSeoNotice] = useState(null)
+  // Inline notice for the Thumbnails tab — used to surface generation
+  // errors (insufficient credits, server failures, AI errors) so the
+  // user sees *why* the click had no visible effect. Without this, a
+  // failed POST silently flips the spinner off and looks like nothing
+  // happened.
+  const [thumbNotice, setThumbNotice] = useState(null)
   const refineDropdownRef = useRef(null)
   const [thumbnailPrompt, setThumbnailPrompt] = useState('')
   const [thumbnailsByVideo, setThumbnailsByVideo] = useState({})
@@ -388,6 +414,41 @@ export function VideoOptimizeModal({
   const THUMB_PROMPT_MAX = 2500
   const [thumbBatchCount, setThumbBatchCount] = useState(1)
   const videoId = video?.id
+
+  // Pulls cached AI artifacts (titles / tags / refined description) on
+  // open so the modal hydrates from disk instead of an empty state.
+  // Skipped for the deep-link case where video.id is set but the modal
+  // hasn't been "opened" yet to keep a stable behavior with the rest
+  // of the lifecycle effects below.
+  const aiCacheQuery = useVideoAICache(videoId, { enabled: open && !!videoId })
+
+  // Resume polling for an in-flight thumbnail job when the user reopens
+  // the modal — the bg task running on the server doesn't care that the
+  // modal closed, so on reopen we want to find it and re-attach progress.
+  const [activeJobId, setActiveJobId] = useState(null)
+  const activeJobLookup = useActiveThumbnailJob(videoId, {
+    enabled: open && !!videoId,
+  })
+  // Drive the listing through React Query so job-completion invalidations
+  // automatically refresh the thumbnail grid.
+  const thumbnailListQuery = useVideoThumbnails(videoId, {
+    enabled: open && !!videoId,
+  })
+  // Mutation that runs the idempotent rate-by-id endpoint. The backend
+  // returns the persisted score immediately when the row is already
+  // rated (no AI call, no credit charge), so calling this on every open
+  // for every thumbnail is safe — it's just a DB read in the common case.
+  const rateThumbnailMutation = useRateVideoThumbnail(videoId)
+  // When we kicked off a job ourselves OR found one to resume, this
+  // hook polls /api/jobs/{id} until it terminates and triggers the
+  // listing refresh.
+  const trackedJobId =
+    activeJobId || activeJobLookup.data?.job_id || null
+  const thumbJobQuery = useThumbnailJob(trackedJobId, {
+    videoId,
+    enabled: !!trackedJobId,
+  })
+
   const thumbnailBatch = thumbnailsByVideo[videoId] || []
   const uploadedThumbnails = uploadedByVideo[videoId] || []
   const [selectedPreviewThumbnailUrl, setSelectedPreviewThumbnailUrl] = useState(null)
@@ -569,6 +630,45 @@ export function VideoOptimizeModal({
     }
   }, [open, data?.title_options, data?.default_title_index, video?.title])
 
+  // Hydrate from per-video AI cache (server-side persisted) on open. Each
+  // mutation in the modal (title-recommendations, generate-tags, refine-
+  // description) writes through to this cache so the next session picks
+  // up where the user left off — no credits charged on rehydration.
+  // Tag hydration is skipped when YouTube already has tags (we display
+  // the live ones) and only applies if the cached set covers them.
+  const aiCacheData = aiCacheQuery.data
+  useEffect(() => {
+    if (!open || !aiCacheData) return
+    if (
+      Array.isArray(aiCacheData.title_recommendations) &&
+      aiCacheData.title_recommendations.length > 0 &&
+      !titleRecommendations
+    ) {
+      setTitleRecommendations({
+        titles: aiCacheData.title_recommendations,
+        thumbnail_url:
+          video?.thumbnail_url ||
+          (video?.id ? `https://img.youtube.com/vi/${video.id}/mqdefault.jpg` : ''),
+      })
+    }
+    if (
+      Array.isArray(aiCacheData.generated_tags) &&
+      aiCacheData.generated_tags.length > 0 &&
+      // Don't override live YouTube tags — only fill when none are loaded.
+      tagsList.length === 0
+    ) {
+      setTagsList(
+        aiCacheData.generated_tags.map((t) => ({ tag: t.tag, score: t.score }))
+      )
+      setTagsGenerated(true)
+    }
+    // refined_description is intentionally NOT auto-applied; the live
+    // YouTube description is the source of truth in the textarea. The
+    // hydration is here so future "show last refinement" UI can read
+    // `aiCacheData.refined_description` without another round-trip.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, aiCacheData, video?.id])
+
   // After any AI mutation completes (success or server error) refresh the
   // credits badge — the server has already debited (or refunded on failure).
   const _creditsBadgeRefresh = {
@@ -583,9 +683,21 @@ export function VideoOptimizeModal({
       return youtubeApi.getTitleRecommendations(token, {
         video_idea: videoIdea,
         thumbnail_url: thumbnailUrl,
+        // Backend uses this to persist the result so the next modal
+        // open hydrates from cache without re-charging credits.
+        video_id: videoId || undefined,
       })
     },
-    ..._creditsBadgeRefresh,
+    onSuccess: () => {
+      invalidateCredits(queryClient)
+      // Bring the AI cache query up to date with the just-written row.
+      if (videoId) {
+        queryClient.invalidateQueries({
+          queryKey: videoOptimizeKeys.aiCache(videoId),
+        })
+      }
+    },
+    onError: () => invalidateCredits(queryClient),
   })
 
   const refineDescriptionMutation = useMutation({
@@ -653,6 +765,19 @@ export function VideoOptimizeModal({
     setSeoNotice({ text, tone })
     setTimeout(() => setSeoNotice(null), 2800)
   }
+
+  const showThumbNotice = (text, tone = 'error') => {
+    setThumbNotice({ text, tone })
+    // Errors stay on screen longer than success toasts — give the user
+    // time to read what went wrong before it auto-clears.
+    setTimeout(() => setThumbNotice(null), tone === 'error' ? 5000 : 2800)
+  }
+
+  // Defers to the shared mapper in lib/aiErrors. The API client now
+  // throws structured Errors (status, code, retryAfterMs, ...) so the
+  // mapper can return precise messages — "Service is busy. Try again
+  // in 30 seconds." instead of a generic regex-matched string.
+  const friendlyGenerateError = (err) => friendlyMessage(err)
 
   const handleStopRefine = () => {
     refineAbortRef.current?.abort()
@@ -729,35 +854,91 @@ export function VideoOptimizeModal({
 
   const getYoutubeUrl = () => (video?.id ? `https://www.youtube.com/watch?v=${video.id}` : '')
 
-  // Load saved thumbnails from API when video opens
+  // Mirror the React-Query-managed thumbnail list into the legacy
+  // `thumbnailsByVideo` state so the rest of the modal (which reads
+  // ``thumbnailBatch``) keeps working unchanged. The query is the
+  // source of truth; we just project it.
   useEffect(() => {
     if (!open || !videoId) return
-    let cancelled = false
-    getValidAccessToken().then(async (token) => {
-      if (!token || cancelled) return
-      try {
-        const res = await videoThumbnailsApi.list(token, videoId)
-        if (!cancelled && res?.thumbnails?.length) {
-          setThumbnailsByVideo((prev) => ({
-            ...prev,
-            [videoId]: res.thumbnails.map((t) => ({
-              ...t,
-              id: t.id,
-              image_url: t.image_url,
-              title: t.title || 'Generated',
-              source: t.source || 'generated',
-            })),
-          }))
-        }
-      } catch (_) {}
-    })
-    return () => {
-      cancelled = true
+    const items = thumbnailListQuery.data?.thumbnails
+    if (Array.isArray(items)) {
+      setThumbnailsByVideo((prev) => ({
+        ...prev,
+        [videoId]: items.map((t) => ({
+          ...t,
+          id: t.id,
+          image_url: t.image_url,
+          title: t.title || 'Generated',
+          source: t.source || 'generated',
+        })),
+      }))
     }
-  }, [open, videoId, getValidAccessToken])
+  }, [open, videoId, thumbnailListQuery.data])
+
+  // Lazy-rate any unrated rows after the listing arrives. Idempotent
+  // server-side: rated rows return their score for free with no AI
+  // call and no credit charge. Per-video guard prevents the effect
+  // from re-firing on every cache merge while a rate is in flight.
+  const lazyRatedKeyRef = useRef(null)
+  useEffect(() => {
+    if (!open || !videoId) return
+    const items = thumbnailListQuery.data?.thumbnails
+    if (!Array.isArray(items) || items.length === 0) return
+    // Re-trigger when the set of unrated ids changes — covers the
+    // "user generated more thumbnails" case without re-running for a
+    // simple cache-data identity change.
+    const unratedIds = items
+      .filter((t) => t && t.id && t.rating_score == null)
+      .map((t) => t.id)
+      .sort((a, b) => a - b)
+      .join(',')
+    const key = `${videoId}:${unratedIds}`
+    if (unratedIds === '' || lazyRatedKeyRef.current === key) return
+    lazyRatedKeyRef.current = key
+    lazyRateUnrated(items, rateThumbnailMutation)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, videoId, thumbnailListQuery.data])
+
+  // The "thumbnail loading" UI follows the active job: an in-flight job
+  // (queued or running) means generation is happening even if the user
+  // closed and reopened the modal. The local generate handler also flips
+  // it on while the initial POST is in flight — tying both paths to a
+  // single derived bool keeps the UI consistent.
+  const activeJobStatus =
+    thumbJobQuery.data?.status || activeJobLookup.data?.status || null
+  const isJobActive =
+    activeJobStatus === 'queued' || activeJobStatus === 'running'
+  const derivedThumbnailLoading = thumbnailLoading || isJobActive
+
+  // When the resume lookup finds an in-flight job for this video, lock
+  // onto its id so useThumbnailJob takes over polling.
+  useEffect(() => {
+    if (activeJobLookup.data?.job_id && !activeJobId) {
+      setActiveJobId(activeJobLookup.data.job_id)
+    }
+  }, [activeJobLookup.data?.job_id, activeJobId])
+
+  // When a tracked job terminates, clear our local tracking + drop the
+  // synthetic loading flag. The thumbnail listing query is invalidated
+  // by useThumbnailJob's onSuccess — the new rows show up automatically.
+  // On failure, surface the server-side error string so the user sees
+  // *why* nothing rendered, instead of just a silent spinner-off.
+  useEffect(() => {
+    const status = thumbJobQuery.data?.status
+    if (status === 'done' || status === 'failed') {
+      setActiveJobId(null)
+      setThumbnailLoading(false)
+      invalidateCredits(queryClient)
+      if (status === 'failed') {
+        const err = thumbJobQuery.data?.error || 'Generation failed.'
+        showThumbNotice(err.slice(0, 240), 'error')
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thumbJobQuery.data?.status, thumbJobQuery.data?.error, queryClient])
 
   const handleGenerateThumbnails = async () => {
-    if (thumbnailLoading) return
+    if (derivedThumbnailLoading) return
     const url = getYoutubeUrl()
     const userPrompt = thumbnailPrompt.trim()
     const contextPrompt = `Create a better, more click-worthy version of the current thumbnail for this video. Keep the same style and subject but make it more eye-catching.`
@@ -766,7 +947,9 @@ export function VideoOptimizeModal({
     const message = url ? `${url} ${prompt}` : prompt
     setThumbnailLoading(true)
     setThumbnailPrompt('')
-    // Credits are charged immediately on the backend — no refund on cancel.
+    // Credits are charged immediately on the backend — even if the
+    // user closes the modal, the bg job continues and the credits stay
+    // debited. Refunds happen automatically on AI failure.
     invalidateCredits(queryClient)
     try {
       const token = await getValidAccessToken()
@@ -779,16 +962,28 @@ export function VideoOptimizeModal({
         persona_id: undefined,
         style_id: undefined,
       })
-      const thumbs = res?.thumbnails || []
-      setThumbnailsByVideo((prev) => ({
-        ...prev,
-        [videoId]: [...thumbs, ...(prev[videoId] || [])],
-      }))
-    } catch (_) {
-      // keep existing thumbnails on error
-    } finally {
+      // The async endpoint returns immediately with a job_id; thumbnails
+      // are []. Hand the job_id off to the polling hook — when the job
+      // completes it invalidates the listing query and the new rows
+      // show up automatically. setThumbnailLoading(false) happens in
+      // the terminal-status effect, not here, so the spinner stays up
+      // until the work is actually done.
+      if (res?.job_id) {
+        setActiveJobId(res.job_id)
+      } else {
+        // Server returned 200 but no job_id — defensive: don't leave
+        // the spinner stuck and tell the user something's off so they
+        // can retry.
+        setThumbnailLoading(false)
+        showThumbNotice('Could not start generation. Try again.', 'error')
+      }
+    } catch (err) {
       setThumbnailLoading(false)
       invalidateCredits(queryClient)
+      // Surface the failure — without this, the user sees the spinner
+      // flip off and assumes the click did nothing. The friendly
+      // mapper handles 402 (insufficient credits), 401, 429, timeouts.
+      showThumbNotice(friendlyGenerateError(err), 'error')
     }
   }
 
@@ -1361,10 +1556,6 @@ export function VideoOptimizeModal({
                             >
                               Alternate hooks
                             </h3>
-                            <p className="video-opt-reco-suite-sub">
-                              Three AI angles from your thumbnail + topic. Tap one to load it into
-                              the editor.
-                            </p>
                           </div>
                           {video?.title && (
                             <button
@@ -1422,6 +1613,8 @@ export function VideoOptimizeModal({
                                         ''
                                       }
                                       alt=""
+                                      loading="lazy"
+                                      decoding="async"
                                     />
                                     {!isPlaceholder && item?.score != null && (
                                       <span
@@ -1482,16 +1675,36 @@ export function VideoOptimizeModal({
                         onChange={handleUploadThumbnail}
                       />
 
+                      {/* Inline notice — surfaces generation failures
+                       *  (insufficient credits, AI errors, network) so a
+                       *  failed click doesn't look like nothing happened.
+                       *  Reuses the SEO-tab notice CSS for a consistent
+                       *  look across tabs. */}
+                      <AnimatePresence>
+                        {thumbNotice && (
+                          <motion.div
+                            className={`video-opt-seo-notice video-opt-seo-notice--${thumbNotice.tone}`}
+                            role="status"
+                            initial={{ opacity: 0, y: -8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            {thumbNotice.text}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
                       {/* Thumbnail gallery — action cards + thumbnails in same grid */}
                       <div className="video-opt-thumb-gallery">
                         {/* Quick generate */}
                         <button
                           type="button"
-                          className={`video-opt-thumb-card video-opt-thumb-card--action ${thumbnailLoading ? 'video-opt-thumb-card--action-active' : ''}`}
+                          className={`video-opt-thumb-card video-opt-thumb-card--action ${derivedThumbnailLoading ? 'video-opt-thumb-card--action-active' : ''}`}
                           onClick={handleGenerateThumbnails}
-                          disabled={thumbnailLoading || !video?.id}
+                          disabled={derivedThumbnailLoading || !video?.id}
                         >
-                          {thumbnailLoading ? (
+                          {derivedThumbnailLoading ? (
                             <span className="video-opt-btn-spinner" aria-hidden />
                           ) : (
                             <svg
@@ -1508,9 +1721,9 @@ export function VideoOptimizeModal({
                             </svg>
                           )}
                           <span className="video-opt-thumb-card-action-label">
-                            {thumbnailLoading ? 'Generating…' : 'Quick generate'}
+                            {derivedThumbnailLoading ? 'Generating…' : 'Quick generate'}
                           </span>
-                          {!thumbnailLoading && (
+                          {!derivedThumbnailLoading && (
                             <CreditBadge featureKey="video_thumbnail_generate" />
                           )}
                         </button>
@@ -1590,7 +1803,7 @@ export function VideoOptimizeModal({
 
                         {/* Generating */}
                         <AnimatePresence>
-                          {thumbnailLoading && (
+                          {derivedThumbnailLoading && (
                             <motion.div
                               className="video-opt-thumb-card video-opt-thumb-card--generating"
                               initial={{ opacity: 0, scale: 0.95 }}
@@ -1614,7 +1827,15 @@ export function VideoOptimizeModal({
                               key={t.id}
                               imageUrl={t.image_url}
                               alt={t.title}
-                              score={t.score}
+                              // rating_score is persisted on the row by the
+                              // auto-rate step in run_thumbnail_job and by the
+                              // /rate endpoint. Falls back to legacy ``score``
+                              // for any in-memory cards that haven't synced yet.
+                              score={
+                                t.rating_score != null
+                                  ? Math.round(t.rating_score)
+                                  : t.score
+                              }
                               selected={selectedPreviewThumbnailUrl === t.image_url}
                               onSelect={() => setSelectedPreviewThumbnailUrl(t.image_url)}
                               onPreview={() => setFullSizeImage(t.image_url)}
@@ -1894,9 +2115,6 @@ export function VideoOptimizeModal({
                     </div>
                   )}
 
-                  {/* A/B Tests + Preview tabs were removed — A/B Testing lives
-                      on its own top-level screen; preview lives permanently
-                      in the left sidebar. */}
                 </motion.div>
               </AnimatePresence>
             )}
@@ -1953,13 +2171,13 @@ export function VideoOptimizeModal({
                     <BatchCirclePicker
                       value={thumbBatchCount}
                       onChange={setThumbBatchCount}
-                      disabled={thumbnailLoading}
+                      disabled={derivedThumbnailLoading}
                     />
                     <VOSendPill
                       featureKey="video_thumbnail_generate"
                       count={thumbBatchCount}
-                      loading={thumbnailLoading}
-                      disabled={thumbnailLoading || !videoId}
+                      loading={derivedThumbnailLoading}
+                      disabled={derivedThumbnailLoading || !videoId}
                       onClick={handleGenerateThumbnails}
                       ariaLabel="Generate thumbnails"
                     />

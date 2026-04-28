@@ -6,9 +6,16 @@ import { getAccessTokenOrNull } from '../../lib/query/authToken'
 
 /**
  * Infinite-scroll hook for the Optimize video list.
- * Each "page" is a backend page (per_page items). The hook automatically
- * deduplicates in-flight requests and keeps previous pages visible while
- * the next page loads.
+ *
+ * Each "page" is a backend page (per_page items). React Query automatically
+ * deduplicates in-flight requests; the backend layers a Redis SWR cache and
+ * sends ETag + Cache-Control: private, max-age=60 so the browser also
+ * short-circuits identical requests within the freshness window.
+ *
+ * placeholderData: keepPreviousData → switching sort / video_type doesn't
+ * flash an empty grid; the old pages stay rendered until the new query
+ * resolves, and React Query swaps in the fresh data. Together with the
+ * server cache that's usually a sub-100ms swap.
  */
 export function useYoutubeVideosList({
   channelId,
@@ -38,7 +45,14 @@ export function useYoutubeVideosList({
       return undefined
     },
     enabled: enabled && !!channelId,
-    staleTime: queryFreshness.short,
+    // Match the server-side L1 fresh window so React Query doesn't refetch
+    // the same page within seconds of a hit. Server has its own SWR layer,
+    // so even when we ask, it answers from cache.
+    staleTime: 1000 * 60, // 60s
+    gcTime: 1000 * 60 * 10, // 10min — cached pages stay in memory between visits
+    placeholderData: (prev) => prev,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   })
 }
 

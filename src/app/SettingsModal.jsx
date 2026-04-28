@@ -1,20 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Dialog, SegmentedTabs } from '../components/ui'
-import { getFrequencyLabel } from '../i18n/labels'
 import './SettingsModal.css'
+import { friendlyMessage } from '../lib/aiErrors'
+// Personalization + AI-Model panels were retired from the UI — settings is
+// now a single Account screen with Help inlined. The mutations below stay
+// imported because the save-personalization handler is still bound to the
+// onboarding store and pushes those fields to the backend on form submits
+// from elsewhere in the app (e.g. onboarding flow uses the same fields).
 import { useSaveUserPreferencesMutation } from '../queries/user/preferencesQueries'
 import { useUpdateUserProfileMutation } from '../queries/user/profileQueries'
 import { useUserProfileQuery } from '../queries/user/profileQueries'
-import { ModelTierSelector } from '../components/ModelTierSelector'
 
 const THEME_KEY = 'scriptz_theme'
-
-const SECTIONS = [
-  { id: 'account', label: 'Account' },
-  { id: 'personalization', label: 'Personalization' },
-  { id: 'ai-model', label: 'AI Model' },
-  { id: 'help', label: 'Help' },
-]
 
 const FREQUENCY_OPTIONS = [
   { value: 'daily', labelKey: 'daily' },
@@ -334,7 +330,7 @@ export function SettingsModal({
         customPrompt: customPrompt.trim() || '',
       })
     } catch (err) {
-      setPersonalizationSaveError(err?.message || 'Failed to save. Try again.')
+      setPersonalizationSaveError(friendlyMessage(err) || 'Failed to save. Try again.')
     }
     setPersonalizationSyncing(false)
   }
@@ -350,13 +346,19 @@ export function SettingsModal({
       (customPrompt.trim() || '') !== lastSavedPersonalization.customPrompt
     : true
 
+  // Settings renders as an in-shell route (not a modal/portal) so it
+  // sits inside `<main>` next to the sidebar, just like Dashboard.
+  // The `open` prop is still accepted for legacy callers; AuthenticatedRoutes
+  // always passes `open` when it routes to the settings view.
+  if (!open) return null
+
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      size="xl"
-      ariaLabelledBy="settings-modal-title"
-      className="settings-modal-dialog"
+    <div
+      // `settings-modal-dialog` keeps the inherited tokens + typography;
+      // `settings-screen` is the in-shell container (flex-fills `<main>`).
+      className="settings-screen settings-modal-dialog"
+      role="region"
+      aria-labelledby="settings-modal-title"
     >
       <div className="settings-modal-body">
         <header className="settings-modal-header">
@@ -376,71 +378,14 @@ export function SettingsModal({
           </button>
         </header>
 
-        {/* MOBILE TABBAR (hidden on desktop). Real SegmentedTabs, sits
-            directly under the header as its own horizontal bar. */}
-        <div className="settings-modal-tabbar" aria-hidden="false">
-          <SegmentedTabs
-            value={activeSection}
-            onChange={setActiveSection}
-            ariaLabel="Settings sections"
-            options={SECTIONS.map((s) => ({ value: s.id, label: s.label }))}
-          />
-        </div>
-
-        <div className="settings-modal-body">
-          <nav className="settings-modal-sidebar" aria-label="Settings sections">
-            {/* Desktop vertical list (hidden on mobile) */}
-            <div className="settings-modal-nav-list">
-              {SECTIONS.map((section) => (
-                <button
-                  key={section.id}
-                  type="button"
-                  className={`settings-modal-nav-item ${activeSection === section.id ? 'active' : ''}`}
-                  onClick={() => setActiveSection(section.id)}
-                  aria-current={activeSection === section.id ? 'true' : undefined}
-                >
-                  {section.label}
-                </button>
-              ))}
-            </div>
-            {onLogout ? (
-              <button
-                type="button"
-                className="settings-modal-logout"
-                onClick={() => {
-                  onClose?.()
-                  onLogout()
-                }}
-                aria-label="Log out"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden
-                >
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-                <span>Log out</span>
-              </button>
-            ) : null}
-          </nav>
-          <div className="settings-modal-content">
-            {/* ——— Account ——— */}
-            <div
-              className={`settings-modal-panel ${activeSection === 'account' ? 'active' : ''}`}
-              role="tabpanel"
-              aria-hidden={activeSection !== 'account'}
-            >
-              <h3 className="settings-panel-heading">Account</h3>
-              <p className="settings-panel-desc">Email, YouTube, and security.</p>
+        <div className="settings-modal-content">
+          <div
+            className="settings-modal-panel active"
+            role="region"
+            aria-label="Account"
+          >
+            <h3 className="settings-panel-heading">Account</h3>
+            <p className="settings-panel-desc">Email, YouTube, security, and help.</p>
 
               <div className="settings-block">
                 <p className="settings-account-email">
@@ -816,14 +761,72 @@ export function SettingsModal({
                   </div>
                 </div>
               )}
+
+              {/* ——— Help (inlined inside Account so users find support
+                  links, legal, and FAQ without an extra screen). ——— */}
+              <h4 className="settings-subheading">Resources</h4>
+              <div className="settings-help-section">
+                <div className="settings-help-links">
+                  <a href="#help" className="settings-help-link">
+                    Help center
+                  </a>
+                  <a href="mailto:support@scriptz.ai" className="settings-help-link">
+                    Contact support
+                  </a>
+                  <a
+                    href="https://scriptz.ai/docs"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="settings-help-link"
+                  >
+                    Documentation
+                  </a>
+                </div>
+              </div>
+
+              <h4 className="settings-subheading">Legal</h4>
+              <div className="settings-help-section">
+                <div className="settings-help-links">
+                  <a href="#privacy" className="settings-help-link">
+                    Privacy policy
+                  </a>
+                  <a href="#terms" className="settings-help-link">
+                    Terms of service
+                  </a>
+                </div>
+              </div>
+
+              <h4 className="settings-subheading">FAQ</h4>
+              <div className="settings-help-faq">
+                <div className="settings-help-faq-item">
+                  <strong>How do I connect my YouTube channel?</strong>
+                  <p>
+                    Go to Account → YouTube and click &quot;Connect YouTube Channel&quot;.
+                    You&apos;ll be redirected to authorize Scriptz to access your channel data.
+                  </p>
+                </div>
+                <div className="settings-help-faq-item">
+                  <strong>What does the AI Coach use my data for?</strong>
+                  <p>
+                    Your profile, niche, and preferences help the AI generate personalized scripts
+                    and advice tailored to your channel and style.
+                  </p>
+                </div>
+                <div className="settings-help-faq-item">
+                  <strong>Can I use multiple YouTube channels?</strong>
+                  <p>
+                    Yes. Connect your first channel, then connect additional channels from the same
+                    Google account. Switch between them in Account → YouTube.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            {/* ——— Personalization (profile + tone, style, CTA, script voice) ——— */}
-            <div
-              className={`settings-modal-panel ${activeSection === 'personalization' ? 'active' : ''}`}
-              role="tabpanel"
-              aria-hidden={activeSection !== 'personalization'}
-            >
+            {/* DELETED Personalization panel JSX — see git history if you
+                need to recover the form layout. The form's state and
+                handlers still live above for the onboarding flow that
+                pushes those fields directly to the user-prefs API. */}
+            {false && <div className="settings-modal-panel">
               <h3 className="settings-panel-heading">Personalization</h3>
               <p className="settings-panel-desc">
                 Customize how the AI writes your scripts and responds.
@@ -1030,87 +1033,11 @@ export function SettingsModal({
                   {personalizationSyncing ? 'Saving…' : 'Save'}
                 </button>
               </form>
-            </div>
+            </div>}
 
-            {/* ——— AI Model (SRX tier) ——— */}
-            <div
-              className={`settings-modal-panel ${activeSection === 'ai-model' ? 'active' : ''}`}
-              role="tabpanel"
-              aria-hidden={activeSection !== 'ai-model'}
-            >
-              <h3 className="settings-panel-heading">AI Model</h3>
-              <p className="settings-panel-desc">
-                Choose how Scriptz AI thinks for you. The selected tier drives every AI feature in
-                the app.
-              </p>
-              <ModelTierSelector />
-            </div>
-
-            {/* Billing was promoted to its own `#billing` page. */}
-
-            {/* ——— Help ——— */}
-            <div
-              className={`settings-modal-panel ${activeSection === 'help' ? 'active' : ''}`}
-              role="tabpanel"
-              aria-hidden={activeSection !== 'help'}
-            >
-              <h3 className="settings-panel-heading">Help</h3>
-              <p className="settings-panel-desc">Resources, support, and legal.</p>
-              <div className="settings-help-section">
-                <h4 className="settings-help-section-title">Resources</h4>
-                <div className="settings-help-links">
-                  <a href="#help" className="settings-help-link">
-                    Help center
-                  </a>
-                  <a href="mailto:support@scriptz.ai" className="settings-help-link">
-                    Contact support
-                  </a>
-                  <a
-                    href="https://scriptz.ai/docs"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="settings-help-link"
-                  >
-                    Documentation
-                  </a>
-                </div>
-              </div>
-              <div className="settings-help-section">
-                <h4 className="settings-help-section-title">Legal</h4>
-                <div className="settings-help-links">
-                  <a href="#privacy" className="settings-help-link">
-                    Privacy policy
-                  </a>
-                  <a href="#terms" className="settings-help-link">
-                    Terms of service
-                  </a>
-                </div>
-              </div>
-              <div className="settings-help-faq">
-                <h4 className="settings-help-section-title">FAQ</h4>
-                <div className="settings-help-faq-item">
-                  <strong>How do I connect my YouTube channel?</strong>
-                  <p>
-                    Go to Account → YouTube and click &quot;Connect YouTube Channel&quot;.
-                    You&apos;ll be redirected to authorize Scriptz to access your channel data.
-                  </p>
-                </div>
-                <div className="settings-help-faq-item">
-                  <strong>What does the AI Coach use my data for?</strong>
-                  <p>
-                    Your profile, niche, and preferences help the AI generate personalized scripts
-                    and advice tailored to your channel and style.
-                  </p>
-                </div>
-                <div className="settings-help-faq-item">
-                  <strong>Can I use multiple YouTube channels?</strong>
-                  <p>
-                    Yes. Connect your first channel, then connect additional channels from the same
-                    Google account. Switch between them in Account → YouTube.
-                  </p>
-                </div>
-              </div>
-            </div>
+            {/* AI Model picker + standalone Help panel were retired —
+                Help content is now inlined inside the Account panel above
+                and the AI tier picker moved to its own surface. */}
 
             {onLogout ? (
               <div className="settings-modal-mobile-footer">
@@ -1145,6 +1072,5 @@ export function SettingsModal({
           </div>
         </div>
       </div>
-    </Dialog>
   )
 }

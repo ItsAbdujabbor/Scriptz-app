@@ -253,16 +253,6 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
             )}
             {!isPending && items.length > 0 && (
               <>
-                {selectedPersonaId && (
-                  <button
-                    type="button"
-                    className="persona-selector-option persona-selector-option--clear"
-                    onClick={handleClear}
-                    role="option"
-                  >
-                    Clear selection
-                  </button>
-                )}
                 {items.map((p) => (
                   <button
                     key={p.id}
@@ -274,7 +264,7 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
                   >
                     <span className="persona-selector-option-img">
                       {p.image_url ? (
-                        <img src={p.image_url} alt="" loading="lazy" />
+                        <img src={p.image_url} alt="" loading="lazy" decoding="async" />
                       ) : (
                         <span className="persona-selector-option-fallback" aria-hidden>
                           <IconPersona />

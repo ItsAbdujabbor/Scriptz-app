@@ -6,6 +6,7 @@ import { openPaddleCheckout } from '../lib/paddle'
 import { useSubscriptionQuery, invalidateCredits } from '../queries/billing/creditsQueries'
 import { queryKeys } from '../lib/query/queryKeys'
 import { celebrate } from '../lib/celebrate'
+import { friendlyMessage } from '../lib/aiErrors'
 import '../landing/sections/pricing/pricing.css'
 
 // Canonical credits per plan. Thumbnails shown are marketing figures:
@@ -51,20 +52,14 @@ const STARTER_SEOS = 375
 const PLAN_SPECS = {
   starter: {
     channels: 2,
-    ab: false,
-    abPredict: false,
     priority: false,
   },
   creator: {
     channels: 4,
-    ab: true,
-    abPredict: false,
     priority: false,
   },
   ultimate: {
     channels: 10,
-    ab: true,
-    abPredict: true,
     priority: true,
   },
 }
@@ -80,8 +75,6 @@ const FEATURE_INFO = {
   titleScore: 'Score existing titles and brainstorm new high-click ideas in seconds.',
   thumbAnalyze: 'Score existing thumbnails for clarity, emotion and click-through potential.',
   dashboard: 'Channel health snapshot with growth, best posting times and performance insights.',
-  ab: 'Run head-to-head thumbnail or title experiments to pick the winning variant.',
-  abPredict: 'Forecast which A/B variant will win before you publish, using past data.',
   priority: 'Jump the support queue with faster responses from our team.',
 }
 
@@ -113,13 +106,6 @@ function buildFeatures({ tier, credits, yearlyCredits, annual }) {
     { key: 'titleScore', on: true, text: 'Title Scoring & Ideas', info: FEATURE_INFO.titleScore },
     { key: 'thumbAnalyze', on: true, text: 'Thumbnail Analyzer', info: FEATURE_INFO.thumbAnalyze },
     { key: 'dashboard', on: true, text: 'Dashboard Analytics', info: FEATURE_INFO.dashboard },
-    { key: 'ab', on: spec.ab, text: 'A/B Testing', info: FEATURE_INFO.ab },
-    {
-      key: 'abPredict',
-      on: spec.abPredict,
-      text: 'Predictive A/B Insights',
-      info: FEATURE_INFO.abPredict,
-    },
     { key: 'priority', on: spec.priority, text: 'Priority Support', info: FEATURE_INFO.priority },
   ]
 }
@@ -345,12 +331,10 @@ export function ProPricingContent({ onStartTrial }) {
         clientToken: resp?.client_token,
       })
     } catch (e) {
-      const msg =
-        e?.payload?.error?.extra?.message ||
-        e?.payload?.error?.message ||
-        e?.message ||
-        'Could not complete the request. Please try again.'
-      setCheckoutError(msg)
+      // Shared mapper handles every backend error envelope shape and
+      // produces a user-facing message with retry hints when the
+      // upstream is rate-limited / unavailable.
+      setCheckoutError(friendlyMessage(e) || 'Could not complete the request. Please try again.')
     } finally {
       setCheckoutLoading(null)
     }

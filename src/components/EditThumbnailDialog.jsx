@@ -30,6 +30,7 @@ import { PrimaryPill } from './ui/PrimaryPill'
 import { PersonaSelector } from './PersonaSelector'
 import { usePersonaStore } from '../stores/personaStore'
 import GenerationProgress from './GenerationProgress'
+import { friendlyMessage } from '../lib/aiErrors'
 import { canvasToBase64Png } from '../lib/canvasToBase64'
 
 const Z_INDEX = 2147483647
@@ -1047,7 +1048,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
       onClose?.()
     } catch (err) {
       setError(
-        err?.message ||
+        friendlyMessage(err) ||
           (mode === 'faceswap'
             ? 'Face swap failed. Try a different character.'
             : 'Edit failed. Try a different prompt.')
@@ -1249,6 +1250,8 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
                 pointerEvents: 'none',
               }}
               draggable={false}
+              loading="lazy"
+              decoding="async"
             />
           ) : (
             <div

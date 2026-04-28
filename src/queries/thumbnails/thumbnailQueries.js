@@ -3,6 +3,7 @@ import { thumbnailsApi } from '../../api/thumbnails'
 import {
   chatThreadQueryOptions,
   mergeThumbnailConversationsListCache,
+  patchThumbnailConversationRow,
   refreshThumbnailConversationCache,
   removeThumbnailConversationFromListCaches,
 } from '../../lib/query/chatCacheUtils'
@@ -21,7 +22,11 @@ export async function prefetchThumbnailConversationCache(queryClient, conversati
     await queryClient.prefetchQuery({
       queryKey: queryKeys.thumbnails.conversation(conversationId),
       queryFn: async () => {
-        const data = await thumbnailsApi.getConversation(token, conversationId)
+        // Same shape as the live query — latest N messages, no cursor.
+        // Subsequent older pages are loaded lazily after open.
+        const data = await thumbnailsApi.getConversation(token, conversationId, {
+          limit: 30,
+        })
         // Hover-prefetch counts as a recency signal — bumping the LRU
         // here matches the hover→click intent.
         touchConversation(conversationId)
@@ -72,15 +77,33 @@ export function useThumbnailConversationsQuery(params = {}) {
  *   if the user navigates away mid-request (the backend persists messages on
  *   completion; we just need to pick them up when polling ticks over).
  */
+// Initial-open page size. Backend will return the **latest** N messages
+// of the conversation; older messages load on demand via the load-older
+// helper (`useLoadOlderThumbnailMessagesMutation`). 30 covers the typical
+// thread visible without scrolling and keeps the wire payload tiny.
+const THUMB_DETAIL_INITIAL_LIMIT = 30
+// Subsequent older-message page size — slightly larger because the user
+// is explicitly asking for more history, so a fatter page reduces
+// round-trips.
+const THUMB_DETAIL_OLDER_LIMIT = 40
+
 export function useThumbnailConversationQuery(conversationId, options = {}) {
   const { pollWhilePending = false } = options
   return useQuery({
     queryKey: queryKeys.thumbnails.conversation(conversationId),
     enabled: !!conversationId,
-    queryFn: async () => {
+    // React Query passes a fresh AbortSignal here on every key change,
+    // so when the user clicks chat B while chat A is still loading,
+    // chat A's fetch is aborted client-side and the response is dropped.
+    queryFn: async ({ signal }) => {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Not authenticated')
-      const data = await thumbnailsApi.getConversation(token, conversationId)
+      const data = await thumbnailsApi.getConversation(
+        token,
+        conversationId,
+        { limit: THUMB_DETAIL_INITIAL_LIMIT },
+        { signal }
+      )
       // Each successful fetch is a recency signal — moves this id to
       // the front of the in-memory LRU. When the cache exceeds 50
       // chats the oldest gets evicted from React Query.
@@ -104,6 +127,59 @@ export function useThumbnailConversationQuery(conversationId, options = {}) {
     // messages keep showing on the screen even though the URL was on
     // B — the user perceived this as "history doesn't open." A clean
     // pending state + the matching skeleton is the right behavior.
+  })
+}
+
+/**
+ * Fetch and prepend an older page of messages for a conversation.
+ *
+ * Reads the current cached detail to find the oldest message id, calls
+ * the backend with `before_id=<that id>`, and merges the returned older
+ * page in front of the existing messages. The cursor + has_more flag in
+ * the cache are updated so a follow-up "load more" picks up where this
+ * call left off.
+ *
+ * Idempotent against duplicate concurrent calls — guarded by checking
+ * `isLoadingOlder` in the consumer.
+ */
+export function useLoadOlderThumbnailMessagesMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (conversationId) => {
+      if (conversationId == null) return null
+      const detailKey = queryKeys.thumbnails.conversation(conversationId)
+      const current = queryClient.getQueryData(detailKey)
+      const cursor = current?.messages?.next_cursor
+      const hasMore = current?.messages?.has_more
+      if (!cursor || !hasMore) return null
+      const token = await getAccessTokenOrNull()
+      if (!token) throw new Error('Not authenticated')
+      const olderPage = await thumbnailsApi.getConversation(
+        token,
+        conversationId,
+        { limit: THUMB_DETAIL_OLDER_LIMIT, before_id: cursor }
+      )
+      // Prepend older items in chronological order; deduplicate by id
+      // in case of a race with a refresh that already pulled them in.
+      queryClient.setQueryData(detailKey, (old) => {
+        if (!old?.messages?.items) return old
+        const seen = new Set(old.messages.items.map((m) => m.id))
+        const incoming = (olderPage?.messages?.items || []).filter(
+          (m) => !seen.has(m.id)
+        )
+        return {
+          ...old,
+          messages: {
+            ...old.messages,
+            items: [...incoming, ...old.messages.items],
+            total: olderPage?.messages?.total ?? old.messages.total,
+            has_more: olderPage?.messages?.has_more ?? false,
+            next_cursor: olderPage?.messages?.next_cursor ?? null,
+          },
+        }
+      })
+      return olderPage
+    },
   })
 }
 
@@ -161,6 +237,16 @@ export function useThumbnailChatMutation(onConversationCreated) {
       if (!token) throw new Error('Not authenticated')
       return thumbnailsApi.chat(token, payload)
     },
+    onMutate: ({ conversation_id }) => {
+      // Optimistically flip the row to is_pending=true so the sidebar
+      // spinner appears immediately. The backend sets pending_until at
+      // the top of /chat anyway — onSuccess refresh will reconcile.
+      if (conversation_id != null) {
+        patchThumbnailConversationRow(queryClient, conversation_id, {
+          is_pending: true,
+        })
+      }
+    },
     onSuccess: (data) => {
       if (data?.conversation_id != null) {
         onConversationCreated?.(data.conversation_id)
@@ -170,9 +256,16 @@ export function useThumbnailChatMutation(onConversationCreated) {
       // refresh the badge so the user sees the drop immediately.
       invalidateCredits(queryClient)
     },
-    onError: () => {
-      // Server may have refunded on AI failure — reconcile.
+    onError: (_err, variables) => {
+      // Server may have refunded on AI failure — reconcile credits.
       invalidateCredits(queryClient)
+      // Roll back the optimistic pending flag so the spinner doesn't get
+      // stuck on a row whose generation failed before the backend set it.
+      if (variables?.conversation_id != null) {
+        patchThumbnailConversationRow(queryClient, variables.conversation_id, {
+          is_pending: false,
+        })
+      }
     },
   })
 }
@@ -267,7 +360,14 @@ export function useThumbnailRatingQuery(imageUrl) {
     },
     staleTime: Infinity,
     gcTime: Infinity,
-    retry: 1,
+    // Don't retry on client errors (413 too-large, 401 auth, 402 credits,
+    // 422 validation): the same payload will fail the same way. Only
+    // retry transient backend / network failures, and only once.
+    retry: (failureCount, err) => {
+      const status = err?.status
+      if (typeof status === 'number' && status >= 400 && status < 500) return false
+      return failureCount < 1
+    },
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,

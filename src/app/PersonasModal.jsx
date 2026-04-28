@@ -25,6 +25,7 @@ import { Dialog } from '../components/ui/Dialog'
 import { PrimaryPill } from '../components/ui/PrimaryPill'
 import { InlineSpinner } from '../components/ui'
 import { useObjectURL } from '../lib/useObjectURL'
+import { friendlyMessage } from '../lib/aiErrors'
 import './PersonasModal.css'
 
 function SlotImage({ file, alt }) {
@@ -213,7 +214,7 @@ export function PersonasModal({ onClose }) {
       if (persona) setSelectedPersona(persona)
       clearCreateForm()
     } catch (err) {
-      setCreateError(err?.message || 'Could not create character.')
+      setCreateError(friendlyMessage(err) || 'Could not create character.')
     }
   }
 

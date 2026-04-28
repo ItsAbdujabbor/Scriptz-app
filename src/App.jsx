@@ -40,8 +40,15 @@ const RefundPolicy = lazy(() =>
   import('./legal/RefundPolicy').then((m) => ({ default: m.RefundPolicy }))
 )
 
-/** Dashboard, Optimize, Pro, Billing, A/B Testing — one lazy chunk; in-app navigation does not flash full-screen. */
+/** Dashboard, Optimize, Pro, Billing — one lazy chunk; in-app navigation does not flash full-screen. */
 const AuthenticatedRoutes = lazy(() => import('./AuthenticatedRoutes.jsx'))
+
+/** 404 — a standalone full-screen surface, rendered without the app
+ *  shell so the sidebar / topbar don't appear over a route the user
+ *  was never supposed to be on. Lazy because most users never see it. */
+const NotFound = lazy(() =>
+  import('./components/NotFound').then((m) => ({ default: m.NotFound }))
+)
 
 const LoadingFallback = () => (
   <div
@@ -80,8 +87,31 @@ function hashIndicatesPasswordRecovery() {
   return false
 }
 
+/**
+ * The app is hash-routed and served from ``/``. Any other URL pathname
+ * is junk — typed-wrong URL, a stale share-link with a path component,
+ * or a search-engine landing on a misindexed URL. SPA fallback (Vite
+ * dev + the FastAPI ``FrontendMiddleware`` in prod) will serve
+ * ``index.html`` for any unknown path, so without a pathname check the
+ * user sees a fully-rendered app at e.g. ``/ioaojsa#dashboard`` —
+ * confusing because the app rendered the dashboard for a URL that
+ * shouldn't have worked.
+ *
+ * Accept ``/`` and ``/index.html``; treat everything else as 404.
+ * Trailing slashes get normalised so ``//`` is fine.
+ */
+function pathIsValid() {
+  if (typeof window === 'undefined') return true
+  const path = (window.location.pathname || '/').replace(/\/+$/, '') || '/'
+  return path === '/' || path === '/index.html'
+}
+
 function getView() {
   if (hashIndicatesPasswordRecovery()) return 'reset-password'
+  // Reject obviously-bad URL paths *before* parsing the hash. Without
+  // this, ``/ioaojsa#dashboard`` would render the dashboard (the hash
+  // is valid) — the user would never know the path was wrong.
+  if (!pathIsValid()) return 'not-found'
   const hash = (typeof window !== 'undefined' && window.location.hash) || ''
   const h = normalizeHashRoute(hash)
   if (h === 'banned') return 'banned'
@@ -99,13 +129,40 @@ function getView() {
     return 'thumbnails'
   if (h === 'optimize') return 'optimize'
   if (h === 'pro') return 'pro'
-  if (h === 'ab-testing' || h.startsWith('ab-testing/')) return 'ab-testing'
   if (h === 'billing') return 'billing'
+  // Settings is now an in-shell route (not a modal/dialog) so it shares
+  // the sidebar + main content layout with every other authenticated view.
+  if (h === 'settings' || h.startsWith('settings/') || h.startsWith('settings?'))
+    return 'settings'
   if (h === 'app-youtube') return 'dashboard'
-  return 'landing'
+  // Empty hash = "no specific route, show the marketing landing page".
+  // Anything non-empty that didn't match above = the user typed/clicked
+  // a URL we don't have a screen for. Return 'not-found' so the
+  // authenticated user sees the 404 component (and the unauthenticated
+  // path still falls back to landing — see the switch in App).
+  if (h === '') return 'landing'
+  return 'not-found'
+}
+
+// Kick off the inner view's chunk *in parallel* with the AuthenticatedRoutes
+// shell. We can't go through `lazyViews.js` here — it's statically imported
+// by AuthenticatedRoutes/Sidebar so it lives in the shell chunk, which means
+// going through it would waterfall. Direct dynamic imports start the inner
+// chunks in the same browser request batch as the shell. Fire-and-forget;
+// errors surface through the Suspense fallback if the network fails.
+const VIEW_CHUNK_PREFETCH = {
+  dashboard: () => import('./app/Dashboard'),
+  thumbnails: () => import('./app/Thumbnails'),
+  optimize: () => import('./app/Optimize'),
+  pro: () => import('./app/Pro'),
+  billing: () => import('./app/Billing'),
 }
 
 function AuthenticatedRouteBoundary({ view, onLogout }) {
+  if (typeof window !== 'undefined') {
+    const fn = VIEW_CHUNK_PREFETCH[view]
+    if (fn) fn().catch(() => {})
+  }
   return (
     <Suspense fallback={<AppShellLoading view={view} onLogout={onLogout} />}>
       <AuthenticatedRoutes view={view} onLogout={onLogout} />
@@ -236,7 +293,7 @@ function App() {
 
   useEffect(() => {
     if (!sessionChecked) return
-    const appViews = ['dashboard', 'thumbnails', 'optimize', 'pro', 'ab-testing', 'billing']
+    const appViews = ['dashboard', 'thumbnails', 'optimize', 'pro', 'billing']
     if (appViews.includes(view) && !accessToken) {
       window.location.hash = 'login'
       setView('login')
@@ -277,7 +334,7 @@ function App() {
     )
   }
 
-  const appViews = ['dashboard', 'thumbnails', 'optimize', 'pro', 'ab-testing', 'billing']
+  const appViews = ['dashboard', 'thumbnails', 'optimize', 'pro', 'billing']
   const needsSessionBeforeRender = appViews.includes(view)
   if (needsSessionBeforeRender && !sessionChecked) {
     return <AppShellLoading view={view} onLogout={onLogout} />
@@ -331,10 +388,18 @@ function App() {
         return <AuthenticatedRouteBoundary view="optimize" onLogout={onLogout} />
       case 'pro':
         return <AuthenticatedRouteBoundary view="pro" onLogout={onLogout} />
-      case 'ab-testing':
-        return <AuthenticatedRouteBoundary view="ab-testing" onLogout={onLogout} />
       case 'billing':
         return <AuthenticatedRouteBoundary view="billing" onLogout={onLogout} />
+      case 'settings':
+        return <AuthenticatedRouteBoundary view="settings" onLogout={onLogout} />
+      case 'not-found':
+        // Full-screen standalone — NOT wrapped in AuthenticatedRouteBoundary.
+        // The user is on a route that doesn't exist; surrounding it with
+        // the app shell (sidebar, topbar) implies "you're somewhere in
+        // the app" which is misleading. Both authenticated and anonymous
+        // users see the same screen — the only difference is where the
+        // recovery CTA sends them (dashboard vs landing).
+        return <NotFound isAuthenticated={!!accessToken} />
       default:
         return <LandingPage />
     }

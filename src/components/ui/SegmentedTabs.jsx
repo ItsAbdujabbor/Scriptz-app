@@ -1,7 +1,6 @@
 /**
  * SegmentedTabs — pill-shaped segmented tab bar, reusable across screens.
- * Matches the unified look used in Coach (.tabbar.modal), Optimize, and
- * A/B Testing.
+ * Matches the unified look used in Coach (.tabbar.modal) and Optimize.
  *
  * The active-pill indicator is a single absolutely-positioned <span> that
  * we move via CSS `transform` + `width`. We measure each tab button's

@@ -5,6 +5,7 @@
  */
 
 import { getApiBaseUrl } from '../lib/env.js'
+import { parseApiError } from '../lib/aiErrors.js'
 
 function request(method, path, accessToken, body = null, headers = {}, channelId = null) {
   const url = getApiBaseUrl() + path
@@ -17,12 +18,7 @@ function request(method, path, accessToken, body = null, headers = {}, channelId
     const contentType = res.headers.get('Content-Type') || ''
     const isJson = contentType.indexOf('application/json') !== -1
     const data = isJson ? await res.json().catch(() => ({})) : {}
-    if (!res.ok) {
-      const msg = data?.detail || data?.message || res.statusText
-      const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
-      err.status = res.status
-      throw err
-    }
+    if (!res.ok) throw parseApiError(res, data)
     return data
   })
 }

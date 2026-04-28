@@ -3,7 +3,7 @@
  *
  * Renders inside the shared Dashboard shell chain (dashboard-main-scroll →
  * dashboard-main--subpage → dashboard-content-shell--page) so its outer
- * chrome is pixel-identical to `#pro` / `#optimize` / `#ab-testing`.
+ * chrome is pixel-identical to `#pro` / `#optimize`.
  */
 import { BillingSettingsPanel } from '../components/BillingSettingsPanel'
 import './Billing.css'

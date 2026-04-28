@@ -15,6 +15,7 @@ import { stripPrefillFromHash } from '../lib/dashboardActionPayload'
 import { AppShellLayout } from '../components/AppShellLayout'
 import { SkeletonCard, SkeletonGroup, InlineSpinner } from '../components/ui'
 import { SegmentedTabs, SelectPill } from '../components/ui'
+import { friendlyMessage } from '../lib/aiErrors'
 /* Sidebar.css, SettingsModal.css, Dashboard.css imported by AuthenticatedRoutes */
 import './Optimize.css'
 
@@ -25,7 +26,6 @@ const SORT_OPTIONS = [
   { value: 'engagement', label: 'Engagement' },
 ]
 const VIDEO_TYPE_OPTIONS = [
-  { value: 'all', label: 'All' },
   { value: 'videos', label: 'Videos' },
   { value: 'shorts', label: 'Shorts' },
 ]
@@ -135,7 +135,7 @@ export function Optimize({ onLogout, shellManaged }) {
   const [youtubeOAuthError, setYoutubeOAuthError] = useState(null)
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [videoType, setVideoType] = useState('all')
+  const [videoType, setVideoType] = useState('videos')
   const [sort, setSort] = useState('published_at')
   const [selectedVideo, setSelectedVideo] = useState(null)
   const [dashPrefillBanner, setDashPrefillBanner] = useState(null)
@@ -205,7 +205,7 @@ export function Optimize({ onLogout, shellManaged }) {
   const totalVideos = videosQuery.data?.pages?.[0]?.total ?? 0
   const videosLoading = videosQuery.isLoading
   const videosError = videosQuery.isError
-    ? videosQuery.error?.message || 'Failed to load videos'
+    ? friendlyMessage(videosQuery.error) || 'Failed to load videos'
     : null
   const isFetchingNextPage = videosQuery.isFetchingNextPage
   const hasNextPage = videosQuery.hasNextPage
@@ -379,6 +379,20 @@ export function Optimize({ onLogout, shellManaged }) {
   const emptyFromSearch = showEmpty && searchQuery.trim().length > 0
   const showError = youtube?.connected && !videosLoading && videosError
   const showLoading = youtube?.connected && videosLoading && videos.length === 0
+
+  // If the videos request hangs (slow upstream, cold Lambda, hung connection)
+  // we can't tell the user "this will never resolve" — but after a few seconds
+  // we surface a retry CTA so they have a way out instead of an infinite
+  // skeleton. Cleared automatically when loading resolves.
+  const [loadingStuck, setLoadingStuck] = useState(false)
+  useEffect(() => {
+    if (!showLoading) {
+      setLoadingStuck(false)
+      return
+    }
+    const id = setTimeout(() => setLoadingStuck(true), 6000)
+    return () => clearTimeout(id)
+  }, [showLoading])
 
   // When a video is selected, show the optimize screen instead of the grid
   if (selectedVideo) {
@@ -561,6 +575,18 @@ export function Optimize({ onLogout, shellManaged }) {
                         <SkeletonCard key={i} ratio="16 / 9" lines={2} />
                       ))}
                     </SkeletonGroup>
+                    {loadingStuck && (
+                      <div className="optimize-stuck-loading" role="status">
+                        <span>Still loading — your connection might be slow.</span>
+                        <button
+                          type="button"
+                          className="optimize-stuck-retry"
+                          onClick={() => videosQuery.refetch()}
+                        >
+                          Try again
+                        </button>
+                      </div>
+                    )}
                   </motion.div>
                 )}
 
@@ -630,12 +656,7 @@ export function Optimize({ onLogout, shellManaged }) {
                           </h3>
                           <p className="optimize-empty-desc">
                             Try a different search term or clear the search to see all your{' '}
-                            {videoType === 'shorts'
-                              ? 'Shorts'
-                              : videoType === 'videos'
-                                ? 'videos'
-                                : 'content'}
-                            .
+                            {videoType === 'shorts' ? 'Shorts' : 'videos'}.
                           </p>
                           <button
                             type="button"
@@ -664,13 +685,7 @@ export function Optimize({ onLogout, shellManaged }) {
                             </svg>
                           </span>
                           <h3 className="optimize-empty-title">
-                            No{' '}
-                            {videoType === 'shorts'
-                              ? 'Shorts'
-                              : videoType === 'videos'
-                                ? 'videos'
-                                : 'videos'}{' '}
-                            yet
+                            No {videoType === 'shorts' ? 'Shorts' : 'videos'} yet
                           </h3>
                           <p className="optimize-empty-desc">
                             {videoType === 'shorts'

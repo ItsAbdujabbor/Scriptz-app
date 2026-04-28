@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { thumbnailsApi } from '../api/thumbnails'
@@ -8,8 +8,10 @@ import { PersonaSelector } from '../components/PersonaSelector'
 import { StyleSelector } from '../components/StyleSelector'
 import {
   useThumbnailConversationQuery,
+  useThumbnailConversationsQuery,
   useThumbnailChatMutation,
   useCreateThumbnailConversationMutation,
+  useLoadOlderThumbnailMessagesMutation,
   useThumbnailRatingQuery,
 } from '../queries/thumbnails/thumbnailQueries'
 import { useThumbnailChatActivityStore } from '../stores/thumbnailChatActivityStore'
@@ -19,6 +21,7 @@ import { Dropdown, InlineSpinner, PrimaryPill } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion'
 import { ChatHistorySkeleton } from '../components/ChatHistorySkeleton'
+import { friendlyMessage } from '../lib/aiErrors'
 import GenerationProgress from '../components/GenerationProgress'
 import { AnimatedComposerHint } from '../components/AnimatedComposerHint'
 import { LazyImg } from '../components/LazyImg'
@@ -31,7 +34,6 @@ import { renderMessageContent } from '../lib/messageRender.jsx'
 import { useThreadScrollToBottom } from '../lib/useThreadScrollToBottom'
 import { CostHint } from '../components/CostHint'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
-import { checkPromptForRealPerson, warningMessageFor } from '../lib/promptModeration'
 import { toast } from '../lib/toast'
 import { friendlyTitleFor, parseApiError } from '../lib/errorMessages'
 import { canvasToBase64Png } from '../lib/canvasToBase64'
@@ -314,41 +316,6 @@ const IOS_RESIZE_TRANSITION = { duration: 0.22, ease: IOS_EASE }
  * Re-measuring to the same value is a no-op so the wrapper does not
  * animate on idle re-renders.
  */
-/**
- * PromptModerationNotice — soft, non-blocking warning shown below the
- * prompt textarea when the user's draft mentions a well-known real person
- * or uses impersonation phrasing. The submit button stays enabled; this
- * is just a nudge that Scriptz AI is for original characters.
- */
-function PromptModerationNotice({ prompt }) {
-  const check = checkPromptForRealPerson(prompt)
-  if (check.ok) return null
-  const msg = warningMessageFor(check)
-  return (
-    <div
-      role="status"
-      style={{
-        margin: '6px 0 0',
-        padding: '8px 10px',
-        borderRadius: 10,
-        fontSize: 12,
-        lineHeight: 1.45,
-        color: 'rgba(252, 211, 77, 0.95)',
-        background: 'rgba(234, 179, 8, 0.08)',
-        border: '1px solid rgba(234, 179, 8, 0.32)',
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 8,
-      }}
-    >
-      <span aria-hidden style={{ flexShrink: 0, lineHeight: 1 }}>
-        ⚠️
-      </span>
-      <span>{msg}</span>
-    </div>
-  )
-}
-
 /**
  * SmoothHeight — animates its container's height as children change.
  *
@@ -819,7 +786,7 @@ function ThumbnailBatchCard({
   const score =
     ratingQuery.data?.overall_score != null ? Math.round(ratingQuery.data.overall_score) : null
   const loadingScore = ratingQuery.isPending && !!t?.image_url
-  const scoreError = ratingQuery.isError ? ratingQuery.error?.message || 'Score failed' : null
+  const scoreError = ratingQuery.isError ? friendlyMessage(ratingQuery.error) || 'Score failed' : null
   const recommendations = Array.isArray(ratingQuery.data?.recommendations)
     ? ratingQuery.data.recommendations.filter(Boolean)
     : []
@@ -1242,16 +1209,77 @@ export function ThumbnailGenerator({
   const startPending = useThumbnailChatActivityStore((s) => s.startPending)
   const clearPending = useThumbnailChatActivityStore((s) => s.clearPending)
   const markSeen = useThumbnailChatActivityStore((s) => s.markSeen)
-  // Reactive — flips to false the moment `clearPending` is called so the
-  // polling `refetchInterval` cleans itself up.
-  const isCurrentConversationPending = useThumbnailChatActivityStore((s) =>
-    conversationId == null ? false : Boolean(s.pending?.[String(conversationId)])
+  // Reactive pending flag — derived from the server `is_pending` field
+  // on the row in the conversations list cache (shared with the Sidebar,
+  // so no extra fetch). Optimistically flipped to true by the chat
+  // mutation's onMutate; the backend reconciles on success/error.
+  const conversationsListQuery = useThumbnailConversationsQuery({ limit: 50 })
+  const currentConvRow = useMemo(
+    () =>
+      conversationId == null
+        ? null
+        : conversationsListQuery.data?.items?.find(
+            (c) => Number(c.id) === Number(conversationId)
+          ) || null,
+    [conversationsListQuery.data, conversationId]
   )
+  const isCurrentConversationPending = Boolean(currentConvRow?.is_pending)
   const conversationQuery = useThumbnailConversationQuery(conversationId, {
     pollWhilePending: isCurrentConversationPending,
   })
   const chatMutation = useThumbnailChatMutation(onConversationCreated)
   const createConversationMutation = useCreateThumbnailConversationMutation()
+  const loadOlderMutation = useLoadOlderThumbnailMessagesMutation()
+  const hasMoreOlder = Boolean(conversationQuery.data?.messages?.has_more)
+  const isLoadingOlder = loadOlderMutation.isPending
+  const topSentinelRef = useRef(null)
+  // Live-updated flag so the IntersectionObserver callback never fires
+  // a duplicate request mid-flight (effect deps stay shallow).
+  const loadingOlderRef = useRef(false)
+  loadingOlderRef.current = isLoadingOlder
+
+  /**
+   * Auto-load older messages when the user scrolls to the top of the
+   * thread. The detail endpoint returns latest 30 on open; this hook
+   * fetches the next page (40) backwards via the `before_id` cursor and
+   * preserves scroll position so reading flow isn't disrupted.
+   */
+  useEffect(() => {
+    const sentinel = topSentinelRef.current
+    const root = threadRef.current
+    if (!sentinel || !root || conversationId == null || !hasMoreOlder) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.some((e) => e.isIntersecting)
+        if (!visible || loadingOlderRef.current) return
+
+        // Anchor: capture the first currently-rendered message and its
+        // offset from the scroll viewport, so after prepend we can
+        // re-pin the user's reading position.
+        const anchorEl = root.querySelector('.coach-message')
+        const anchorOffsetFromTop = anchorEl
+          ? anchorEl.offsetTop - root.scrollTop
+          : 0
+
+        loadOlderMutation.mutate(conversationId, {
+          onSettled: () => {
+            if (!anchorEl) return
+            requestAnimationFrame(() => {
+              if (!root || !anchorEl) return
+              root.scrollTop = anchorEl.offsetTop - anchorOffsetFromTop
+            })
+          },
+        })
+      },
+      // 120px headroom so the fetch starts before the sentinel reaches
+      // the actual viewport edge — hides the network round-trip behind
+      // the user's scroll momentum.
+      { root, rootMargin: '120px 0px 0px 0px', threshold: 0.01 }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [conversationId, hasMoreOlder, loadOlderMutation])
 
   // When the user opens (or returns to) a conversation, stamp "seen now" so
   // the unread dot clears. Fires on every conversationId change — cheap.
@@ -2108,8 +2136,8 @@ export function ThumbnailGenerator({
             <div className="coach-thread-state coach-thread-error">
               <p className="coach-thread-error__msg">
                 Could not load this chat.{' '}
-                {conversationQuery.error?.message
-                  ? `(${conversationQuery.error.message})`
+                {conversationQuery.error
+                  ? `(${friendlyMessage(conversationQuery.error)})`
                   : 'Please try again.'}
               </p>
               <button
@@ -2132,6 +2160,20 @@ export function ThumbnailGenerator({
               <span className="coach-empty-state-kicker">Thumbnail Generator</span>
               <h1>What thumbnail do you need?</h1>
             </motion.div>
+          )}
+
+          {/* Top sentinel — when this enters the viewport we fetch the
+              next older-page of messages. Only attached when more
+              history exists; otherwise we don't render it so the
+              observer never fires. */}
+          {!isHistoryLoading && hasMoreOlder && (
+            <div ref={topSentinelRef} className="thumb-load-older-sentinel" aria-hidden />
+          )}
+          {!isHistoryLoading && isLoadingOlder && (
+            <div className="thumb-load-older-row" role="status" aria-live="polite">
+              <InlineSpinner size={12} />
+              <span>Loading earlier messages…</span>
+            </div>
           )}
 
           {!isHistoryLoading &&
@@ -2342,6 +2384,8 @@ export function ThumbnailGenerator({
                             src={promptImageDataUrl}
                             alt=""
                             className="thumb-source-preview-strip-img"
+                            loading="lazy"
+                            decoding="async"
                           />
                           <button
                             type="button"
@@ -2370,7 +2414,6 @@ export function ThumbnailGenerator({
                         hints={THUMB_COMPOSER_HINTS}
                         hidden={!!draft || !!promptImageDataUrl}
                       />
-                      <PromptModerationNotice prompt={draft} />
                     </div>
                     <div className="coach-composer-actions thumb-gen-toolbar">
                       <div className="thumb-gen-toolbar-tools">

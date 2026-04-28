@@ -2122,6 +2122,11 @@
   transition-duration: 0s;
 }
 
+.coach-composer-placeholder.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
 .coach-composer.is-recording {
   gap: 0.6rem;
 }

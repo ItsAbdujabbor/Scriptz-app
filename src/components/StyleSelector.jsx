@@ -238,16 +238,6 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
             )}
             {!isPending && items.length > 0 && (
               <>
-                {selectedStyleId && (
-                  <button
-                    type="button"
-                    className="style-selector-option style-selector-option--clear"
-                    onClick={handleClear}
-                    role="option"
-                  >
-                    Clear selection
-                  </button>
-                )}
                 {items.map((s) => (
                   <button
                     key={s.id}
@@ -259,7 +249,7 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
                   >
                     {s.image_url && (
                       <span className="style-selector-option-img">
-                        <img src={s.image_url} alt="" />
+                        <img src={s.image_url} alt="" loading="lazy" decoding="async" />
                       </span>
                     )}
                     <span className="style-selector-option-name">{s.name}</span>

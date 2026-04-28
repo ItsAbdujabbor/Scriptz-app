@@ -1,7 +1,7 @@
 /**
  * SelectPill — reusable pill-shaped dropdown (trigger + animated menu).
- * Unifies the filter/sort dropdowns used across A/B Testing, Optimize,
- * and anywhere else we need a compact glass dropdown.
+ * Unifies the filter/sort dropdowns used across Optimize and anywhere
+ * else we need a compact glass dropdown.
  *
  * Usage:
  *   <SelectPill

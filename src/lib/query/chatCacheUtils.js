@@ -55,6 +55,33 @@ export function mergeThumbnailConversationsListCache(queryClient, conversationId
   )
 }
 
+/** Shallow-merge `patch` into a conversation row in EVERY relevant cache —
+ * the conversations list AND the conversation detail. Used for optimistic
+ * activity-flag updates (is_pending, last_seen_at) where we don't want to
+ * reorder the list or fabricate a row that doesn't exist yet. */
+export function patchThumbnailConversationRow(queryClient, conversationId, patch) {
+  if (conversationId == null) return
+  const id = Number(conversationId)
+  // Lists.
+  queryClient.setQueriesData(
+    { queryKey: ['thumbnails', 'conversations'], exact: false },
+    (old) => {
+      if (!old?.items) return old
+      const idx = old.items.findIndex((c) => Number(c?.id) === id)
+      if (idx < 0) return old
+      const items = [...old.items]
+      items[idx] = { ...items[idx], ...patch }
+      return { ...old, items }
+    }
+  )
+  // Detail (if cached).
+  queryClient.setQueryData(['thumbnails', 'conversation', id], (old) =>
+    old?.conversation
+      ? { ...old, conversation: { ...old.conversation, ...patch } }
+      : old
+  )
+}
+
 export async function refreshThumbnailConversationCache(queryClient, conversationId) {
   if (conversationId == null) return null
   const token = await getAccessTokenOrNull()

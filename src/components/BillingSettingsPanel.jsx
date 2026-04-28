@@ -24,6 +24,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { resultOrNullOnAuthFailure } from '../lib/query/safeApi'
 import { openCreditsModal } from '../lib/creditsModalBus'
+import { friendlyMessage } from '../lib/aiErrors'
 import { InlineSpinner, SkeletonCard, SkeletonGroup, SkeletonList, Skeleton } from './ui'
 import './BillingSettingsPanel.css'
 
@@ -93,7 +94,7 @@ export function BillingSettingsPanel({ active }) {
       invalidateCredits(queryClient)
     },
     onError: (err) => {
-      setCancelError(err?.message || 'Could not cancel. Try again.')
+      setCancelError(friendlyMessage(err) || 'Could not cancel. Try again.')
     },
   })
 
@@ -138,8 +139,8 @@ export function BillingSettingsPanel({ active }) {
           </div>
           <h4 className="bsp-empty-title">You're on the Free plan</h4>
           <p className="bsp-empty-sub">
-            Upgrade to unlock Character looks, Styles, Edit &amp; Character swap, A/B testing and
-            recurring monthly credits. Free trial = 100 credits to try it out.
+            Upgrade to unlock Character looks, Styles, Edit &amp; Character swap, and recurring
+            monthly credits. Free trial = 100 credits to try it out.
           </p>
           <div className="bsp-empty-actions">
             <button

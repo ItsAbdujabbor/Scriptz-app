@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
+// Dashboard.css moved here from AuthenticatedRoutes — Vite scopes it to
+// this lazy chunk now, so /optimize, /pro etc. don't download the
+// dashboard's 11k-line stylesheet on first paint.
+import './Dashboard.css'
+// Reuse the Optimize video-card visual language for the SEO improvement-ideas
+// grid below — keeps cards consistent across the two surfaces that show videos.
+import './Optimize.css'
 import { useAuthStore } from '../stores/authStore'
 import { useOnboardingStore } from '../stores/onboardingStore'
 import { useSidebarStore } from '../stores/sidebarStore'
@@ -10,9 +17,16 @@ import { Sidebar } from './Sidebar'
 import { SettingsModal } from './SettingsModal'
 import { DashButton } from '../components/DashButton'
 import { DashSection } from '../components/DashSection'
-import { SkeletonCard, SkeletonGroup, SkeletonText, InlineSpinner } from '../components/ui'
+import { Skeleton, SkeletonCard, SkeletonCircle, SkeletonGroup, SkeletonText, InlineSpinner } from '../components/ui'
 /* Sidebar.css, SettingsModal.css, Dashboard.css imported by AuthenticatedRoutes */
 import { queryKeys } from '../lib/query/queryKeys'
+import {
+  loadScore as loadCachedVideoScore,
+  loadScoreUpdatedAt as loadCachedVideoScoreUpdatedAt,
+  saveScore as saveCachedVideoScore,
+  setVideoScoreCacheUser,
+  videoScoreFingerprint,
+} from '../lib/videoScoreCache'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { queryFreshness } from '../lib/query/queryConfig'
 import {
@@ -75,19 +89,61 @@ const IconChevronDown = () => (
     <path d="M6 9l6 6 6-6" />
   </svg>
 )
-const IconRefresh = () => (
+/* "Image unavailable" placeholder — picture frame with a slash. Used as
+ * the fallback for the channel pill / menu avatars when YouTube didn't
+ * give us a profile image, or the URL it gave us 404s / is blocked. */
+const IconImageOff = () => (
   <svg
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
-    strokeWidth="2"
+    strokeWidth="1.7"
     strokeLinecap="round"
     strokeLinejoin="round"
+    aria-hidden
   >
-    <path d="M23 4v6h-6M1 20v-6h6" />
-    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    <path d="M3 3l18 18" />
+    <path d="M21 17V5a2 2 0 0 0-2-2H7" />
+    <path d="M3 7v12a2 2 0 0 0 2 2h12" />
+    <path d="m7 13 3-3 4 4" />
+    <circle cx="9" cy="9" r="1.5" />
   </svg>
 )
+
+/**
+ * Channel avatar with a built-in fallback. Renders the profile image
+ * if it loads, otherwise the `IconImageOff` placeholder — covering both
+ * "we don't have a URL" and "the URL we have is broken/blocked".
+ *
+ * `className` is forwarded so the same component reuses different
+ * geometry tokens (pill avatar 32 px, menu avatar 32 px).
+ */
+function ChannelAvatar({ src, className = '', fallbackClassName = '' }) {
+  const [errored, setErrored] = useState(false)
+  // Reset the errored flag whenever the src changes, so switching
+  // channels doesn't leave a stale fallback in place.
+  useEffect(() => setErrored(false), [src])
+
+  if (!src || errored) {
+    return (
+      <span
+        className={`${className} ${fallbackClassName}`.trim()}
+        aria-hidden
+      >
+        <IconImageOff />
+      </span>
+    )
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      className={className}
+      referrerPolicy="no-referrer"
+      onError={() => setErrored(true)}
+    />
+  )
+}
 const IconUsers = () => (
   <svg
     viewBox="0 0 24 24"
@@ -694,22 +750,36 @@ function getScoreColor(s) {
   return '#FF453A'
 }
 
+const POOL_SIZE = 10
+const TOP_N = 4
+const SKELETON_PLACEHOLDERS = Array.from({ length: TOP_N }, (_, i) => i)
+
 /**
- * Fetches scores for all videos (up to 10), sorts by lowest score,
- * and renders the bottom 3 as cards. Shows skeleton while scoring.
+ * Scores up to POOL_SIZE recent videos, sorts by lowest score, and shows
+ * the bottom TOP_N. Persistent cache (`videoScoreCache`) makes repeat
+ * visits instant — we only call the scoring API when a video's
+ * fingerprint changed since last time. The component renders as soon as
+ * we have enough scored videos to fill the grid; we don't block on
+ * still-fetching slots that wouldn't make the cut anyway.
  */
 function LowestScoredVideos({ videos, loading, accessToken, onOptimize }) {
-  // Score each video with individual useQuery calls. React hooks must be
-  // called unconditionally so we always call 10 hooks (padded with nulls).
-  const padded = [...(videos || [])].slice(0, 10)
-  while (padded.length < 10) padded.push(null)
+  // useQuery is called inside .map — to satisfy the rules of hooks the
+  // array length MUST be stable across renders. Always pad to POOL_SIZE.
+  const padded = [...(videos || [])].slice(0, POOL_SIZE)
+  while (padded.length < POOL_SIZE) padded.push(null)
 
   const scores = padded.map((v) => {
+    const fp = videoScoreFingerprint(v)
+    const cached = v && fp ? loadCachedVideoScore(v.id, fp) : undefined
+    const cachedAt = v && fp ? loadCachedVideoScoreUpdatedAt(v.id, fp) : undefined
     // eslint-disable-next-line react-hooks/rules-of-hooks
     return useQuery({
-      queryKey: ['channelPulse', 'videoScore', v?.id || '__empty__'],
-      queryFn: () =>
-        youtubeApi.scoreVideo(accessToken, {
+      // Fingerprint is part of the key so any change to the inputs the
+      // score depends on (views, title length, etc.) is a clean cache
+      // miss and re-fetch — but only then.
+      queryKey: ['channelPulse', 'videoScore', v?.id || '__empty__', fp || ''],
+      queryFn: async () => {
+        const data = await youtubeApi.scoreVideo(accessToken, {
           video_id: v.id,
           title: v.title || '',
           description: v.description || '',
@@ -718,31 +788,51 @@ function LowestScoredVideos({ videos, loading, accessToken, onOptimize }) {
           like_count: Number(v.like_count ?? 0),
           comment_count: Number(v.comment_count ?? 0),
           thumbnail_url: v.thumbnail_url || null,
-        }),
+        })
+        saveCachedVideoScore(v.id, fp, data)
+        return data
+      },
       enabled: !!accessToken && !!v?.id,
-      staleTime: queryFreshness.weekly,
+      // Once we have the score for this fingerprint it's authoritative
+      // until the inputs change — no auto-refetch, no stale recompute.
+      staleTime: Infinity,
+      gcTime: Infinity,
+      initialData: cached,
+      initialDataUpdatedAt: cachedAt,
       retry: 1,
     })
   })
 
-  const allScored = videos?.length > 0 && scores.slice(0, videos.length).every((q) => !q.isPending)
-  const anyPending = loading || !allScored
-
-  // Build scored list and pick the 3 lowest
+  // Build scored list from whichever queries have settled with data.
+  // Disabled (padded) slots and in-flight slots are simply skipped.
   const scored = []
   if (videos?.length) {
-    for (let i = 0; i < Math.min(videos.length, 10); i++) {
+    for (let i = 0; i < Math.min(videos.length, POOL_SIZE); i++) {
       const s = scores[i].data?.score
       if (s != null) scored.push({ video: videos[i], score: s })
     }
   }
   scored.sort((a, b) => a.score - b.score)
-  const lowest3 = scored.slice(0, 3)
+  const lowestN = scored.slice(0, TOP_N)
+
+  // We use `isFetching` (active network) instead of `isPending` (no data
+  // yet) because v5's `isPending` stays true for disabled queries forever
+  // — that would freeze us on the skeleton when accessToken is delayed.
+  // Skip padded slots (i >= videos.length) so they don't count as "still
+  // fetching".
+  const activeFetches = scores
+    .slice(0, videos?.length || 0)
+    .filter((q) => q.isFetching).length
+
+  // Render the grid as soon as we have enough scored videos to fill it
+  // — or once nothing is left fetching, even if we have fewer.
+  const targetCount = Math.min(TOP_N, videos?.length || 0)
+  const ready = lowestN.length >= targetCount || activeFetches === 0
 
   if (loading) {
     return (
       <SkeletonGroup className="cpulse-grid" label="Loading lowest-scored videos">
-        {[0, 1, 2].map((i) => (
+        {SKELETON_PLACEHOLDERS.map((i) => (
           <SkeletonCard key={i} ratio="16 / 9" lines={2} />
         ))}
       </SkeletonGroup>
@@ -753,19 +843,23 @@ function LowestScoredVideos({ videos, loading, accessToken, onOptimize }) {
     return <div className="dashboard-shell-empty">No videos found for this channel.</div>
   }
 
-  if (anyPending && lowest3.length < 3) {
+  if (!ready) {
     return (
       <SkeletonGroup className="cpulse-grid" label="Scoring videos">
-        {[0, 1, 2].map((i) => (
+        {SKELETON_PLACEHOLDERS.map((i) => (
           <SkeletonCard key={i} ratio="16 / 9" lines={2} />
         ))}
       </SkeletonGroup>
     )
   }
 
+  if (lowestN.length === 0) {
+    return <div className="dashboard-shell-empty">Couldn&rsquo;t score any of your videos.</div>
+  }
+
   return (
     <div className="cpulse-grid">
-      {lowest3.map(({ video, score }) => (
+      {lowestN.map(({ video, score }) => (
         <ChannelPulseVideoCard
           key={video.id}
           video={video}
@@ -782,10 +876,19 @@ function ChannelPulseVideoCard({ video, accessToken, onOptimize, preloadedScore 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogClosing, setDialogClosing] = useState(false)
 
+  const fingerprint = videoScoreFingerprint(video)
+  const cachedScore = fingerprint ? loadCachedVideoScore(video.id, fingerprint) : undefined
+  const cachedScoreAt = fingerprint
+    ? loadCachedVideoScoreUpdatedAt(video.id, fingerprint)
+    : undefined
+
   const videoScoreQuery = useQuery({
-    queryKey: ['channelPulse', 'videoScore', video.id],
-    queryFn: () =>
-      youtubeApi.scoreVideo(accessToken, {
+    // Same key shape as LowestScoredVideos so both components share one
+    // React Query cache entry — opening the dialog is instant when the
+    // grid already has the breakdown.
+    queryKey: ['channelPulse', 'videoScore', video.id, fingerprint || ''],
+    queryFn: async () => {
+      const data = await youtubeApi.scoreVideo(accessToken, {
         video_id: video.id,
         title: video.title || '',
         description: video.description || '',
@@ -794,9 +897,15 @@ function ChannelPulseVideoCard({ video, accessToken, onOptimize, preloadedScore 
         like_count: Number(video.like_count ?? 0),
         comment_count: Number(video.comment_count ?? 0),
         thumbnail_url: video.thumbnail_url || null,
-      }),
-    enabled: !!accessToken && !!video.id && preloadedScore == null,
-    staleTime: queryFreshness.weekly,
+      })
+      saveCachedVideoScore(video.id, fingerprint, data)
+      return data
+    },
+    enabled: !!accessToken && !!video.id && preloadedScore == null && !cachedScore,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    initialData: cachedScore,
+    initialDataUpdatedAt: cachedScoreAt,
     placeholderData: (prev) => prev,
     retry: 1,
   })
@@ -847,17 +956,23 @@ function ChannelPulseVideoCard({ video, accessToken, onOptimize, preloadedScore 
 
   return (
     <>
-      <div
-        className="cpulse-video-card"
+      <article
+        className="optimize-video-card"
         onClick={() => setDialogOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            setDialogOpen(true)
+          }
+        }}
         role="button"
         tabIndex={0}
       >
-        <div className="cpulse-video-thumb-wrap">
+        <div className="optimize-card-thumb-wrap">
           {thumbSrc ? (
-            <img src={thumbSrc} alt="" className="cpulse-video-thumb" loading="lazy" />
+            <img src={thumbSrc} alt="" className="optimize-card-thumb" loading="lazy" />
           ) : (
-            <div className="cpulse-video-thumb cpulse-video-thumb--empty" aria-hidden />
+            <div className="optimize-card-thumb" aria-hidden />
           )}
           {score != null && (
             <span className={`cpulse-score-badge cpulse-score-badge--${tier}`}>{score}</span>
@@ -867,42 +982,90 @@ function ChannelPulseVideoCard({ video, accessToken, onOptimize, preloadedScore 
               <InlineSpinner size={10} />
             </span>
           )}
+          <div className="optimize-card-thumb-overlay" aria-hidden>
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <span>View details</span>
+          </div>
         </div>
-        <div className="cpulse-video-info">
-          <p className="cpulse-video-title" title={video.title}>
-            {video.title || 'Untitled'}
-          </p>
-          <div className="cpulse-video-meta">
+        <div className="optimize-card-body">
+          <h3 className="optimize-card-title">
+            {(video.title || 'Untitled').substring(0, 80)}
+          </h3>
+          <div className="optimize-card-meta-row">
             {views > 0 && (
-              <span className="cpulse-video-stat">
+              <span className="optimize-card-meta-pill">
                 <svg
+                  width="12"
+                  height="12"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
-                  width="12"
-                  height="12"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 >
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                   <circle cx="12" cy="12" r="3" />
                 </svg>
-                {formatCount(views)}
+                {formatCount(views)} views
               </span>
             )}
-            {formattedDate && <span className="cpulse-video-stat">{formattedDate}</span>}
+            {formattedDate && (
+              <span className="optimize-card-meta-pill">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                {formattedDate}
+              </span>
+            )}
           </div>
           <button
             type="button"
-            className="cpulse-improve-btn"
+            className="optimize-card-cta"
             onClick={(e) => {
               e.stopPropagation()
               onOptimize?.(video)
             }}
           >
-            Improve thumbnail
+            Optimize
+            <span className="optimize-card-cta-icon" aria-hidden>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.25"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </span>
           </button>
         </div>
-      </div>
+      </article>
 
       {/* Video detail dialog */}
       {dialogOpen &&
@@ -1125,9 +1288,7 @@ function ChannelPulseVideoCard({ video, accessToken, onOptimize, preloadedScore 
 const DASHBOARD_EMPTY_TAGLINES = [
   'Thumbnails that actually get clicks',
   'SEO that ranks your videos higher',
-  'A/B test your way to more views',
   'AI coaching tuned to your channel',
-  'Turn every upload into a test, not a guess',
   'Grow your channel smarter',
   'Your YouTube copilot, ready when you are',
 ]
@@ -1205,7 +1366,6 @@ export function Dashboard({ onLogout, shellManaged }) {
   const [youtubeOAuthError, setYoutubeOAuthError] = useState(null)
   const [youtubeConnectionSuccess, setYoutubeConnectionSuccess] = useState(false)
   const [channelMenuOpen, setChannelMenuOpen] = useState(false)
-  const [refreshing, setRefreshing] = useState(false)
   const channelPillRef = useRef(null)
 
   useEffect(() => {
@@ -1307,6 +1467,13 @@ export function Dashboard({ onLogout, shellManaged }) {
     getAccessTokenOrNull().then((t) => setPulseAccessToken(t || null))
   }, [hasChannelData])
 
+  // Namespace the persistent score cache to the signed-in user so a
+  // shared device never reads another account's cached scores.
+  const authUserId = useAuthStore((s) => s.user?.id)
+  useEffect(() => {
+    setVideoScoreCacheUser(authUserId || null)
+  }, [authUserId])
+
   const audit = auditQuery.data
   const auditLoading = auditQuery.isPending
 
@@ -1397,7 +1564,11 @@ export function Dashboard({ onLogout, shellManaged }) {
     return () => mq.removeEventListener('change', onChange)
   }, [])
 
-  const sidebarWidthPx = collapsed ? 60 : 252
+  // Match the actual rendered sidebar widths used by the shell
+  // (Sidebar.css `--sidebar-width: 232px`; collapsed = 0 because the
+  // rail width animates to 0 in flex flow). The pill recentres itself
+  // against the screen container's centre as the rail shrinks.
+  const sidebarWidthPx = collapsed ? 0 : 232
   const pillLeft = mainColumnNarrow ? '50%' : `calc(50vw + ${sidebarWidthPx / 2}px)`
 
   const userPreferencesQuery = useUserPreferencesQuery()
@@ -1545,54 +1716,38 @@ export function Dashboard({ onLogout, shellManaged }) {
   useEffect(() => {
     if (!channelId) return
     // Prefetch the default Optimize listing page so switching views feels instant.
+    // Must use prefetchInfiniteQuery here — the Optimize page reads the same
+    // query key with useInfiniteQuery, which expects a { pages, pageParams }
+    // shape. A regular prefetchQuery would poison the cache with a flat page
+    // object and crash the observer when computing hasNextPage.
     const perPage = 15
     queryClient
-      .prefetchQuery({
+      .prefetchInfiniteQuery({
         queryKey: queryKeys.youtube.videos({
           channelId,
-          page: 1,
           perPage,
           search: '',
           sort: 'published_at',
           videoType: 'videos',
         }),
-        queryFn: async () => {
+        queryFn: async ({ pageParam = 1 }) => {
           const token = await getAccessTokenOrNull()
-          if (!token) return { items: [], total: 0, total_pages: 1, page: 1 }
+          if (!token) return { items: [], total: 0, total_pages: 1, page: pageParam }
           return youtubeApi.listVideos(token, {
-            page: 1,
+            page: pageParam,
             per_page: perPage,
             search: undefined,
             sort: 'published_at',
             video_type: 'videos',
           })
         },
+        initialPageParam: 1,
+        getNextPageParam: (lastPage) =>
+          lastPage.page < lastPage.total_pages ? lastPage.page + 1 : undefined,
         staleTime: queryFreshness.short,
       })
       .catch(() => {})
   }, [channelId, queryClient])
-
-  const handleRefreshDashboard = async (e) => {
-    e?.stopPropagation?.()
-    if (refreshing || !youtube?.connected) return
-    const token = await getValidAccessToken()
-    if (!token) return
-    setRefreshing(true)
-    try {
-      const bootstrap = await bootstrapYouTube(token, { force: true })
-      setYoutubeChannels(bootstrap.channels || [])
-    } catch (_) {}
-    // Widget queries will automatically re-run for the active channelId,
-    // but we also explicitly refetch to avoid waiting for staleTime.
-    userPreferencesQuery.refetch()
-    userProfileQuery.refetch()
-    if (channelId) {
-      auditQuery.refetch()
-      growthQuery.refetch()
-      snapshotQuery.refetch()
-    }
-    setRefreshing(false)
-  }
 
   const handlePulseOptimize = (video) => {
     window.location.hash = `optimize?video_id=${encodeURIComponent(video.id)}`
@@ -1692,33 +1847,20 @@ export function Dashboard({ onLogout, shellManaged }) {
                 aria-haspopup="true"
                 aria-label="Channel menu"
               >
-                {youtube.profile_image || youtube.avatar ? (
-                  <img
-                    src={youtube.profile_image || youtube.avatar}
-                    alt=""
-                    className="dashboard-channel-pill-avatar"
-                  />
-                ) : (
-                  <span className="dashboard-channel-pill-avatar dashboard-channel-pill-avatar--fallback">
-                    {(youtube.channel_title || youtube.channelName || 'Y')[0]}
-                  </span>
-                )}
-                <span className="dashboard-channel-pill-name">
+                <ChannelAvatar
+                  src={youtube.profile_image || youtube.avatar}
+                  className="dashboard-channel-pill-avatar"
+                  fallbackClassName="dashboard-channel-pill-avatar--fallback"
+                />
+                <span
+                  className="dashboard-channel-pill-name"
+                  title={youtube.channel_title || youtube.channelName || 'My Channel'}
+                >
                   {youtube.channel_title || youtube.channelName || 'My Channel'}
                 </span>
                 <span className="dashboard-channel-pill-chevron" aria-hidden>
                   <IconChevronDown />
                 </span>
-              </button>
-              <button
-                type="button"
-                className={`dashboard-channel-pill-refresh ${refreshing ? 'dashboard-channel-pill-refresh--spin' : ''}`}
-                onClick={handleRefreshDashboard}
-                disabled={refreshing}
-                aria-label="Refresh dashboard data"
-                title="Refresh"
-              >
-                <IconRefresh />
               </button>
             </div>
           ) : (
@@ -1778,18 +1920,15 @@ export function Dashboard({ onLogout, shellManaged }) {
                         }}
                         disabled={youtubeLoading}
                       >
-                        {c.profile_image || c.avatar ? (
-                          <img
-                            src={c.profile_image || c.avatar}
-                            alt=""
-                            className="dashboard-channel-pill-menu-avatar"
-                          />
-                        ) : (
-                          <span className="dashboard-channel-pill-menu-avatar dashboard-channel-pill-menu-avatar--fallback">
-                            {(c.channel_title || c.channelName || '?')[0]}
-                          </span>
-                        )}
-                        <span className="dashboard-channel-pill-menu-name">
+                        <ChannelAvatar
+                          src={c.profile_image || c.avatar}
+                          className="dashboard-channel-pill-menu-avatar"
+                          fallbackClassName="dashboard-channel-pill-menu-avatar--fallback"
+                        />
+                        <span
+                          className="dashboard-channel-pill-menu-name"
+                          title={c.channel_title || c.channelName || c.channel_id}
+                        >
                           {c.channel_title || c.channelName || c.channel_id}
                         </span>
                       </button>
@@ -2074,15 +2213,7 @@ export function Dashboard({ onLogout, shellManaged }) {
             )}
 
             {hasChannelData && (
-              <DashSection
-                icon="videos"
-                title="SEO improvement ideas"
-                meta={
-                  <span className="dashboard-command-status dashboard-command-status--live">
-                    Lowest scored from your last 10 videos
-                  </span>
-                }
-              >
+              <DashSection icon="videos" title="SEO improvement ideas">
                 <LowestScoredVideos
                   videos={recentVideosAll}
                   loading={recentVideosQuery.isPending}
@@ -2101,10 +2232,32 @@ export function Dashboard({ onLogout, shellManaged }) {
                 className="dashboard-audit-open-section"
               >
                 {auditLoading && (
-                  <SkeletonGroup className="dashboard-loading" label="Loading audit">
-                    <SkeletonCard ratio="5 / 2" lines={2} />
-                    <SkeletonCard ratio="16 / 9" lines={2} />
-                    <SkeletonText lines={3} lineHeight={14} />
+                  <SkeletonGroup className="audit-v2" label="Loading audit">
+                    <div className="audit-v2__score-card">
+                      <div className="audit-v2__ring-wrap">
+                        <SkeletonCircle size={64} />
+                      </div>
+                      <div className="audit-v2__score-info">
+                        <Skeleton height={14} width={120} radius={999} />
+                        <Skeleton height={10} width={160} radius={999} />
+                      </div>
+                    </div>
+                    <div className="audit-v2__grid">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="audit-v2__item">
+                          <div className="audit-v2__item-left">
+                            <Skeleton width={34} height={34} radius={8} />
+                            <div className="audit-v2__item-info">
+                              <Skeleton height={12} width="55%" radius={999} />
+                              <div className="audit-v2__item-bar" />
+                            </div>
+                          </div>
+                          <div className="audit-v2__item-right">
+                            <Skeleton height={10} width={36} radius={999} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </SkeletonGroup>
                 )}
                 {!auditLoading && audit && (

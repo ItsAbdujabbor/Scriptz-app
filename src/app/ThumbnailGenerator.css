@@ -1,21 +1,56 @@
 /* Thumbnail Generator — same coach/script layout, thumbnail-specific blocks */
 
 /* ══════════════════════════════════════════════════════════════════════
- * Scoped perf rule — kills backdrop-filter ONLY on the composer stack
- * (pill, floating tab row, toolbar buttons, footer chrome). Those were
- * the layers most expensive to composite.
+ * GPU/CPU-cheap mode for the thumbnail generator subtree.
  *
- * Explicitly does NOT touch `.thumb-batch-card*`, `.thumb-score-pill`,
- * `.thumb-batch-card-float`, or the persona/style/batch popovers — the
- * thumbnail card's frosted frame + ambient blurred-image glow need the
- * filter to look right.
+ * The screen used to layer ~30 backdrop-filter + filter:blur surfaces
+ * (liquid-glass, ambient halos, large drop shadows). On a mid-tier
+ * laptop GPU each one of those forces a separate composite layer plus
+ * a per-frame Gaussian-blur pass — costly during scroll. They're all
+ * killed here in one rule so the thumbnail screen paints as flat
+ * colour fills.
+ *
+ * Scope: `.coach-main--thumb` is the thumbnail screen root
+ * (ThumbnailGenerator.jsx). Popovers/dialogs rendered via createPortal
+ * to <body> (EditThumbnailDialog, modals, sidebar) are NOT touched —
+ * they live outside this DOM subtree.
+ *
+ * What we explicitly preserve:
+ *   - `box-shadow` on `:focus-visible` — accessibility focus ring
+ *   - `box-shadow` on the small `.thumb-score-pill-dot` glow (tiny,
+ *     ~8px blur, costs nothing and reads as "live" status)
+ *
+ * To restore the glassy look: delete this block. The original recipes
+ * still exist in their per-component rules; they just lose specificity.
  * ════════════════════════════════════════════════════════════════════ */
-.coach-composer-wrap--thumb-tools,
-.coach-composer-wrap--thumb-tools *,
-.coach-composer-wrap--thumb-tools *::before,
-.coach-composer-wrap--thumb-tools *::after {
+.coach-main--thumb,
+.coach-main--thumb *,
+.coach-main--thumb *::before,
+.coach-main--thumb *::after {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+/* Crisp focus ring for keyboard navigation — but ONLY on non-text
+ * controls (buttons, links, custom-tabbed elements). Text inputs and
+ * textareas already advertise focus via the blinking caret + the
+ * highlighted content; a 2px box-shadow ring on the short prompt
+ * textarea was clipped by the composer's overflow and rendered as
+ * two horizontal purple lines (top + bottom of the textarea) — that's
+ * the artifact users were seeing. */
+.coach-main--thumb *:focus-visible:not(textarea):not(input):not([contenteditable='true']) {
+  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.55) !important;
+}
+.coach-main--thumb .thumb-score-pill-dot {
+  box-shadow: 0 0 6px currentColor !important;
+}
+
+/* Kill the ambient colour-tint halos behind variant cards (used
+ * `filter: blur(28px) saturate(1.4)` — one of the most expensive
+ * paints on the screen). */
+.coach-main--thumb .thumb-batch-card-ambient {
+  filter: none !important;
 }
 
 /* ──────────────────────────────────────────────────────────────────────
@@ -762,15 +797,13 @@
   background: rgba(0, 0, 0, 0.35);
   box-sizing: border-box;
   min-height: 120px;
-  /* Deterministic pre-load shape. LazyImg overrides this inline with
-     the real naturalWidth/naturalHeight ratio once the image decodes;
-     the 16/9 fallback means the wrapper never has to reflow from
-     "min-height only" → "natural ratio" when the image swaps in.
-     That reflow is what produced the 1-px gap under the image at
-     browser zoom. 16/9 matches the most common thumbnail format so
-     the jump on swap-in is imperceptible even when the real ratio
-     is 1/1 or 3/2. */
-  aspect-ratio: 16 / 9;
+  /* Keep the wrap sized by its child image (LazyImg sets `aspect-ratio`
+     inline on the <img> after decode). Forcing a wrap-level aspect
+     ratio like 16/9 made `object-fit: contain` letterbox the real
+     image (3/2 or 1/1) → visible bars growing/shrinking during zoom
+     looked like the image was glitching. Letting the image drive the
+     wrap's height means zoom only scales the image itself, nothing
+     re-letterboxes. */
 }
 
 /* Cursor becomes pointer (CSS "pressing" hand) when hovering the clickable
@@ -1581,16 +1614,19 @@
 }
 
 .thumb-prompt-input-wrap {
-  padding: 0.15rem 0.55rem 0.05rem;
+  /* Padding only on top/bottom — left/right padding lives on the
+   * textarea + placeholder so they share the same starting x and the
+   * hint sits exactly under the cursor. */
+  padding: 0.15rem 0 0.05rem;
 }
 
-/* Hint overlay aligned exactly with the textarea's first line — top
- * matches the wrap's padding-top (0.15rem) + textarea's padding-top
- * (0.05rem). Left/right use 0 because the wrap already pads them. */
+/* Hint sits ON the textarea's typing line: same top + same left as
+ * the textarea content edge, so when the user starts typing the
+ * caret begins exactly where the rotating hint was. */
 .thumb-prompt-input-wrap .coach-composer-placeholder {
   top: 0.2rem;
-  left: 0;
-  right: 0;
+  left: 0.55rem;
+  right: 0.55rem;
   padding: 0.05rem 0;
   font-size: 0.88rem;
   line-height: 1.35;
@@ -1609,7 +1645,7 @@
   text-align: left;
   line-height: 1.35;
   font-size: 0.88rem;
-  padding: 0.05rem 0;
+  padding: 0.05rem 0.55rem;
 }
 
 .thumb-single-line-input {
@@ -1620,7 +1656,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.3rem;
+  gap: 0.4rem;
   padding: 0 0.2rem 0.05rem;
   flex-wrap: nowrap;
 }
@@ -1628,14 +1664,28 @@
 .thumb-gen-toolbar-tools {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   flex-wrap: nowrap;
 }
 
+/* All composer toolbar buttons share the same compact 32px height to
+ * match the bottom tabbar — small tools, single visual rhythm across
+ * the whole composer. The send pill (also 32px) stays distinct via
+ * its gradient + extra padding, not extra height. */
+.thumb-gen-toolbar-tools .coach-composer-tool--circle {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px;
+}
+.thumb-gen-toolbar-tools .coach-composer-tool--circle svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
 .thumb-gen-toolbar-attach {
-  width: 40px !important;
-  height: 40px !important;
-  min-width: 40px;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px;
   padding: 0 !important;
   border-radius: 50% !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
@@ -1660,8 +1710,8 @@
 }
 
 .thumb-gen-toolbar-attach svg {
-  width: 17px !important;
-  height: 17px !important;
+  width: 14px !important;
+  height: 14px !important;
 }
 
 /* Unified toolbar-button sizing on the thumbnail screen — persona,
@@ -1669,26 +1719,31 @@
  * the attach button and read as a single row of equal chips. */
 .coach-main--thumb .persona-selector--glass-circle .persona-selector-trigger--circle,
 .coach-main--thumb .style-selector--glass-circle .style-selector-trigger--circle,
+/* Composer-toolbar buttons all share the 32px height defined further
+ * down (`.thumb-gen-toolbar-tools .coach-composer-tool--circle` and
+ * `.thumb-gen-toolbar-attach`). The persona/style selector icon + img
+ * + the batch-trigger badge are sized down to fit that 32px chip
+ * without overflowing. */
 .coach-main--thumb .thumb-batch-circle-trigger {
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
 }
 
 .coach-main--thumb .persona-selector--glass-circle .persona-selector-icon svg,
 .coach-main--thumb .style-selector--glass-circle .style-selector-icon svg {
-  width: 17px;
-  height: 17px;
+  width: 14px;
+  height: 14px;
 }
 
 .coach-main--thumb .persona-selector--glass-circle .persona-selector-trigger-img,
 .coach-main--thumb .style-selector--glass-circle .style-selector-trigger-img {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
 }
 
 .coach-main--thumb .thumb-batch-circle-trigger-badge {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 
 /* Batch size — circle + glass popover */
@@ -2019,6 +2074,31 @@
 #coach-panel-thumbnails .coach-thread--thumb-panel {
   align-items: stretch;
   gap: 1.4rem;
+}
+
+/* Invisible probe at the very top of the thread; the IntersectionObserver
+ * watches this and triggers an older-page fetch when the user scrolls up. */
+.thumb-load-older-sentinel {
+  height: 1px;
+  width: 100%;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+/* "Loading earlier messages…" indicator that appears above the first
+ * message while the older-page fetch is in flight. Compact, low-key —
+ * the user should barely notice it. */
+.thumb-load-older-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  margin: 0 auto 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: rgba(229, 229, 231, 0.5);
+  letter-spacing: -0.005em;
 }
 
 #coach-panel-thumbnails .coach-thread--thumb-panel .coach-message {
@@ -2505,47 +2585,6 @@
   background: linear-gradient(135deg, #141118 0%, #0a0812 100%);
 }
 
-/* Legacy skeleton shell — retained only so unused keyframes don't
- * break the parse chain below. No longer rendered. */
-.thumb-gen-skeleton-card,
-.thumb-gen-skeleton-blob,
-.thumb-gen-skeleton-shimmer,
-.thumb-gen-skeleton-fill,
-.thumb-gen-skeleton-content,
-.thumb-gen-skeleton-orb,
-.thumb-gen-skeleton-text,
-.thumb-gen-skeleton-label,
-.thumb-gen-skeleton-pct {
-  display: none;
-}
-
-@keyframes thumbBlobDrift {
-  0%,
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
-}
-@keyframes thumbOrbPulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-}
-@keyframes thumbOrbSpin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes thumbSkeletonShimmer {
-  0% {
-    background-position: -280% 0;
-  }
-  100% {
-    background-position: 280% 0;
-  }
-}
-
 /* ── Bottom mode-switcher tabbar — frosted glass pill ── */
 /* thumb-gen-subtabbar inherits all styles from .tabbar.modal in TabBar.css */
 .thumb-gen-subtabbar {
@@ -2680,45 +2719,56 @@
   justify-content: flex-end;
 }
 
+/* ── Discrete pill buttons for the mode tabs ──
+ * Same 32px height as the composer toolbar buttons (attach / persona /
+ * style / batch / send) so the whole composer reads as one button
+ * family. Inactive = transparent ghost chip with a hairline border;
+ * active = filled accent. Cheap to paint (no shadow, no gradient). */
 .thumb-gen-pill-tab {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.55rem 1rem;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 32px;
+  padding: 0 0.85rem;
   border-radius: 999px;
-  /* Flat solid dark chip — cheapest possible paint (no gradient, no
-   * blur, no stacked shadows). Readable against any canvas. */
-  background: #1c1c24;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(235, 235, 240, 0.82);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(235, 235, 240, 0.7);
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  letter-spacing: 0.005em;
+  letter-spacing: -0.005em;
   line-height: 1;
   cursor: pointer;
   white-space: nowrap;
   transition:
-    background 0.16s cubic-bezier(0.2, 0.8, 0.2, 1),
-    border-color 0.16s cubic-bezier(0.2, 0.8, 0.2, 1),
-    color 0.16s cubic-bezier(0.2, 0.8, 0.2, 1),
+    background 0.14s cubic-bezier(0.33, 1, 0.68, 1),
+    border-color 0.14s cubic-bezier(0.33, 1, 0.68, 1),
+    color 0.14s cubic-bezier(0.33, 1, 0.68, 1),
     transform 0.08s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
-/* Hover mirrors selected — same flat violet so the click lands with
- * zero visual delta. No multi-layer glow; a single solid fill. */
-.thumb-gen-pill-tab:hover,
+.thumb-gen-pill-tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
 .thumb-gen-pill-tab--active,
 .thumb-gen-pill-tab--active:hover {
-  background: #7c3aed;
-  border-color: rgba(221, 214, 254, 0.5);
+  background: var(
+    --accent-gradient,
+    linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)
+  );
+  border-color: transparent;
   color: #ffffff;
 }
 
 .thumb-gen-pill-tab:active,
 .thumb-gen-pill-tab--active:active {
   transform: scale(0.96);
-  transition-duration: 0.06s, 0.06s, 0.06s, 0.06s;
+  transition-duration: 0.06s;
 }
 
 .thumb-gen-pill-tab--active svg {
@@ -2726,8 +2776,8 @@
 }
 
 .thumb-gen-pill-tab svg {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
 }
 
@@ -2769,7 +2819,6 @@
  * re-renders per frame. */
 .thumb-smooth-height {
   transition: height 0.22s cubic-bezier(0.32, 0.72, 0, 1);
-  will-change: height;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3006,13 +3055,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  height: 40px;
-  padding: 0 1rem;
+  gap: 0.45rem;
+  height: 32px;
+  padding: 0 0.95rem;
   border: none;
   border-radius: 999px;
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: -0.005em;
   color: #ffffff;

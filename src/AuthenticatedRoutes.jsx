@@ -4,17 +4,13 @@ import { useSidebarStore } from './stores/sidebarStore'
 import { useCurrentScreen } from './lib/useCurrentScreen'
 import { emitShellEvent } from './lib/shellEvents'
 import { Sidebar } from './app/Sidebar'
-import { SharedSettingsModal } from './app/SharedSettingsModal'
 import { CreatePersonaDialog } from './components/CreatePersonaDialog'
-import { Dashboard } from './app/Dashboard'
-import { Thumbnails } from './app/Thumbnails'
-import { Optimize } from './app/Optimize'
-import { Pro } from './app/Pro'
-import { ABTesting } from './app/ABTesting'
-import { Billing } from './app/Billing'
+// Each view is its own lazy chunk — landing on /dashboard no longer
+// downloads the JS+CSS for Thumbnails/Optimize/Pro/Billing. See lazyViews.js
+// for the shared prefetch hook used by the sidebar on hover.
+import { Dashboard, Thumbnails, Optimize, Pro, Billing } from './lazyViews'
 
 import './app/Sidebar.css'
-import './app/Dashboard.css'
 
 /**
  * Shared authenticated shell: one Sidebar + one SettingsModal across all screens.
@@ -30,14 +26,18 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
   const sidebarCollapsed = useSidebarStore((s) => s.collapsed)
   const screenState = useCurrentScreen()
 
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [settingsSection, setSettingsSection] = useState('account')
   const [showPersonasModal, setShowPersonasModal] = useState(false)
   const [showStylesModal, setShowStylesModal] = useState(false)
 
+  // Settings used to be a portal dialog gated by `settingsOpen` state.
+  // It's now an in-shell route, so opening it just changes the hash —
+  // the route boundary mounts the settings content inside `<main>` next
+  // to the sidebar exactly like Dashboard / Optimize / Billing.
   const openSettings = useCallback((section) => {
-    setSettingsSection(section ?? 'account')
-    setSettingsOpen(true)
+    const target = section ? `settings/${section}` : 'settings'
+    if (typeof window !== 'undefined') {
+      window.location.hash = target
+    }
   }, [])
 
   const handleNewChat = useCallback(() => {
@@ -93,11 +93,16 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
         return <Optimize onLogout={onLogout} shellManaged />
       case 'pro':
         return <Pro onLogout={onLogout} shellManaged />
-      case 'ab-testing':
-        return <ABTesting onLogout={onLogout} shellManaged />
       case 'billing':
         return <Billing onLogout={onLogout} shellManaged />
+      case 'settings':
+        return <SettingsLazy onLogout={handleLogout} />
       default:
+        // Unknown view shouldn't reach here — App.jsx handles the
+        // 'not-found' case at the top level (full-screen, no shell).
+        // If something does land here it means routing is desynced
+        // upstream; render nothing so the issue is visible rather
+        // than masked by a fake-looking screen.
         return null
     }
   })()
@@ -110,16 +115,15 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
       <div className={shellClass}>
         <div className={unifiedClass}>
           {sidebar}
-          <main className={mainClass}>{content}</main>
+          <main className={mainClass}>
+            {/* Suspense fallback is intentionally empty — the sidebar +
+             *  shell stay rendered, so the user sees the chrome instantly
+             *  while the view chunk loads. Dashboard's own skeletons take
+             *  over the moment its module resolves. */}
+            <Suspense fallback={null}>{content}</Suspense>
+          </main>
         </div>
       </div>
-
-      <SharedSettingsModal
-        open={settingsOpen}
-        initialSection={settingsSection}
-        onClose={() => setSettingsOpen(false)}
-        onLogout={handleLogout}
-      />
 
       {showPersonasModal && <PersonasModalLazy onClose={() => setShowPersonasModal(false)} />}
       {showStylesModal && <StylesModalLazy onClose={() => setShowStylesModal(false)} />}
@@ -152,6 +156,27 @@ function StylesModalLazy({ onClose }) {
   return (
     <Suspense fallback={null}>
       <StylesModalModule onClose={onClose} />
+    </Suspense>
+  )
+}
+
+// Settings — wraps SharedSettingsModal as a routed view. The component
+// already accepts the `open` prop for legacy callers; we always pass
+// `open={true}` because being on the settings hash IS the open state.
+const SettingsModule = lazy(() =>
+  import('./app/SharedSettingsModal').then((m) => ({ default: m.SharedSettingsModal }))
+)
+function SettingsLazy({ onLogout }) {
+  // Closing settings goes back to dashboard (back/swipe behaviour can
+  // reach any other route normally — this is just the explicit ✕ tap).
+  const handleClose = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.location.hash = 'dashboard'
+    }
+  }, [])
+  return (
+    <Suspense fallback={null}>
+      <SettingsModule open onClose={handleClose} onLogout={onLogout} />
     </Suspense>
   )
 }

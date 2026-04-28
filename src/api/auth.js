@@ -5,6 +5,7 @@
  */
 
 import { getApiBaseUrl } from '../lib/env.js'
+import { parseApiError } from '../lib/aiErrors.js'
 
 function request(method, path, body, useAuth = false, token = null) {
   const url = getApiBaseUrl() + path
@@ -17,16 +18,19 @@ function request(method, path, body, useAuth = false, token = null) {
     const isJson = contentType.indexOf('application/json') !== -1
     const data = isJson ? await res.json().catch(() => ({})) : {}
     if (!res.ok) {
-      const apiErr = data && data.error
-      let msg =
-        (apiErr && apiErr.message) || (data && (data.detail || data.message)) || res.statusText
-      if (Array.isArray(msg) && msg[0] && typeof msg[0].msg === 'string') msg = msg[0].msg
-      else if (typeof msg !== 'string') msg = JSON.stringify(msg)
-      const err = new Error(msg)
-      err.status = res.status
-      err.body = data
-      if (apiErr?.code) err.code = apiErr.code
-      if (apiErr?.extra) err.extra = apiErr.extra
+      // Auth-specific: validation errors come back as a list — keep
+      // surfacing the first item's message via the parser. For everything
+      // else, parseApiError already handles the unified envelope.
+      const err = parseApiError(res, data)
+      // Pydantic validation errors arrive as `[{loc, msg, type}, ...]` —
+      // pull the first msg into `serverMessage` so friendlyMessage shows
+      // the specific field message (e.g. "password too short") instead
+      // of the generic VALIDATION_ERROR fallback.
+      const detail = data?.detail
+      if (Array.isArray(detail) && detail[0] && typeof detail[0].msg === 'string') {
+        err.serverMessage = detail[0].msg
+        err.message = detail[0].msg
+      }
       throw err
     }
     return data
