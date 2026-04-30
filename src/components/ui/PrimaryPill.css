@@ -170,8 +170,15 @@
   height: 14px;
   flex-shrink: 0;
 }
+/* Force the SVG to fill the slot. Lucide icons render with explicit
+ * `width="24" height="24"` attributes which would overflow the 12-16 px
+ * `.pp-icon` slot — we pin the inner SVG to 100% so the icon scales
+ * down cleanly regardless of which icon library / library version
+ * supplies the SVG. */
 .pp-icon svg {
   display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .pp--sm .pp-icon {

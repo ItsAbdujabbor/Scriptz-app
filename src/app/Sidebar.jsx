@@ -13,7 +13,6 @@ import {
   useModelTierStateQuery,
   useSetModelTierMutation,
 } from '../queries/modelTier/modelTierQueries'
-import { openCreditsModal } from '../lib/creditsModalBus'
 import {
   prefetchThumbnailConversationCache,
   useThumbnailConversationsQuery,
@@ -644,7 +643,7 @@ export function Sidebar({
   onOpenSettings,
   onOpenPersonas,
   onOpenStyles,
-  onLogout,
+  onLogout: _onLogout,
   currentScreen = 'dashboard',
   activeThumbnailConversationId = null,
   onNewChat,
@@ -738,7 +737,7 @@ export function Sidebar({
   const [editingTitle, setEditingTitle] = useState('')
   const [deleteChatDialogOpen, setDeleteChatDialogOpen] = useState(false)
   const [deleteChatConversationId, setDeleteChatConversationId] = useState(null)
-  const [deleteChatConversationType, setDeleteChatConversationType] = useState(null)
+  const [, setDeleteChatConversationType] = useState(null)
   const prevCollapsedRef = useRef(collapsed)
   const [railExpandFade, setRailExpandFade] = useState(false)
   const [railCollapseSettle, setRailCollapseSettle] = useState(false)
@@ -926,8 +925,7 @@ export function Sidebar({
     closeDeleteChatDialog()
     try {
       await deleteThumbnailMutation.mutateAsync(conversationId)
-      const isSelected =
-        Number(activeThumbnailConversationId) === Number(conversationId)
+      const isSelected = Number(activeThumbnailConversationId) === Number(conversationId)
       if (isSelected) handleNewChat()
     } catch (error) {
       console.error('Failed to delete conversation', error)
@@ -964,6 +962,20 @@ export function Sidebar({
             <IconSettings />
           </span>
           <span className="sidebar-account-item-label">Account</span>
+        </button>
+        <button
+          type="button"
+          className="sidebar-account-item"
+          onClick={() => {
+            setAccountDialogOpen(false)
+            closeMobile()
+            if (typeof window !== 'undefined') window.location.hash = 'billing'
+          }}
+        >
+          <span className="sidebar-account-item-icon" aria-hidden>
+            <IconBilling />
+          </span>
+          <span className="sidebar-account-item-label">Billing</span>
         </button>
         <button type="button" className="sidebar-account-item" onClick={handleOpenPersonas}>
           <span className="sidebar-account-item-icon" aria-hidden>
@@ -1041,24 +1053,8 @@ export function Sidebar({
         </div>
       </div>
 
-      <button
-        type="button"
-        className="sidebar-account-logout"
-        onClick={async () => {
-          setAccountDialogOpen(false)
-          closeMobile()
-          try {
-            await onLogout?.()
-          } catch {
-            /* ignore — upstream already surfaces errors */
-          }
-        }}
-      >
-        <span className="sidebar-account-item-icon" aria-hidden>
-          <IconLogOut />
-        </span>
-        <span className="sidebar-account-item-label">Log out</span>
-      </button>
+      {/* Log out moved into the Settings screen (top-right of the
+          profile hero), so we don't double up here. */}
     </div>
   )
 
@@ -1443,17 +1439,21 @@ export function Sidebar({
                       className="sidebar-account-credits"
                       onClick={(e) => {
                         e.stopPropagation()
-                        openCreditsModal()
+                        setAccountDialogOpen(false)
+                        closeMobile()
+                        if (typeof window !== 'undefined') window.location.hash = 'billing'
                       }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault()
                           e.stopPropagation()
-                          openCreditsModal()
+                          setAccountDialogOpen(false)
+                          closeMobile()
+                          if (typeof window !== 'undefined') window.location.hash = 'billing'
                         }
                       }}
-                      aria-label={`${totalCredits ?? '—'} credits — buy more`}
-                      title="Buy more credits"
+                      aria-label={`${totalCredits ?? '—'} credits — go to billing`}
+                      title="Go to billing"
                     >
                       <svg
                         viewBox="0 0 24 24"

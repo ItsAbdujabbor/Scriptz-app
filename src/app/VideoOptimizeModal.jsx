@@ -442,8 +442,7 @@ export function VideoOptimizeModal({
   // When we kicked off a job ourselves OR found one to resume, this
   // hook polls /api/jobs/{id} until it terminates and triggers the
   // listing refresh.
-  const trackedJobId =
-    activeJobId || activeJobLookup.data?.job_id || null
+  const trackedJobId = activeJobId || activeJobLookup.data?.job_id || null
   const thumbJobQuery = useThumbnailJob(trackedJobId, {
     videoId,
     enabled: !!trackedJobId,
@@ -546,13 +545,17 @@ export function VideoOptimizeModal({
     if (open && video?.title != null) {
       setTitleInput(video.title || '')
       setSelectedRecommendationIndex(null)
+      setSaveSuccess(false)
+      // Title score + recommendations are hydrated from the per-video
+      // AI cache (`/videos/{id}/ai-cache`) by the dedicated effect
+      // below. Reset to null here so the badge isn't stuck on a stale
+      // score from the previous video while the cache loads.
       setTitleScore(null)
       setScoreTier(null)
       setScoreExplanation(null)
-      setSaveSuccess(false)
       setTitleRecommendations(null)
     }
-  }, [open, video?.title])
+  }, [open, video?.id, video?.title])
 
   useEffect(() => {
     if (open && video?.id) {
@@ -631,14 +634,17 @@ export function VideoOptimizeModal({
   }, [open, data?.title_options, data?.default_title_index, video?.title])
 
   // Hydrate from per-video AI cache (server-side persisted) on open. Each
-  // mutation in the modal (title-recommendations, generate-tags, refine-
-  // description) writes through to this cache so the next session picks
-  // up where the user left off — no credits charged on rehydration.
-  // Tag hydration is skipped when YouTube already has tags (we display
-  // the live ones) and only applies if the cached set covers them.
+  // mutation in the modal (title-recommendations, score-title, generate-
+  // tags, refine-description) writes through to this cache so the next
+  // session picks up where the user left off — no credits charged on
+  // rehydration. The cache is per-user, so the same artifacts surface
+  // across devices.
   const aiCacheData = aiCacheQuery.data
   useEffect(() => {
     if (!open || !aiCacheData) return
+
+    // Title recommendations — alternatives to the video, not to a
+    // specific phrasing, so they apply regardless of titleInput edits.
     if (
       Array.isArray(aiCacheData.title_recommendations) &&
       aiCacheData.title_recommendations.length > 0 &&
@@ -651,23 +657,39 @@ export function VideoOptimizeModal({
           (video?.id ? `https://img.youtube.com/vi/${video.id}/mqdefault.jpg` : ''),
       })
     }
+
+    // Title score — only apply when the cached score was computed for
+    // the title text currently in the input. If the user has typed
+    // something different since, the cached score doesn't apply yet.
+    const cachedScore = aiCacheData.title_score
+    if (
+      cachedScore &&
+      typeof cachedScore === 'object' &&
+      cachedScore.score != null &&
+      titleScore == null
+    ) {
+      const cachedTitle = String(cachedScore.title || '').trim()
+      const currentTitle = String(titleInput || '').trim()
+      if (cachedTitle && cachedTitle.toLowerCase() === currentTitle.toLowerCase()) {
+        setTitleScore(cachedScore.score)
+        setScoreTier(cachedScore.tier ?? null)
+        setScoreExplanation(cachedScore.explanation ?? null)
+      }
+    }
+
     if (
       Array.isArray(aiCacheData.generated_tags) &&
       aiCacheData.generated_tags.length > 0 &&
       // Don't override live YouTube tags — only fill when none are loaded.
       tagsList.length === 0
     ) {
-      setTagsList(
-        aiCacheData.generated_tags.map((t) => ({ tag: t.tag, score: t.score }))
-      )
+      setTagsList(aiCacheData.generated_tags.map((t) => ({ tag: t.tag, score: t.score })))
       setTagsGenerated(true)
     }
     // refined_description is intentionally NOT auto-applied; the live
-    // YouTube description is the source of truth in the textarea. The
-    // hydration is here so future "show last refinement" UI can read
-    // `aiCacheData.refined_description` without another round-trip.
+    // YouTube description is the source of truth in the textarea.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, aiCacheData, video?.id])
+  }, [open, aiCacheData, video?.id, titleInput])
 
   // After any AI mutation completes (success or server error) refresh the
   // credits badge — the server has already debited (or refunded on failure).
@@ -727,12 +749,22 @@ export function VideoOptimizeModal({
   })
 
   const scoreTitleMutation = useMutation({
-    mutationFn: async ({ title }) => {
+    mutationFn: async ({ title, videoId }) => {
       const token = await getValidAccessToken()
       if (!token) throw new Error('Not authenticated')
-      return youtubeApi.scoreTitle(token, title)
+      return youtubeApi.scoreTitle(token, title, videoId || null)
     },
-    ..._creditsBadgeRefresh,
+    onSuccess: () => {
+      invalidateCredits(queryClient)
+      // Refetch the AI cache so a subsequent open (or another device)
+      // sees the freshly-saved title_score without another round-trip.
+      if (videoId) {
+        queryClient.invalidateQueries({
+          queryKey: videoOptimizeKeys.aiCache(videoId),
+        })
+      }
+    },
+    onError: () => invalidateCredits(queryClient),
   })
 
   const fetchTitleRecommendations = () => {
@@ -751,7 +783,17 @@ export function VideoOptimizeModal({
         thumbnailUrl: video.thumbnail_url || `https://img.youtube.com/vi/${video.id}/mqdefault.jpg`,
       })
       .then((res) => {
-        if (!ac.signal.aborted) setTitleRecommendations(res)
+        if (ac.signal.aborted) return
+        setTitleRecommendations(res)
+        // The backend already write-throughs the recommendations to
+        // the per-video AI cache (see /title-recommendations route).
+        // Refetch so a subsequent open / another device hydrates from
+        // the freshly-saved server payload.
+        if (videoId) {
+          queryClient.invalidateQueries({
+            queryKey: videoOptimizeKeys.aiCache(videoId),
+          })
+        }
       })
       .catch(() => {
         if (!ac.signal.aborted) setTitleRecommendations(null)
@@ -904,10 +946,8 @@ export function VideoOptimizeModal({
   // closed and reopened the modal. The local generate handler also flips
   // it on while the initial POST is in flight — tying both paths to a
   // single derived bool keeps the UI consistent.
-  const activeJobStatus =
-    thumbJobQuery.data?.status || activeJobLookup.data?.status || null
-  const isJobActive =
-    activeJobStatus === 'queued' || activeJobStatus === 'running'
+  const activeJobStatus = thumbJobQuery.data?.status || activeJobLookup.data?.status || null
+  const isJobActive = activeJobStatus === 'queued' || activeJobStatus === 'running'
   const derivedThumbnailLoading = thumbnailLoading || isJobActive
 
   // When the resume lookup finds an in-flight job for this video, lock
@@ -934,7 +974,7 @@ export function VideoOptimizeModal({
         showThumbNotice(err.slice(0, 240), 'error')
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [thumbJobQuery.data?.status, thumbJobQuery.data?.error, queryClient])
 
   const handleGenerateThumbnails = async () => {
@@ -1061,17 +1101,24 @@ export function VideoOptimizeModal({
       setScoreLoading(false)
       return
     }
-    if (!titleInput.trim()) return
+    const trimmed = titleInput.trim()
+    if (!trimmed) return
     const ac = new AbortController()
     scoreAbortRef.current = ac
     setScoreLoading(true)
     scoreTitleMutation
-      .mutateAsync({ title: titleInput.trim() })
+      // Passing `videoId` lets the backend write the result through to
+      // the per-video AI cache, so the next open (here or on another
+      // device) rehydrates the badge for free.
+      .mutateAsync({ title: trimmed, videoId: video?.id || null })
       .then((res) => {
         if (ac.signal.aborted) return
-        setTitleScore(res?.score ?? null)
-        setScoreTier(res?.tier ?? getScoreTier(res?.score).id)
-        setScoreExplanation(res?.explanation ?? null)
+        const score = res?.score ?? null
+        const tier = res?.tier ?? getScoreTier(res?.score).id
+        const explanation = res?.explanation ?? null
+        setTitleScore(score)
+        setScoreTier(tier)
+        setScoreExplanation(explanation)
       })
       .catch(() => {
         if (ac.signal.aborted) return
@@ -1586,7 +1633,6 @@ export function VideoOptimizeModal({
                               const item = titleRecommendations?.titles?.[i]
                               const isLoading = titleRecsLoading
                               const isPlaceholder = !item
-                              const labels = ['A', 'B', 'C']
                               return (
                                 <button
                                   key={i}
@@ -1602,9 +1648,6 @@ export function VideoOptimizeModal({
                                   }}
                                   disabled={isPlaceholder}
                                 >
-                                  <span className="video-opt-reco-option-badge" aria-hidden>
-                                    {labels[i]}
-                                  </span>
                                   <div className="video-opt-reco-thumb">
                                     <img
                                       src={
@@ -1831,11 +1874,7 @@ export function VideoOptimizeModal({
                               // auto-rate step in run_thumbnail_job and by the
                               // /rate endpoint. Falls back to legacy ``score``
                               // for any in-memory cards that haven't synced yet.
-                              score={
-                                t.rating_score != null
-                                  ? Math.round(t.rating_score)
-                                  : t.score
-                              }
+                              score={t.rating_score != null ? Math.round(t.rating_score) : t.score}
                               selected={selectedPreviewThumbnailUrl === t.image_url}
                               onSelect={() => setSelectedPreviewThumbnailUrl(t.image_url)}
                               onPreview={() => setFullSizeImage(t.image_url)}
@@ -2114,7 +2153,6 @@ export function VideoOptimizeModal({
                       </div>
                     </div>
                   )}
-
                 </motion.div>
               </AnimatePresence>
             )}

@@ -86,11 +86,19 @@ export const youtubeApi = {
   },
 
   /**
-   * Score a video title with Gemini AI. POST /api/youtube/score-title body: { title }
+   * Score a video title with Gemini AI.
+   * POST /api/youtube/score-title body: { title, video_id? }
    * Returns { score, tier, explanation }.
+   *
+   * `videoId` is optional but strongly recommended — when set, the
+   * backend writes the score through to the per-video AI cache so the
+   * Optimize modal can rehydrate it on the next open (including from
+   * another device) without re-charging credits.
    */
-  scoreTitle(accessToken, title) {
-    return request('POST', '/api/youtube/score-title', accessToken, { title: title || '' })
+  scoreTitle(accessToken, title, videoId = null) {
+    const body = { title: title || '' }
+    if (videoId) body.video_id = videoId
+    return request('POST', '/api/youtube/score-title', accessToken, body)
   },
 
   /**

@@ -1,61 +1,317 @@
-import { useState, useEffect } from 'react'
+/**
+ * Settings — fresh redesign as a routed surface.
+ *
+ * Layout:
+ *   ┌───────────────────────────────────────────┐
+ *   │  Settings header                  [✕]    │
+ *   ├───────────────────────────────────────────┤
+ *   │  ┌──── Profile hero ──────┐              │
+ *   │  │ avatar+ring  greeting   │              │
+ *   │  │              email      │              │
+ *   │  └────────────────────────┘              │
+ *   │  ┌── YouTube card ─────────┐             │
+ *   │  ┌── Security card ────────┐             │
+ *   │  ┌── Help ─┐  ┌── Legal ─┐                │
+ *   │  ┌── Danger zone (red) ───┐               │
+ *   │  [ Sign out ]                             │
+ *   └───────────────────────────────────────────┘
+ *
+ * No portal — settings is a route, not a dialog. The wrapper
+ * SharedSettingsModal threads in auth/onboarding state from Zustand.
+ */
+import { useState } from 'react'
 import './SettingsModal.css'
 import { friendlyMessage } from '../lib/aiErrors'
-// Personalization + AI-Model panels were retired from the UI — settings is
-// now a single Account screen with Help inlined. The mutations below stay
-// imported because the save-personalization handler is still bound to the
-// onboarding store and pushes those fields to the backend on form submits
-// from elsewhere in the app (e.g. onboarding flow uses the same fields).
-import { useSaveUserPreferencesMutation } from '../queries/user/preferencesQueries'
-import { useUpdateUserProfileMutation } from '../queries/user/profileQueries'
-import { useUserProfileQuery } from '../queries/user/profileQueries'
 
-const THEME_KEY = 'scriptz_theme'
+/* ────────────────────────── tiny inline icons ─────────────────────── */
 
-const FREQUENCY_OPTIONS = [
-  { value: 'daily', labelKey: 'daily' },
-  { value: 'few_times', labelKey: 'few_times' },
-  { value: 'weekly', labelKey: 'weekly' },
-  { value: 'occasionally', labelKey: 'occasionally' },
-]
-
-const TONE_OPTIONS = [
-  { value: '', label: 'Select tone…' },
-  { value: 'casual', label: 'Casual' },
-  { value: 'professional', label: 'Professional' },
-  { value: 'friendly', label: 'Friendly' },
-  { value: 'energetic', label: 'Energetic' },
-  { value: 'educational', label: 'Educational' },
-]
-const STYLE_OPTIONS = [
-  { value: '', label: 'Select style…' },
-  { value: 'conversational', label: 'Conversational' },
-  { value: 'formal', label: 'Formal' },
-  { value: 'humorous', label: 'Humorous' },
-  { value: 'direct', label: 'Direct' },
-]
-const CTA_OPTIONS = [
-  { value: '', label: 'Select…' },
-  { value: 'direct', label: 'Direct' },
-  { value: 'subtle', label: 'Subtle' },
-  { value: 'enthusiastic', label: 'Enthusiastic' },
-  { value: 'soft', label: 'Soft' },
-]
-
-function formatSubCount(n) {
-  if (n == null || n === '') return null
-  const num = typeof n === 'number' ? n : parseInt(String(n).replace(/\D/g, ''), 10)
-  if (isNaN(num)) return String(n)
-  if (num >= 1e6) return (num / 1e6).toFixed(1).replace(/\.0$/, '') + 'M'
-  if (num >= 1e3) return (num / 1e3).toFixed(1).replace(/\.0$/, '') + 'K'
-  return String(num)
+const I = {
+  close: () => (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+    >
+      <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  ),
+  user: () => (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" />
+    </svg>
+  ),
+  youtube: () => (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="6" width="18" height="12" rx="3" />
+      <path d="m10 9 5 3-5 3z" fill="currentColor" />
+    </svg>
+  ),
+  lock: () => (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  ),
+  help: () => (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .8-1.5 1.4-1.5 2.5" />
+      <circle cx="12" cy="17" r="0.6" fill="currentColor" />
+    </svg>
+  ),
+  scroll: () => (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 4h12a3 3 0 0 1 3 3v13a3 3 0 0 1-3 0V8a1 1 0 0 0-1-1H4z" />
+      <path d="M7 8h8M7 12h8M7 16h6" />
+    </svg>
+  ),
+  alert: () => (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3 1 21h22z" />
+      <path d="M12 10v5" />
+      <circle cx="12" cy="18" r="0.6" fill="currentColor" />
+    </svg>
+  ),
+  arrow: () => (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  ),
+  signout: () => (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="m16 17 5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
+  ),
+  external: () => (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14 4h6v6" />
+      <path d="M10 14 20 4" />
+      <path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5" />
+    </svg>
+  ),
+  imageOff: () => (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 3l18 18" />
+      <path d="M21 17V5a2 2 0 0 0-2-2H7" />
+      <path d="M3 7v12a2 2 0 0 0 2 2h12" />
+    </svg>
+  ),
 }
+
+/* ───────────────────────── small subcomponents ────────────────────── */
+
+function Avatar({ src, name, size = 'md' }) {
+  const [errored, setErrored] = useState(false)
+  const initial = (name || 'Y')[0].toUpperCase()
+  const cls = `s-avatar s-avatar--${size}`
+
+  if (!src || errored) {
+    return (
+      <span className={`${cls} s-avatar--fallback`} aria-hidden>
+        <span className="s-avatar-initial">{initial}</span>
+      </span>
+    )
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      referrerPolicy="no-referrer"
+      className={cls}
+      onError={() => setErrored(true)}
+    />
+  )
+}
+
+function SectionCard({ icon, title, subtitle, tone, children }) {
+  const Icon = I[icon]
+  return (
+    <section className={`s-card${tone ? ` s-card--${tone}` : ''}`}>
+      <header className="s-card-head">
+        <span className="s-card-head-icon" aria-hidden>
+          {Icon ? <Icon /> : null}
+        </span>
+        <div className="s-card-head-text">
+          <h3 className="s-card-title">{title}</h3>
+          {subtitle ? <p className="s-card-subtitle">{subtitle}</p> : null}
+        </div>
+      </header>
+      <div className="s-card-body">{children}</div>
+    </section>
+  )
+}
+
+function ChannelRow({ channel, isActive, onSwitch, onDisconnect, busy }) {
+  return (
+    <div className={`s-channel${isActive ? ' s-channel--active' : ''}`}>
+      <Avatar
+        src={channel.profile_image || channel.avatar}
+        name={channel.channel_title || channel.channelName}
+        size="md"
+      />
+      <div className="s-channel-info">
+        <span className="s-channel-name">
+          {channel.channel_title || channel.channelName || 'Channel'}
+        </span>
+        <span className="s-channel-meta">
+          {formatSubs(channel.subscriber_count ?? channel.subscriberCount)}
+          {channel.video_count != null || channel.videoCount != null
+            ? ` · ${channel.video_count ?? channel.videoCount} videos`
+            : ''}
+        </span>
+      </div>
+      {isActive ? (
+        <div className="s-channel-actions">
+          <span className="s-pill s-pill--active">Active</span>
+          <button
+            type="button"
+            className="s-btn s-btn--ghost"
+            onClick={onDisconnect}
+            disabled={busy}
+          >
+            Disconnect
+          </button>
+        </div>
+      ) : (
+        <button type="button" className="s-btn s-btn--ghost" onClick={onSwitch} disabled={busy}>
+          Switch
+        </button>
+      )}
+    </div>
+  )
+}
+
+function formatSubs(n) {
+  if (n == null || n === '') return 'Connected'
+  const num = typeof n === 'number' ? n : parseInt(String(n).replace(/\D/g, ''), 10)
+  if (isNaN(num)) return 'Connected'
+  if (num >= 1e6) return `${(num / 1e6).toFixed(1).replace(/\.0$/, '')}M subscribers`
+  if (num >= 1e3) return `${(num / 1e3).toFixed(1).replace(/\.0$/, '')}K subscribers`
+  return `${num} subscribers`
+}
+
+/* ────────────────────────────── modal-ish prompts ─────────────────── */
+
+function ConfirmSheet({
+  open,
+  title,
+  body,
+  danger,
+  busy,
+  error,
+  onCancel,
+  onConfirm,
+  confirmLabel = 'Confirm',
+  children,
+}) {
+  if (!open) return null
+  return (
+    <div className="s-confirm-overlay" role="dialog" aria-modal="true" onClick={onCancel}>
+      <div className="s-confirm" onClick={(e) => e.stopPropagation()}>
+        <h4 className="s-confirm-title">{title}</h4>
+        {body ? <p className="s-confirm-body">{body}</p> : null}
+        {children}
+        {error ? <p className="s-confirm-error">{error}</p> : null}
+        <div className="s-confirm-actions">
+          <button type="button" className="s-btn s-btn--ghost" onClick={onCancel} disabled={busy}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={`s-btn ${danger ? 's-btn--danger' : 's-btn--primary'}`}
+            onClick={onConfirm}
+            disabled={busy}
+          >
+            {busy ? 'Working…' : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ──────────────────────── main component ─────────────────────────── */
 
 export function SettingsModal({
   open,
   onClose,
-  initialSection = 'account',
   user,
+  accountDeletePasswordOptional,
   authLoading,
   changePassword,
   deleteData,
@@ -69,1008 +325,482 @@ export function SettingsModal({
   onConnectYouTube,
   onDisconnectYouTube,
   onSwitchChannel,
-  niche,
-  videoFormat,
-  uploadFrequency,
-  preferredLanguage,
-  setPreferredLanguage: _setPreferredLanguage,
-  getValidAccessToken: _getValidAccessToken,
-  syncToBackend: _syncToBackend,
-  setNiche,
-  setVideoFormat,
-  setUploadFrequency,
-  preferredTone,
-  speakingStyle,
-  preferredCtaStyle,
-  includePersonalStories,
-  useFirstPerson,
-  setPreferredTone,
-  setSpeakingStyle,
-  setPreferredCtaStyle,
-  setIncludePersonalStories,
-  setUseFirstPerson,
   onLogout,
-  /** When true, password is not required to delete (e.g. Google / Supabase session). */
-  accountDeletePasswordOptional = false,
 }) {
-  const [activeSection, setActiveSection] = useState(initialSection)
+  // Change-password sub-form
+  const [pwOpen, setPwOpen] = useState(false)
+  const [pwCurrent, setPwCurrent] = useState('')
+  const [pwNew, setPwNew] = useState('')
+  const [pwConfirm, setPwConfirm] = useState('')
+  const [pwBusy, setPwBusy] = useState(false)
+  const [pwError, setPwError] = useState('')
+  const [pwSuccess, setPwSuccess] = useState(false)
 
-  const saveUserPreferencesMutation = useSaveUserPreferencesMutation()
-  const updateUserProfileMutation = useUpdateUserProfileMutation()
-  const userProfileQuery = useUserProfileQuery()
+  // Delete-data sheet (typed-word verification)
+  const [delDataOpen, setDelDataOpen] = useState(false)
+  const [delDataConfirm, setDelDataConfirm] = useState('')
+  const [delDataBusy, setDelDataBusy] = useState(false)
+  const [delDataError, setDelDataError] = useState('')
 
-  const [currentPassword, setCurrentPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [passwordSuccess, setPasswordSuccess] = useState(false)
-  const [passwordError, setPasswordError] = useState('')
-  const [deleteDataSuccess, setDeleteDataSuccess] = useState(false)
-  const [deleteDataError, setDeleteDataError] = useState('')
-  const [deleteAccountError, setDeleteAccountError] = useState('')
-  const [deleteDataDialogOpen, setDeleteDataDialogOpen] = useState(false)
-  const [deleteAccountDialogOpen, setDeleteAccountDialogOpen] = useState(false)
-  const [deleteDataDialogConfirm, setDeleteDataDialogConfirm] = useState(false)
-  const [deleteAccountDialogConfirm, setDeleteAccountDialogConfirm] = useState(false)
-  const [deleteAccountDialogPassword, setDeleteAccountDialogPassword] = useState('')
-  const [passwordSectionExpanded, setPasswordSectionExpanded] = useState(false)
+  // Delete-account sheet
+  const [delAcctOpen, setDelAcctOpen] = useState(false)
+  const [delAcctPw, setDelAcctPw] = useState('')
+  const [delAcctConfirm, setDelAcctConfirm] = useState('')
+  const [delAcctBusy, setDelAcctBusy] = useState(false)
+  const [delAcctError, setDelAcctError] = useState('')
 
-  const [profileNiche, setProfileNiche] = useState(niche ?? '')
-  const [profileFormat, setProfileFormat] = useState(videoFormat ?? '')
-  const [profileFrequency, setProfileFrequency] = useState(uploadFrequency ?? '')
-  const [personalizationSyncing, setPersonalizationSyncing] = useState(false)
-  const [personalizationSaveSuccess, setPersonalizationSaveSuccess] = useState(false)
-  const [personalizationSaveError, setPersonalizationSaveError] = useState('')
-  const [personalizationTone, setPersonalizationTone] = useState(preferredTone ?? '')
-  const [personalizationStyle, setPersonalizationStyle] = useState(speakingStyle ?? '')
-  const [personalizationCta, setPersonalizationCta] = useState(preferredCtaStyle ?? '')
-  const [personalizationIncludeStories, setPersonalizationIncludeStories] = useState(
-    includePersonalStories !== false
-  )
-  const [personalizationUseFirstPerson, setPersonalizationUseFirstPerson] = useState(
-    useFirstPerson !== false
-  )
-  const [customPrompt, setCustomPrompt] = useState('')
-  const [lastSavedPersonalization, setLastSavedPersonalization] = useState(null)
-
-  const [theme] = useState(() => {
-    try {
-      const v = localStorage.getItem(THEME_KEY)
-      return v === 'light' || v === 'dark' ? v : 'dark'
-    } catch {
-      return 'dark'
-    }
-  })
-
-  useEffect(() => {
-    document.body.classList.toggle('theme-light', theme === 'light')
-    try {
-      localStorage.setItem(THEME_KEY, theme)
-    } catch (_) {}
-  }, [theme])
-
-  useEffect(() => {
-    if (open) {
-      const n = niche ?? ''
-      const f = uploadFrequency ?? ''
-      const t = preferredTone ?? ''
-      const s = speakingStyle ?? ''
-      const c = preferredCtaStyle ?? ''
-      const inc = includePersonalStories !== false
-      const first = useFirstPerson !== false
-      const bg = userProfileQuery.data?.background ?? ''
-      setProfileNiche(n)
-      setProfileFormat(videoFormat ?? '')
-      setProfileFrequency(f)
-      setPersonalizationTone(t)
-      setPersonalizationStyle(s)
-      setPersonalizationCta(c)
-      setPersonalizationIncludeStories(inc)
-      setPersonalizationUseFirstPerson(first)
-      setCustomPrompt(bg)
-      setLastSavedPersonalization({
-        niche: n,
-        frequency: f,
-        tone: t,
-        style: s,
-        cta: c,
-        includeStories: inc,
-        useFirstPerson: first,
-        customPrompt: bg,
-      })
-    }
-  }, [
-    open,
-    niche,
-    videoFormat,
-    uploadFrequency,
-    preferredTone,
-    speakingStyle,
-    preferredCtaStyle,
-    includePersonalStories,
-    useFirstPerson,
-    userProfileQuery.data?.background,
-  ])
-
-  useEffect(() => {
-    if (open) setActiveSection(initialSection)
-  }, [open, initialSection])
-
-  useEffect(() => {
-    if (passwordError || passwordSuccess) setPasswordSectionExpanded(true)
-  }, [passwordError, passwordSuccess])
-
-  // Escape + body scroll lock now handled by <Dialog>.
+  if (!open) return null
 
   const handleChangePassword = async (e) => {
     e.preventDefault()
-    setPasswordError('')
-    setPasswordSuccess(false)
-    if (newPassword !== confirmPassword) {
-      setPasswordError('New passwords do not match.')
+    setPwError('')
+    setPwSuccess(false)
+    if (!pwCurrent || !pwNew) {
+      setPwError('Both current and new password are required.')
       return
     }
-    if (newPassword.length < 8) {
-      setPasswordError('New password must be at least 8 characters.')
+    if (pwNew !== pwConfirm) {
+      setPwError('New passwords do not match.')
       return
     }
-    const result = changePassword
-      ? await changePassword(currentPassword, newPassword)
-      : { ok: false }
-    if (result?.ok) {
-      setPasswordSuccess(true)
-      setCurrentPassword('')
-      setNewPassword('')
-      setConfirmPassword('')
-    } else {
-      setPasswordError(result?.error || 'Failed to change password.')
-    }
-  }
-
-  const handleDeleteData = async (e) => {
-    e.preventDefault()
-    setDeleteDataError('')
-    setDeleteDataSuccess(false)
-    if (!deleteDataDialogConfirm) {
-      setDeleteDataError('Please confirm that you understand this action.')
+    if (pwNew.length < 8) {
+      setPwError('New password must be at least 8 characters.')
       return
     }
-    const result = deleteData ? await deleteData() : { ok: false }
-    if (result?.ok) {
-      clearLocalData?.()
-      setDeleteDataSuccess(true)
-      setDeleteDataDialogOpen(false)
-      setDeleteDataDialogConfirm(false)
-    } else {
-      setDeleteDataError(result?.error || 'Failed to delete data.')
-    }
-  }
-
-  const handleDeleteAccount = async (e) => {
-    e.preventDefault()
-    setDeleteAccountError('')
-    if (!accountDeletePasswordOptional && !deleteAccountDialogPassword?.trim()) {
-      setDeleteAccountError('Please enter your password to confirm.')
-      return
-    }
-    if (!deleteAccountDialogConfirm) {
-      setDeleteAccountError('Please confirm that you understand this action cannot be undone.')
-      return
-    }
-    const pwd = deleteAccountDialogPassword?.trim() || ''
-    const result = deleteAccount ? await deleteAccount(pwd) : { ok: false }
-    if (result?.ok) {
-      setDeleteAccountDialogOpen(false)
-      setDeleteAccountDialogConfirm(false)
-      setDeleteAccountDialogPassword('')
-      onClose?.()
-      onLogout?.()
-    } else {
-      setDeleteAccountError(result?.error || 'Failed to delete account.')
-    }
-  }
-
-  const openDeleteDataDialog = () => {
-    setDeleteDataError('')
-    setDeleteDataDialogConfirm(false)
-    setDeleteDataDialogOpen(true)
-  }
-
-  const openDeleteAccountDialog = () => {
-    setDeleteAccountError('')
-    setDeleteAccountDialogConfirm(false)
-    setDeleteAccountDialogPassword('')
-    setDeleteAccountDialogOpen(true)
-  }
-
-  const handleSavePersonalization = async (e) => {
-    e.preventDefault()
-    setPersonalizationSaveError('')
-    setPersonalizationSaveSuccess(false)
-    setPersonalizationSyncing(true)
+    setPwBusy(true)
     try {
-      setNiche?.(profileNiche.trim())
-      setVideoFormat?.(profileFormat || '')
-      setUploadFrequency?.(profileFrequency || '')
-      setPreferredTone?.(personalizationTone)
-      setSpeakingStyle?.(personalizationStyle)
-      setPreferredCtaStyle?.(personalizationCta)
-      setIncludePersonalStories?.(personalizationIncludeStories)
-      setUseFirstPerson?.(personalizationUseFirstPerson)
-
-      await Promise.all([
-        saveUserPreferencesMutation.mutateAsync({
-          preferredLanguage: preferredLanguage || 'en',
-          niche: profileNiche.trim(),
-          videoFormat: profileFormat || '',
-          uploadFrequency: profileFrequency || '',
-          youtube,
-        }),
-        updateUserProfileMutation.mutateAsync({
-          niche: profileNiche.trim(),
-          video_format: profileFormat || '',
-          upload_frequency: profileFrequency || '',
-          preferred_tone: personalizationTone || null,
-          speaking_style: personalizationStyle || null,
-          preferred_cta_style: personalizationCta || null,
-          include_personal_stories: personalizationIncludeStories,
-          use_first_person: personalizationUseFirstPerson,
-          background: customPrompt.trim() || null,
-        }),
-      ])
-
-      setPersonalizationSaveSuccess(true)
-      setLastSavedPersonalization({
-        niche: profileNiche.trim(),
-        frequency: profileFrequency || '',
-        tone: personalizationTone || '',
-        style: personalizationStyle || '',
-        cta: personalizationCta || '',
-        includeStories: personalizationIncludeStories,
-        useFirstPerson: personalizationUseFirstPerson,
-        customPrompt: customPrompt.trim() || '',
-      })
+      await changePassword?.(pwCurrent, pwNew)
+      setPwSuccess(true)
+      setPwCurrent('')
+      setPwNew('')
+      setPwConfirm('')
     } catch (err) {
-      setPersonalizationSaveError(friendlyMessage(err) || 'Failed to save. Try again.')
+      setPwError(friendlyMessage(err) || 'Could not change password.')
+    } finally {
+      setPwBusy(false)
     }
-    setPersonalizationSyncing(false)
   }
 
-  const hasPersonalizationChanges = lastSavedPersonalization
-    ? profileNiche.trim() !== lastSavedPersonalization.niche ||
-      (profileFrequency || '') !== lastSavedPersonalization.frequency ||
-      (personalizationTone || '') !== lastSavedPersonalization.tone ||
-      (personalizationStyle || '') !== lastSavedPersonalization.style ||
-      (personalizationCta || '') !== lastSavedPersonalization.cta ||
-      personalizationIncludeStories !== lastSavedPersonalization.includeStories ||
-      personalizationUseFirstPerson !== lastSavedPersonalization.useFirstPerson ||
-      (customPrompt.trim() || '') !== lastSavedPersonalization.customPrompt
-    : true
+  const handleDeleteData = async () => {
+    if (delDataConfirm !== 'RESET') {
+      setDelDataError('Type RESET to confirm.')
+      return
+    }
+    setDelDataBusy(true)
+    setDelDataError('')
+    try {
+      await deleteData?.()
+      clearLocalData?.()
+      setDelDataOpen(false)
+      setDelDataConfirm('')
+    } catch (err) {
+      setDelDataError(friendlyMessage(err) || 'Could not delete data.')
+    } finally {
+      setDelDataBusy(false)
+    }
+  }
 
-  // Settings renders as an in-shell route (not a modal/portal) so it
-  // sits inside `<main>` next to the sidebar, just like Dashboard.
-  // The `open` prop is still accepted for legacy callers; AuthenticatedRoutes
-  // always passes `open` when it routes to the settings view.
-  if (!open) return null
+  const handleDeleteAccount = async () => {
+    if (delAcctConfirm !== 'DELETE') {
+      setDelAcctError('Type DELETE to confirm.')
+      return
+    }
+    if (!accountDeletePasswordOptional && !delAcctPw) {
+      setDelAcctError('Password is required.')
+      return
+    }
+    setDelAcctBusy(true)
+    setDelAcctError('')
+    try {
+      await deleteAccount?.(delAcctPw)
+      onLogout?.()
+    } catch (err) {
+      setDelAcctError(friendlyMessage(err) || 'Could not delete account.')
+    } finally {
+      setDelAcctBusy(false)
+    }
+  }
+
+  const channelId = youtube?.channelId || youtube?.channel_id
+  const connected = !!youtube?.connected
+  const channels =
+    youtubeChannels && youtubeChannels.length > 0
+      ? youtubeChannels
+      : connected
+        ? [
+            {
+              channel_id: channelId,
+              channel_title: youtube?.channelName || youtube?.channel_title,
+              profile_image: youtube?.avatar || youtube?.profile_image,
+              subscriber_count: youtube?.subscriberCount ?? youtube?.subscriber_count,
+              video_count: youtube?.videoCount ?? youtube?.video_count,
+            },
+          ]
+        : []
+
+  const memberSinceMs =
+    user?.created_at && !isNaN(Date.parse(user.created_at)) ? Date.parse(user.created_at) : null
+  const memberSinceLabel = memberSinceMs
+    ? new Date(memberSinceMs).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+    : null
 
   return (
-    <div
-      // `settings-modal-dialog` keeps the inherited tokens + typography;
-      // `settings-screen` is the in-shell container (flex-fills `<main>`).
-      className="settings-screen settings-modal-dialog"
-      role="region"
-      aria-labelledby="settings-modal-title"
-    >
-      <div className="settings-modal-body">
-        <header className="settings-modal-header">
-          <h2 id="settings-modal-title" className="settings-modal-title">
-            Settings
-          </h2>
-          <button
-            type="button"
-            className="settings-modal-close"
-            onClick={onClose}
-            aria-label="Close settings"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </header>
+    <div className="s-screen" role="region" aria-label="Settings">
+      <header className="s-header">
+        <h1 className="s-header-title">Settings</h1>
+        <button type="button" className="s-icon-btn" onClick={onClose} aria-label="Close settings">
+          <I.close />
+        </button>
+      </header>
 
-        <div className="settings-modal-content">
-          <div
-            className="settings-modal-panel active"
-            role="region"
-            aria-label="Account"
-          >
-            <h3 className="settings-panel-heading">Account</h3>
-            <p className="settings-panel-desc">Email, YouTube, security, and help.</p>
-
-              <div className="settings-block">
-                <p className="settings-account-email">
-                  <strong>Email</strong> <span>{user?.email || '—'}</span>
-                </p>
+      <div className="s-scroll">
+        <div className="s-content">
+          {/* ── Profile hero ── */}
+          <section className="s-hero">
+            <div className="s-hero-bg" aria-hidden />
+            {onLogout ? (
+              <button
+                type="button"
+                className="s-hero-signout"
+                onClick={onLogout}
+                aria-label="Sign out"
+              >
+                <I.signout />
+                <span>Sign out</span>
+              </button>
+            ) : null}
+            <div className="s-hero-avatar-wrap">
+              <Avatar
+                src={youtube?.avatar || youtube?.profile_image}
+                name={user?.email || youtube?.channelName}
+                size="xl"
+              />
+            </div>
+            <div className="s-hero-info">
+              <h2 className="s-hero-greeting">{greetingFromEmail(user?.email)}</h2>
+              <p className="s-hero-email">{user?.email || '—'}</p>
+              <div className="s-hero-meta">
+                {connected ? (
+                  <span className="s-pill s-pill--accent">
+                    <I.youtube /> {youtube.channelName || youtube.channel_title || 'Connected'}
+                  </span>
+                ) : (
+                  <span className="s-pill s-pill--muted">No channel connected</span>
+                )}
+                {memberSinceLabel && (
+                  <span className="s-pill s-pill--muted">Member since {memberSinceLabel}</span>
+                )}
               </div>
+            </div>
+          </section>
 
-              <h4 className="settings-subheading">YouTube</h4>
-              {youtubeOAuthError && (
-                <div className="settings-message settings-message--error">
-                  {youtubeOAuthError}
-                  {setYoutubeOAuthError && (
-                    <button
-                      type="button"
-                      className="settings-inline-dismiss"
-                      onClick={() => setYoutubeOAuthError(null)}
-                      aria-label="Dismiss"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              )}
-              {!youtube?.connected ? (
-                <div className="settings-youtube-connect-block">
-                  <p className="settings-youtube-connect-desc">
-                    Connect your YouTube channel to unlock personalized insights and script
-                    generation.
-                  </p>
-                  <button
-                    type="button"
-                    className="settings-btn settings-btn-primary"
-                    onClick={onConnectYouTube}
-                    disabled={youtubeLoading}
-                  >
-                    {youtubeLoading ? 'Connecting…' : 'Connect YouTube Channel'}
-                  </button>
-                </div>
-              ) : (
-                <div className="settings-youtube-channels-list">
-                  {(youtubeChannels && youtubeChannels.length > 0
-                    ? youtubeChannels
-                    : [
-                        {
-                          channel_id: youtube?.channelId || youtube?.channel_id,
-                          channel_title: youtube?.channelName || youtube?.channel_title,
-                          profile_image: youtube?.avatar,
-                          avatar: youtube?.avatar,
-                          subscriber_count: youtube?.subscriberCount ?? youtube?.subscriber_count,
-                          subscriberCount: youtube?.subscriberCount ?? youtube?.subscriber_count,
-                          video_count: youtube?.videoCount ?? youtube?.video_count,
-                          videoCount: youtube?.videoCount ?? youtube?.video_count,
-                        },
-                      ]
-                  ).map((c) => {
-                    const cid = c.channel_id || c.channelId
-                    const isActive = (youtube?.channelId || youtube?.channel_id) === cid
-                    const channelName = c.channel_title || c.channelName || 'Channel'
-                    const avatarUrl =
-                      c.profile_image ||
-                      c.avatar ||
-                      c.thumbnail_url ||
-                      (isActive && youtube?.avatar) ||
-                      (isActive && youtube?.profile_image)
-                    return (
-                      <div
-                        key={cid || 'current'}
-                        className={`settings-youtube-channel-card ${isActive ? 'active' : ''}`}
-                      >
-                        <div className="settings-youtube-channel-avatar">
-                          {avatarUrl ? (
-                            <img src={avatarUrl} alt="" referrerPolicy="no-referrer" />
-                          ) : (
-                            <span className="settings-youtube-channel-avatar-initial">
-                              {channelName[0].toUpperCase()}
-                            </span>
-                          )}
-                        </div>
-                        <div className="settings-youtube-channel-info">
-                          <strong>{c.channel_title || c.channelName || 'Channel'}</strong>
-                          <span>
-                            {formatSubCount(c.subscriber_count ?? c.subscriberCount) != null
-                              ? `${formatSubCount(c.subscriber_count ?? c.subscriberCount)} subscribers`
-                              : 'Connected'}
-                            {(c.video_count ?? c.videoCount) != null &&
-                              ` · ${c.video_count ?? c.videoCount} videos`}
-                          </span>
-                        </div>
-                        <div className="settings-youtube-channel-actions">
-                          {isActive ? (
-                            <>
-                              <span className="settings-youtube-badge">Active</span>
-                              <button
-                                type="button"
-                                className="settings-btn settings-btn-ghost"
-                                onClick={onDisconnectYouTube}
-                                disabled={youtubeLoading}
-                                title="Disconnect"
-                              >
-                                Disconnect
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              type="button"
-                              className="settings-btn settings-btn-ghost"
-                              onClick={() => onSwitchChannel?.(cid)}
-                              disabled={youtubeLoading}
-                            >
-                              Switch
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              <div className="settings-collapsible settings-password-section">
+          {/* ── YouTube ── */}
+          <SectionCard
+            icon="youtube"
+            title="YouTube channels"
+            subtitle="Connect, switch, or disconnect."
+          >
+            {youtubeOAuthError && (
+              <div className="s-alert s-alert--error">
+                <span>{youtubeOAuthError}</span>
                 <button
                   type="button"
-                  className={`settings-collapsible-header ${passwordSectionExpanded ? 'expanded' : ''}`}
-                  onClick={() => setPasswordSectionExpanded((v) => !v)}
-                  aria-expanded={passwordSectionExpanded}
-                  aria-controls="password-form-content"
+                  className="s-alert-dismiss"
+                  onClick={() => setYoutubeOAuthError?.(null)}
+                  aria-label="Dismiss"
                 >
-                  <span className="settings-collapsible-title">Change password</span>
-                  <span className="settings-collapsible-chevron" aria-hidden>
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                  </span>
+                  ×
                 </button>
-                <div
-                  id="password-form-content"
-                  className={`settings-collapsible-content ${passwordSectionExpanded ? 'expanded' : ''}`}
-                  aria-hidden={!passwordSectionExpanded}
-                >
-                  {passwordSuccess && (
-                    <p className="settings-message settings-message--success">
-                      Password updated successfully.
-                    </p>
-                  )}
-                  {passwordError && (
-                    <p className="settings-message settings-message--error">{passwordError}</p>
-                  )}
-                  <form
-                    onSubmit={handleChangePassword}
-                    className="settings-form settings-password-form"
-                  >
-                    <div className="settings-password-fields">
-                      <label>Current password</label>
-                      <input
-                        type="password"
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        placeholder="Current password"
-                        required
-                        disabled={authLoading}
-                      />
-                      <label>New password</label>
-                      <input
-                        type="password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Min 8 characters"
-                        minLength={8}
-                        required
-                        disabled={authLoading}
-                      />
-                      <label>Confirm new password</label>
-                      <input
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Confirm new password"
-                        minLength={8}
-                        required
-                        disabled={authLoading}
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      className="settings-btn settings-btn-primary settings-password-submit"
-                      disabled={authLoading}
-                    >
-                      {authLoading ? 'Updating…' : 'Update password'}
-                    </button>
-                  </form>
-                </div>
               </div>
+            )}
+            {channels.length === 0 ? (
+              <div className="s-empty">
+                <p>Connect your channel to unlock personalized insights and AI scripts.</p>
+                <button
+                  type="button"
+                  className="s-btn s-btn--primary s-btn--lg"
+                  onClick={onConnectYouTube}
+                  disabled={youtubeLoading}
+                >
+                  {youtubeLoading ? 'Connecting…' : 'Connect YouTube'}
+                  <I.arrow />
+                </button>
+              </div>
+            ) : (
+              <div className="s-channels">
+                {channels.map((c) => {
+                  const cid = c.channel_id || c.channelId
+                  const isActive = cid === channelId
+                  return (
+                    <ChannelRow
+                      key={cid || 'current'}
+                      channel={c}
+                      isActive={isActive}
+                      busy={youtubeLoading}
+                      onSwitch={() => onSwitchChannel?.(cid)}
+                      onDisconnect={onDisconnectYouTube}
+                    />
+                  )
+                })}
+                <button
+                  type="button"
+                  className="s-btn s-btn--ghost s-btn--full"
+                  onClick={onConnectYouTube}
+                  disabled={youtubeLoading}
+                >
+                  {youtubeLoading ? 'Connecting…' : 'Add another channel'}
+                </button>
+              </div>
+            )}
+          </SectionCard>
 
-              <div className="settings-danger-zone">
-                <h4 className="settings-danger-title">Danger zone</h4>
-                {deleteDataSuccess && (
-                  <p className="settings-message settings-message--success">Data deleted.</p>
-                )}
-                <div className="settings-danger-block">
-                  <p className="settings-danger-desc">
-                    Clear preferences and stored data. Your account will remain, but all
-                    personalization and stored data will be removed.
-                  </p>
+          {/* ── Security ── */}
+          <SectionCard icon="lock" title="Security" subtitle="Change your account password.">
+            {!pwOpen ? (
+              <button type="button" className="s-btn s-btn--ghost" onClick={() => setPwOpen(true)}>
+                Change password
+                <I.arrow />
+              </button>
+            ) : (
+              <form className="s-form" onSubmit={handleChangePassword}>
+                {pwSuccess && <div className="s-alert s-alert--success">Password updated.</div>}
+                {pwError && <div className="s-alert s-alert--error">{pwError}</div>}
+                <label className="s-field">
+                  <span className="s-field-label">Current password</span>
+                  <input
+                    type="password"
+                    className="s-input"
+                    value={pwCurrent}
+                    onChange={(e) => setPwCurrent(e.target.value)}
+                    autoComplete="current-password"
+                    required
+                  />
+                </label>
+                <label className="s-field">
+                  <span className="s-field-label">New password</span>
+                  <input
+                    type="password"
+                    className="s-input"
+                    value={pwNew}
+                    onChange={(e) => setPwNew(e.target.value)}
+                    autoComplete="new-password"
+                    minLength={8}
+                    required
+                  />
+                </label>
+                <label className="s-field">
+                  <span className="s-field-label">Confirm new password</span>
+                  <input
+                    type="password"
+                    className="s-input"
+                    value={pwConfirm}
+                    onChange={(e) => setPwConfirm(e.target.value)}
+                    autoComplete="new-password"
+                    required
+                  />
+                </label>
+                <div className="s-form-actions">
                   <button
                     type="button"
-                    className="settings-btn settings-btn-secondary"
-                    onClick={openDeleteDataDialog}
-                    disabled={authLoading}
+                    className="s-btn s-btn--ghost"
+                    onClick={() => {
+                      setPwOpen(false)
+                      setPwError('')
+                      setPwSuccess(false)
+                    }}
+                    disabled={pwBusy}
                   >
-                    Delete my data
+                    Cancel
                   </button>
-                </div>
-                <div className="settings-danger-block">
-                  <p className="settings-danger-desc">
-                    Permanently delete your account. This action cannot be undone. All data will be
-                    lost.
-                  </p>
                   <button
-                    type="button"
-                    className="settings-btn settings-btn-danger"
-                    onClick={openDeleteAccountDialog}
-                    disabled={authLoading}
+                    type="submit"
+                    className="s-btn s-btn--primary"
+                    disabled={pwBusy || authLoading}
                   >
-                    Delete account
+                    {pwBusy ? 'Saving…' : 'Save password'}
                   </button>
                 </div>
-              </div>
+              </form>
+            )}
+          </SectionCard>
 
-              {/* Delete data confirmation dialog */}
-              {deleteDataDialogOpen && (
-                <div
-                  className="settings-confirm-dialog-backdrop"
-                  onClick={() => setDeleteDataDialogOpen(false)}
-                  role="presentation"
-                >
-                  <div
-                    className="settings-confirm-dialog"
-                    onClick={(e) => e.stopPropagation()}
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="delete-data-dialog-title"
-                  >
-                    <h3 id="delete-data-dialog-title" className="settings-confirm-dialog-title">
-                      Delete my data
-                    </h3>
-                    <p className="settings-confirm-dialog-desc">
-                      This will clear your preferences, niche, tone, and other stored data. Your
-                      account will remain. This cannot be undone.
-                    </p>
-                    {deleteDataError && (
-                      <p className="settings-message settings-message--error">{deleteDataError}</p>
-                    )}
-                    <form onSubmit={handleDeleteData} className="settings-form">
-                      <label className="settings-confirm-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={deleteDataDialogConfirm}
-                          onChange={(e) => setDeleteDataDialogConfirm(e.target.checked)}
-                          disabled={authLoading}
-                        />
-                        <span className="settings-confirm-checkbox-box" aria-hidden />
-                        <span className="settings-confirm-checkbox-text">
-                          I understand that my data will be permanently deleted
-                        </span>
-                      </label>
-                      <div className="settings-confirm-dialog-actions">
-                        <button
-                          type="button"
-                          className="settings-btn settings-btn-ghost"
-                          onClick={() => setDeleteDataDialogOpen(false)}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          className="settings-btn settings-btn-danger"
-                          disabled={authLoading || !deleteDataDialogConfirm}
-                        >
-                          Delete my data
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )}
-
-              {/* Delete account confirmation dialog */}
-              {deleteAccountDialogOpen && (
-                <div
-                  className="settings-confirm-dialog-backdrop"
-                  onClick={() => setDeleteAccountDialogOpen(false)}
-                  role="presentation"
-                >
-                  <div
-                    className="settings-confirm-dialog"
-                    onClick={(e) => e.stopPropagation()}
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="delete-account-dialog-title"
-                  >
-                    <h3 id="delete-account-dialog-title" className="settings-confirm-dialog-title">
-                      Delete account
-                    </h3>
-                    <p className="settings-confirm-dialog-desc">
-                      This will permanently delete your account and all associated data. This action
-                      cannot be undone.
-                    </p>
-                    {deleteAccountError && (
-                      <p className="settings-message settings-message--error">
-                        {deleteAccountError}
-                      </p>
-                    )}
-                    <form onSubmit={handleDeleteAccount} className="settings-form">
-                      <label>
-                        {accountDeletePasswordOptional
-                          ? 'Password (optional if you sign in with Google)'
-                          : 'Enter your password to confirm'}
-                      </label>
-                      <input
-                        type="password"
-                        value={deleteAccountDialogPassword}
-                        onChange={(e) => setDeleteAccountDialogPassword(e.target.value)}
-                        placeholder={
-                          accountDeletePasswordOptional
-                            ? 'Leave blank if you use Google'
-                            : 'Your password'
-                        }
-                        disabled={authLoading}
-                        autoComplete="current-password"
-                        className="settings-confirm-password-input"
-                      />
-                      <label className="settings-confirm-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={deleteAccountDialogConfirm}
-                          onChange={(e) => setDeleteAccountDialogConfirm(e.target.checked)}
-                          disabled={authLoading}
-                        />
-                        <span className="settings-confirm-checkbox-box" aria-hidden />
-                        <span className="settings-confirm-checkbox-text">
-                          I understand this action is permanent and cannot be undone
-                        </span>
-                      </label>
-                      <div className="settings-confirm-dialog-actions">
-                        <button
-                          type="button"
-                          className="settings-btn settings-btn-ghost"
-                          onClick={() => setDeleteAccountDialogOpen(false)}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          className="settings-btn settings-btn-danger"
-                          disabled={
-                            authLoading ||
-                            (!accountDeletePasswordOptional &&
-                              !deleteAccountDialogPassword?.trim()) ||
-                            !deleteAccountDialogConfirm
-                          }
-                        >
-                          Delete account
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )}
-
-              {/* ——— Help (inlined inside Account so users find support
-                  links, legal, and FAQ without an extra screen). ——— */}
-              <h4 className="settings-subheading">Resources</h4>
-              <div className="settings-help-section">
-                <div className="settings-help-links">
-                  <a href="#help" className="settings-help-link">
-                    Help center
+          {/* ── Help + Legal grid ── */}
+          <div className="s-grid-2">
+            <SectionCard icon="help" title="Help">
+              <ul className="s-link-list">
+                <li>
+                  <a href="#help" className="s-link">
+                    <span>Help center</span>
+                    <I.arrow />
                   </a>
-                  <a href="mailto:support@scriptz.ai" className="settings-help-link">
-                    Contact support
+                </li>
+                <li>
+                  <a href="mailto:support@scriptz.ai" className="s-link">
+                    <span>Contact support</span>
+                    <I.arrow />
                   </a>
+                </li>
+                <li>
                   <a
                     href="https://scriptz.ai/docs"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="settings-help-link"
+                    className="s-link"
                   >
-                    Documentation
+                    <span>Documentation</span>
+                    <I.external />
                   </a>
-                </div>
-              </div>
-
-              <h4 className="settings-subheading">Legal</h4>
-              <div className="settings-help-section">
-                <div className="settings-help-links">
-                  <a href="#privacy" className="settings-help-link">
-                    Privacy policy
+                </li>
+              </ul>
+            </SectionCard>
+            <SectionCard icon="scroll" title="Legal">
+              <ul className="s-link-list">
+                <li>
+                  <a href="#privacy" className="s-link">
+                    <span>Privacy policy</span>
+                    <I.arrow />
                   </a>
-                  <a href="#terms" className="settings-help-link">
-                    Terms of service
+                </li>
+                <li>
+                  <a href="#terms" className="s-link">
+                    <span>Terms of service</span>
+                    <I.arrow />
                   </a>
-                </div>
-              </div>
-
-              <h4 className="settings-subheading">FAQ</h4>
-              <div className="settings-help-faq">
-                <div className="settings-help-faq-item">
-                  <strong>How do I connect my YouTube channel?</strong>
-                  <p>
-                    Go to Account → YouTube and click &quot;Connect YouTube Channel&quot;.
-                    You&apos;ll be redirected to authorize Scriptz to access your channel data.
-                  </p>
-                </div>
-                <div className="settings-help-faq-item">
-                  <strong>What does the AI Coach use my data for?</strong>
-                  <p>
-                    Your profile, niche, and preferences help the AI generate personalized scripts
-                    and advice tailored to your channel and style.
-                  </p>
-                </div>
-                <div className="settings-help-faq-item">
-                  <strong>Can I use multiple YouTube channels?</strong>
-                  <p>
-                    Yes. Connect your first channel, then connect additional channels from the same
-                    Google account. Switch between them in Account → YouTube.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* DELETED Personalization panel JSX — see git history if you
-                need to recover the form layout. The form's state and
-                handlers still live above for the onboarding flow that
-                pushes those fields directly to the user-prefs API. */}
-            {false && <div className="settings-modal-panel">
-              <h3 className="settings-panel-heading">Personalization</h3>
-              <p className="settings-panel-desc">
-                Customize how the AI writes your scripts and responds.
-              </p>
-              {personalizationSaveSuccess && (
-                <p className="settings-message settings-message--success">Saved.</p>
-              )}
-              {personalizationSaveError && (
-                <p className="settings-message settings-message--error">
-                  {personalizationSaveError}
-                </p>
-              )}
-              {personalizationSyncing && (
-                <p className="settings-message settings-message--success">Saving…</p>
-              )}
-              <form
-                onSubmit={handleSavePersonalization}
-                className="settings-form settings-personalization-form"
-              >
-                <section className="settings-personalization-section">
-                  <h4 className="settings-personalization-section-title">Profile</h4>
-                  <p className="settings-personalization-section-desc">
-                    Basic info about your channel.
-                  </p>
-                  <div className="settings-form-row-2">
-                    <div className="settings-form-group">
-                      <label htmlFor="personalization-niche">Niche</label>
-                      <input
-                        id="personalization-niche"
-                        type="text"
-                        className="settings-input"
-                        value={profileNiche}
-                        onChange={(e) => setProfileNiche(e.target.value)}
-                        placeholder="e.g. Education, Tech, Lifestyle"
-                      />
-                    </div>
-                    <div className="settings-form-group">
-                      <label htmlFor="personalization-frequency">Upload frequency</label>
-                      <select
-                        id="personalization-frequency"
-                        className="settings-select"
-                        value={profileFrequency}
-                        onChange={(e) => setProfileFrequency(e.target.value)}
-                      >
-                        <option value="">Select frequency</option>
-                        {FREQUENCY_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {getFrequencyLabel(preferredLanguage || 'en', opt.value)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="settings-personalization-section">
-                  <h4 className="settings-personalization-section-title">Voice</h4>
-                  <p className="settings-personalization-section-desc">
-                    Tone, style, and call-to-action for your scripts.
-                  </p>
-                  <div className="settings-form-row-3">
-                    <div className="settings-form-group">
-                      <label htmlFor="personalization-tone">Tone</label>
-                      <select
-                        id="personalization-tone"
-                        className="settings-select"
-                        value={personalizationTone}
-                        onChange={(e) => setPersonalizationTone(e.target.value)}
-                      >
-                        {TONE_OPTIONS.map((opt) => (
-                          <option key={opt.value || 'empty'} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="settings-form-group">
-                      <label htmlFor="personalization-style">Style</label>
-                      <select
-                        id="personalization-style"
-                        className="settings-select"
-                        value={personalizationStyle}
-                        onChange={(e) => setPersonalizationStyle(e.target.value)}
-                      >
-                        {STYLE_OPTIONS.map((opt) => (
-                          <option key={opt.value || 'empty'} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="settings-form-group">
-                      <label htmlFor="personalization-cta">CTA style</label>
-                      <select
-                        id="personalization-cta"
-                        className="settings-select"
-                        value={personalizationCta}
-                        onChange={(e) => setPersonalizationCta(e.target.value)}
-                      >
-                        {CTA_OPTIONS.map((opt) => (
-                          <option key={opt.value || 'empty'} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="settings-personalization-section">
-                  <h4 className="settings-personalization-section-title">Custom AI instructions</h4>
-                  <p className="settings-personalization-section-desc">
-                    Extra rules the AI will follow. Be specific for best results.
-                  </p>
-                  <div className="settings-form-group">
-                    <textarea
-                      id="personalization-custom-prompt"
-                      className="settings-textarea"
-                      value={customPrompt}
-                      onChange={(e) => setCustomPrompt(e.target.value)}
-                      placeholder="e.g. Always use British spelling. Avoid jargon. Keep sentences short. Reference my expertise in marketing when relevant."
-                      rows={3}
-                    />
-                  </div>
-                </section>
-
-                <section className="settings-personalization-section settings-script-voice-section">
-                  <h4 className="settings-personalization-section-title">
-                    Script voice preferences
-                  </h4>
-                  <p className="settings-personalization-section-desc">
-                    Control how personal and direct your scripts sound.
-                  </p>
-                  <div className="settings-script-voice-options">
-                    <label
-                      className={`settings-script-voice-option ${personalizationIncludeStories ? 'is-on' : ''}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={personalizationIncludeStories}
-                        onChange={(e) => setPersonalizationIncludeStories(e.target.checked)}
-                        className="settings-script-voice-input"
-                      />
-                      <span className="settings-script-voice-icon" aria-hidden>
-                        📖
-                      </span>
-                      <div className="settings-script-voice-body">
-                        <span className="settings-script-voice-title">Personal anecdotes</span>
-                        <span className="settings-script-voice-desc">
-                          Include real-life stories and examples in your scripts to build connection
-                          with viewers
-                        </span>
-                        <span className="settings-script-voice-example">
-                          e.g. &quot;Last week I tried this and here&apos;s what happened…&quot;
-                        </span>
-                      </div>
-                      <div className="settings-script-voice-toggle-wrap">
-                        <span className="settings-script-voice-status">
-                          {personalizationIncludeStories ? 'On' : 'Off'}
-                        </span>
-                        <span className="settings-script-voice-slider" />
-                      </div>
-                    </label>
-                    <label
-                      className={`settings-script-voice-option ${personalizationUseFirstPerson ? 'is-on' : ''}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={personalizationUseFirstPerson}
-                        onChange={(e) => setPersonalizationUseFirstPerson(e.target.checked)}
-                        className="settings-script-voice-input"
-                      />
-                      <span className="settings-script-voice-icon" aria-hidden>
-                        ✍️
-                      </span>
-                      <div className="settings-script-voice-body">
-                        <span className="settings-script-voice-title">
-                          First person (&quot;I&quot;)
-                        </span>
-                        <span className="settings-script-voice-desc">
-                          Use &quot;I&quot; and &quot;my&quot; instead of third person for a more
-                          personal, direct tone
-                        </span>
-                        <span className="settings-script-voice-example">
-                          e.g. &quot;I recommend…&quot; instead of &quot;The creator
-                          recommends…&quot;
-                        </span>
-                      </div>
-                      <div className="settings-script-voice-toggle-wrap">
-                        <span className="settings-script-voice-status">
-                          {personalizationUseFirstPerson ? 'On' : 'Off'}
-                        </span>
-                        <span className="settings-script-voice-slider" />
-                      </div>
-                    </label>
-                  </div>
-                </section>
-
-                <button
-                  type="submit"
-                  className="settings-btn settings-btn-primary"
-                  disabled={personalizationSyncing || !hasPersonalizationChanges}
-                >
-                  {personalizationSyncing ? 'Saving…' : 'Save'}
-                </button>
-              </form>
-            </div>}
-
-            {/* AI Model picker + standalone Help panel were retired —
-                Help content is now inlined inside the Account panel above
-                and the AI tier picker moved to its own surface. */}
-
-            {onLogout ? (
-              <div className="settings-modal-mobile-footer">
-                <button
-                  type="button"
-                  className="settings-modal-logout-inline"
-                  onClick={() => {
-                    onClose?.()
-                    onLogout()
-                  }}
-                  aria-label="Log out"
-                >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
-                  >
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <polyline points="16 17 21 12 16 7" />
-                    <line x1="21" y1="12" x2="9" y2="12" />
-                  </svg>
-                  <span>Log out</span>
-                </button>
-              </div>
-            ) : null}
+                </li>
+                <li>
+                  <a href="#refund" className="s-link">
+                    <span>Refund policy</span>
+                    <I.arrow />
+                  </a>
+                </li>
+              </ul>
+            </SectionCard>
           </div>
+
+          {/* ── Danger zone ── */}
+          <SectionCard
+            icon="alert"
+            title="Danger zone"
+            subtitle="Irreversible actions. Read carefully before continuing."
+            tone="danger"
+          >
+            <div className="s-danger-row">
+              <div className="s-danger-text">
+                <strong>Reset your data</strong>
+                <p>Wipes thumbnails, optimizations, and personalisation. Your account stays.</p>
+              </div>
+              <button
+                type="button"
+                className="s-btn s-btn--ghost"
+                onClick={() => setDelDataOpen(true)}
+              >
+                Reset data
+              </button>
+            </div>
+            <div className="s-danger-divider" />
+            <div className="s-danger-row">
+              <div className="s-danger-text">
+                <strong>Delete account</strong>
+                <p>Removes your account and every associated record. Cannot be undone.</p>
+              </div>
+              <button
+                type="button"
+                className="s-btn s-btn--danger"
+                onClick={() => setDelAcctOpen(true)}
+              >
+                Delete account
+              </button>
+            </div>
+          </SectionCard>
         </div>
       </div>
+
+      {/* Confirm sheets */}
+      <ConfirmSheet
+        open={delDataOpen}
+        title="Reset all your data?"
+        body="This wipes generated thumbnails, video optimizations, personalisation, and cached settings. Your account remains active."
+        danger
+        busy={delDataBusy}
+        error={delDataError}
+        onCancel={() => {
+          setDelDataOpen(false)
+          setDelDataError('')
+          setDelDataConfirm('')
+        }}
+        onConfirm={handleDeleteData}
+        confirmLabel="Yes, reset"
+      >
+        <div className="s-form" style={{ marginTop: '0.5rem' }}>
+          <label className="s-field">
+            <span className="s-field-label">Type RESET to confirm</span>
+            <input
+              type="text"
+              className="s-input"
+              value={delDataConfirm}
+              onChange={(e) => setDelDataConfirm(e.target.value.toUpperCase())}
+              placeholder="RESET"
+              autoComplete="off"
+            />
+          </label>
+        </div>
+      </ConfirmSheet>
+
+      <ConfirmSheet
+        open={delAcctOpen}
+        title="Delete your account?"
+        body="This permanently removes your account, channel data, generations, and credits. There is no undo."
+        danger
+        busy={delAcctBusy}
+        error={delAcctError}
+        onCancel={() => {
+          setDelAcctOpen(false)
+          setDelAcctError('')
+          setDelAcctConfirm('')
+          setDelAcctPw('')
+        }}
+        onConfirm={handleDeleteAccount}
+        confirmLabel="Delete account"
+      >
+        <div className="s-form" style={{ marginTop: '0.5rem' }}>
+          <label className="s-field">
+            <span className="s-field-label">Type DELETE to confirm</span>
+            <input
+              type="text"
+              className="s-input"
+              value={delAcctConfirm}
+              onChange={(e) => setDelAcctConfirm(e.target.value.toUpperCase())}
+              placeholder="DELETE"
+              autoComplete="off"
+            />
+          </label>
+          {!accountDeletePasswordOptional && (
+            <label className="s-field">
+              <span className="s-field-label">Password</span>
+              <input
+                type="password"
+                className="s-input"
+                value={delAcctPw}
+                onChange={(e) => setDelAcctPw(e.target.value)}
+                autoComplete="current-password"
+              />
+            </label>
+          )}
+        </div>
+      </ConfirmSheet>
+    </div>
   )
 }
+
+function greetingFromEmail(email) {
+  if (!email) return 'Welcome'
+  const handle = email.split('@')[0]
+  const cleaned = handle
+    .replace(/[._-]+/g, ' ')
+    .replace(/\d+/g, '')
+    .trim()
+  if (!cleaned) return 'Welcome'
+  return `Hey, ${cleaned[0].toUpperCase()}${cleaned.slice(1).toLowerCase()}`
+}
+
+export default SettingsModal

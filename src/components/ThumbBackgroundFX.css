@@ -1,9 +1,84 @@
-/* Thumbnail Generator — flat dark canvas.
- * Single layer, solid colour. No gradients, no masks, no blurs. */
+/* Thumbnail Generator background — dashboard-matched dark canvas with
+ * a centred dot grid.
+ *
+ *   .thumb-bg-fx           full-bleed page colour (matches the dashboard
+ *                          body via `--dash-surface-page`)
+ *   .thumb-bg-fx::before   the dot grid itself, masked by a soft
+ *                          radial ellipse so the centre is crisp and
+ *                          the side gutters thin out gracefully.
+ *
+ * Both fade bands and the violet halo that used to sit above the input
+ * bar were removed — the screen is now a single uniform canvas
+ * edge-to-edge so the chat content reads on a flat dashboard-shade
+ * surface rather than against pure black.
+ */
+
 .thumb-bg-fx {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: var(--app-canvas-bg, #0a0a0c);
+  /* Match the dashboard's visible body. `.dashboard-main-wrap` paints
+   * `var(--dash-surface-page)` (`#0e0e12`); the deeper `--app-canvas-bg`
+   * (`#0a0a0c`) only shows at the very edges of the dashboard so it
+   * read as too dark when used here as the full canvas. */
+  background: var(--dash-surface-page, #0e0e12);
+  overflow: hidden;
+  /* Lock to its own GPU layer so the masked dot pattern is rasterised
+   * once and just transformed during pinch-zoom rather than recomputed
+   * every frame. The mask + radial-gradient combo is expensive enough
+   * that this single line removes most of the zoom lag. */
+  transform: translateZ(0);
+  will-change: transform;
+  contain: layout paint;
+}
+
+.thumb-bg-fx::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Violet-400 (rgb(167, 139, 250)) tinted dots — same accent colour
+   * the score pill and brand gradient use, at ~22% opacity so the
+   * grid stays a quiet texture rather than foreground content. */
+  background-image: radial-gradient(
+    circle at center,
+    rgba(167, 139, 250, 0.22) 0,
+    rgba(167, 139, 250, 0.22) 1px,
+    transparent 1.5px
+  );
+  background-size: 22px 22px;
+  background-repeat: repeat;
+  background-position: center center;
+
+  /* Centred ellipse (`58% 82%`) — crisp dots through the chat-content
+   * column, sprinkled lightly into the side gutters, dissolved at the
+   * very edges. */
+  -webkit-mask-image: radial-gradient(
+    ellipse 58% 82% at center,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.88) 32%,
+    rgba(0, 0, 0, 0.62) 58%,
+    rgba(0, 0, 0, 0.32) 78%,
+    rgba(0, 0, 0, 0.12) 92%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  mask-image: radial-gradient(
+    ellipse 58% 82% at center,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.88) 32%,
+    rgba(0, 0, 0, 0.62) 58%,
+    rgba(0, 0, 0, 0.32) 78%,
+    rgba(0, 0, 0, 0.12) 92%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* Legacy fade bands — kept hidden because the JSX still renders the
+ * elements. Once the JSX nodes are removed these rules can go too. */
+.thumb-bg-fx-shadow,
+.thumb-bg-fx-top-shadow {
+  display: none;
 }

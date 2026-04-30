@@ -1,10 +1,23 @@
-import { useState, useCallback, useMemo, useRef, useEffect, useLayoutEffect } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect, useLayoutEffect, memo } from 'react'
 import { createPortal } from 'react-dom'
+import {
+  ArrowUp as LucideArrowUp,
+  Check as LucideCheck,
+  ChevronDown as LucideChevronDown,
+  CloudUpload as LucideUploadCloud,
+  Copy as LucideCopy,
+  Download as LucideDownload,
+  Paperclip as LucidePaperclip,
+  Pencil as LucidePencil,
+  RefreshCw as LucideRefreshCw,
+  Sparkles as LucideSparkles,
+} from 'lucide-react'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { thumbnailsApi } from '../api/thumbnails'
 import { usePersonaStore } from '../stores/personaStore'
 import { useStyleStore } from '../stores/styleStore'
 import { PersonaSelector } from '../components/PersonaSelector'
+import { ScorePill } from '../components/ScorePill'
 import { StyleSelector } from '../components/StyleSelector'
 import {
   useThumbnailConversationQuery,
@@ -90,36 +103,20 @@ const THUMB_COMPOSER_HINTS = [
   'Split before/after of a messy room, huge arrow, bold text “EXTREME CLEAN”',
 ]
 
-function IconCopy() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="9" y="9" width="11" height="11" rx="2" />
-      <path d="M5 15V6a2 2 0 0 1 2-2h9" />
-    </svg>
-  )
+/* ─────────────────────────────────────────────────────────────────────
+ * ICON WRAPPERS — thin pass-throughs over `lucide-react` so the rest of
+ * the file keeps using `<IconPaperclip />`, `<IconArrowUp />`, etc.
+ * exactly as before. Lucide gives us refined rounded line-caps and a
+ * uniform stroke weight, which reads as the modern AI-app icon style.
+ * `strokeWidth: 2.2` is a hair thicker than the default 2 — tightens
+ * the visual density at small sizes (16-22 px).
+ * ─────────────────────────────────────────────────────────────────── */
+function IconCopy(props) {
+  return <LucideCopy strokeWidth={2.2} {...props} />
 }
 
-function IconArrowUp() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.1"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m12 19 0-14" />
-      <path d="m5 12 7-7 7 7" />
-    </svg>
-  )
+function IconArrowUp(props) {
+  return <LucideArrowUp strokeWidth={2.4} {...props} />
 }
 
 /**
@@ -161,59 +158,28 @@ function ThumbSendPill({
   )
 }
 
-function IconCheck() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20 6L9 17l-5-5" />
-    </svg>
-  )
+function IconCheck(props) {
+  return <LucideCheck strokeWidth={2.5} {...props} />
 }
 
-function IconChevronDown() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  )
+function IconChevronDown(props) {
+  return <LucideChevronDown strokeWidth={2.2} {...props} />
 }
 
-function IconPaperclip() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="m21.44 11.05-8.49 8.49a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 1 1 5.66 5.66l-9.2 9.19a2 2 0 1 1-2.82-2.83l8.48-8.48" />
-    </svg>
-  )
+function IconPaperclip(props) {
+  return <LucidePaperclip strokeWidth={2.2} {...props} />
 }
 
 // Estimated durations for the GenerationProgress confidence bar. The
 // bar is decoupled from real backend progress (we have no signal); these
 // are tuned so the asymptotic ease lands ~92 % around the median wait.
-const GEN_DURATION_SINGLE_MS = 25000
-const GEN_DURATION_BATCH_MS = 35000
-const GEN_DURATION_RECREATE_MS = 28000
-const GEN_DURATION_ANALYZE_MS = 14000
+// Calibrated for the current pipeline: Gemini rewrite (~1-2 s) + gpt-
+// image-2 medium quality render (~8-14 s for single, ~20 s for a 4-up
+// batch). Trim further if gpt-image-2 gets faster.
+const GEN_DURATION_SINGLE_MS = 16000
+const GEN_DURATION_BATCH_MS = 24000
+const GEN_DURATION_RECREATE_MS = 18000
+const GEN_DURATION_ANALYZE_MS = 9000
 
 /**
  * Map a backend error code (from the thumbnails chat route's APIError)
@@ -520,67 +486,17 @@ function ThumbBatchCirclePicker({ value, onChange, disabled }) {
   )
 }
 
-function IconDownload() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
-    </svg>
-  )
+function IconDownload(props) {
+  return <LucideDownload strokeWidth={2.2} {...props} />
 }
-function IconRefresh() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-      <path d="M3 3v5h5" />
-      <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-      <path d="M16 21h5v-5" />
-    </svg>
-  )
+function IconRefresh(props) {
+  return <LucideRefreshCw strokeWidth={2.2} {...props} />
 }
-function IconEdit() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 20h9" />
-      <path d="m16.5 3.5 4 4L7 21l-4 1 1-4Z" />
-    </svg>
-  )
+function IconEdit(props) {
+  return <LucidePencil strokeWidth={2.2} {...props} />
 }
-function IconSparkle() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-    </svg>
-  )
+function IconSparkle(props) {
+  return <LucideSparkles strokeWidth={2.2} {...props} />
 }
 function extractBase64FromDataUrl(dataUrl) {
   if (!dataUrl || !dataUrl.startsWith('data:')) return null
@@ -588,22 +504,8 @@ function extractBase64FromDataUrl(dataUrl) {
   return i >= 0 ? dataUrl.slice(i + 8) : null
 }
 
-function IconUploadCloud() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <polyline points="16 16 12 12 8 16" />
-      <line x1="12" y1="12" x2="12" y2="21" />
-      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
-    </svg>
-  )
+function IconUploadCloud(props) {
+  return <LucideUploadCloud strokeWidth={1.8} {...props} />
 }
 
 function ThumbDropZone({
@@ -717,58 +619,7 @@ function buildAnalyzeSummary(rating, videoTitle) {
   return bits.join(' ')
 }
 
-function getScoreTier(score) {
-  if (score == null) return null
-  const n = Number(score)
-  if (n >= 85) return 'high'
-  if (n >= 60) return 'medium'
-  return 'low'
-}
-
-/**
- * Small tier-appropriate icon shown left of the score number. Uses a clean
- * stroke-style svg (matches the rest of the app's lucide-like iconography).
- *   high   → upward trend arrow
- *   medium → horizontal dash
- *   low    → downward trend arrow
- */
-function ScoreTierIcon({ tier }) {
-  const common = {
-    width: 14,
-    height: 14,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 2.4,
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
-    'aria-hidden': true,
-  }
-  if (tier === 'high') {
-    return (
-      <svg {...common}>
-        <polyline points="3 17 10 10 14 14 21 7" />
-        <polyline points="14 7 21 7 21 14" />
-      </svg>
-    )
-  }
-  if (tier === 'low') {
-    return (
-      <svg {...common}>
-        <polyline points="3 7 10 14 14 10 21 17" />
-        <polyline points="14 17 21 17 21 10" />
-      </svg>
-    )
-  }
-  // medium / default
-  return (
-    <svg {...common}>
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
-  )
-}
-
-function ThumbnailBatchCard({
+const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
   t,
   index,
   label,
@@ -786,7 +637,9 @@ function ThumbnailBatchCard({
   const score =
     ratingQuery.data?.overall_score != null ? Math.round(ratingQuery.data.overall_score) : null
   const loadingScore = ratingQuery.isPending && !!t?.image_url
-  const scoreError = ratingQuery.isError ? friendlyMessage(ratingQuery.error) || 'Score failed' : null
+  const scoreError = ratingQuery.isError
+    ? friendlyMessage(ratingQuery.error) || 'Score failed'
+    : null
   const recommendations = Array.isArray(ratingQuery.data?.recommendations)
     ? ratingQuery.data.recommendations.filter(Boolean)
     : []
@@ -807,31 +660,14 @@ function ThumbnailBatchCard({
   const canOneClickFix =
     !!onRegenerate && canRegenerate && recommendations.length > 0 && !loadingScore && !scoreError
 
-  const scoreTier = scoreError
-    ? 'error'
-    : loadingScore
-      ? 'loading'
-      : score != null
-        ? getScoreTier(score)
-        : null
+  // The score pill mounts whenever there's *something* to show — a real
+  // score, a loading state, or an error. The component handles the
+  // tier-colour palette + state-specific layout itself.
+  const showScorePill = loadingScore || !!scoreError || score != null
 
   return (
     <div className="thumb-batch-card-wrap" data-thumb-slot={index}>
       <div className="thumb-batch-card">
-        {/* Colour tint — the thumbnail image itself, heavily blurred,
-         *  painted INSIDE the card so the card surface adopts the image's
-         *  dominant colours without producing any halo behind the card. */}
-        {t?.image_url ? (
-          <div
-            className="thumb-batch-card-ambient"
-            aria-hidden="true"
-            style={{ backgroundImage: `url(${t.image_url})` }}
-          />
-        ) : null}
-
-        {/* Ambient starfield + soft glow — decorative, pointer-events none */}
-        <div className="thumb-batch-card-bg" aria-hidden="true" />
-
         <div className="thumb-batch-card-inner">
           <div
             className="thumb-batch-img-wrap thumb-batch-img-wrap--viewable"
@@ -848,43 +684,15 @@ function ThumbnailBatchCard({
           >
             <LazyImg src={t.image_url} alt={label} className="thumb-batch-img" />
 
-            {/* Score pill — glass, glowing, tier-tinted. Sits over the image. */}
-            {scoreTier && (
-              <div
-                className={`thumb-score-pill thumb-score-pill--${scoreTier}`}
-                title={
-                  scoreError ||
-                  'AI quality score (CTR potential, visual clarity, contrast, emotional impact)'
-                }
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-              >
-                <span className="thumb-score-pill__glow" aria-hidden="true" />
-                {scoreError ? (
-                  <span
-                    className="thumb-score-pill__retry"
-                    onClick={retryScore}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => e.key === 'Enter' && retryScore()}
-                    aria-label="Retry score"
-                  >
-                    ⟳
-                  </span>
-                ) : loadingScore ? (
-                  <>
-                    <InlineSpinner size={10} />
-                    <span className="thumb-score-pill__label">Scoring</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="thumb-score-pill__icon" aria-hidden="true">
-                      <ScoreTierIcon tier={scoreTier} />
-                    </span>
-                    <span className="thumb-score-pill__num">{score}</span>
-                  </>
-                )}
-              </div>
+            {/* Score pill — owns its own state UI (loading / ready / error)
+             *  + tier palette. See ScorePill.jsx. */}
+            {showScorePill && (
+              <ScorePill
+                score={score}
+                loading={loadingScore}
+                error={scoreError}
+                onRetry={retryScore}
+              />
             )}
 
             {/* Center-bottom floating action bar — frosted glass pill matches
@@ -993,9 +801,9 @@ function ThumbnailBatchCard({
       </div>
     </div>
   )
-}
+})
 
-function ThumbnailGridBlock({
+const ThumbnailGridBlock = memo(function ThumbnailGridBlock({
   thumbnails,
   userRequest,
   msgId,
@@ -1027,17 +835,15 @@ function ThumbnailGridBlock({
       </div>
     </div>
   )
-}
+})
 
 /**
  * Single-image render (recreate / analyze / edit modes).
  *
  * Routes through the same ThumbnailBatchCard the grid uses so every mode
- * shows an identical card: liquid-glass container, starfield backdrop,
- * glowing score pill, and the full action row (Download / One-Click Fix
- * / Edit / Regenerate). No forked layout.
+ * shows an identical card and action row.
  */
-function ThumbnailImageBlock({
+const ThumbnailImageBlock = memo(function ThumbnailImageBlock({
   imageUrl,
   userRequest,
   msgId,
@@ -1067,7 +873,173 @@ function ThumbnailImageBlock({
       </div>
     </div>
   )
-}
+})
+
+/**
+ * Card-filling progress for the pending-thumbnail slot. Whole card grows
+ * left → right in a bright purple → pink gradient with a centred
+ * percentage overlay. rAF-driven asymptotic ease toward ~92 %, then snaps
+ * to 100 % when the parent flips `done`. No real backend signal — this is
+ * a confidence-building animation calibrated by `estimatedDurationMs`.
+ *
+ * Memoised so unrelated parent re-renders during generation don't reset
+ * the rAF loop or jump the percentage backward.
+ */
+const ThumbnailGenFill = memo(function ThumbnailGenFill({
+  estimatedDurationMs = 25000,
+  done = false,
+}) {
+  const [pct, setPct] = useState(0)
+  const rafRef = useRef(0)
+  const startRef = useRef(0)
+  const doneRef = useRef(false)
+  // Mirror pct in a ref so the `done` effect can read the *current*
+  // pct without depending on it (avoids effect re-runs on every frame).
+  const pctRef = useRef(0)
+  useEffect(() => {
+    pctRef.current = pct
+  }, [pct])
+
+  useEffect(() => {
+    doneRef.current = false
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setPct(0)
+    /* eslint-enable react-hooks/set-state-in-effect */
+    startRef.current = performance.now()
+
+    const tick = (now) => {
+      if (doneRef.current) return
+      const elapsed = now - startRef.current
+      const t = Math.max(0, Math.min(1, elapsed / estimatedDurationMs))
+      // 1 - e^(-k*t) reaches ~0.92 at t=1 when k=2.55. Same curve the
+      // shared GenerationProgress uses, kept consistent so percentages
+      // feel the same speed across the app.
+      const k = 2.55
+      const v = ((1 - Math.exp(-k * t)) / (1 - Math.exp(-k))) * 0.92
+      setPct(Math.round(Math.min(0.92, v) * 100))
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [estimatedDurationMs])
+
+  // On `done` flip, smoothly animate from the current pct → 100 over
+  // ~280 ms (easeOut), instead of snapping in a single frame. The
+  // parent's finishLoading() holds the loader on screen for 360 ms,
+  // so the fill completes naturally and rests at 100 % for ~80 ms
+  // before the article unmounts and the real thumbnail card animates
+  // in via `thumb-assistant-msg-in`. Total handoff feels snappy.
+  useEffect(() => {
+    if (!done) return
+    doneRef.current = true
+    cancelAnimationFrame(rafRef.current)
+
+    const startPct = pctRef.current
+    if (startPct >= 100) return // already at 100, nothing to animate
+
+    const startTime = performance.now()
+    const duration = 280
+
+    const animate = (now) => {
+      const t = Math.min(1, (now - startTime) / duration)
+      const eased = 1 - Math.pow(1 - t, 2) // easeOut quad
+      const next = Math.round(startPct + (100 - startPct) * eased)
+      // Set-state-in-effect is intentional — fires only once per
+      // generation completion, no cascading-render risk.
+       
+      setPct(next)
+      if (t < 1) rafRef.current = requestAnimationFrame(animate)
+    }
+    rafRef.current = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [done])
+
+  return (
+    <div
+      className="thumb-gen-fill"
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={pct}
+      aria-busy={!done}
+    >
+      <div className="thumb-gen-fill__bar" style={{ width: `${pct}%` }}>
+        <span className="thumb-gen-fill__sheen" aria-hidden="true" />
+      </div>
+      <div className="thumb-gen-fill__pct">
+        {pct}
+        <span className="thumb-gen-fill__pct-sign">%</span>
+      </div>
+    </div>
+  )
+})
+
+/**
+ * Memoised chat message — the whole reason we extracted this from the
+ * parent's inline `messages.map(...)` is so each existing message stops
+ * re-rendering when the parent's unrelated state changes (typing in the
+ * input, opening a modal, fetching a rating). With `memo` + the parent's
+ * stable `useCallback` handlers, only the NEW message renders when the
+ * thread updates — the rest stays painted.
+ */
+const ChatMessageItem = memo(function ChatMessageItem({
+  msg,
+  onReplaceThumbnail,
+  onRegenerate,
+  onViewImage,
+  onEditImage,
+}) {
+  return (
+    <article
+      className={`coach-message coach-message--enter ${msg.role === 'user' ? 'coach-message--user' : 'coach-message--assistant'}`}
+    >
+      {msg.role === 'user' ? (
+        <div className="coach-user-message-stack">
+          {msg.imageUrl && (
+            <div className="thumb-user-sent-image">
+              <LazyImg src={msg.imageUrl} alt="Sent thumbnail" className="thumb-user-sent-img" />
+            </div>
+          )}
+          <div className="coach-message-bubble">
+            <p>{msg.content}</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {msg.content && !/^Generated\s+\d+\s+thumbnail/i.test(msg.content.trim()) ? (
+            <div className="coach-message-bubble">
+              {renderMessageContent(msg.content, `thumb-msg-${msg.id}`)}
+            </div>
+          ) : null}
+          {msg.imageUrl ? (
+            <ThumbnailImageBlock
+              imageUrl={msg.imageUrl}
+              userRequest={msg.userRequest}
+              msgId={msg.id}
+              onReplaceThumbnail={onReplaceThumbnail}
+              onRegenerate={onRegenerate}
+              onViewImage={onViewImage}
+              onEditImage={onEditImage}
+              canRegenerate
+            />
+          ) : null}
+          {msg.thumbnails?.length > 0 && (
+            <ThumbnailGridBlock
+              thumbnails={msg.thumbnails}
+              userRequest={msg.userRequest}
+              msgId={msg.id}
+              onReplaceThumbnail={onReplaceThumbnail}
+              onRegenerate={onRegenerate}
+              onViewImage={onViewImage}
+              onEditImage={onEditImage}
+              canRegenerate
+            />
+          )}
+        </>
+      )}
+    </article>
+  )
+})
 
 function buildMessagesFromApi(apiMessages = []) {
   return apiMessages.map((m) => {
@@ -1085,6 +1057,35 @@ function buildMessagesFromApi(apiMessages = []) {
       thumbnails,
       imageUrl,
     }
+  })
+}
+
+// Monotonic counter so IDs minted in the same millisecond are still unique.
+/**
+ * Local-only message id minter. Used ONLY for messages produced by the
+ * recreate / analyze flows, which don't go through the chat endpoint and
+ * therefore have no server-assigned id. Chat-mode messages always use the
+ * server's numeric id straight from the API response — no minting needed,
+ * no dedupe games.
+ */
+let _localMsgSeq = 0
+function genLocalId(prefix) {
+  _localMsgSeq += 1
+  return `${prefix}-${Date.now()}-${_localMsgSeq}`
+}
+
+/**
+ * Sort messages strictly by their server-assigned numeric id. Server ids
+ * are monotonic (Postgres SERIAL), so ascending id == chronological order
+ * with no ambiguity. Non-numeric ids (local-only recreate / analyze
+ * messages, see `localOnlyMessages` state) sort to the end in insertion
+ * order — those don't intermix with chat-mode messages anyway.
+ */
+function sortByServerId(messages) {
+  return [...messages].sort((a, b) => {
+    const ai = typeof a.id === 'number' ? a.id : Number.MAX_SAFE_INTEGER
+    const bi = typeof b.id === 'number' ? b.id : Number.MAX_SAFE_INTEGER
+    return ai - bi
   })
 }
 
@@ -1164,10 +1165,26 @@ export function ThumbnailGenerator({
   const [editPreviewUrl, setEditPreviewUrl] = useState(null)
   const editFetchingPreviewRef = useRef(false)
   const [promptImageDataUrl, setPromptImageDataUrl] = useState(null)
+  const [promptImageName, setPromptImageName] = useState('')
+  // Briefly true while the attach pill plays its shrink-back animation
+  // after the user hits ×. Keeps the DOM mounted for ~220 ms so the
+  // exit keyframe can finish before React unmounts and the circle button
+  // pops back in.
+  const [attachPillClosing, setAttachPillClosing] = useState(false)
+  const attachPillCloseTimer = useRef(null)
   const [editDialogUrl, setEditDialogUrl] = useState(null)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [editFooterError, setEditFooterError] = useState('')
+  // Server-canonical chat thread. Every entry has a numeric server-assigned
+  // id. Conversation refetches replace this wholesale — no merges, no
+  // dedupe. Submit handlers commit the (user_message, assistant_message)
+  // pair returned by the chat endpoint atomically.
   const [messages, setMessages] = useState([])
+  // Local-only thread for flows that don't write through the chat endpoint:
+  // recreate (regenerateWithPersona) and analyze (rate). These don't have
+  // a server record so we keep them in a separate bucket — they survive
+  // chat refetches and are rendered AFTER the server messages.
+  const [localOnlyMessages, setLocalOnlyMessages] = useState([])
   const [draft, setDraft] = useState('')
   const [numThumbnails, setNumThumbnails] = useState(1)
   const [numRecreateThumbnails, setNumRecreateThumbnails] = useState(1)
@@ -1258,9 +1275,7 @@ export function ThumbnailGenerator({
         // offset from the scroll viewport, so after prepend we can
         // re-pin the user's reading position.
         const anchorEl = root.querySelector('.coach-message')
-        const anchorOffsetFromTop = anchorEl
-          ? anchorEl.offsetTop - root.scrollTop
-          : 0
+        const anchorOffsetFromTop = anchorEl ? anchorEl.offsetTop - root.scrollTop : 0
 
         loadOlderMutation.mutate(conversationId, {
           onSettled: () => {
@@ -1437,11 +1452,9 @@ export function ThumbnailGenerator({
 
   useEffect(() => {
     if (!conversationId) {
-      // Full reset when the user clicks "New Chat" or lands on a blank
-      // chat screen. Mirrors what CoachChat does on newChat events so the
-      // composer is genuinely empty — draft, pending flags, errors, and
-      // any stray image attachments all clear together.
+      // Full reset on "New Chat" / blank chat screen.
       setMessages([])
+      setLocalOnlyMessages([])
       setDraft('')
       setSendError('')
       setSendErrorMeta(null)
@@ -1463,24 +1476,32 @@ export function ThumbnailGenerator({
       setEditFooterError('')
       return
     }
-    // Belt-and-suspenders: only adopt server data if it actually belongs
-    // to the conversation the user is currently viewing. Without this,
-    // a stale fetch landing late (or a residual placeholder from React
-    // Query) could splash the previous chat's messages onto a freshly
-    // opened thread.
+    // Server is the single source of truth for chat-thread messages.
+    // Every fetch wholesale-replaces local `messages` — no merges, no
+    // optimistic-id reconciliation. Submit handlers append the
+    // server-returned (user_message, assistant_message) pair directly,
+    // so by the time the next refetch lands the API already has them
+    // and replays them in the same order.
+    //
+    // Belt-and-suspenders: only adopt server data if it belongs to the
+    // conversation the user is currently viewing. Stale fetches landing
+    // late (or a residual placeholder from React Query) must not splash
+    // the previous chat's messages onto a freshly opened thread.
     const serverConvId = conversationQuery.data?.conversation?.id
     const matchesCurrent = serverConvId == null || Number(serverConvId) === Number(conversationId)
     if (matchesCurrent && conversationQuery.data?.messages?.items) {
-      const serverMessages = buildMessagesFromApi(conversationQuery.data.messages.items)
-      // Poll-safe merge: if the server has fewer messages than we currently
-      // show (because we've already pushed optimistic local messages that
-      // the backend hasn't persisted yet), keep the local state. Otherwise
-      // the server is authoritative.
-      setMessages((current) => (serverMessages.length >= current.length ? serverMessages : current))
+      setMessages(buildMessagesFromApi(conversationQuery.data.messages.items))
     } else if (!matchesCurrent || !conversationQuery.data) {
       setMessages([])
     }
   }, [conversationId, conversationQuery.data])
+
+  // Conversation switch wipes local-only messages — they belong to the
+  // session the user just left. Without this the recreate/analyze
+  // bubbles from one conversation would bleed into the next.
+  useEffect(() => {
+    setLocalOnlyMessages([])
+  }, [conversationId])
 
   // Auto-recovery: if we're polling because a generation was in flight AND the
   // server response now contains an assistant message with thumbnails (proof
@@ -1506,12 +1527,20 @@ export function ThumbnailGenerator({
 
   const isHistoryLoading =
     conversationId != null && (conversationQuery.isPending || conversationQuery.isPlaceholderData)
+  // Combined render list: server-canonical chat thread first (sorted by
+  // numeric server id), then local-only recreate / analyze results
+  // appended in the order they happened. The two buckets never overlap
+  // by id (server ids are numeric, local-only ids are tagged strings).
+  const renderedMessages = useMemo(
+    () => [...sortByServerId(messages), ...localOnlyMessages],
+    [messages, localOnlyMessages]
+  )
   const isEmptyScreen =
-    !isHistoryLoading && messages.length === 0 && !pendingUserMessage && !pendingAssistant
+    !isHistoryLoading && renderedMessages.length === 0 && !pendingUserMessage && !pendingAssistant
   const layoutCentered = isEmptyScreen || isHistoryLoading
   const { showScrollToBottom, scrollToBottom } = useThreadScrollToBottom(threadRef, {
     enabled: !isHistoryLoading,
-    deps: [messages.length, pendingUserMessage, pendingAssistant, thumbMode],
+    deps: [renderedMessages.length, pendingUserMessage, pendingAssistant, thumbMode],
     // Only surface the button after the user has scrolled up by more than a
     // full viewport — a small scroll doesn't warrant a jump-to-bottom CTA.
     minScrollUp: (el) => el.clientHeight * 1.1,
@@ -1553,10 +1582,11 @@ export function ThumbnailGenerator({
     return () => ro.disconnect()
   }, [thumbMode])
 
-  // Call on successful API completion — snaps the GenerationProgress
-  // bar to 100, then clears the pending flag once the bar's fade-out
-  // has had time to play. The 550 ms here is intentionally a touch
-  // longer than the bar's fade transition so it never gets cut off.
+  // Call on successful API completion. Flips `pendingDone` (which the
+  // <ThumbnailGenFill /> component picks up to smoothly tween the bar
+  // from its current pct → 100 over ~280 ms), then unmounts the loader
+  // ~80 ms after the fill animation finishes so the new thumbnail card
+  // can take over. Total handoff: ~360 ms — fast but not jumpy.
   const finishLoading = useCallback(() => {
     if (finishLoadingRef.current) clearTimeout(finishLoadingRef.current)
     setPendingDone(true)
@@ -1564,7 +1594,7 @@ export function ThumbnailGenerator({
       setPendingAssistant(false)
       setPendingDone(false)
       finishLoadingRef.current = null
-    }, 550)
+    }, 360)
   }, [])
 
   // Textarea auto-resize — SIMPLE version. `height: auto` measures the
@@ -1710,16 +1740,21 @@ export function ThumbnailGenerator({
       }
     }
 
-    setMessages((prev) => [
+    // Recreate / analyze flows don't write to the chat conversation, so
+    // their results live in `localOnlyMessages` (rendered after the
+    // server-canonical `messages`). IDs are local-only strings — these
+    // messages never round-trip through the chat refetch so they don't
+    // collide with server numeric ids.
+    setLocalOnlyMessages((prev) => [
       ...prev,
       {
-        id: `user-${Date.now()}`,
+        id: genLocalId('local-user'),
         role: 'user',
         content: userContent,
         imageUrl: assistant.userImageUrl || null,
       },
       {
-        id: assistant.id ?? `assistant-${Date.now()}`,
+        id: assistant.id ?? genLocalId('local-assistant'),
         role: 'assistant',
         content: assistant.content || '',
         thumbnails: assistant.thumbnails || [],
@@ -1748,8 +1783,83 @@ export function ThumbnailGenerator({
     const file = e.target.files?.[0]
     if (!file || !file.type.startsWith('image/')) return
     setPromptImageDataUrl(await readFileAsDataUrl(file))
+    setPromptImageName(file.name || 'Image')
     e.target.value = ''
   }
+
+  const clearPromptImage = useCallback(() => {
+    setPromptImageDataUrl(null)
+    setPromptImageName('')
+  }, [])
+
+  /**
+   * Commit the (user_message, assistant_message) pair the chat endpoint
+   * returned, atomically. Both records have server-assigned numeric ids
+   * so there's no dedupe / merge logic needed — the next conversation
+   * refetch will replay the same ids and wholesale-replace the array
+   * with identical content.
+   *
+   * Falls back gracefully if the backend is older and only returns
+   * `message_id` (the assistant id) without the explicit pair: in that
+   * case we can't commit the user message locally, so we let the next
+   * conversation refetch fill it in.
+   */
+  const commitServerChatPair = useCallback((result, fallbackUserText) => {
+    if (!result) return
+    const thumbnails = result.thumbnails || []
+    const userRecord = result.user_message
+      ? {
+          id: result.user_message.id,
+          role: 'user',
+          content: result.user_message.content,
+          imageUrl: null,
+          userRequest: '',
+          thumbnails: [],
+        }
+      : null
+    const assistantRecord = result.assistant_message
+      ? {
+          id: result.assistant_message.id,
+          role: 'assistant',
+          content: result.assistant_message.content || '',
+          thumbnails,
+          imageUrl: result.assistant_message.extra_data?.image_url || null,
+          userRequest: result.assistant_message.extra_data?.user_request || fallbackUserText || '',
+        }
+      : result.message_id != null
+        ? {
+            id: result.message_id,
+            role: 'assistant',
+            content: thumbnails.length > 0 ? '' : result.content || '',
+            thumbnails,
+            imageUrl: null,
+            userRequest: result.user_request || fallbackUserText || '',
+          }
+        : null
+
+    setMessages((prev) => {
+      const knownIds = new Set(prev.map((m) => m.id))
+      const additions = []
+      if (userRecord && !knownIds.has(userRecord.id)) additions.push(userRecord)
+      if (assistantRecord && !knownIds.has(assistantRecord.id)) additions.push(assistantRecord)
+      if (additions.length === 0) return prev
+      return sortByServerId([...prev, ...additions])
+    })
+  }, [])
+
+  // ×-click handler with shrink-back animation. The CSS rule for
+  // `.thumb-attach-pill--closing` swaps the in-keyframe for the out-
+  // keyframe; we leave the DOM mounted for the duration of that
+  // animation, then call the real clear and unmount.
+  const closeAttachPillAnimated = useCallback(() => {
+    if (attachPillCloseTimer.current) clearTimeout(attachPillCloseTimer.current)
+    setAttachPillClosing(true)
+    attachPillCloseTimer.current = setTimeout(() => {
+      clearPromptImage()
+      setAttachPillClosing(false)
+      attachPillCloseTimer.current = null
+    }, 220)
+  }, [clearPromptImage])
 
   const handleSubmit = async (e) => {
     e?.preventDefault?.()
@@ -1761,20 +1871,15 @@ export function ThumbnailGenerator({
 
     setSendError('')
     setSendErrorMeta(null)
-    // Push the user's message into `messages` synchronously so it appears the
-    // instant they hit send — no waiting for the backend, no waiting for an
-    // `ensureConversationId` round-trip. The assistant loader fills the slot
-    // below it while the chat mutation runs.
-    const optimisticUserId = `user-optimistic-${Date.now()}`
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: optimisticUserId,
-        role: 'user',
-        content: combined,
-        imageUrl: promptImageDataUrl || null,
-      },
-    ])
+    // The user bubble appears INSTANTLY via `pendingUserMessage` (rendered
+    // alongside `pendingAssistant` loader). It's NOT pushed into the
+    // server-canonical `messages` array — that array only ever holds
+    // server records keyed by their numeric ids. On chat-mutation success
+    // we commit the server's (user_message, assistant_message) pair
+    // atomically; on failure the pending bubble simply clears.
+    const userImageAtSubmit = promptImageDataUrl || null
+    setPendingUserMessage(combined)
+    setPendingUserImageUrl(userImageAtSubmit)
     setPendingAssistant(true)
     setDraft('')
 
@@ -1788,24 +1893,22 @@ export function ThumbnailGenerator({
 
     try {
       if (promptImageDataUrl) {
+        // Whole-image edit doesn't go through the chat endpoint, so
+        // results land in `localOnlyMessages` (rendered after the
+        // server-canonical `messages`). The pending user bubble + the
+        // local-only pair never both render the same content because
+        // pendingUserMessage clears in the finally below.
         const imageUrl = await runWholeImageEdit({
           imageUrl: promptImageDataUrl,
           prompt: `${combined} ${buildSelectionHint(selectedPersona, selectedStyle)}`.trim(),
         })
-        // Append only the assistant — the user message is already rendered
-        // from the optimistic push above.
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `assistant-${Date.now()}`,
-            role: 'assistant',
-            content: '',
-            thumbnails: [],
-            imageUrl,
-            userRequest: combined,
-          },
-        ])
-        setPromptImageDataUrl(null)
+        pushLocalAssistantMessage(combined, {
+          content: '',
+          imageUrl,
+          userImageUrl: userImageAtSubmit,
+          userRequest: combined,
+        })
+        clearPromptImage()
       } else {
         const result = await chatMutation.mutateAsync({
           message: combined,
@@ -1815,18 +1918,12 @@ export function ThumbnailGenerator({
           style_id: selectedStyleId || undefined,
           channel_id: channelId || undefined,
         })
-        const thumbs = result?.thumbnails || []
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: result?.message_id ?? `assistant-${Date.now()}`,
-            role: 'assistant',
-            content: thumbs.length > 0 ? '' : result?.content || 'Could not generate thumbnails.',
-            thumbnails: thumbs,
-            imageUrl: null,
-            userRequest: combined,
-          },
-        ])
+        // Server-canonical commit: append the (user_message, assistant_message)
+        // pair the backend persisted, in id order. No client-side
+        // dedupe needed — the next conversation refetch will return the
+        // same records and wholesale-replace `messages` with the same
+        // content.
+        commitServerChatPair(result, combined)
       }
       finishLoading()
       // Generation succeeded — if the user is still on this conversation,
@@ -1841,8 +1938,6 @@ export function ThumbnailGenerator({
       // Parse the structured error payload. The chat route returns either:
       //   • APIError shape:  { error: { code, message, request_id, extra } }
       //   • HTTPException:   { detail: <string> | { code, message, ... } }
-      // We prefer the structured code so the footer can pick a tailored
-      // message + decide whether to show a Retry pill.
       const body = err?.payload
       const errorObj = body?.error
       const detailObj = body?.detail && typeof body.detail === 'object' ? body.detail : null
@@ -1864,28 +1959,35 @@ export function ThumbnailGenerator({
         retryAfterSeconds: extra?.retry_after_seconds ?? null,
         draft: combined,
       })
-      // Surface as a global toast in addition to the inline footer error so
-      // the failure is visible even if the user has scrolled away.
       toast.error(backendMsg, {
         code: code || undefined,
         title: friendlyTitleFor(code),
       })
       setDraft(combined)
       setPendingAssistant(false)
-      // Roll back the optimistic user message so they can retry.
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticUserId))
       if (activeConversationId) clearPending(activeConversationId)
+    } finally {
+      // Always clear the in-flight bubble — on success the server pair has
+      // already been committed (or pushLocalAssistantMessage ran), on
+      // failure there's nothing to commit.
+      setPendingUserMessage(null)
+      setPendingUserImageUrl(null)
     }
   }
 
   const handleReplaceThumbnail = useCallback((msgId, thumbIndex, newThumbnail) => {
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === msgId && m.role === 'assistant'
-          ? { ...m, thumbnails: m.thumbnails.map((t, i) => (i === thumbIndex ? newThumbnail : t)) }
-          : m
-      )
-    )
+    // The replaced message could live in either bucket — server-canonical
+    // `messages` (chat-mode results) or `localOnlyMessages` (recreate /
+    // analyze results). Try both; whichever matches will mutate.
+    const updater = (m) =>
+      m.id === msgId && m.role === 'assistant'
+        ? {
+            ...m,
+            thumbnails: (m.thumbnails || []).map((t, i) => (i === thumbIndex ? newThumbnail : t)),
+          }
+        : m
+    setMessages((prev) => prev.map(updater))
+    setLocalOnlyMessages((prev) => prev.map(updater))
   }, [])
 
   const handleRegenerateOne = useCallback(
@@ -1902,19 +2004,10 @@ export function ThumbnailGenerator({
           style_id: selectedStyleId || undefined,
           channel_id: channelId || undefined,
         })
-        const thumbnails = result?.thumbnails || []
-        const assistantMsg = {
-          id: result?.message_id ?? `assistant-${Date.now()}`,
-          role: 'assistant',
-          content: thumbnails.length > 0 ? '' : result?.content || 'Regenerated.',
-          userRequest,
-          thumbnails,
-        }
-        setMessages((prev) => [
-          ...prev,
-          { id: `user-${Date.now()}`, role: 'user', content: userRequest },
-          assistantMsg,
-        ])
+        // Commit the server-canonical pair atomically — same path as the
+        // primary submit handler. No more local id minting, no merge
+        // dance with the next refetch.
+        commitServerChatPair(result, userRequest)
         finishLoading()
       } catch (err) {
         const { code, message } = parseApiError(err, 'Regeneration failed')
@@ -1934,6 +2027,7 @@ export function ThumbnailGenerator({
       channelId,
       pendingAssistant,
       finishLoading,
+      commitServerChatPair,
     ]
   )
 
@@ -2120,12 +2214,47 @@ export function ThumbnailGenerator({
       aria-labelledby="coach-tab-thumbnails"
     >
       <ThumbBackgroundFX />
+      {/* Inline SVG filter defs — replaces the previous backdrop-filter
+          blur effects with a single GPU-light SVG filter that elements
+          can opt into via `filter: url(#tg-glass)`. The filter is
+          intentionally tiny (no blur, no displacement) so it doesn't
+          re-create the memory cost of backdrop-filter blur surfaces:
+              - feColorMatrix lifts saturation a notch.
+              - feComponentTransfer adds a subtle linear contrast lift.
+          Applied to one or two key surfaces only; all other previously-
+          glassy elements are now solid. */}
+      <svg
+        className="thumb-gen-svg-defs"
+        aria-hidden
+        focusable="false"
+        width="0"
+        height="0"
+        style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}
+      >
+        <defs>
+          <filter id="tg-glass" x="0%" y="0%" width="100%" height="100%">
+            <feColorMatrix
+              type="matrix"
+              values="1.05 0    0    0 0
+                      0    1.05 0    0 0
+                      0    0    1.05 0 0
+                      0    0    0    1 0"
+            />
+            <feComponentTransfer>
+              <feFuncR type="linear" slope="1.04" intercept="0" />
+              <feFuncG type="linear" slope="1.04" intercept="0" />
+              <feFuncB type="linear" slope="1.04" intercept="0" />
+            </feComponentTransfer>
+          </filter>
+        </defs>
+      </svg>
       <motion.section
         className={`coach-chat-shell${isEmptyScreen ? ' coach-chat-shell--thumb-empty' : ''}`}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.42, ease: IOS_EASE }}
       >
+        <div className="thumb-bg-fx-top-shadow" aria-hidden="true" />
         <div
           ref={threadRef}
           className={`coach-thread ${layoutCentered ? 'coach-thread--empty' : ''} coach-thread--thumb-panel ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
@@ -2177,61 +2306,15 @@ export function ThumbnailGenerator({
           )}
 
           {!isHistoryLoading &&
-            messages.map((msg) => (
-              <article
+            renderedMessages.map((msg) => (
+              <ChatMessageItem
                 key={msg.id}
-                className={`coach-message coach-message--enter ${msg.role === 'user' ? 'coach-message--user' : 'coach-message--assistant'}`}
-              >
-                {msg.role === 'user' ? (
-                  <div className="coach-user-message-stack">
-                    {msg.imageUrl && (
-                      <div className="thumb-user-sent-image">
-                        <LazyImg
-                          src={msg.imageUrl}
-                          alt="Sent thumbnail"
-                          className="thumb-user-sent-img"
-                        />
-                      </div>
-                    )}
-                    <div className="coach-message-bubble">
-                      <p>{msg.content}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {msg.content && !/^Generated\s+\d+\s+thumbnail/i.test(msg.content.trim()) ? (
-                      <div className="coach-message-bubble">
-                        {renderMessageContent(msg.content, `thumb-msg-${msg.id}`)}
-                      </div>
-                    ) : null}
-                    {msg.imageUrl ? (
-                      <ThumbnailImageBlock
-                        imageUrl={msg.imageUrl}
-                        userRequest={msg.userRequest}
-                        msgId={msg.id}
-                        onReplaceThumbnail={handleReplaceThumbnail}
-                        onRegenerate={handleRegenerateOne}
-                        onViewImage={openThumbLightbox}
-                        onEditImage={openEditorForThumbnail}
-                        canRegenerate
-                      />
-                    ) : null}
-                    {msg.thumbnails?.length > 0 && (
-                      <ThumbnailGridBlock
-                        thumbnails={msg.thumbnails}
-                        userRequest={msg.userRequest}
-                        msgId={msg.id}
-                        onReplaceThumbnail={handleReplaceThumbnail}
-                        onRegenerate={handleRegenerateOne}
-                        onViewImage={openThumbLightbox}
-                        onEditImage={openEditorForThumbnail}
-                        canRegenerate
-                      />
-                    )}
-                  </>
-                )}
-                {/* Copy button removed — not useful on the thumbnail screen. */}
-              </article>
+                msg={msg}
+                onReplaceThumbnail={handleReplaceThumbnail}
+                onRegenerate={handleRegenerateOne}
+                onViewImage={openThumbLightbox}
+                onEditImage={openEditorForThumbnail}
+              />
             ))}
 
           {pendingUserMessage && (
@@ -2256,27 +2339,25 @@ export function ThumbnailGenerator({
 
           {pendingAssistant && (
             <article className="coach-message coach-message--assistant coach-message--enter">
-              {/* Shared 16:9 placeholder slot that the result thumbnail will
-               * land in — keeps the layout stable so the bar → image swap
-               * doesn't cause a height jump. <GenerationProgress /> is the
-               * one and only loader for every thumbnail-generation path
-               * (chat, recreate, batch, analyze). */}
-              <div className="thumb-gen-loader">
+              {/* Shared 16:9 placeholder slot that the result thumbnail
+               * will land in — keeps the layout stable so the loader →
+               * image swap doesn't cause a height jump. <ThumbnailGenFill />
+               * fills the whole stage left→right in a bright gradient
+               * with a centred percentage. */}
+              <div className="thumb-gen-loader" aria-busy="true" aria-label="Generating thumbnail">
                 <div className="thumb-gen-loader__stage">
-                  <div className="gen-progress-slot">
-                    <GenerationProgress
-                      done={pendingDone}
-                      estimatedDurationMs={(() => {
-                        if (thumbMode === 'analyze') return GEN_DURATION_ANALYZE_MS
-                        if (thumbMode === 'recreate') {
-                          return numRecreateThumbnails > 1
-                            ? GEN_DURATION_BATCH_MS
-                            : GEN_DURATION_RECREATE_MS
-                        }
-                        return numThumbnails > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_SINGLE_MS
-                      })()}
-                    />
-                  </div>
+                  <ThumbnailGenFill
+                    done={pendingDone}
+                    estimatedDurationMs={(() => {
+                      if (thumbMode === 'analyze') return GEN_DURATION_ANALYZE_MS
+                      if (thumbMode === 'recreate') {
+                        return numRecreateThumbnails > 1
+                          ? GEN_DURATION_BATCH_MS
+                          : GEN_DURATION_RECREATE_MS
+                      }
+                      return numThumbnails > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_SINGLE_MS
+                    })()}
+                  />
                 </div>
               </div>
             </article>
@@ -2284,6 +2365,8 @@ export function ThumbnailGenerator({
 
           <div ref={messagesEndRef} />
         </div>
+
+        <div className="thumb-bg-fx-shadow" aria-hidden="true" />
 
         <motion.footer
           ref={composerFooterRef}
@@ -2378,31 +2461,13 @@ export function ThumbnailGenerator({
                 {thumbMode === 'prompt' && (
                   <form onSubmit={handleSubmit} className="thumb-gen-mode-form">
                     <div className="coach-composer-input-wrap thumb-prompt-input-wrap">
-                      {promptImageDataUrl && (
-                        <div className="thumb-source-preview-strip">
-                          <img
-                            src={promptImageDataUrl}
-                            alt=""
-                            className="thumb-source-preview-strip-img"
-                            loading="lazy"
-                            decoding="async"
-                          />
-                          <button
-                            type="button"
-                            className="thumb-source-preview-strip-clear"
-                            onClick={() => setPromptImageDataUrl(null)}
-                          >
-                            Remove image
-                          </button>
-                        </div>
-                      )}
                       <textarea
                         ref={textareaRef}
                         value={draft}
-                        onChange={(e) => setDraft(String(e.target.value).slice(0, 500))}
+                        onChange={(e) => setDraft(String(e.target.value).slice(0, 2000))}
                         rows={1}
                         className="coach-composer-input thumb-prompt-textarea"
-                        maxLength={500}
+                        maxLength={2000}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
@@ -2424,15 +2489,69 @@ export function ThumbnailGenerator({
                           className="coach-file-input"
                           onChange={handlePromptImageChange}
                         />
-                        <button
-                          type="button"
-                          className="coach-composer-tool coach-composer-tool--circle thumb-gen-toolbar-attach"
-                          onClick={() => promptFileInputRef.current?.click()}
-                          aria-label="Add image"
-                          title="Add image"
-                        >
-                          <IconPaperclip />
-                        </button>
+                        {promptImageDataUrl ? (
+                          <button
+                            type="button"
+                            className={`thumb-attach-pill ${attachPillClosing ? 'thumb-attach-pill--closing' : ''}`}
+                            key={promptImageDataUrl}
+                            onClick={() => {
+                              if (attachPillClosing) return
+                              promptFileInputRef.current?.click()
+                            }}
+                            title={promptImageName || 'Attached image — click to replace'}
+                          >
+                            <img
+                              src={promptImageDataUrl}
+                              alt=""
+                              className="thumb-attach-pill__thumb"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                            <span className="thumb-attach-pill__name">
+                              {promptImageName || 'Image'}
+                            </span>
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              className="thumb-attach-pill__close"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                closeAttachPillAnimated()
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  closeAttachPillAnimated()
+                                }
+                              }}
+                              aria-label="Remove attached image"
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.4"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden
+                              >
+                                <path d="M18 6 6 18" />
+                                <path d="m6 6 12 12" />
+                              </svg>
+                            </span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="coach-composer-tool coach-composer-tool--circle thumb-gen-toolbar-attach"
+                            onClick={() => promptFileInputRef.current?.click()}
+                            aria-label="Add image"
+                            title="Add image"
+                          >
+                            <IconPaperclip />
+                          </button>
+                        )}
                         <PersonaSelector onOpenLibrary={onOpenPersonas} variant="glassCircle" />
                         <StyleSelector onOpenLibrary={onOpenStyles} variant="glassCircle" />
                         <ThumbBatchCirclePicker
@@ -2508,11 +2627,11 @@ export function ThumbnailGenerator({
                       <textarea
                         ref={recreateTextareaRef}
                         value={recreateDraft}
-                        onChange={(e) => setRecreateDraft(String(e.target.value).slice(0, 600))}
+                        onChange={(e) => setRecreateDraft(String(e.target.value).slice(0, 2000))}
                         placeholder="Describe what should change (optional)…"
                         rows={1}
                         className="coach-composer-input thumb-visible-placeholder"
-                        maxLength={600}
+                        maxLength={2000}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()

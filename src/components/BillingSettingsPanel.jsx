@@ -1,16 +1,31 @@
 /**
- * BillingSettingsPanel — shown inside SettingsModal's "Billing" tab.
+ * Billing — flat two-section layout.
  *
- * Free users see a compact upsell.
- * Subscribed users see:
- *   • Current plan + status badge (trial / active / past_due / canceled)
- *   • Renewal or expiry date
- *   • Credit balance + this-period usage
- *   • "Change plan" (jump to /#pro) + "Cancel subscription" (confirm → Paddle)
- *   • Recent ledger rows (last 8) for transparency
+ *   ┌─ Subscription Details ──────────────────────────┐
+ *   │  Plan                       [ Manage Plan ]      │
+ *   │  Creator monthly                                 │
+ *   │  ── divider ──                                   │
+ *   │  Next billing amount                             │
+ *   │  $39.99                                          │
+ *   │  Active until                       Apr 20, 2026 │
+ *   │  Billing period   Apr 13, 2026 – Apr 20, 2026    │
+ *   │  ─ Total ────────────────────────────  $39.99 ─  │
+ *   │  ── divider ──                                   │
+ *   │  Payment & Billing Info     [ Update Infos ]     │
+ *   │  ┌── Payment ──┐ ┌── Billing address ─┐          │
+ *   │  Cancel subscription / footer note               │
+ *   └──────────────────────────────────────────────────┘
+ *
+ *   ┌─ Recent Invoices ───────────────────────────────┐
+ *   │  list of invoices  /  empty state                │
+ *   └──────────────────────────────────────────────────┘
+ *
+ * One outer card per section. Inside, rows are placed directly on
+ * the card surface — no nested "frame" wrapper. The two payment-info
+ * tiles are simple sub-cards on that same surface.
  */
 import { useMemo, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { useAuthStore } from '../stores/authStore'
 import {
@@ -20,28 +35,92 @@ import {
 } from '../queries/billing/creditsQueries'
 import { cancelSubscription, getLedger } from '../api/billing'
 import { queryKeys } from '../lib/query/queryKeys'
-import { useQuery } from '@tanstack/react-query'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { resultOrNullOnAuthFailure } from '../lib/query/safeApi'
-import { openCreditsModal } from '../lib/creditsModalBus'
 import { friendlyMessage } from '../lib/aiErrors'
-import { InlineSpinner, SkeletonCard, SkeletonGroup, SkeletonList, Skeleton } from './ui'
+import { InlineSpinner, Skeleton, SkeletonGroup } from './ui'
 import './BillingSettingsPanel.css'
 
-function fmt(n) {
-  if (n == null) return '—'
-  return Number(n).toLocaleString('en-US')
+/* ───────────────────── formatting helpers ──────────────────────── */
+
+function fmtUSD(n) {
+  if (n == null || isNaN(n)) return '—'
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n)
 }
 
 function fmtDate(iso) {
   if (!iso) return '—'
   try {
-    const d = new Date(iso)
-    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    return new Date(iso).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    })
   } catch {
     return iso
   }
 }
+
+function fmtDateRange(startIso, endIso) {
+  if (!startIso || !endIso) return '—'
+  try {
+    const start = new Date(startIso).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+    const end = new Date(endIso).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+    return `${start} – ${end}`
+  } catch {
+    return '—'
+  }
+}
+
+/* Plan-name → monthly USD price (mirrors ProPricingContent values).
+ * Yearly plans bill once with the discounted-monthly × 12. */
+const PRICE_MONTHLY = { starter: 19.99, creator: 39.99, ultimate: 79.99 }
+const PRICE_YEARLY_MONTHLY = { starter: 13.99, creator: 27.99, ultimate: 55.99 }
+
+function nextBillingAmountUSD(subscription) {
+  if (!subscription) return null
+  // Backend may already supply the amount.
+  const direct =
+    subscription.next_amount_usd ?? subscription.plan_amount_usd ?? subscription.amount_usd ?? null
+  if (direct != null) return Number(direct)
+  const slug = String(subscription.plan_name || '')
+    .toLowerCase()
+    .trim()
+  if (!slug) return null
+  if (subscription.billing_period === 'year') {
+    const m = PRICE_YEARLY_MONTHLY[slug]
+    return m == null ? null : +(m * 12).toFixed(2)
+  }
+  const m = PRICE_MONTHLY[slug]
+  return m == null ? null : m
+}
+
+/* ───────────────────── invoice synthesis ───────────────────────── */
+/* Until the backend exposes a real invoice feed, we derive money-flow
+ * rows from the credit ledger's purchase / grant / refund kinds.
+ * Per-feature usage debits are intentionally excluded — they aren't
+ * invoices. */
+const INVOICE_KINDS = new Set(['subscription_grant', 'pack_purchase', 'refund'])
+const INVOICE_LABELS = {
+  subscription_grant: 'Subscription renewal',
+  pack_purchase: 'Credit pack',
+  refund: 'Refund',
+}
+
+/* ───────────────────── ledger query ────────────────────────────── */
 
 function useLedgerQuery(active) {
   return useQuery({
@@ -50,27 +129,70 @@ function useLedgerQuery(active) {
     queryFn: async () => {
       const token = await getAccessTokenOrNull()
       if (!token) return null
-      return resultOrNullOnAuthFailure(getLedger(token, { limit: 8 }))
+      return resultOrNullOnAuthFailure(getLedger(token, { limit: 25 }))
     },
     staleTime: 30_000,
   })
 }
 
-function StatusBadge({ status, isTrial }) {
-  if (isTrial) return <span className="bsp-badge bsp-badge--trial">Free trial</span>
-  switch (status) {
-    case 'active':
-      return <span className="bsp-badge bsp-badge--active">Active</span>
-    case 'past_due':
-      return <span className="bsp-badge bsp-badge--warn">Past due</span>
-    case 'canceled':
-      return <span className="bsp-badge bsp-badge--cancel">Canceled</span>
-    case 'paused':
-      return <span className="bsp-badge bsp-badge--warn">Paused</span>
-    default:
-      return <span className="bsp-badge">{status || '—'}</span>
-  }
+/* ───────────────────── icon ─────────────────────────────────────── */
+
+const CardChipIcon = (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="3" y="6" width="18" height="13" rx="2" />
+    <path d="M3 10h18" />
+    <path d="M7 15h2" />
+  </svg>
+)
+
+/* ───────────────────── confirm sheet ───────────────────────────── */
+
+function CancelConfirm({ open, busy, error, periodEnd, onCancel, onConfirm }) {
+  if (!open) return null
+  return (
+    <div className="bp-confirm" role="alertdialog" aria-labelledby="bp-confirm-title">
+      <div className="bp-confirm-card">
+        <h4 id="bp-confirm-title" className="bp-confirm-title">
+          Cancel subscription?
+        </h4>
+        <p className="bp-confirm-body">
+          Your plan stays active until <strong>{fmtDate(periodEnd)}</strong>. After that, paid
+          features lock and credits reset to zero.
+        </p>
+        {error ? <p className="bp-confirm-error">{error}</p> : null}
+        <div className="bp-confirm-actions">
+          <button type="button" className="bp-btn bp-btn--ghost" onClick={onCancel} disabled={busy}>
+            Keep subscription
+          </button>
+          <button
+            type="button"
+            className="bp-btn bp-btn--danger"
+            onClick={onConfirm}
+            disabled={busy}
+          >
+            {busy ? (
+              <span className="bp-btn-pending">
+                <InlineSpinner size={12} />
+                Cancelling…
+              </span>
+            ) : (
+              'Yes, cancel'
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
+
+/* ───────────────────── main component ──────────────────────────── */
 
 export function BillingSettingsPanel({ active }) {
   const queryClient = useQueryClient()
@@ -79,7 +201,7 @@ export function BillingSettingsPanel({ active }) {
   const { data: credits } = useCreditsQuery({ refetchInterval: active ? 30_000 : false })
   const { data: ledger } = useLedgerQuery(active)
 
-  const [confirmCancel, setConfirmCancel] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [cancelError, setCancelError] = useState(null)
 
   const cancelMutation = useMutation({
@@ -89,255 +211,290 @@ export function BillingSettingsPanel({ active }) {
       return cancelSubscription(token)
     },
     onSuccess: () => {
-      setConfirmCancel(false)
+      setConfirmOpen(false)
       queryClient.invalidateQueries({ queryKey: queryKeys.billing.subscription })
       invalidateCredits(queryClient)
     },
-    onError: (err) => {
-      setCancelError(friendlyMessage(err) || 'Could not cancel. Try again.')
-    },
+    onError: (err) => setCancelError(friendlyMessage(err) || 'Could not cancel. Try again.'),
   })
 
   const isSubscribed =
     !!subscription && ['active', 'trialing', 'past_due'].includes(subscription.status)
-  const total = useMemo(() => {
-    if (!credits) return null
-    return Number(credits.subscription_credits || 0) + Number(credits.permanent_credits || 0)
-  }, [credits])
-  const used = useMemo(() => {
-    if (!subscription?.plan_credits || total == null) return null
-    return Math.max(0, subscription.plan_credits - total)
-  }, [subscription, total])
-  const usedPct = subscription?.plan_credits
-    ? Math.round(((used ?? 0) / subscription.plan_credits) * 100)
-    : null
 
-  // ── First mount: while subscription + credits are both still loading ──
+  const nextAmount = useMemo(() => nextBillingAmountUSD(subscription), [subscription])
+
+  const invoices = useMemo(() => {
+    if (!ledger?.entries) return []
+    return ledger.entries
+      .filter((e) => INVOICE_KINDS.has(e.kind))
+      .slice(0, 12)
+      .map((e) => {
+        let amount = e.amount_usd != null ? Number(e.amount_usd) : null
+        if (amount == null && e.kind === 'subscription_grant' && nextAmount != null) {
+          amount = nextAmount
+        }
+        return {
+          id: e.id,
+          label: INVOICE_LABELS[e.kind] || 'Invoice',
+          date: e.created_at,
+          amount,
+          status: e.kind === 'refund' ? 'refunded' : 'paid',
+        }
+      })
+  }, [ledger, nextAmount])
+
+  /* ── Loading skeleton ─────────────────────────────────────── */
   if (active && subscription === undefined && credits === undefined) {
     return (
-      <>
-        <h3 className="settings-panel-heading">Billing</h3>
-        <p className="settings-panel-desc">Plan and payment.</p>
-        <SkeletonGroup label="Loading billing">
-          <SkeletonCard ratio="5 / 2" lines={2} />
-          <Skeleton height={18} width="40%" radius={999} style={{ marginTop: 12 }} />
-          <SkeletonList count={3} rowHeight={48} gap={8} />
-        </SkeletonGroup>
-      </>
+      <SkeletonGroup className="bp-loading" label="Loading billing">
+        <div className="bp-card">
+          <Skeleton height={20} width="40%" radius={999} />
+          <Skeleton height={56} width="55%" radius={8} style={{ marginTop: 22 }} />
+          <Skeleton height={14} width="100%" radius={999} style={{ marginTop: 16 }} />
+          <Skeleton height={14} width="80%" radius={999} style={{ marginTop: 8 }} />
+        </div>
+        <div className="bp-card">
+          <Skeleton height={18} width="35%" radius={999} />
+          <Skeleton height={56} width="100%" radius={10} style={{ marginTop: 14 }} />
+        </div>
+      </SkeletonGroup>
     )
   }
 
-  // ── Free / unsubscribed view ──────────────────────────────────────────
+  /* ── Free / unsubscribed view ─────────────────────────────── */
   if (!isSubscribed) {
     return (
-      <>
-        <h3 className="settings-panel-heading">Billing</h3>
-        <p className="settings-panel-desc">Plan and payment.</p>
-        <div className="bsp-empty">
-          <div className="bsp-empty-icon" aria-hidden>
-            ✨
+      <div className="bp-root">
+        <section className="bp-card">
+          <div className="bp-card-header">
+            <h2 className="bp-section-title">Subscription Details</h2>
           </div>
-          <h4 className="bsp-empty-title">You're on the Free plan</h4>
-          <p className="bsp-empty-sub">
-            Upgrade to unlock Character looks, Styles, Edit &amp; Character swap, and recurring
-            monthly credits. Free trial = 100 credits to try it out.
-          </p>
-          <div className="bsp-empty-actions">
+          <div className="bp-row bp-row--top">
+            <div className="bp-stack">
+              <span className="bp-label">Plan</span>
+              <div className="bp-plan">
+                <strong>Free</strong>
+                <span className="bp-plan-period">no plan active</span>
+              </div>
+            </div>
             <button
               type="button"
-              className="bsp-upgrade-btn"
+              className="bp-btn bp-btn--outline"
               onClick={() => {
                 window.location.hash = 'pro'
               }}
             >
               See plans
             </button>
-            <button type="button" className="bsp-btn" onClick={openCreditsModal}>
-              Or buy credits
-            </button>
           </div>
-        </div>
-      </>
+        </section>
+
+        <section className="bp-card">
+          <div className="bp-card-header">
+            <h2 className="bp-section-title">Recent Invoices</h2>
+          </div>
+          <div className="bp-empty">
+            <p className="bp-empty-title">No invoices available yet.</p>
+            <p className="bp-empty-sub">Your invoice history will appear here.</p>
+          </div>
+        </section>
+      </div>
     )
   }
 
-  // ── Subscribed view ──────────────────────────────────────────────────
+  /* ── Subscribed view ──────────────────────────────────────── */
   const planName = subscription.plan_name
-    ? `${subscription.plan_name}${subscription.billing_period === 'year' ? ' · Annual' : subscription.billing_period === 'month' ? ' · Monthly' : ''}`
+    ? subscription.plan_name[0].toUpperCase() + subscription.plan_name.slice(1)
     : '—'
+  const periodLabel =
+    subscription.billing_period === 'year'
+      ? 'yearly'
+      : subscription.billing_period === 'month'
+        ? 'monthly'
+        : ''
   const cancelScheduled = subscription.cancel_at_period_end
 
-  return (
-    <>
-      <h3 className="settings-panel-heading">Billing</h3>
-      <p className="settings-panel-desc">Manage your plan, credits, and payments.</p>
+  // Backend-supplied payment method + billing address (graceful fallback).
+  const pm = subscription.payment_method || {}
+  const pmBrand = pm.brand || pm.card_brand || null
+  const pmLast4 = pm.last4 || pm.card_last4 || null
+  const pmExp = pm.expires || pm.card_expires || null
+  const ba = subscription.billing_address || {}
+  const baLines = [ba.line1, ba.line2, ba.city, ba.state, ba.country].filter(Boolean)
 
-      {/* Plan summary card */}
-      <div className="bsp-card">
-        <div className="bsp-card-head">
-          <div>
-            <div className="bsp-plan-name">{planName}</div>
-            <div className="bsp-plan-meta">
-              <StatusBadge status={subscription.status} isTrial={subscription.is_trial} />
-              {cancelScheduled && (
-                <span className="bsp-badge bsp-badge--warn">
-                  Cancels on {fmtDate(subscription.current_period_end)}
-                </span>
-              )}
+  return (
+    <div className="bp-root">
+      {/* ─────────── Subscription Details ─────────── */}
+      <section className="bp-card">
+        <div className="bp-card-header">
+          <h2 className="bp-section-title">Subscription Details</h2>
+        </div>
+
+        {/* Plan + Manage button */}
+        <div className="bp-row bp-row--top">
+          <div className="bp-stack">
+            <span className="bp-label">Plan</span>
+            <div className="bp-plan">
+              <strong>{planName}</strong>
+              {periodLabel ? <span className="bp-plan-period">{periodLabel}</span> : null}
             </div>
           </div>
-          <div className="bsp-plan-price">
-            {subscription.plan_credits ? (
-              <>
-                <strong>{fmt(subscription.plan_credits)}</strong>
-                <span className="bsp-plan-price-sub">
-                  credits / {subscription.billing_period === 'year' ? 'year' : 'month'}
-                </span>
-              </>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Credit usage */}
-        <div className="bsp-usage">
-          <div className="bsp-usage-row">
-            <span>Credits remaining</span>
-            <strong>{fmt(total)}</strong>
-          </div>
-          {usedPct != null && (
-            <>
-              <div className="bsp-usage-bar" aria-hidden>
-                <span className="bsp-usage-bar-fill" style={{ width: `${usedPct}%` }} />
-              </div>
-              <div className="bsp-usage-legend">
-                {fmt(used)} used · {fmt(total)} left
-                {subscription.is_trial
-                  ? ' · Upgrade to unlock the full plan'
-                  : subscription.current_period_end
-                    ? ` · resets ${fmtDate(subscription.current_period_end)}`
-                    : ''}
-              </div>
-            </>
-          )}
-        </div>
-
-        <div className="bsp-actions">
           <button
             type="button"
-            className="bsp-btn bsp-btn--primary"
+            className="bp-btn bp-btn--outline"
             onClick={() => {
               window.location.hash = 'pro'
             }}
           >
-            Change plan
+            Manage Plan
           </button>
-          <button type="button" className="bsp-btn" onClick={openCreditsModal}>
-            Buy credits
-          </button>
-          {!cancelScheduled && (
-            <button
-              type="button"
-              className="bsp-btn bsp-btn--ghost"
-              onClick={() => setConfirmCancel(true)}
-              disabled={cancelMutation.isPending}
-            >
-              Cancel subscription
-            </button>
-          )}
-          {cancelScheduled && (
-            <div className="bsp-cancel-note">
-              Your plan will stay active until{' '}
-              <strong>{fmtDate(subscription.current_period_end)}</strong>. After that, credits reset
-              to zero and feature access downgrades to Free.
-            </div>
-          )}
         </div>
-      </div>
 
-      {/* Recent ledger */}
-      {ledger?.entries?.length > 0 && (
-        <div className="bsp-card">
-          <div className="bsp-ledger-head">
-            <h4 className="bsp-card-title">Recent activity</h4>
-            <span className="bsp-ledger-hint">Last {ledger.entries.length} events</span>
+        <div className="bp-divider" />
+
+        {/* Next billing amount hero */}
+        <div className="bp-stack bp-stack--hero">
+          <span className="bp-label">Next billing amount</span>
+          <div className="bp-amount">{fmtUSD(nextAmount)}</div>
+        </div>
+
+        {/* Detail rows */}
+        <dl className="bp-keyvals">
+          <div className="bp-keyval">
+            <dt>{cancelScheduled ? 'Active until' : 'Renews on'}</dt>
+            <dd>{fmtDate(subscription.current_period_end)}</dd>
           </div>
-          <ul className="bsp-ledger">
-            {ledger.entries.map((e) => (
-              <li key={e.id} className="bsp-ledger-row">
-                <span className="bsp-ledger-date">{fmtDate(e.created_at)}</span>
-                <span className="bsp-ledger-label">
-                  {e.kind === 'usage'
-                    ? `Used · ${e.feature_key || 'feature'}`
-                    : e.kind === 'subscription_grant'
-                      ? 'Plan credits granted'
-                      : e.kind === 'trial_grant'
-                        ? 'Free trial credits'
-                        : e.kind === 'pack_purchase'
-                          ? 'Top-up pack'
-                          : e.kind === 'expiry'
-                            ? 'Credits expired'
-                            : e.kind === 'refund'
-                              ? 'Refund'
-                              : e.kind === 'admin_adjustment'
-                                ? 'Manual adjustment'
-                                : e.kind}
-                </span>
-                <span
-                  className={`bsp-ledger-delta ${e.delta > 0 ? 'bsp-ledger-delta--pos' : 'bsp-ledger-delta--neg'}`}
-                >
-                  {e.delta > 0 ? '+' : ''}
-                  {fmt(e.delta)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+          <div className="bp-keyval">
+            <dt>Billing period</dt>
+            <dd>
+              {fmtDateRange(subscription.current_period_start, subscription.current_period_end)}
+            </dd>
+          </div>
+          <div className="bp-keyval bp-keyval--total">
+            <dt>Total</dt>
+            <dd>{fmtUSD(nextAmount)}</dd>
+          </div>
+        </dl>
 
-      {/* Cancel confirm */}
-      {confirmCancel && (
-        <div className="bsp-confirm" role="alertdialog" aria-labelledby="bsp-confirm-title">
-          <div className="bsp-confirm-card">
-            <h4 id="bsp-confirm-title" className="bsp-confirm-title">
-              Cancel subscription?
-            </h4>
-            <p className="bsp-confirm-text">
-              Your plan stays active until{' '}
-              <strong>{fmtDate(subscription.current_period_end)}</strong>. After that your credits
-              drop to 0 and Creator/Ultimate features lock. You can resubscribe anytime.
-            </p>
-            {cancelError && <p className="bsp-confirm-error">{cancelError}</p>}
-            <div className="bsp-confirm-actions">
-              <button
-                type="button"
-                className="bsp-btn bsp-btn--ghost"
-                onClick={() => {
-                  setConfirmCancel(false)
-                  setCancelError(null)
-                }}
-                disabled={cancelMutation.isPending}
-              >
-                Keep subscription
-              </button>
-              <button
-                type="button"
-                className="bsp-btn bsp-btn--danger"
-                onClick={() => cancelMutation.mutate()}
-                disabled={cancelMutation.isPending}
-              >
-                {cancelMutation.isPending ? (
-                  <span className="sk-btn-pending">
-                    <InlineSpinner size={12} />
-                    Cancelling…
+        <div className="bp-divider" />
+
+        {/* Payment & billing info row + button */}
+        <div className="bp-row">
+          <span className="bp-label">Payment &amp; Billing Info</span>
+          <button
+            type="button"
+            className="bp-btn bp-btn--outline"
+            onClick={() => {
+              window.location.hash = 'pro'
+            }}
+          >
+            Update Infos
+          </button>
+        </div>
+
+        <div className="bp-grid-2">
+          <div className="bp-tile">
+            <span className="bp-tile-label">Payment method</span>
+            <div className="bp-tile-body">
+              <span className="bp-tile-icon" aria-hidden>
+                {CardChipIcon}
+              </span>
+              <div className="bp-tile-text">
+                <span className="bp-tile-value">
+                  {pmBrand && pmLast4 ? `${pmBrand} ending ${pmLast4}` : 'Not on file'}
+                </span>
+                {pmExp ? <span className="bp-tile-sub">Expires {pmExp}</span> : null}
+              </div>
+            </div>
+          </div>
+          <div className="bp-tile">
+            <span className="bp-tile-label">Billing address</span>
+            <div className="bp-tile-text bp-tile-text--solo">
+              {baLines.length === 0 ? (
+                <span className="bp-tile-value bp-tile-value--muted">—</span>
+              ) : (
+                baLines.map((line, i) => (
+                  <span key={i} className={i === 0 ? 'bp-tile-value' : 'bp-tile-sub'}>
+                    {line}
                   </span>
-                ) : (
-                  'Yes, cancel'
-                )}
-              </button>
+                ))
+              )}
             </div>
           </div>
         </div>
-      )}
-    </>
+
+        {/* Cancel control */}
+        {!cancelScheduled ? (
+          <button
+            type="button"
+            className="bp-cancel-link"
+            onClick={() => setConfirmOpen(true)}
+            disabled={cancelMutation.isPending}
+          >
+            Cancel subscription
+          </button>
+        ) : (
+          <p className="bp-footnote">
+            Your plan stays active until <strong>{fmtDate(subscription.current_period_end)}</strong>
+            . After that paid features downgrade and credits reset to zero.
+          </p>
+        )}
+      </section>
+
+      {/* ─────────── Recent Invoices ─────────── */}
+      <section className="bp-card">
+        <div className="bp-card-header">
+          <h2 className="bp-section-title">Recent Invoices</h2>
+        </div>
+
+        {invoices.length === 0 ? (
+          <div className="bp-empty">
+            <p className="bp-empty-title">No invoices available yet.</p>
+            <p className="bp-empty-sub">Your invoice history will appear here.</p>
+          </div>
+        ) : (
+          <div className="bp-invoices" role="table" aria-label="Recent invoices">
+            <div className="bp-invoice-row bp-invoice-row--head" role="row">
+              <span role="columnheader">Description</span>
+              <span role="columnheader">Date</span>
+              <span role="columnheader">Status</span>
+              <span role="columnheader" className="bp-amount-col">
+                Amount
+              </span>
+            </div>
+            {invoices.map((inv) => (
+              <div key={inv.id} className="bp-invoice-row" role="row">
+                <span role="cell" className="bp-invoice-label">
+                  {inv.label}
+                </span>
+                <span role="cell" className="bp-invoice-date">
+                  {fmtDate(inv.date)}
+                </span>
+                <span role="cell">
+                  <span className={`bp-status bp-status--${inv.status}`}>
+                    {inv.status[0].toUpperCase() + inv.status.slice(1)}
+                  </span>
+                </span>
+                <span role="cell" className="bp-invoice-amount">
+                  {inv.amount != null ? fmtUSD(inv.amount) : '—'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <CancelConfirm
+        open={confirmOpen}
+        busy={cancelMutation.isPending}
+        error={cancelError}
+        periodEnd={subscription.current_period_end}
+        onCancel={() => {
+          setConfirmOpen(false)
+          setCancelError(null)
+        }}
+        onConfirm={() => cancelMutation.mutate()}
+      />
+    </div>
   )
 }

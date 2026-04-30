@@ -1,30 +1,50 @@
-/* Settings is now an in-shell route, not a fullscreen overlay or portal.
- * It fills `<main>` next to the sidebar exactly like Dashboard / Optimize.
- * Both class names live on the same wrapper:
- *   - `.settings-screen` controls the in-shell flex-fill geometry
- *   - `.settings-modal-dialog` carries the legacy tokens + typography
- *     so all the existing nested selectors keep working. */
-.settings-screen {
+/* ═══════════════════════════════════════════════════════════════════
+   Settings — fresh redesign.
+
+   Visual language:
+   - Solid dashboard canvas (#0e0e12) so the route blends into the shell.
+   - Hero card with a violet glow ring around the avatar.
+   - Glass section cards with subtle inset highlight + violet tint
+     border on hover.
+   - Compact pill chips for the YouTube + member-since metadata.
+   - Confirm-action sheets render as fixed overlays inside the route
+     (not full-page modals — they cover the settings surface only).
+   ═══════════════════════════════════════════════════════════════════ */
+
+.s-screen {
+  --s-canvas: #0e0e12;
+  --s-card: #18181c;
+  --s-card-hover: rgba(139, 92, 246, 0.08);
+  --s-border: rgba(255, 255, 255, 0.07);
+  --s-border-strong: rgba(255, 255, 255, 0.12);
+  --s-border-accent: rgba(139, 92, 246, 0.32);
+  --s-text: #f5f5f6;
+  --s-text-muted: rgba(255, 255, 255, 0.62);
+  --s-text-soft: rgba(255, 255, 255, 0.42);
+  --s-accent: #b794f6;
+  --s-accent-deep: #6d28d9;
+  --s-radius: 14px;
+  --s-radius-sm: 10px;
+  --s-radius-pill: 999px;
+  --s-ease: cubic-bezier(0.25, 1, 0.5, 1);
+
   display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100%;
   min-height: 0;
-  /* Match the dashboard's page canvas (`--dash-surface-page: #0e0e12`)
-     so the settings route blends seamlessly when the user clicks
-     between sidebar items — no perceptible colour shift. */
-  background: #0e0e12;
-  color: #f5f5f6;
-  /* Lift above `.dashboard-main-wrap::before` / `::after` (z-index: 80)
-     — those depth gradients are intended for the dashboard scroll body,
-     not for full-bleed routes. Without this they'd darken our top + bottom. */
+  background: var(--s-canvas);
+  color: var(--s-text);
   position: relative;
-  z-index: 81;
-  /* Smooth opacity-only fade — no translate, no scale. Reads as a
-     calm tab cross-fade, not a popping panel. */
-  animation: settings-screen-fade 280ms ease-out;
+  z-index: 81; /* above .dashboard-main-wrap depth gradients */
+  font-family:
+    -apple-system, 'SF Pro Display', 'SF Pro Text', system-ui, BlinkMacSystemFont, 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  animation: s-fade 240ms ease-out;
 }
 
-@keyframes settings-screen-fade {
+@keyframes s-fade {
   from {
     opacity: 0;
   }
@@ -34,2556 +54,829 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .settings-screen {
+  .s-screen {
     animation: none;
   }
 }
 
-.settings-modal-dialog {
-  /* Aligned with `--dash-surface-page` so the settings route reads as
-     the same canvas as Dashboard / Optimize / Billing. */
-  --settings-bg: #0e0e12;
-  --settings-surface: rgba(255, 255, 255, 0.045);
-  --settings-surface-2: rgba(255, 255, 255, 0.075);
-  --settings-border: rgba(255, 255, 255, 0.08);
-  --settings-divider: rgba(255, 255, 255, 0.06);
-  --settings-text: #f5f5f6;
-  --settings-text-muted: rgba(255, 255, 255, 0.64);
-  --settings-accent: #9061f0;
-  --settings-accent-bg: rgba(167, 139, 250, 0.13);
-  --settings-accent-ring: rgba(139, 92, 246, 0.22);
+/* ── Header ─────────────────────────────────────────────────────── */
 
-  /* Token-only block — when `.settings-modal-dialog` is paired with
-     `.settings-screen` the screen rule below sizes the surface to fill
-     the viewport. The legacy dialog-mode framing (height: 82vh, border
-     radius, etc.) is no longer needed because the component never
-     mounts as a portal Dialog now. */
-  background: var(--settings-bg);
-  color: var(--settings-text);
-}
-
-/* In-shell surface override — wins specificity over any leftover
-   dialog-mode geometry that targets `.settings-modal-dialog` alone. */
-.settings-screen.settings-modal-dialog {
-  width: 100%;
-  height: 100%;
-  max-height: none;
-  min-height: 0;
-  border: none;
-  border-radius: 0;
-  overflow: hidden;
-}
-
-/* Center the scroll body on wide screens so the form doesn't sprawl
-   across a 1600 px monitor — the readable column tops out at 720 px,
-   which feels right for label + pill input rows. The content's
-   own padding still adds horizontal gutters at the edges. */
-.settings-screen .settings-modal-content {
-  display: flex;
-  justify-content: center;
-}
-.settings-screen .settings-modal-content > .settings-modal-panel {
-  width: 100%;
-  max-width: 720px;
-}
-
-/* Header sits within the same readable column on wide screens for
-   visual alignment with the body below. */
-.settings-screen .settings-modal-header {
-  padding-left: max(1.25rem, calc((100% - 720px) / 2));
-  padding-right: max(1.25rem, calc((100% - 720px) / 2));
-}
-
-/* OUTER shell: stacks the header above the two-pane body. */
-.settings-modal-dialog > .settings-modal-body {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-}
-
-/* INNER pane: puts the left nav next to the content. */
-.settings-modal-dialog > .settings-modal-body > .settings-modal-body {
-  display: flex;
-  flex-direction: row;
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  height: auto;
-  overflow: hidden;
-}
-
-.settings-modal-header {
+.s-header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.25rem;
-  flex-shrink: 0;
-  /* Solid page canvas — no gradient or blur. Matches the Optimize
-     screen's header treatment so the route reads as the same family. */
-  background: transparent;
-  border-radius: 0;
+  padding: 1.05rem 1.5rem;
   position: relative;
 }
-/* Hairline divider — gradient that fades to transparent at both edges,
-   so the line ends crisply rather than slamming into the panel border.
-   Same treatment as `.video-opt-screen-header::after`. */
-.settings-modal-header::after {
+.s-header::after {
   content: '';
   position: absolute;
-  bottom: 0;
   left: 0;
   right: 0;
+  bottom: 0;
   height: 1px;
   pointer-events: none;
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.12) 15%,
-    rgba(255, 255, 255, 0.12) 85%,
+    rgba(255, 255, 255, 0.12) 18%,
+    rgba(255, 255, 255, 0.12) 82%,
     transparent 100%
   );
 }
-.settings-modal-title {
+.s-header-title {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 600;
-  color: var(--settings-text);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
-.settings-modal-close {
-  display: flex;
+
+.s-icon-btn {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  background: var(--settings-surface);
-  border: 1px solid var(--settings-border);
-  border-radius: 10px;
-  color: var(--settings-text-muted);
+  border-radius: var(--s-radius-pill);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--s-border);
+  color: var(--s-text-muted);
   cursor: pointer;
   transition:
-    background 0.2s,
-    color 0.2s,
-    border-color 0.2s;
+    background 180ms var(--s-ease),
+    color 180ms var(--s-ease),
+    border-color 180ms var(--s-ease),
+    transform 120ms var(--s-ease);
 }
-.settings-modal-close:hover {
-  background: var(--settings-surface-2);
-  color: var(--settings-text);
-  border-color: rgba(255, 255, 255, 0.12);
+.s-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: var(--s-border-strong);
+  color: var(--s-text);
 }
-.settings-modal-close svg {
+.s-icon-btn:active {
+  transform: scale(0.94);
+}
+.s-icon-btn svg {
   width: 16px;
   height: 16px;
 }
 
-/* Sidebar — identical to main app sidebar (liquid glass) */
-.settings-modal-sidebar {
-  width: 200px;
-  flex-shrink: 0;
-  padding: 0.75rem 0.6rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  overflow-y: auto;
-  background: var(--settings-bg);
-  border-right: 1px solid var(--settings-border);
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.03);
-  scrollbar-width: thin;
-  scrollbar-color: rgba(167, 139, 250, 0.15) transparent;
-}
-.settings-modal-sidebar::-webkit-scrollbar {
-  width: 4px;
-}
-.settings-modal-sidebar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.settings-modal-sidebar::-webkit-scrollbar-thumb {
-  background: rgba(167, 139, 250, 0.2);
-  border-radius: 999px;
-}
-.settings-modal-nav-item {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 0.55rem 0.85rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--settings-text-muted);
-  background: transparent;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  text-align: left;
-  transition:
-    background 0.2s,
-    color 0.2s;
-  font-family: inherit;
-}
-.settings-modal-nav-item:hover {
-  color: var(--settings-text);
-  background: var(--settings-surface);
-}
-.settings-modal-nav-item.active {
-  color: var(--settings-text);
-  background: var(--settings-accent-bg);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
-  border-radius: 10px;
-}
-.settings-modal-nav-item.active:hover {
-  background: rgba(167, 139, 250, 0.18);
-}
-.settings-modal-nav-item.active::before {
-  display: none;
-}
-.settings-modal-nav-divider {
-  height: 1px;
-  background: var(--settings-divider);
-  margin: 0.45rem 0.65rem;
-}
+/* ── Scroll body + content column ───────────────────────────────── */
 
-.settings-modal-content {
+.s-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 1.25rem 1.5rem;
-  -webkit-overflow-scrolling: touch;
-  /* Transparent so the dashboard-aligned `--settings-bg` underneath
-     paints through unmodified. Earlier gradient overlays added a
-     barely-visible whitish tint that made the route read as "almost"
-     the dashboard colour but not quite. */
-  background: transparent;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
-.settings-modal-content::-webkit-scrollbar {
+.s-scroll::-webkit-scrollbar {
   width: 8px;
 }
-.settings-modal-content::-webkit-scrollbar-track {
+.s-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
-.settings-modal-content::-webkit-scrollbar-thumb {
+.s-scroll::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
-.settings-modal-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+.s-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
   background-clip: padding-box;
   border: 2px solid transparent;
 }
-.settings-modal-panel {
-  display: none;
-}
-.settings-modal-panel.active {
-  display: block;
-}
 
-.settings-coming-soon {
-  margin: 0;
-  font-size: 0.95rem;
-  color: var(--settings-text-muted);
-  text-align: center;
-  padding: 2.5rem 1.5rem;
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--settings-border);
-  border-radius: 12px;
-  max-width: 360px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-}
-.settings-modal-coming-soon {
-  margin: 0;
-  font-size: 1rem;
-  color: #6b7280;
-  text-align: center;
-  padding: 3rem 1.5rem;
-}
-
-/* ——— Panel structure (liquid glass) ——— */
-.settings-subheading {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--settings-text);
-  margin: 1.25rem 0 0.5rem 0;
-  letter-spacing: 0.02em;
-}
-.settings-subheading:first-of-type {
-  margin-top: 0;
-}
-
-/* Base card — matches `.dash-section` / `.audit-v2__score-card`:
-   solid #18181c surface, 1px hairline border, 12px radius. The
-   higher-specificity rule under `.settings-modal-dialog` reuses the
-   same `--set-card-*` tokens so cards stay in sync app-wide. */
-.settings-block {
-  padding: 0.75rem 1rem;
-  background: var(--set-card, #18181c);
-  border: 1px solid var(--set-card-border, rgba(255, 255, 255, 0.07));
-  border-radius: var(--set-card-radius, 12px);
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-  color: var(--settings-text-muted);
-}
-.settings-account-email strong {
-  color: var(--settings-text);
-}
-.settings-account-email span {
-  margin-left: 0.35rem;
-}
-
-.settings-message {
-  font-size: 0.875rem;
-  padding: 0.6rem 0.9rem;
-  border-radius: 10px;
-  margin-bottom: 0.75rem;
-  position: relative;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-.settings-message .settings-inline-dismiss {
-  margin-left: auto;
-}
-.settings-message--success {
-  color: #4ade80;
-  background: rgba(34, 197, 94, 0.12);
-  border: 1px solid rgba(34, 197, 94, 0.25);
-}
-.settings-message--error {
-  color: #f87171;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-}
-.settings-inline-dismiss {
-  margin-left: 0.5rem;
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  font-size: 1.1rem;
-  opacity: 0.8;
-  padding: 0 0.25rem;
-  line-height: 1;
-}
-.settings-inline-dismiss:hover {
-  opacity: 1;
-}
-
-.settings-form label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--settings-text-muted);
-  margin-bottom: 0.4rem;
-}
-/* Pill-shaped single-line inputs — borrow the thumbnail-generator's
-   `.thumb-source-input` look: dark glass surface, hairline border,
-   soft white focus glow. Single-line only — multi-line `<textarea>`
-   keeps a normal rounded-rect below. */
-.settings-input,
-.settings-form input[type='password'],
-.settings-form input[type='text'],
-.settings-form input[type='email'] {
+.s-content {
   width: 100%;
-  max-width: 360px;
-  padding: 0.65rem 1.1rem;
-  font-size: 0.9rem;
-  font-family: inherit;
-  color: rgba(248, 250, 252, 0.95);
-  background: rgba(0, 0, 0, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
-  margin-bottom: 0.75rem;
-  box-sizing: border-box;
-  outline: none;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-.settings-input:hover,
-.settings-form input:hover {
-  background: rgba(0, 0, 0, 0.28);
-  border-color: rgba(255, 255, 255, 0.16);
-}
-.settings-input:focus,
-.settings-form input:focus {
-  outline: none;
-  background: rgba(0, 0, 0, 0.28);
-  border-color: rgba(255, 255, 255, 0.22);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.05);
-}
-.settings-input::placeholder,
-.settings-form input::placeholder {
-  color: rgba(148, 163, 184, 0.55);
-}
-.settings-form .settings-btn {
-  margin-top: 0.25rem;
-  margin-bottom: 0.5rem;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1.75rem 1.5rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
 }
 
-/* Pill-shaped buttons — same dashboard violet palette but the modal
-   uses fully-rounded pills to match the thumbnail-generator surface
-   language. Geometry stays consistent across primary/secondary/ghost/
-   danger so all settings actions read as the same family. */
-.settings-btn {
+/* ── Hero ───────────────────────────────────────────────────────── */
+
+.s-hero {
+  position: relative;
+  padding: 1.5rem 1.5rem 1.6rem;
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+  background: var(--s-card);
+  border: 1px solid var(--s-border);
+  border-radius: 18px;
+  overflow: hidden;
+}
+/* Decorative tint — kept very subtle (10 %/6 % at the corners) so the
+   hero reads as part of the dashboard surface, not a glowing display. */
+.s-hero-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 80% at 0% 0%, rgba(124, 58, 237, 0.08) 0%, transparent 60%),
+    radial-gradient(80% 60% at 100% 100%, rgba(99, 102, 241, 0.05) 0%, transparent 60%);
+}
+/* Lift every direct child above .s-hero-bg, except the absolutely-
+   positioned sign-out button which manages its own corner placement. */
+.s-hero > :not(.s-hero-bg):not(.s-hero-signout) {
+  position: relative;
+  z-index: 1;
+}
+.s-hero-avatar-wrap {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  flex-shrink: 0;
+}
+
+.s-hero-info {
+  min-width: 0;
+  flex: 1;
+}
+.s-hero-greeting {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.s-hero-email {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: var(--s-text-muted);
+}
+.s-hero-meta {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* ── Avatar ─────────────────────────────────────────────────────── */
+
+.s-avatar {
+  display: inline-block;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--s-border);
+}
+.s-avatar--md {
+  width: 40px;
+  height: 40px;
+}
+.s-avatar--xl {
+  width: 84px;
+  height: 84px;
+}
+
+.s-avatar--fallback {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  padding: 0.55rem 1.25rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  font-family: inherit;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  text-decoration: none;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    background 0.2s,
-    color 0.2s,
-    border-color 0.2s,
-    box-shadow 0.2s,
-    filter 0.2s;
-}
-.settings-btn:not(:disabled):active {
-  transform: scale(0.96);
-  transition: transform 0.08s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.settings-btn-primary {
-  color: #ffffff;
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #5b21b6 100%);
-  border-color: rgba(167, 139, 250, 0.45);
-  box-shadow: 0 2px 10px rgba(109, 40, 217, 0.3);
-}
-.settings-btn-primary:hover:not(:disabled) {
-  filter: brightness(1.08);
-  border-color: rgba(196, 181, 253, 0.6);
-  box-shadow: 0 4px 16px rgba(109, 40, 217, 0.4);
-}
-.settings-btn-secondary {
-  color: #b794f6;
-  background: rgba(124, 58, 237, 0.12);
-  border-color: rgba(124, 58, 237, 0.25);
-}
-.settings-btn-secondary:hover:not(:disabled) {
-  background: rgba(124, 58, 237, 0.2);
-  border-color: rgba(167, 139, 250, 0.4);
-}
-.settings-btn-ghost {
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--s-text-muted);
   background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.1);
 }
-.settings-btn-ghost:hover:not(:disabled) {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.16);
-}
-.settings-btn-danger {
-  color: #fecaca;
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.32);
-}
-.settings-btn-danger:hover:not(:disabled) {
-  color: #fff;
-  background: rgba(239, 68, 68, 0.25);
-  border-color: rgba(248, 113, 113, 0.5);
-}
-.settings-btn--sm {
-  padding: 0.4rem 0.95rem;
-  font-size: 0.8125rem;
-}
-.settings-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.settings-select {
-  max-width: 320px;
-  width: 100%;
-  padding: 0.65rem 1.1rem;
-  font-size: 0.9rem;
-  font-family: inherit;
-  color: rgba(248, 250, 252, 0.95);
-  background: rgba(0, 0, 0, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
-  cursor: pointer;
-  margin-bottom: 1rem;
-  outline: none;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-.settings-select:hover {
-  background: rgba(0, 0, 0, 0.28);
-  border-color: rgba(255, 255, 255, 0.16);
-}
-.settings-select:focus {
-  outline: none;
-  background: rgba(0, 0, 0, 0.28);
-  border-color: rgba(255, 255, 255, 0.22);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.05);
-}
-.settings-select option {
-  background: var(--surface-card);
-  color: var(--settings-text);
-}
-
-/* ——— YouTube in settings (liquid glass) ——— */
-.settings-youtube-card {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  padding: 1rem;
-  background: var(--surface-card);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--settings-border);
-  border-radius: 12px;
-  margin-bottom: 1rem;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-}
-.settings-youtube-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #6d28d9, #9061f0);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
+.s-avatar-initial {
+  font-family: 'SF Pro Rounded', system-ui, sans-serif;
   font-weight: 700;
-  color: #fff;
-  flex-shrink: 0;
-}
-.settings-youtube-avatar img {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-.settings-youtube-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  min-width: 0;
-}
-.settings-youtube-info strong {
-  font-size: 0.95rem;
-  color: var(--text, #f4f4f5);
-}
-.settings-youtube-info span {
-  font-size: 0.8rem;
-  color: var(--text-muted, rgba(255, 255, 255, 0.55));
-}
-.settings-youtube-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-.settings-youtube-select {
-  padding: 0.4rem 0.6rem;
-  font-size: 0.85rem;
-  color: var(--settings-text);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--settings-border);
-  border-radius: 8px;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-/* YouTube connect block (when not connected) */
-.settings-youtube-connect-block {
-  padding: 1.25rem;
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--settings-border);
-  border-radius: 12px;
-  margin-bottom: 1rem;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-}
-.settings-youtube-connect-desc {
-  margin: 0 0 1rem 0;
-  font-size: 0.9rem;
-  color: var(--settings-text-muted);
-  line-height: 1.45;
-}
-
-/* YouTube channels list (when connected) */
-.settings-youtube-channels-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-.settings-youtube-channel-card {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.9rem 1rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--settings-border);
-  border-radius: 12px;
-  transition:
-    border-color 0.2s,
-    background 0.2s;
-}
-.settings-youtube-channel-card:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-.settings-youtube-channel-card.active {
-  background: var(--settings-accent-bg);
-  border-color: rgba(167, 139, 250, 0.3);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-}
-.settings-youtube-channel-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #6d28d9, #9061f0);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #fff;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-.settings-youtube-channel-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.settings-youtube-channel-avatar-initial {
+  letter-spacing: -0.02em;
   font-size: 1rem;
-  font-weight: 700;
-  color: #fff;
-  text-transform: uppercase;
 }
-.settings-youtube-channel-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-.settings-youtube-channel-info strong {
-  font-size: 0.95rem;
-  color: var(--settings-text);
-}
-.settings-youtube-channel-info span {
-  font-size: 0.8rem;
-  color: var(--settings-text-muted);
-}
-.settings-youtube-channel-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-shrink: 0;
-}
-.settings-youtube-badge {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--settings-accent);
-  text-transform: uppercase;
-  letter-spacing: -0.01em;
-  padding: 0.25rem 0.5rem;
-  background: rgba(167, 139, 250, 0.2);
-  border-radius: 6px;
+.s-avatar--xl .s-avatar-initial {
+  font-size: 2rem;
 }
 
-/* ——— Collapsible Change password section ——— */
-.settings-collapsible {
-  margin-bottom: 1rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--settings-border);
-  border-radius: 12px;
+/* ── Pills (chips) ──────────────────────────────────────────────── */
+
+.s-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  border-radius: var(--s-radius-pill);
+  border: 1px solid var(--s-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--s-text);
+  white-space: nowrap;
+  max-width: 14rem;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
-.settings-collapsible-header {
+.s-pill svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+.s-pill--accent {
+  color: #ddd6fe;
+  background: rgba(124, 58, 237, 0.14);
+  border-color: rgba(167, 139, 250, 0.38);
+}
+.s-pill--muted {
+  color: var(--s-text-muted);
+}
+.s-pill--active {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(74, 222, 128, 0.32);
+}
+
+/* ── Section card ───────────────────────────────────────────────── */
+
+.s-card {
+  background: var(--s-card);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius);
+  padding: 1.05rem 1.1rem 1.15rem;
+  position: relative;
+  transition: border-color 200ms var(--s-ease);
+}
+.s-card:hover {
+  border-color: var(--s-border-strong);
+}
+.s-card-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 0.85rem 1rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--settings-text);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  text-align: left;
-  transition: background 0.2s;
+  gap: 0.7rem;
+  margin-bottom: 0.85rem;
 }
-.settings-collapsible-header:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-.settings-collapsible-header.expanded {
-  border-bottom: 1px solid var(--settings-border);
-}
-.settings-collapsible-title {
-  flex: 1;
-}
-.settings-collapsible-chevron {
+.s-card-head-icon {
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--settings-text-muted);
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--s-border);
+  color: var(--s-text-muted);
 }
-.settings-collapsible-header.expanded .settings-collapsible-chevron {
-  transform: rotate(180deg);
-}
-.settings-collapsible-chevron svg {
+.s-card-head-icon svg {
   width: 16px;
   height: 16px;
 }
-.settings-collapsible-content {
-  max-height: 0;
-  overflow: hidden;
-  pointer-events: none;
-  transition: max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.settings-collapsible-content.expanded {
-  max-height: 400px;
-  pointer-events: auto;
-}
-.settings-collapsible-content .settings-form {
-  padding: 1rem 1rem 1.25rem;
-}
 
-/* Password form — fields block, button below */
-.settings-password-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  margin-bottom: 1rem;
-}
-.settings-password-fields label {
-  margin-top: 0.5rem;
-  margin-bottom: 0.35rem;
-}
-.settings-password-fields label:first-child {
-  margin-top: 0;
-}
-.settings-password-fields input {
-  margin-bottom: 0;
-}
-.settings-password-submit {
-  margin-top: 0;
-  align-self: flex-start;
-}
-
-/* Multi-line textareas keep a 16 px rounded-rect — pill geometry
-   doesn't make sense for several rows of text — but reuse the same
-   dark-glass surface and white focus glow so they read as the same
-   family as the pill inputs above. */
-.settings-textarea {
-  width: 100%;
-  max-width: 100%;
-  min-height: 80px;
-  padding: 0.7rem 1rem;
-  font-size: 0.88rem;
-  font-family: inherit;
-  color: rgba(248, 250, 252, 0.95);
-  background: rgba(0, 0, 0, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  margin-bottom: 0.5rem;
-  box-sizing: border-box;
-  resize: vertical;
-  outline: none;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-.settings-textarea:hover {
-  background: rgba(0, 0, 0, 0.28);
-  border-color: rgba(255, 255, 255, 0.16);
-}
-.settings-textarea:focus {
-  outline: none;
-  background: rgba(0, 0, 0, 0.28);
-  border-color: rgba(255, 255, 255, 0.22);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.05);
-}
-.settings-textarea::placeholder {
-  color: rgba(148, 163, 184, 0.55);
-}
-.settings-field-hint {
-  margin: 0 0 1rem 0;
-  font-size: 0.8rem;
-  color: var(--settings-text-muted);
-  line-height: 1.4;
-}
-
-/* ——— Danger zone (liquid glass) ——— */
-.settings-danger-title {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #f87171;
-  margin: 1rem 0 0.5rem 0;
-  letter-spacing: 0.02em;
-}
-.settings-danger-block {
-  margin-top: 1rem;
-  padding: 1rem;
-  background: rgba(239, 68, 68, 0.06);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 12px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
-}
-.settings-danger-desc {
-  font-size: 0.875rem;
-  color: var(--text-muted, rgba(255, 255, 255, 0.6));
-  margin: 0 0 0.75rem 0;
-  line-height: 1.4;
-}
-/* Circular confirmation checkboxes (danger zone, etc.) */
-.settings-checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  cursor: pointer;
-  margin-bottom: 0.5rem;
-  font-size: 0.85rem;
-  color: var(--text-muted, #9ca3af);
-  line-height: 1.35;
-}
-.settings-checkbox-label input[type='checkbox'] {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  accent-color: #8b5cf6;
-  cursor: pointer;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
-}
-.settings-checkbox-label input[type='checkbox']:checked {
-  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.4);
-}
-.settings-checkbox-label input:focus-visible {
-  outline: 2px solid rgba(139, 92, 246, 0.5);
-  outline-offset: 2px;
-}
-.settings-checkbox-label span {
-  flex: 1;
+.s-card-head-text {
   min-width: 0;
 }
-
-/* ——— Profile grid ——— */
-.settings-profile-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 1rem;
-}
-.settings-profile-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem 1rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
-}
-.settings-profile-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: -0.01em;
-  color: var(--text-muted, rgba(255, 255, 255, 0.5));
-}
-.settings-profile-value {
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: var(--text, #f4f4f5);
-}
-
-/* ——— Usage chart ——— */
-.settings-usage-summary {
-  margin-bottom: 1rem;
-}
-.settings-usage-stat {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  padding: 0.75rem 1.25rem;
-  background: rgba(139, 92, 246, 0.12);
-  border: 1px solid rgba(139, 92, 246, 0.25);
-  border-radius: 12px;
-}
-.settings-usage-stat-value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text, #f4f4f5);
-}
-.settings-usage-stat-label {
-  font-size: 0.8rem;
-  color: var(--text-muted, rgba(255, 255, 255, 0.6));
-}
-.settings-usage-chart {
-  margin-top: 1rem;
-}
-.usage-chart-wrap {
-  width: 100%;
-  max-width: 100%;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 14px;
-  padding: 1rem;
-  overflow: hidden;
-}
-.usage-chart {
-  width: 100%;
-  height: auto;
-  max-height: 200px;
-  display: block;
-}
-.usage-chart-labels {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 0.5rem;
-  font-size: 0.75rem;
-  color: var(--text-muted, rgba(255, 255, 255, 0.45));
-}
-.usage-chart-label-start,
-.usage-chart-label-end {
+.s-card-title {
   margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--s-text);
+}
+.s-card-subtitle {
+  margin: 0.18rem 0 0;
+  font-size: 0.78rem;
+  color: var(--s-text-muted);
+  line-height: 1.4;
 }
 
-/* ——— Toggle switches (notifications, personalization) ——— */
-.settings-toggles {
+.s-card-body {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
 }
-.settings-toggle-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.6rem 0;
-  cursor: pointer;
-  border-radius: 10px;
-  transition: background 0.15s;
+
+/* Danger tone */
+.s-card--danger {
+  border-color: rgba(239, 68, 68, 0.22);
 }
-.settings-toggle-row:hover {
-  background: rgba(255, 255, 255, 0.03);
+.s-card--danger:hover {
+  border-color: rgba(239, 68, 68, 0.35);
 }
-.settings-toggle-label {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text, #f4f4f5);
+.s-card--danger .s-card-head-icon {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
 }
 
-/* ——— Personalization sections ——— */
-.settings-personalization-section {
-  margin-bottom: 1.25rem;
-  padding-bottom: 1.25rem;
-  position: relative;
-}
-.settings-personalization-section::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--settings-divider);
-}
-.settings-personalization-section:last-of-type::after {
-  display: none;
-}
-.settings-personalization-section:last-of-type {
-  padding-bottom: 0;
-  margin-bottom: 0.75rem;
-}
-.settings-personalization-section-title {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--settings-text);
-  margin: 0 0 0.25rem 0;
-  letter-spacing: -0.01em;
-}
-.settings-personalization-section-desc {
-  font-size: 0.82rem;
-  color: var(--settings-text-muted);
-  margin: 0 0 0.65rem 0;
-  line-height: 1.4;
-}
+/* ── Buttons (s-btn) ────────────────────────────────────────────── */
 
-/* Script voice preferences — completely different UI */
-.settings-script-voice-section {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--settings-border);
-  border-radius: 12px;
-  padding: 1rem 1.25rem !important;
-  margin-bottom: 1.25rem;
-}
-.settings-script-voice-options {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.settings-script-voice-option {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.85rem;
-  padding: 0.85rem 1rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.settings-script-voice-option:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.12);
-}
-.settings-script-voice-option.is-on {
-  background: rgba(167, 139, 250, 0.1);
-  border-color: rgba(167, 139, 250, 0.3);
-  box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.08);
-}
-.settings-script-voice-input {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-  pointer-events: none;
-}
-.settings-script-voice-icon {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
-}
-.settings-script-voice-option.is-on .settings-script-voice-icon {
-  background: rgba(167, 139, 250, 0.2);
-}
-.settings-script-voice-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-.settings-script-voice-title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--settings-text);
-}
-.settings-script-voice-desc {
-  font-size: 0.8rem;
-  color: var(--settings-text-muted);
-  line-height: 1.4;
-}
-.settings-script-voice-example {
-  font-size: 0.75rem;
-  color: var(--settings-text-muted);
-  opacity: 0.8;
-  font-style: italic;
-  line-height: 1.35;
-}
-.settings-script-voice-toggle-wrap {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.4rem;
-}
-.settings-script-voice-status {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: -0.01em;
-  color: var(--settings-text-muted);
-}
-.settings-script-voice-option.is-on .settings-script-voice-status {
-  color: var(--settings-accent);
-}
-.settings-script-voice-slider {
-  width: 44px;
-  height: 24px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--settings-border);
-  border-radius: 999px;
-  position: relative;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.settings-script-voice-slider::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
-  background: rgba(255, 255, 255, 0.5);
-  border-radius: 50%;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-}
-.settings-script-voice-option.is-on .settings-script-voice-slider {
-  background: rgba(167, 139, 250, 0.4);
-  border-color: rgba(167, 139, 250, 0.5);
-}
-.settings-script-voice-option.is-on .settings-script-voice-slider::after {
-  transform: translateX(20px);
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-}
-
-.settings-toggle-input {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-.settings-toggle-slider {
-  position: relative;
-  width: 48px;
-  height: 26px;
-  flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--settings-border);
-  border-radius: 999px;
-  transition:
-    background 0.2s,
-    border-color 0.2s;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
-}
-.settings-toggle-slider::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
-  background: #fff;
-  border-radius: 50%;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-}
-.settings-toggle-input:checked + .settings-toggle-slider {
-  background: rgba(167, 139, 250, 0.4);
-  border-color: rgba(167, 139, 250, 0.5);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-.settings-toggle-input:checked + .settings-toggle-slider::after {
-  transform: translateX(22px);
-}
-
-/* ——— Billing ——— */
-.settings-billing-card {
-  padding: 1.25rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  max-width: 360px;
-}
-.settings-billing-plan {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  margin-bottom: 0.75rem;
-}
-.settings-billing-plan strong {
-  font-size: 1.1rem;
-  color: var(--text, #f4f4f5);
-}
-.settings-billing-plan span {
-  font-size: 0.85rem;
-  color: var(--text-muted, rgba(255, 255, 255, 0.55));
-}
-.settings-billing-desc {
-  font-size: 0.9rem;
-  color: var(--text-muted, rgba(255, 255, 255, 0.6));
-  margin: 0 0 1rem 0;
-  line-height: 1.45;
-}
-.settings-billing-card .settings-btn {
-  margin-top: 0.25rem;
-}
-
-/* ——— Help section (complete) ——— */
-.settings-help-section {
-  margin-bottom: 1.5rem;
-}
-.settings-help-section-title {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--settings-text-muted);
-  margin: 0 0 0.5rem 0;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-.settings-help-links {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-.settings-help-link {
-  display: block;
-  padding: 0.6rem 0.85rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--settings-accent);
-  text-decoration: none;
-  transition:
-    background 0.2s,
-    color 0.2s;
-  border-radius: 10px;
-  background: transparent;
-}
-.settings-help-link:hover {
-  color: #b794f6;
-  background: var(--settings-accent-bg);
-}
-
-.settings-help-faq {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  position: relative;
-}
-.settings-help-faq::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.12) 15%,
-    rgba(255, 255, 255, 0.12) 85%,
-    transparent 100%
-  );
-}
-.settings-help-faq-item {
-  margin-bottom: 1rem;
-  padding: 0.9rem 1rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--settings-border);
-  border-radius: 10px;
-}
-.settings-help-faq-item:last-child {
-  margin-bottom: 0;
-}
-.settings-help-faq-item strong {
-  display: block;
-  font-size: 0.9rem;
-  color: var(--settings-text);
-  margin-bottom: 0.4rem;
-}
-.settings-help-faq-item p {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--settings-text-muted);
-  line-height: 1.5;
-}
-
-.settings-panel-heading {
-  margin: 0 0 0.2rem 0;
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: var(--settings-text);
-  letter-spacing: -0.02em;
-}
-.settings-panel-desc {
-  margin: 0 0 0.85rem 0;
-  font-size: 0.82rem;
-  color: var(--settings-text-muted);
-  line-height: 1.4;
-  max-width: 42em;
-}
-.settings-overview-cards {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
-}
-.settings-overview-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--sidebar-border, rgba(255, 255, 255, 0.07));
-  border-radius: 12px;
-  text-decoration: none;
-  color: inherit;
-  transition:
-    background 0.2s,
-    border-color 0.2s,
-    transform 0.2s;
-}
-.settings-overview-card:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(139, 92, 246, 0.35);
-  transform: translateY(-1px);
-}
-.settings-overview-card-icon {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(139, 92, 246, 0.9);
-}
-.settings-overview-card-icon svg {
-  width: 20px;
-  height: 20px;
-}
-.settings-overview-card-label {
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--text, #f4f4f5);
-}
-.settings-overview-card-hint {
-  font-size: 0.8rem;
-  color: var(--text-muted, rgba(255, 255, 255, 0.5));
-}
-.settings-account-info {
-  margin-bottom: 1.25rem;
-  padding: 0.75rem 1rem;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 10px;
-  font-size: 0.9rem;
-  color: var(--text-muted, rgba(255, 255, 255, 0.7));
-}
-.settings-account-info .settings-account-email {
-  font-weight: 500;
-  color: var(--text, #f4f4f5);
-}
-
-.settings-theme-block {
-  margin-bottom: 1.25rem;
-}
-.settings-theme-toggle {
+.s-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0;
-  padding: 4px;
-  background: var(--theme-toggle-bg, rgba(255, 255, 255, 0.06));
-  border: 1px solid var(--theme-toggle-border, rgba(255, 255, 255, 0.08));
-  border-radius: 12px;
-}
-.settings-theme-option {
-  padding: 0.5rem 1.1rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-family: inherit;
-  transition:
-    background 0.2s,
-    color 0.2s;
-}
-.settings-theme-option:hover {
-  color: var(--text);
-}
-.settings-theme-option[aria-pressed='true'],
-.settings-theme-option.active {
-  color: var(--text);
-  background: var(--theme-toggle-active-bg, rgba(139, 92, 246, 0.25));
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-}
-body.theme-light .settings-theme-toggle {
-  --theme-toggle-bg: rgba(0, 0, 0, 0.06);
-  --theme-toggle-border: rgba(0, 0, 0, 0.1);
-}
-body.theme-light .settings-theme-option[aria-pressed='true'],
-body.theme-light .settings-theme-option.active {
-  --theme-toggle-active-bg: rgba(139, 92, 246, 0.15);
-  color: #5b21b6;
-}
-
-.settings-panel-subheading {
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--text-muted, rgba(255, 255, 255, 0.7));
-  margin: 1.1rem 0 0.4rem 0;
-  letter-spacing: 0.02em;
-}
-.settings-panel-subheading:first-of-type {
-  margin-top: 0;
-}
-.settings-account-block {
-  margin-bottom: 1rem;
-}
-.settings-account-block .youtube-connect-hint {
-  font-size: 0.8rem;
-  margin-top: 0.5rem;
-  color: var(--text-muted, rgba(255, 255, 255, 0.5));
-}
-.settings-form-row-2 {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
-  margin-bottom: 0.5rem;
-}
-.settings-form-row-3 {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
-  margin-bottom: 0.5rem;
-}
-.settings-form-group {
-  margin-bottom: 0;
-}
-.settings-form-group label {
-  display: block;
-  margin-bottom: 0.35rem;
-  font-size: 0.82rem;
-}
-.settings-personalization-form .settings-form-row-3 {
-  margin-bottom: 0;
-}
-.settings-personalization-form .settings-form-group {
-  margin-bottom: 0.5rem;
-}
-.settings-personalization-form .settings-form-group:last-of-type {
-  margin-bottom: 0.75rem;
-}
-
-.settings-usage-placeholder {
-  padding: 1.5rem;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 12px;
-  font-size: 0.9rem;
-  color: var(--text-muted, rgba(255, 255, 255, 0.5));
-}
-.settings-help-block {
-  margin-top: 1rem;
-}
-.settings-help-block p {
-  margin: 0 0 0.5rem 0;
-  font-size: 0.95rem;
-  color: var(--text, #f4f4f5);
-}
-.settings-help-list {
-  margin: 0 0 1rem 1.25rem;
-  padding: 0;
-  font-size: 0.9rem;
-  color: var(--text-muted, rgba(255, 255, 255, 0.7));
-  line-height: 1.5;
-}
-
-/* Account danger zone */
-.settings-account-actions {
-  margin-top: 1.5rem;
-}
-/* ——— Confirmation dialogs (delete data, delete account) ——— */
-.settings-confirm-dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  animation: settings-dialog-fade-in 0.2s ease;
-}
-@keyframes settings-dialog-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-.settings-confirm-dialog {
-  width: 100%;
-  max-width: 420px;
-  padding: 1.5rem 1.75rem;
-  background: var(--settings-bg);
-  border: 1px solid var(--settings-border);
-  border-radius: 14px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
-  animation: settings-dialog-scale-in 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-}
-@keyframes settings-dialog-scale-in {
-  from {
-    opacity: 0;
-    transform: scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-.settings-confirm-dialog-title {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.15rem;
-  font-weight: 600;
-  color: var(--settings-text);
-}
-.settings-confirm-dialog-desc {
-  margin: 0 0 1rem 0;
-  font-size: 0.9rem;
-  color: var(--settings-text-muted);
-  line-height: 1.5;
-}
-.settings-confirm-checkbox {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.875rem;
-  cursor: pointer;
-  margin-bottom: 1rem;
-  padding: 0.85rem 1rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--settings-border);
-  border-radius: 12px;
-  font-size: 0.9rem;
-  color: var(--settings-text-muted);
-  line-height: 1.45;
-  transition:
-    background 0.2s,
-    border-color 0.2s;
-}
-.settings-confirm-checkbox:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.12);
-}
-.settings-confirm-checkbox:has(input:checked) {
-  background: rgba(167, 139, 250, 0.12);
-  border-color: rgba(167, 139, 250, 0.35);
-}
-.settings-confirm-checkbox input[type='checkbox'] {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-  pointer-events: none;
-}
-.settings-confirm-checkbox-box {
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  margin-top: 1px;
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-.settings-confirm-checkbox-box::after {
-  content: '';
-  width: 6px;
-  height: 11px;
-  border: 2px solid transparent;
-  border-left: none;
-  border-top: none;
-  transform: rotate(45deg) scale(0);
-  margin-bottom: 4px;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.settings-confirm-checkbox input:checked + .settings-confirm-checkbox-box {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.5) 0%, rgba(167, 139, 250, 0.6) 100%);
-  border-color: rgba(167, 139, 250, 0.8);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    0 0 0 1px rgba(167, 139, 250, 0.2);
-}
-.settings-confirm-checkbox input:checked + .settings-confirm-checkbox-box::after {
-  border-color: #fff;
-  transform: rotate(45deg) scale(1);
-}
-.settings-confirm-checkbox input:focus-visible + .settings-confirm-checkbox-box {
-  outline: none;
-  box-shadow: var(--accent-focus-ring);
-}
-.settings-confirm-checkbox-text {
-  flex: 1;
-  min-width: 0;
-}
-.settings-confirm-password-input {
-  margin-bottom: 0.75rem !important;
-}
-.settings-confirm-dialog-actions {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: flex-end;
-  margin-top: 1rem;
-}
-
-.settings-danger-zone {
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  position: relative;
-}
-.settings-danger-zone::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.12) 15%,
-    rgba(255, 255, 255, 0.12) 85%,
-    transparent 100%
-  );
-}
-.settings-danger-zone-title {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-muted, rgba(255, 255, 255, 0.6));
-  margin: 0 0 0.75rem 0;
-}
-.settings-danger-zone-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.settings-danger-btn {
-  align-self: flex-start;
-  font-size: 0.9rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 8px;
+  font-family: inherit;
+  letter-spacing: -0.005em;
+  border-radius: var(--s-radius-pill);
   border: 1px solid transparent;
   cursor: pointer;
-  font-family: inherit;
-  transition:
-    background 0.2s,
-    color 0.2s,
-    border-color 0.2s;
-}
-.settings-danger-btn.secondary {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-muted, rgba(255, 255, 255, 0.7));
-  border-color: rgba(255, 255, 255, 0.08);
-}
-.settings-danger-btn.secondary:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text, #f4f4f5);
-}
-.settings-danger-btn.danger {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-  border-color: rgba(239, 68, 68, 0.3);
-}
-.settings-danger-btn.danger:hover {
-  background: rgba(239, 68, 68, 0.25);
-  color: #fca5a5;
-}
-
-/* Profile form & analytics inside modal */
-.settings-modal-panel .profile-form .form-group {
-  margin-bottom: 1rem;
-}
-.settings-modal-panel .profile-form .form-row {
-  margin-bottom: 0;
-}
-.settings-modal-panel .settings-section-title {
-  font-size: 1rem;
-  margin: 1rem 0 0.5rem 0;
-}
-.settings-modal-panel .youtube-connect-cta {
-  margin-top: 0.5rem;
-}
-.settings-modal-panel .settings-analytics-cards {
-  margin-top: 0.75rem;
-}
-
-/* Mobile rules moved to the bottom of this file so they cascade over every
-   desktop override (DIALOG CHROME + DASHBOARD-CARD PARITY blocks below). */
-
-/* ═══════════════════════════════════════════════════════════════════════
-   DIALOG CHROME — mirrors the Dashboard "milestones dialog" (.ms-dialog)
-   ───────────────────────────────────────────────────────────────────────
-   Same dashboard-card background, 22 px radius, 40 px backdrop blur,
-   spring entrance animation, and circular white-glass close button.
-   ═══════════════════════════════════════════════════════════════════════ */
-
-.settings-modal-dialog {
-  background: rgba(22, 22, 26, 0.95);
-  backdrop-filter: blur(40px) saturate(160%);
-  -webkit-backdrop-filter: blur(40px) saturate(160%);
-  border: 0.5px solid rgba(255, 255, 255, 0.12);
-  border-radius: 22px;
-  box-shadow:
-    0 0 0 0.5px rgba(0, 0, 0, 0.3),
-    0 24px 80px rgba(0, 0, 0, 0.55),
-    0 8px 24px rgba(0, 0, 0, 0.3);
-  /* No entrance animation — settings is a route, not a popping dialog. */
-  overflow: hidden;
-}
-
-/* Header — solid page canvas with the gradient hairline divider
-   defined on the base `.settings-modal-header::after` rule. No
-   border-radius (this is a route, not a floating panel) and no
-   `border-bottom` (so only the sharp-fade ::after shows). */
-.settings-modal-dialog .settings-modal-header {
-  padding: 1rem 1.25rem;
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border-radius: 0;
-  border-bottom: none;
-}
-.settings-modal-dialog .settings-modal-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: #fff;
-  background: none;
-  -webkit-background-clip: initial;
-  background-clip: initial;
-}
-
-/* Close button — circular glass pill, scale(0.9) press (matches .ms-dialog__close) */
-.settings-modal-dialog .settings-modal-close {
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.55);
-  cursor: pointer;
-  box-shadow: none;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease,
-    transform 0.08s ease;
-}
-.settings-modal-dialog .settings-modal-close:hover {
-  background: rgba(255, 255, 255, 0.14);
-  color: rgba(255, 255, 255, 0.9);
-  border-color: transparent;
-}
-.settings-modal-dialog .settings-modal-close:active {
-  transform: scale(0.9);
-}
-.settings-modal-dialog .settings-modal-close svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* Left nav — full-height column: section list grows, Logout pinned at the
-   bottom. Sharp edge-to-edge divider on the right (no gradient). */
-.settings-modal-dialog .settings-modal-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 0.6rem 0.5rem;
-  background: transparent;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: none;
-}
-
-/* Hide the mobile SegmentedTabs tabbar on desktop. */
-.settings-modal-dialog .settings-modal-tabbar {
-  display: none;
-}
-.settings-modal-dialog .settings-modal-nav-list {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 0.1rem;
-}
-
-/* Each section row — mirrors .sidebar-history-row: 36 px tall, 10 px radius,
-   neutral text, soft grey hover, violet-gradient active state with inset
-   highlight + inset border ring. */
-.settings-modal-dialog .settings-modal-nav-item {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  flex: 0 0 36px;
-  height: 36px;
-  min-height: 36px;
-  padding: 0 0.7rem;
-  border: none;
-  border-radius: 10px;
-  background: transparent;
-  color: rgba(229, 229, 231, 0.75);
-  font-size: 0.85rem;
-  font-weight: 500;
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    background 160ms cubic-bezier(0.25, 1, 0.5, 1),
-    box-shadow 160ms cubic-bezier(0.25, 1, 0.5, 1),
-    color 160ms cubic-bezier(0.25, 1, 0.5, 1),
-    transform 80ms ease;
-}
-.settings-modal-dialog .settings-modal-nav-item:hover {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.04) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  color: #fff;
-}
-.settings-modal-dialog .settings-modal-nav-item:active {
-  transform: scale(0.99);
-}
-.settings-modal-dialog .settings-modal-nav-item.active {
-  color: #ffffff;
-  background: linear-gradient(180deg, rgba(139, 92, 246, 0.32) 0%, rgba(124, 58, 237, 0.28) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.12),
-    inset 0 0 0 1px rgba(167, 139, 250, 0.28);
-  font-weight: 600;
-}
-.settings-modal-dialog .settings-modal-nav-item.active:hover {
-  background: linear-gradient(180deg, rgba(139, 92, 246, 0.38) 0%, rgba(124, 58, 237, 0.34) 100%);
-}
-
-/* Logout pill — pinned to the bottom of the rail. Red glass to signal the
-   destructive action without being jarring. */
-.settings-modal-dialog .settings-modal-logout {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  padding: 0.55rem 0.9rem;
-  height: 36px;
-  min-height: 36px;
-  border: 1px solid rgba(248, 113, 113, 0.18);
-  border-radius: 10px;
-  background: rgba(248, 113, 113, 0.06);
-  color: rgba(252, 165, 165, 0.9);
-  font-size: 0.82rem;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease,
-    transform 80ms ease;
-}
-.settings-modal-dialog .settings-modal-logout:hover {
-  background: rgba(248, 113, 113, 0.12);
-  border-color: rgba(248, 113, 113, 0.3);
-  color: #fecaca;
-}
-.settings-modal-dialog .settings-modal-logout:active {
-  transform: scale(0.97);
-}
-.settings-modal-dialog .settings-modal-logout svg {
-  flex-shrink: 0;
-}
-
-/* Mobile-only footer: the red Log out pill lives inside the content pane
-   so it's part of the scrollable screen, not the tabbar. */
-.settings-modal-dialog .settings-modal-mobile-footer {
-  display: none;
-}
-.settings-modal-dialog .settings-modal-logout-inline {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.65rem 1rem;
-  height: 40px;
-  background: rgba(248, 113, 113, 0.08);
-  border: 1px solid rgba(248, 113, 113, 0.22);
-  border-radius: 10px;
-  color: rgba(252, 165, 165, 0.9);
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease,
-    transform 80ms ease;
-}
-.settings-modal-dialog .settings-modal-logout-inline:hover {
-  background: rgba(248, 113, 113, 0.14);
-  border-color: rgba(248, 113, 113, 0.32);
-  color: #fecaca;
-}
-.settings-modal-dialog .settings-modal-logout-inline:active {
-  transform: scale(0.98);
-}
-.settings-modal-dialog .settings-modal-logout-inline svg {
-  flex-shrink: 0;
-}
-
-/* Content pane — transparent so it inherits the dashboard-aligned
-   page canvas from the wrapper. Padding only. */
-.settings-modal-dialog .settings-modal-content {
-  padding: 1.35rem 1.6rem;
-  background: transparent;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   DASHBOARD-CARD PARITY — every surface inside the dialog now uses the
-   same #18181c card with the same border / radius as the Dashboard
-   screens. Inputs, buttons, toggles, selects, and collapsibles share a
-   single visual language with crisp focus rings and a consistent
-   scale(0.97) press feedback.
-   ═══════════════════════════════════════════════════════════════════════ */
-
-.settings-modal-dialog {
-  /* Settings tokens are aligned 1:1 with the dashboard tokens
-     (`--dash-surface-card`, `--dash-surface-border`, `--dash-radius-*`,
-     `--dash-spring`) so cards and buttons read as the same surface
-     language across the app. The settings modal renders in a portal
-     outside `.dashboard-page`, so we mirror values here rather than
-     consume the dash tokens directly. */
-  --set-card: #18181c;
-  --set-card-hover: #222228;
-  --set-card-border: rgba(255, 255, 255, 0.07);
-  --set-card-border-hover: rgba(255, 255, 255, 0.12);
-  --set-card-radius: 12px;
-  --set-card-radius-sm: 10px;
-  --set-ease: cubic-bezier(0.28, 0.11, 0.32, 1);
-  --set-press: cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-/* Section heading + description — match dashboard card-section-head sizing */
-.settings-modal-dialog .settings-panel-heading {
-  margin: 0 0 0.3rem;
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: -0.015em;
-}
-.settings-modal-dialog .settings-panel-desc {
-  margin: 0 0 1.1rem;
-  font-size: 0.85rem;
-  color: rgba(229, 229, 231, 0.7);
-  line-height: 1.45;
-}
-.settings-modal-dialog .settings-subheading {
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.55);
-  margin: 1.4rem 0 0.6rem;
-}
-.settings-modal-dialog .settings-subheading:first-of-type {
-  margin-top: 0;
-}
-
-/* CARDS — every "blocky" surface element picks up the dashboard card look */
-.settings-modal-dialog .settings-block,
-.settings-modal-dialog .settings-youtube-card,
-.settings-modal-dialog .settings-youtube-channel-card,
-.settings-modal-dialog .settings-youtube-connect-block,
-.settings-modal-dialog .settings-help-section,
-.settings-modal-dialog .settings-help-faq,
-.settings-modal-dialog .settings-help-faq-item,
-.settings-modal-dialog .settings-collapsible,
-.settings-modal-dialog .settings-danger-block {
-  background: var(--set-card);
-  border: 1px solid var(--set-card-border);
-  border-radius: var(--set-card-radius);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
-  color: #e5e5e7;
-}
-
-/* Simple info block (email row) */
-.settings-modal-dialog .settings-block {
-  padding: 0.9rem 1.1rem;
-  margin-bottom: 0.9rem;
-}
-.settings-modal-dialog .settings-account-email {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0;
-  font-size: 0.88rem;
-}
-.settings-modal-dialog .settings-account-email strong {
-  color: rgba(255, 255, 255, 0.55);
-  font-weight: 600;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-}
-.settings-modal-dialog .settings-account-email span {
-  color: #fff;
-  font-weight: 500;
-  margin-left: 0;
-}
-
-/* Help — Resources / Legal / FAQ cards */
-.settings-modal-dialog .settings-help-section {
-  padding: 1rem 1.1rem;
-  margin-bottom: 0.9rem;
-}
-.settings-modal-dialog .settings-help-section-title {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.5);
-  margin: 0 0 0.7rem;
-}
-.settings-modal-dialog .settings-help-links {
-  gap: 0.2rem;
-}
-.settings-modal-dialog .settings-help-link {
-  padding: 0.6rem 0.75rem;
-  border-radius: 10px;
-  color: #e5e5e7;
-  background: transparent;
-  font-weight: 500;
-  transition:
-    background 0.18s ease,
-    color 0.18s ease,
-    transform 120ms var(--set-press);
-}
-.settings-modal-dialog .settings-help-link:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.05);
-}
-.settings-modal-dialog .settings-help-link:active {
-  transform: scale(0.985);
-}
-
-.settings-modal-dialog .settings-help-faq {
-  padding: 1rem 1.1rem;
-  margin-top: 0.5rem;
-}
-.settings-modal-dialog .settings-help-faq::before {
-  display: none; /* inner top border no longer needed — it's its own card */
-}
-.settings-modal-dialog .settings-help-faq-item {
-  padding: 0.85rem 0.95rem;
-  margin-bottom: 0.55rem;
-  background: rgba(255, 255, 255, 0.02);
-  border-color: rgba(255, 255, 255, 0.06);
-  border-radius: 10px;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease;
-}
-.settings-modal-dialog .settings-help-faq-item:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.1);
-}
-.settings-modal-dialog .settings-help-faq-item:last-child {
-  margin-bottom: 0;
-}
-.settings-modal-dialog .settings-help-faq-item strong {
-  color: #fff;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-.settings-modal-dialog .settings-help-faq-item p {
-  color: rgba(229, 229, 231, 0.7);
-  font-size: 0.85rem;
-  line-height: 1.55;
-}
-
-/* YouTube card blocks */
-.settings-modal-dialog .settings-youtube-card,
-.settings-modal-dialog .settings-youtube-connect-block {
-  padding: 1rem 1.1rem;
-  margin-bottom: 0.85rem;
-}
-.settings-modal-dialog .settings-youtube-channel-card {
-  padding: 0.85rem 1rem;
-  margin-bottom: 0.5rem;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    transform 120ms var(--set-press);
-}
-.settings-modal-dialog .settings-youtube-channel-card:hover {
-  background: var(--set-card-hover);
-  border-color: var(--set-card-border-hover);
-}
-.settings-modal-dialog .settings-youtube-channel-card.active {
-  background: linear-gradient(180deg, rgba(167, 139, 250, 0.12) 0%, rgba(124, 58, 237, 0.06) 100%);
-  border-color: rgba(167, 139, 250, 0.3);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 0 0 1px rgba(167, 139, 250, 0.2);
-}
-
-/* Collapsible (Change password) */
-.settings-modal-dialog .settings-collapsible {
-  padding: 0;
-  overflow: hidden;
-  margin-bottom: 0.75rem;
-}
-.settings-modal-dialog .settings-collapsible-header {
-  padding: 0.85rem 1.1rem;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  transition:
-    background 0.18s ease,
-    color 0.18s ease;
-}
-.settings-modal-dialog .settings-collapsible-header:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-.settings-modal-dialog .settings-collapsible-header.expanded {
-  background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid var(--set-card-border);
-}
-.settings-modal-dialog .settings-collapsible-content.expanded {
-  padding: 1rem 1.1rem 1.1rem;
-}
-
-/* Danger block */
-.settings-modal-dialog .settings-danger-block {
-  padding: 1rem 1.1rem;
-  margin-bottom: 0.85rem;
-  border-color: rgba(248, 113, 113, 0.18);
-  background: linear-gradient(180deg, rgba(127, 29, 29, 0.08) 0%, rgba(24, 24, 28, 1) 40%);
-}
-.settings-modal-dialog .settings-danger-title {
-  color: #fca5a5;
-  font-weight: 700;
-  margin: 0 0 0.35rem;
-}
-.settings-modal-dialog .settings-danger-desc {
-  color: rgba(229, 229, 231, 0.7);
-  margin: 0 0 0.75rem;
-}
-
-/* INPUTS, TEXTAREA, SELECT — pill (or rounded-rect for textareas) with
-   the thumbnail-generator's dark-glass surface and soft white focus
-   glow. Geometry overrides come after the base radius so single-line
-   fields stay pill while textarea keeps its 16 px corner. */
-.settings-modal-dialog .settings-input,
-.settings-modal-dialog .settings-form input[type='password'],
-.settings-modal-dialog .settings-form input[type='text'],
-.settings-modal-dialog .settings-form input[type='email'],
-.settings-modal-dialog .settings-textarea,
-.settings-modal-dialog .settings-select {
-  width: 100%;
-  max-width: 100%;
-  padding: 0.65rem 1.1rem;
-  font-size: 0.9rem;
-  font-family: inherit;
-  color: rgba(248, 250, 252, 0.95);
-  background: rgba(0, 0, 0, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
-  box-shadow: none;
-  outline: none;
-  transition:
-    border-color 0.2s ease,
-    background 0.2s ease,
-    box-shadow 0.2s ease;
-}
-.settings-modal-dialog .settings-textarea {
-  border-radius: 16px;
-  padding: 0.7rem 1rem;
-  font-size: 0.88rem;
-}
-.settings-modal-dialog .settings-input:hover,
-.settings-modal-dialog .settings-form input:hover,
-.settings-modal-dialog .settings-textarea:hover,
-.settings-modal-dialog .settings-select:hover {
-  background: rgba(0, 0, 0, 0.28);
-  border-color: rgba(255, 255, 255, 0.16);
-}
-.settings-modal-dialog .settings-input:focus,
-.settings-modal-dialog .settings-form input:focus,
-.settings-modal-dialog .settings-textarea:focus,
-.settings-modal-dialog .settings-select:focus {
-  outline: none;
-  background: rgba(0, 0, 0, 0.28);
-  border-color: rgba(255, 255, 255, 0.22);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.05);
-}
-.settings-modal-dialog .settings-input::placeholder,
-.settings-modal-dialog .settings-form input::placeholder,
-.settings-modal-dialog .settings-textarea::placeholder {
-  color: rgba(148, 163, 184, 0.55);
-}
-
-/* BUTTONS — pill-shaped, dashboard violet. Same geometry as the base
-   rule above; this scoped block exists only to win specificity battles
-   against any legacy stylesheets that might leak through the portal. */
-.settings-modal-dialog .settings-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  padding: 0.55rem 1.25rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  font-family: inherit;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  text-decoration: none;
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
   transition:
-    background 250ms var(--set-ease),
-    box-shadow 250ms var(--set-ease),
-    color 250ms var(--set-ease),
-    border-color 250ms var(--set-ease),
-    filter 250ms var(--set-ease);
+    background 200ms var(--s-ease),
+    border-color 200ms var(--s-ease),
+    color 200ms var(--s-ease),
+    box-shadow 200ms var(--s-ease),
+    filter 200ms var(--s-ease),
+    transform 100ms var(--s-ease);
 }
-.settings-modal-dialog .settings-btn:not(:disabled):active {
+.s-btn:not(:disabled):active {
   transform: scale(0.96);
-  transition: transform 0.08s var(--set-press);
 }
-
-.settings-modal-dialog .settings-btn-primary {
-  color: #ffffff;
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #5b21b6 100%);
-  border-color: rgba(167, 139, 250, 0.45);
-  box-shadow: 0 2px 10px rgba(109, 40, 217, 0.3);
+.s-btn svg {
+  width: 14px;
+  height: 14px;
 }
-.settings-modal-dialog .settings-btn-primary:hover:not(:disabled) {
-  filter: brightness(1.08);
-  border-color: rgba(196, 181, 253, 0.6);
-  box-shadow: 0 4px 16px rgba(109, 40, 217, 0.4);
-}
-
-.settings-modal-dialog .settings-btn-secondary {
-  color: #b794f6;
-  background: rgba(124, 58, 237, 0.12);
-  border-color: rgba(124, 58, 237, 0.25);
-}
-.settings-modal-dialog .settings-btn-secondary:hover:not(:disabled) {
-  background: rgba(124, 58, 237, 0.2);
-  border-color: rgba(167, 139, 250, 0.4);
-}
-
-.settings-modal-dialog .settings-btn-ghost {
-  color: rgba(255, 255, 255, 0.78);
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.1);
-}
-.settings-modal-dialog .settings-btn-ghost:hover:not(:disabled) {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.16);
-}
-
-.settings-modal-dialog .settings-btn-danger {
-  color: #fecaca;
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.32);
-}
-.settings-modal-dialog .settings-btn-danger:hover:not(:disabled) {
-  color: #fff;
-  background: rgba(239, 68, 68, 0.25);
-  border-color: rgba(248, 113, 113, 0.5);
-}
-
-.settings-modal-dialog .settings-btn:disabled {
-  opacity: 0.35;
+.s-btn:disabled {
+  opacity: 0.4;
   cursor: not-allowed;
   transform: none;
 }
 
-.settings-modal-dialog .settings-btn--sm {
-  padding: 0.4rem 0.95rem;
-  font-size: 0.8125rem;
+.s-btn--primary {
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #5b21b6 100%);
+  border-color: rgba(167, 139, 250, 0.4);
+}
+.s-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.08);
 }
 
-/* Checkbox pill */
-.settings-modal-dialog .settings-checkbox-label {
+.s-btn--ghost {
+  color: var(--s-text);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--s-border);
+}
+.s-btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: var(--s-border-strong);
+}
+
+.s-btn--danger {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.36);
+}
+.s-btn--danger:hover:not(:disabled) {
+  color: #fff;
+  background: rgba(239, 68, 68, 0.26);
+  border-color: rgba(248, 113, 113, 0.55);
+}
+
+.s-btn--lg {
+  padding: 0.7rem 1.35rem;
+  font-size: 0.9rem;
+}
+.s-btn--full {
+  width: 100%;
+}
+
+/* ── Channel rows ──────────────────────────────────────────────── */
+
+.s-channels {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.s-channel {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.7rem 0.85rem;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius-sm);
+  transition:
+    background 200ms var(--s-ease),
+    border-color 200ms var(--s-ease);
+}
+.s-channel:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.s-channel--active {
+  background: rgba(124, 58, 237, 0.1);
+  border-color: rgba(167, 139, 250, 0.32);
+}
+.s-channel-info {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.s-channel-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.s-channel-meta {
+  font-size: 0.74rem;
+  color: var(--s-text-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.s-channel-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.s-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 0.4rem 0;
+}
+.s-empty p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--s-text-muted);
+  line-height: 1.5;
+}
+
+/* ── Form fields (security card) ────────────────────────────────── */
+
+.s-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.s-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.s-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.s-field-label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--s-text-soft);
+}
+
+.s-input {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--s-text);
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius-pill);
+  outline: none;
+  transition:
+    background 180ms var(--s-ease),
+    border-color 180ms var(--s-ease),
+    box-shadow 180ms var(--s-ease);
+}
+.s-input:hover {
+  background: rgba(0, 0, 0, 0.38);
+  border-color: var(--s-border-strong);
+}
+.s-input:focus {
+  background: rgba(0, 0, 0, 0.38);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.05);
+}
+.s-input::placeholder {
+  color: var(--s-text-soft);
+}
+
+/* ── Alerts ─────────────────────────────────────────────────────── */
+
+.s-alert {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.55rem 0.75rem;
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid var(--set-card-border);
-  border-radius: 10px;
-  color: #e5e5e7;
+  padding: 0.55rem 0.85rem;
+  border-radius: var(--s-radius-sm);
+  font-size: 0.84rem;
+}
+.s-alert--success {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.28);
+}
+.s-alert--error {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.32);
+}
+.s-alert-dismiss {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 1.05rem;
+  line-height: 1;
+  padding: 0 0.25rem;
   cursor: pointer;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease;
+  opacity: 0.8;
 }
-.settings-modal-dialog .settings-checkbox-label:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: var(--set-card-border-hover);
-}
-.settings-modal-dialog .settings-checkbox-label input[type='checkbox'] {
-  accent-color: #a78bfa;
+.s-alert-dismiss:hover {
+  opacity: 1;
 }
 
-/* Messages — success / error toast inside the modal */
-.settings-modal-dialog .settings-message {
-  border-radius: 10px;
-  padding: 0.65rem 0.9rem;
-  margin-bottom: 0.85rem;
-}
-.settings-modal-dialog .settings-message--success {
-  background: linear-gradient(180deg, rgba(52, 211, 153, 0.18) 0%, rgba(16, 185, 129, 0.08) 100%);
-  border: 1px solid rgba(110, 231, 183, 0.28);
-  color: #bbf7d0;
-}
-.settings-modal-dialog .settings-message--error {
-  background: linear-gradient(180deg, rgba(248, 113, 113, 0.16) 0%, rgba(127, 29, 29, 0.1) 100%);
-  border: 1px solid rgba(248, 113, 113, 0.3);
-  color: #fecaca;
-}
+/* ── Help / Legal grid ──────────────────────────────────────────── */
 
-/* Profile grid (Personalization summary cards) */
-.settings-modal-dialog .settings-profile-grid {
+.s-grid-2 {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 0.6rem;
-  margin-bottom: 1rem;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.1rem;
 }
-.settings-modal-dialog .settings-profile-item {
-  background: var(--set-card);
-  border: 1px solid var(--set-card-border);
-  border-radius: 12px;
-  padding: 0.75rem 0.9rem;
+
+.s-link-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
-.settings-modal-dialog .settings-profile-label {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.5);
-  margin-bottom: 0.3rem;
+.s-link-list li {
+  display: block;
 }
-.settings-modal-dialog .settings-profile-value {
+.s-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--s-radius-sm);
+  background: transparent;
+  color: var(--s-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    background 200ms var(--s-ease),
+    color 200ms var(--s-ease);
+}
+.s-link svg {
+  color: var(--s-text-soft);
+  width: 14px;
+  height: 14px;
+  transition:
+    transform 180ms var(--s-ease),
+    color 180ms var(--s-ease);
+}
+.s-link:hover {
+  background: rgba(255, 255, 255, 0.05);
   color: #fff;
+}
+.s-link:hover svg {
+  color: var(--s-accent);
+  transform: translateX(2px);
+}
+
+/* ── Danger zone rows ───────────────────────────────────────────── */
+
+.s-danger-row {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.4rem 0;
+}
+.s-danger-text {
+  flex: 1;
+  min-width: 0;
+}
+.s-danger-text strong {
+  display: block;
+  font-size: 0.92rem;
   font-weight: 600;
-  font-size: 0.9rem;
+  color: #fff;
+  margin-bottom: 0.18rem;
+}
+.s-danger-text p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--s-text-muted);
+  line-height: 1.45;
+}
+.s-danger-divider {
+  height: 1px;
+  background: rgba(239, 68, 68, 0.14);
+  margin: 0.35rem 0;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   MOBILE — complete override block. Placed at end of file so every rule
-   above (desktop chrome, dashboard-card parity, etc.) is overridden.
-   Layout:
-     ┌─────────────────────────────┐
-     │ header  (title + close)     │
-     ├─────────────────────────────┤
-     │ tabbar  (SegmentedTabs)     │   horizontal bar, edge-to-edge divider
-     ├─────────────────────────────┤
-     │ content (active panel)      │
-     │   …panels…                  │
-     │   footer → red Log-out pill │
-     └─────────────────────────────┘
-   ═══════════════════════════════════════════════════════════════════════ */
+/* ── Sign out — top-right corner of the hero card ──────────────── */
+
+.s-hero-signout {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.95rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: -0.005em;
+  border-radius: var(--s-radius-pill);
+  background: rgba(0, 0, 0, 0.32);
+  color: var(--s-text-muted);
+  border: 1px solid var(--s-border-strong);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition:
+    background 200ms var(--s-ease),
+    color 200ms var(--s-ease),
+    border-color 200ms var(--s-ease),
+    transform 100ms var(--s-ease);
+}
+.s-hero-signout:hover {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+.s-hero-signout:active {
+  transform: scale(0.96);
+}
+.s-hero-signout svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* ── Confirm sheets ─────────────────────────────────────────────── */
+
+.s-confirm-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: s-fade 160ms ease-out;
+}
+
+.s-confirm {
+  width: 100%;
+  max-width: 440px;
+  padding: 1.4rem 1.5rem;
+  background: var(--s-card);
+  border: 1px solid var(--s-border-strong);
+  border-radius: var(--s-radius);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    0 4px 14px rgba(0, 0, 0, 0.3);
+  animation: s-confirm-pop 200ms var(--s-ease);
+}
+@keyframes s-confirm-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .s-confirm {
+    animation: none;
+  }
+}
+
+.s-confirm-title {
+  margin: 0 0 0.45rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+.s-confirm-body {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--s-text-muted);
+  line-height: 1.5;
+}
+.s-confirm-error {
+  margin: 0.65rem 0 0;
+  font-size: 0.82rem;
+  color: #fca5a5;
+}
+.s-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────── */
+
 @media (max-width: 720px) {
-  /* In-shell route fills `<main>` exactly like Dashboard does on phones —
-     no margin, no border-radius. The pre-route-mode rule that shrank the
-     panel to `calc(100vw - 1.5rem)` is suppressed here. */
-  .settings-screen.settings-modal-dialog {
-    width: 100%;
-    max-width: 100%;
-    height: 100%;
-    max-height: none;
-    min-height: 0;
-    border-radius: 0;
-  }
-
-  /* Outer body: column layout (header → content) */
-  .settings-modal-dialog > .settings-modal-body {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-  }
-
-  /* Header — leave room on the left for the floating sidebar-open
-     hamburger (40 px circle at left: 14 px), so the title isn't hidden
-     by it. The close button on the right keeps its desktop offset. */
-  .settings-modal-dialog .settings-modal-header {
+  /* Header has to clear the floating mobile sidebar trigger
+     (.sidebar-open-btn — 40 px circle at left:14 px). */
+  .s-header {
     padding: 0.85rem 1rem 0.85rem 4rem;
-    flex-shrink: 0;
   }
-
-  /* ─── TOP TABBAR ─── */
-  .settings-modal-dialog .settings-modal-tabbar {
-    display: flex;
-    flex-shrink: 0;
-    align-items: center;
-    padding: 0.55rem 0.75rem;
-    background: transparent;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  }
-  /* SegmentedTabs fills the strip and scrolls horizontally if it overflows */
-  .settings-modal-dialog .settings-modal-tabbar .seg-tabs {
-    display: flex;
-    flex: 1 1 auto;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    -webkit-overflow-scrolling: touch;
-  }
-  .settings-modal-dialog .settings-modal-tabbar .seg-tabs::-webkit-scrollbar {
-    display: none;
-  }
-  .settings-modal-dialog .settings-modal-tabbar .seg-tabs-list {
-    flex: 0 0 auto;
-    min-width: 100%;
-  }
-
-  /* ─── INNER BODY ─── */
-  /* Inner body is a flex row; hide the sidebar and let content take it all */
-  .settings-modal-dialog > .settings-modal-body > .settings-modal-body {
-    flex: 1 1 auto;
-    min-height: 0;
-    width: 100%;
-    display: flex;
-    flex-direction: row;
-    overflow: hidden;
-  }
-  .settings-modal-dialog .settings-modal-sidebar {
-    display: none;
-  }
-
-  /* ─── CONTENT (SCROLLABLE) ─── */
-  .settings-modal-dialog .settings-modal-content {
-    flex: 1 1 auto;
-    min-height: 0;
-    padding: 1rem 1rem 1.5rem;
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
-
-  /* ─── IN-CONTENT FOOTER WITH LOGOUT PILL ─── */
-  .settings-modal-dialog .settings-modal-mobile-footer {
-    display: flex;
-    justify-content: stretch;
-    margin-top: 1.25rem;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-  }
-
-  /* Collapse multi-column grids on phones */
-  .settings-overview-cards,
-  .settings-form-row-2,
-  .settings-form-row-3 {
-    grid-template-columns: 1fr;
-  }
-  .settings-script-voice-option {
-    flex-wrap: wrap;
-  }
-  .settings-script-voice-toggle-wrap {
-    width: 100%;
-    flex-direction: row;
-    justify-content: flex-end;
-    align-items: center;
-  }
-
-  /* Pill fields stretch to fill the column on phones — desktop's
-     360 px max-width would leave half the row empty. Buttons drop
-     a touch of horizontal padding so they don't feel oversized. */
-  .settings-modal-dialog .settings-input,
-  .settings-modal-dialog .settings-form input[type='password'],
-  .settings-modal-dialog .settings-form input[type='text'],
-  .settings-modal-dialog .settings-form input[type='email'],
-  .settings-modal-dialog .settings-textarea,
-  .settings-modal-dialog .settings-select {
-    max-width: 100%;
-  }
-  .settings-modal-dialog .settings-btn {
-    padding: 0.55rem 1.1rem;
-    font-size: 0.875rem;
-  }
-  .settings-modal-dialog .settings-btn--sm {
-    padding: 0.4rem 0.85rem;
-    font-size: 0.8rem;
-  }
-  /* Full-width primary action on phones reads cleaner inside narrow
-     forms — same idea iOS uses for primary CTAs in sheets. */
-  .settings-modal-dialog .settings-modal-mobile-footer .settings-btn,
-  .settings-modal-dialog .settings-form > .settings-btn {
-    width: 100%;
-  }
-}
-
-/* Extra-small phones: tighten paddings further */
-@media (max-width: 420px) {
-  /* Same in-shell override as the 720 px block — kill the legacy
-     dialog sizing that would otherwise give the route a 0.75 rem
-     gutter on small phones. */
-  .settings-screen.settings-modal-dialog {
-    width: 100%;
-    max-width: 100%;
-    border-radius: 0;
-  }
-  .settings-modal-dialog .settings-modal-header {
-    padding: 0.75rem 0.85rem 0.75rem 3.75rem;
-  }
-  .settings-modal-dialog .settings-modal-title {
+  .s-header-title {
     font-size: 1rem;
   }
-  .settings-modal-dialog .settings-modal-tabbar {
-    padding: 0.5rem 0.6rem;
+
+  .s-content {
+    padding: 1.25rem 1rem 2.25rem;
+    gap: 0.95rem;
   }
-  .settings-modal-dialog .settings-modal-content {
-    padding: 0.85rem 0.85rem 1.25rem;
+
+  .s-hero {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.85rem;
+    padding: 1.4rem 1.25rem 1.5rem;
   }
-  .settings-modal-dialog .settings-help-faq-item {
-    padding: 0.75rem 0.85rem;
+  .s-hero-meta {
+    justify-content: center;
   }
-  /* Tighten pills further on the smallest phones so they fit the
-     narrower content padding without wrapping their label. */
-  .settings-modal-dialog .settings-input,
-  .settings-modal-dialog .settings-form input[type='password'],
-  .settings-modal-dialog .settings-form input[type='text'],
-  .settings-modal-dialog .settings-form input[type='email'],
-  .settings-modal-dialog .settings-select {
-    padding: 0.6rem 1rem;
-    font-size: 0.875rem;
+  .s-hero-greeting {
+    font-size: 1.2rem;
   }
-  .settings-modal-dialog .settings-textarea {
-    padding: 0.65rem 0.9rem;
+
+  .s-grid-2 {
+    grid-template-columns: 1fr;
   }
-  .settings-modal-dialog .settings-btn {
-    padding: 0.5rem 1rem;
-    font-size: 0.85rem;
+
+  .s-channel {
+    flex-wrap: wrap;
+  }
+  .s-channel-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .s-danger-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.55rem;
+  }
+  .s-danger-row .s-btn {
+    align-self: flex-end;
+  }
+}
+
+@media (max-width: 420px) {
+  .s-header {
+    padding-left: 3.6rem;
+  }
+  .s-content {
+    padding: 1rem 0.85rem 2rem;
+  }
+  .s-hero-avatar-wrap {
+    width: 72px;
+    height: 72px;
+  }
+  .s-avatar--xl {
+    width: 72px;
+    height: 72px;
+  }
+  .s-avatar--xl .s-avatar-initial {
+    font-size: 1.7rem;
+  }
+  .s-hero-greeting {
+    font-size: 1.1rem;
+  }
+  .s-confirm {
+    padding: 1.15rem 1.2rem;
+  }
+
+  /* Tighten the in-hero sign-out so it doesn't crowd the centred
+     hero on tiny phones — drop the label, keep just the icon. */
+  .s-hero-signout {
+    top: 0.65rem;
+    right: 0.7rem;
+    padding: 0.4rem 0.55rem;
+  }
+  .s-hero-signout span {
+    display: none;
   }
 }

@@ -82,6 +82,9 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
   const { canUse } = usePlanEntitlements()
   const locked = !canUse('styles')
   const [open, setOpen] = useState(false)
+  // Brief shrink-back animation gate — see PersonaSelector for the same pattern.
+  const [closing, setClosing] = useState(false)
+  const closeTimerRef = useRef(null)
   const ref = useRef(null)
   const triggerRef = useRef(null)
   const { popoverRef, style: popoverStyle } = useFloatingPosition({
@@ -112,8 +115,21 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
 
   const handleClear = (e) => {
     e.stopPropagation()
-    clearSelectedStyle()
     setOpen(false)
+    if (variant === 'glassCircle') {
+      // Animated exit — keep the pill mounted while the shrink-back
+      // keyframe plays, then clear the selection so the trigger
+      // collapses back to the unselected circle.
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+      setClosing(true)
+      closeTimerRef.current = setTimeout(() => {
+        clearSelectedStyle()
+        setClosing(false)
+        closeTimerRef.current = null
+      }, 220)
+      return
+    }
+    clearSelectedStyle()
   }
 
   const isGlassCircle = variant === 'glassCircle'
@@ -147,12 +163,14 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
   return (
     <div
       ref={ref}
-      className={`style-selector ${compact ? 'style-selector--compact' : ''} ${isGlassCircle ? 'style-selector--glass-circle' : ''}`}
+      className={`style-selector ${compact ? 'style-selector--compact' : ''} ${isGlassCircle ? 'style-selector--glass-circle' : ''} ${closing ? 'style-selector--closing' : ''}`}
     >
       <button
         ref={triggerRef}
         type="button"
-        className={`style-selector-trigger ${isGlassCircle ? 'style-selector-trigger--circle' : ''}`}
+        className={`style-selector-trigger ${isGlassCircle ? 'style-selector-trigger--circle' : ''} ${
+          isGlassCircle && selectedStyle ? 'style-selector-trigger--has-selection' : ''
+        }`}
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -167,6 +185,12 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
           <span className="style-selector-icon">
             <IconStyle />
           </span>
+        )}
+        {/* Name shown in pill mode (glassCircle + selection). Same pattern
+         * as PersonaSelector — keeps the toolbar pill aesthetic
+         * consistent across attach/persona/style. */}
+        {isGlassCircle && selectedStyle && (
+          <span className="style-selector-pill-name">{selectedStyle.name}</span>
         )}
         {!isGlassCircle && (
           <>

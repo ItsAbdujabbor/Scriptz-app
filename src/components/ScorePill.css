@@ -1,0 +1,177 @@
+/* ScorePill — compact glass badge anchored top-left of a thumbnail
+ * card. Single shape across all states; only the tier accent and the
+ * inner content change. See ScorePill.jsx for state semantics. */
+
+.score-pill {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 11px 0 9px;
+  border-radius: 999px;
+  background: rgba(13, 13, 18, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.005em;
+  /* Glass blur on the backdrop so the pill stays readable over any
+   * thumbnail content. The `var(--score-tier-glow, …)` halo is the
+   * only thing that changes per-tier. */
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  backdrop-filter: blur(8px) saturate(140%);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -0.5px 0 rgba(255, 255, 255, 0.04),
+    0 4px 14px rgba(0, 0, 0, 0.32),
+    0 0 0 0 var(--score-tier-glow, transparent);
+  animation: score-pill-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.25s ease;
+  pointer-events: auto;
+}
+
+@keyframes score-pill-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ── Tier dot — the only coloured element on the ready pill.
+ *    A second box-shadow ring + a soft halo via `--score-tier-glow`
+ *    make the dot read as a "live" indicator rather than a static
+ *    coloured pixel. */
+.score-pill__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: var(--score-tier-color, #cbd5e1);
+  box-shadow:
+    0 0 0 1px var(--score-tier-ring, rgba(255, 255, 255, 0.18)),
+    0 0 10px var(--score-tier-glow, rgba(255, 255, 255, 0.35));
+}
+
+/* Loading dot — gentle pulse to signal "AI is thinking" without the
+ * jitter of a hard spinner. */
+.score-pill__dot--pulse {
+  background: rgba(196, 181, 253, 0.95);
+  box-shadow: 0 0 10px rgba(167, 139, 250, 0.55);
+  animation: score-pill-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes score-pill-pulse {
+  0%,
+  100% {
+    transform: scale(0.85);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+
+/* The score number itself — slightly larger weight than the label so
+ * it reads as the headline element. */
+.score-pill__num {
+  font-size: 0.93rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.score-pill__label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1;
+}
+
+/* ── Tier palettes (CSS-variable driven) ──────────────────────────── */
+
+.score-pill--high {
+  --score-tier-color: #34d399;
+  --score-tier-ring: rgba(52, 211, 153, 0.45);
+  --score-tier-glow: rgba(52, 211, 153, 0.55);
+  border-color: rgba(52, 211, 153, 0.32);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -0.5px 0 rgba(255, 255, 255, 0.04),
+    0 4px 14px rgba(0, 0, 0, 0.34),
+    0 0 18px rgba(52, 211, 153, 0.18);
+}
+
+.score-pill--medium {
+  --score-tier-color: #fbbf24;
+  --score-tier-ring: rgba(251, 191, 36, 0.45);
+  --score-tier-glow: rgba(251, 191, 36, 0.55);
+  border-color: rgba(251, 191, 36, 0.32);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -0.5px 0 rgba(255, 255, 255, 0.04),
+    0 4px 14px rgba(0, 0, 0, 0.34),
+    0 0 18px rgba(251, 191, 36, 0.18);
+}
+
+.score-pill--low {
+  --score-tier-color: #f87171;
+  --score-tier-ring: rgba(248, 113, 113, 0.45);
+  --score-tier-glow: rgba(248, 113, 113, 0.55);
+  border-color: rgba(248, 113, 113, 0.32);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -0.5px 0 rgba(255, 255, 255, 0.04),
+    0 4px 14px rgba(0, 0, 0, 0.34),
+    0 0 18px rgba(248, 113, 113, 0.18);
+}
+
+/* ── Loading state ────────────────────────────────────────────────── */
+
+.score-pill--loading {
+  border-color: rgba(167, 139, 250, 0.3);
+}
+
+/* ── Error state ──────────────────────────────────────────────────── */
+
+.score-pill--error {
+  border-color: rgba(248, 113, 113, 0.4);
+  background: rgba(127, 29, 29, 0.55);
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.score-pill--error:hover {
+  border-color: rgba(248, 113, 113, 0.65);
+  background: rgba(127, 29, 29, 0.7);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.18),
+    0 4px 14px rgba(0, 0, 0, 0.34),
+    0 0 16px rgba(248, 113, 113, 0.3);
+}
+
+.score-pill--error:active {
+  transform: scale(0.97);
+  transition: transform 0.08s ease;
+}
+
+.score-pill__retry-icon {
+  width: 12px;
+  height: 12px;
+  display: block;
+  flex-shrink: 0;
+  color: #fecaca;
+}

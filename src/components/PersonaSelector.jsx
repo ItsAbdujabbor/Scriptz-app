@@ -87,6 +87,12 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
   const { canUse } = usePlanEntitlements()
   const locked = !canUse('personas')
   const [open, setOpen] = useState(false)
+  // Briefly true while the glassCircle pill plays its shrink-back
+  // animation after the user hits ×. Keeps the pill mounted long enough
+  // for the exit keyframe to finish before clearSelectedPersona() runs
+  // and the trigger collapses back to the plain circle button.
+  const [closing, setClosing] = useState(false)
+  const closeTimerRef = useRef(null)
   const ref = useRef(null)
   const triggerRef = useRef(null)
   const { popoverRef, style: popoverStyle } = useFloatingPosition({
@@ -120,8 +126,21 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
 
   const handleClear = (e) => {
     e.stopPropagation()
-    clearSelectedPersona()
     setOpen(false)
+    if (variant === 'glassCircle') {
+      // Animated exit: keep the pill rendered for the duration of its
+      // shrink-back keyframe, then actually clear the selection so the
+      // trigger collapses back to the unselected circle.
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+      setClosing(true)
+      closeTimerRef.current = setTimeout(() => {
+        clearSelectedPersona()
+        setClosing(false)
+        closeTimerRef.current = null
+      }, 220)
+      return
+    }
+    clearSelectedPersona()
   }
 
   const isGlassCircle = variant === 'glassCircle'
@@ -156,12 +175,14 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
   return (
     <div
       ref={ref}
-      className={`persona-selector ${compact ? 'persona-selector--compact' : ''} ${isGlassCircle ? 'persona-selector--glass-circle' : ''}`}
+      className={`persona-selector ${compact ? 'persona-selector--compact' : ''} ${isGlassCircle ? 'persona-selector--glass-circle' : ''} ${closing ? 'persona-selector--closing' : ''}`}
     >
       <button
         ref={triggerRef}
         type="button"
-        className={`persona-selector-trigger ${isGlassCircle ? 'persona-selector-trigger--circle' : ''}`}
+        className={`persona-selector-trigger ${isGlassCircle ? 'persona-selector-trigger--circle' : ''} ${
+          isGlassCircle && selectedPersona ? 'persona-selector-trigger--has-selection' : ''
+        }`}
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -180,6 +201,12 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
           <span className="persona-selector-icon">
             <IconPersona />
           </span>
+        )}
+        {/* Name shown in pill mode (glassCircle + selection) so the
+         * trigger expands into the same shape as `.thumb-attach-pill`.
+         * Default + non-selected glassCircle keep their existing layout. */}
+        {isGlassCircle && selectedPersona && (
+          <span className="persona-selector-pill-name">{selectedPersona.name}</span>
         )}
         {!isGlassCircle && (
           <>

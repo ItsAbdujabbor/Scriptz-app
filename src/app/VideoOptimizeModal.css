@@ -1043,6 +1043,8 @@
   }
 }
 
+/* Card geometry mirrors `.optimize-video-card` 1:1 — same surface,
+   same border, same radii, same hover + press behaviour. */
 .video-opt-reco-card {
   position: relative;
   display: flex;
@@ -1050,30 +1052,43 @@
   align-items: stretch;
   text-align: left;
   padding: 0;
-  min-height: 200px;
-  background: var(--vo-surface);
-  border: 1px solid var(--vo-border);
-  border-radius: 20px;
+  min-height: 0;
+  background: var(--dash-surface-card, #18181c);
+  border: 1px solid var(--dash-surface-border, rgba(255, 255, 255, 0.07));
+  border-radius: var(--dash-radius-md, 12px);
   overflow: hidden;
   cursor: pointer;
   font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
   transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
+    border-color var(--dash-dur, 250ms) var(--dash-ease, cubic-bezier(0.28, 0.11, 0.32, 1)),
+    background var(--dash-dur, 250ms) var(--dash-ease, cubic-bezier(0.28, 0.11, 0.32, 1)),
+    transform 0.12s var(--dash-ease-out, cubic-bezier(0.25, 1, 0.5, 1));
 }
 
 .video-opt-reco-card:hover:not(:disabled):not(.video-opt-reco-card--placeholder) {
-  border-color: var(--vo-border-hover);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--dash-surface-card-hover, #222228);
+  border-color: var(--dash-surface-border-hover, rgba(255, 255, 255, 0.12));
 }
 
 .video-opt-reco-card:active:not(:disabled):not(.video-opt-reco-card--placeholder) {
-  background: rgba(255, 255, 255, 0.02);
+  transform: scale(0.96);
+  transition: transform 0.06s ease;
 }
 
-.video-opt-reco-card--selected {
-  border-color: rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.05);
+/* Selected state — same hover surface as Optimize, plus a hairline
+   violet border so the chosen card reads without shouting. No glow,
+   no extra pseudo-elements. */
+.video-opt-reco-card--selected,
+.video-opt-reco-card--selected:hover {
+  background: var(--dash-surface-card-hover, #222228);
+  border-color: rgba(139, 92, 246, 0.55);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video-opt-reco-card {
+    transition: none;
+  }
 }
 
 .video-opt-reco-card--placeholder {
@@ -1081,36 +1096,16 @@
   opacity: 0.7;
 }
 
-.video-opt-reco-option-badge {
-  position: absolute;
-  top: 0.5rem;
-  left: 0.5rem;
-  z-index: 2;
-  width: 1.65rem;
-  height: 1.65rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #fff;
-  background: rgba(15, 15, 18, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-  pointer-events: none;
-}
-
-.video-opt-reco-card--selected .video-opt-reco-option-badge {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.25);
-}
-
+/* Thumbnail wrap — same inset geometry as `.optimize-card-thumb-wrap`:
+   sits 4 px in from the card edges, with its own smaller radius so it
+   reads as a recessed image inside the card. */
 .video-opt-reco-thumb {
   position: relative;
-  width: 100%;
+  width: calc(100% - 0.5rem);
   aspect-ratio: 16/9;
-  background: var(--surface-card);
+  margin: 0.25rem 0.25rem 0;
+  border-radius: var(--dash-radius-sm, 10px);
+  background: #0a0a0a;
   overflow: hidden;
 }
 
