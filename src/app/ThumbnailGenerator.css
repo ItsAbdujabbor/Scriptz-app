@@ -360,22 +360,29 @@
   margin-bottom: 0;
 }
 
-/* Input bar — flat card. Hairline border defines the silhouette; the
- * old heavy shadow halo (upward fade into the thread + heavy downward
- * grounding) was removed because it was painting a dark band across
- * the bottom of the screen. Only the inset edge highlight stays. */
+/* Input bar — flat solid card. The deep-purple glow lives on a
+ * separate background element (`.thumb-bg-fx-shadow` — see
+ * `ThumbBackgroundFX.css`) anchored to the bottom of the screen,
+ * NOT on the input bar itself. Keeping the bar visually neutral so
+ * the glow plate behind it can do all the work. */
 .coach-main--thumb .coach-composer {
+  position: relative;
   width: min(780px, calc(100% - 1.5rem));
   max-width: min(780px, calc(100% - 1.5rem));
   background: #181820;
   border-radius: 26px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  /* Tighter inner padding (was inherited 1.15rem 1rem from
+   * `.coach-composer`). Less breathing room inside the bar so the
+   * textarea and tools row sit closer to the bar's edges. */
+  padding: 0.7rem 0.85rem;
+  gap: 0.5rem;
   transition: border-color 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .coach-main--thumb .coach-composer:focus-within {
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(196, 181, 253, 0.28);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
@@ -1188,6 +1195,54 @@
   display: none;
 }
 
+/* ──────────────────────────────────────────────────────────────────────
+ * Empty-state composer placement.
+ *
+ * Mirrors the pattern Coach uses on `.coach-chat-shell--empty` (see
+ * `CoachChat.css`): the chat-shell becomes flex-centered, the thread
+ * shrinks to its content height, and the chrome drops out of absolute
+ * positioning so it flows naturally as the next flex sibling. Result:
+ * heading + input bar render as a single vertically-centred block with
+ * the heading directly above the bar.
+ *
+ * Once the first message is sent the modifier drops off and every
+ * rule below stops applying — chrome snaps back to its default
+ * `position: absolute; bottom: 0` anchor at the bottom of the screen.
+ * ──────────────────────────────────────────────────────────────────── */
+.coach-chat-shell--thumb-empty {
+  justify-content: center !important;
+  align-items: stretch !important;
+}
+
+/* `.coach-thread` defaults to `flex: 1; padding: 3.6rem … 6.25rem`
+ * and `.coach-thread--empty` adds `padding-bottom: 6rem` — together
+ * those spread the heading and the chrome ~12rem apart even with
+ * the shell flex-centred. `!important` here because both base rules
+ * are on classes the thread also carries (`coach-thread`,
+ * `coach-thread--thumb-panel`) so the cascade tie-breaks via order. */
+.coach-chat-shell--thumb-empty .coach-thread--empty {
+  flex: 0 0 auto !important;
+  overflow: visible !important;
+  padding: 0 var(--dash-gutter-x, 1.75rem) !important;
+  min-height: 0 !important;
+  gap: 0 !important;
+}
+
+.coach-chat-shell--thumb-empty .thumb-gen-footer-chrome {
+  position: static !important;
+  bottom: auto !important;
+  top: auto !important;
+  padding: 0 1rem calc(0.5rem + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* Heading: kill the default `margin: auto` (which would still try to
+ * absorb extra space inside the now-shrunk thread) and add a tight
+ * 1rem gutter below so the heading + bar read as one grouped block. */
+.coach-chat-shell--thumb-empty .thumb-empty-state {
+  margin: 0 auto !important;
+  padding: 0 0 1rem !important;
+}
+
 .thumb-gen-footer-error {
   margin: 0.35rem auto 0.5rem !important;
   display: flex !important;
@@ -1418,59 +1473,61 @@
   display: block;
 }
 
+/* ──────────────────────────────────────────────────────────────────────
+ * Thumbnail composer textarea + native rotating hint.
+ *
+ * The hint is bound directly to the textarea's `placeholder` attribute
+ * (see `useAnimatedHint` in `ThumbnailGenerator.jsx`) so the browser
+ * renders the hint at the EXACT caret position — no overlay element,
+ * no possible offset between hint text and where typing begins.
+ *
+ * The shared `.coach-composer-input::placeholder { color: transparent }`
+ * rule from CoachChat.css is overridden below to make the native
+ * placeholder visible on this screen.
+ * ──────────────────────────────────────────────────────────────────── */
+
 .thumb-prompt-input-wrap {
-  /* Padding only on top/bottom — left/right padding lives on the
-   * textarea + placeholder so they share the same starting x and the
-   * hint sits exactly under the cursor. */
-  padding: 0.15rem 0 0.05rem;
+  padding: 0;
+  margin: 0;
+  position: relative;
+  min-height: 1.5rem;
 }
 
-/* Hint sits ON the textarea's typing line: same top + same left as
- * the textarea content edge, so when the user starts typing the
- * caret begins exactly where the rotating hint was. */
-.thumb-prompt-input-wrap .coach-composer-placeholder {
-  top: 0.2rem;
-  left: 0.55rem;
-  right: 0.55rem;
-  padding: 0.05rem 0;
-  font-size: 0.88rem;
-  line-height: 1.35;
-  overflow: visible;
+/* Native placeholder colour — muted neutral so it reads as a hint, not
+ * actual content. `!important` because the shared
+ * `.coach-composer-input::placeholder { color: transparent }` rule from
+ * CoachChat.css has identical specificity (1 class + 1 pseudo) and the
+ * cascade tie-break would depend on stylesheet load order. */
+.thumb-prompt-textarea::placeholder {
+  color: rgba(229, 229, 231, 0.42) !important;
+  opacity: 1 !important;
 }
-
-.thumb-prompt-input-wrap .coach-composer-placeholder-text {
-  white-space: normal;
-  overflow: visible;
-  text-overflow: clip;
-  line-height: 1.35;
+.thumb-prompt-textarea::-webkit-input-placeholder {
+  color: rgba(229, 229, 231, 0.42) !important;
 }
 
 .thumb-prompt-textarea {
-  min-height: 1.9rem;
-  text-align: left;
-  line-height: 1.35;
+  display: block;
+  width: 100%;
+  min-height: 1.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
   font-size: 0.88rem;
-  padding: 0.05rem 0.55rem;
-  /* Soft alpha fade at the top and bottom edges so scrolling text
-   * dissolves smoothly instead of clipping abruptly. The mask is on
-   * the textarea itself so it works against any background behind it.
-   * 14px fade zones — wide enough to read as a gentle shadow, narrow
-   * enough not to obscure short content (single-line prompts have
-   * their text comfortably in the un-masked middle band). */
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 14px,
-    #000 calc(100% - 14px),
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 14px,
-    #000 calc(100% - 14px),
-    transparent 100%
-  );
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: normal;
+  color: #f8fafc;
+  text-align: left;
+  resize: none;
+  outline: none;
+  /* Mask removed — the previous 4-14px fade gradient was the source
+   * of the apparent caret/hint misalignment. Without it the cursor
+   * paints at full opacity and lines up cleanly with the hint. */
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 
 /* ──────────────────────────────────────────────────────────────────────
@@ -3420,22 +3477,13 @@
 }
 
 /* ── Empty-state layout ────────────────────────────────────────────────
-   The input bar is always pinned to the bottom (via
-   `.thumb-gen-footer-chrome` which is absolutely positioned). When the
-   screen is empty we just let the heading float in the middle of the
-   thread via `margin: auto`, which is scroll-safe and — crucially —
-   does NOT depend on a class that flips between renders. The previous
-   approach toggled `position: static` on `.coach-composer-wrap` based
-   on `isEmptyScreen`, which caused the input bar to flash in the
-   centre of the screen on first paint and then jump to the bottom on
-   the next render after `messages` hydrated from the query cache.
+   The empty-state layout (heading + input bar grouped at vertical
+   centre) lives in the override block earlier in this file
+   (`.coach-chat-shell--thumb-empty …`). The base `.thumb-empty-state`
+   below only owns visual properties — padding, gap, typography. All
+   positioning is in the override.
    ──────────────────────────────────────────────────────────────────── */
 
-/* Empty state heading — vertically centered inside the flex thread.
-   `margin: auto` absorbs the free space on the column main axis,
-   centering the heading even when the thread is `overflow-y: auto`.
-   No layout rules on the shell or composer-wrap, so the input bar
-   keeps its fixed bottom anchor through every render. */
 .thumb-empty-state {
   padding: 1.5rem 0 1.25rem;
   margin: auto;

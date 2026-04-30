@@ -5,6 +5,7 @@ import { useCurrentScreen } from './lib/useCurrentScreen'
 import { emitShellEvent } from './lib/shellEvents'
 import { Sidebar } from './app/Sidebar'
 import { CreatePersonaDialog } from './components/CreatePersonaDialog'
+import { ToastStack } from './components/ToastStack'
 // Each view is its own lazy chunk — landing on /dashboard no longer
 // downloads the JS+CSS for Thumbnails/Optimize/Pro/Billing. See lazyViews.js
 // for the shared prefetch hook used by the sidebar on hover.
@@ -134,6 +135,14 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
        * PersonasModal). Mounted at this level — same as SharedSettingsModal
        * — so it renders independently of any modal it's launched from. */}
       <CreatePersonaDialog />
+
+      {/* Global toast stack — listens for `app:toast` events and shows
+       *  dismissible top-right notifications. Mounted here at the
+       *  authenticated-routes root so every screen has it (Dashboard,
+       *  Optimize, Pro all wrap themselves in AppShellLayout, but
+       *  Thumbnails does not — the toast lived inside AppShellLayout
+       *  before, which meant the thumbnail screen had no toast UI). */}
+      <ToastStack />
     </div>
   )
 }

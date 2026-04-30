@@ -39,13 +39,9 @@ export function parseApiError(response, body) {
   const env = body?.error || {}
   // Legacy shapes some routes still emit: {detail: "..."} or {detail: {...}}
   const legacyDetail = body?.detail
-  const legacyDetailDict = (legacyDetail && typeof legacyDetail === 'object') ? legacyDetail : null
+  const legacyDetailDict = legacyDetail && typeof legacyDetail === 'object' ? legacyDetail : null
 
-  const code =
-    env.code ||
-    legacyDetailDict?.code ||
-    statusToFallbackCode(status) ||
-    'ERROR'
+  const code = env.code || legacyDetailDict?.code || statusToFallbackCode(status) || 'ERROR'
 
   const serverMessage =
     env.message ||
@@ -56,16 +52,12 @@ export function parseApiError(response, body) {
 
   // retry_after_seconds: header > envelope top-level > envelope.extra
   const headerRetry = parseRetryAfterHeader(response?.headers?.get?.('Retry-After'))
-  const envRetry =
-    typeof env.retry_after_seconds === 'number' ? env.retry_after_seconds : null
+  const envRetry = typeof env.retry_after_seconds === 'number' ? env.retry_after_seconds : null
   const extraRetry =
     typeof env?.extra?.retry_after_seconds === 'number' ? env.extra.retry_after_seconds : null
   const retryAfterSeconds = headerRetry ?? envRetry ?? extraRetry ?? null
 
-  const feature =
-    env?.extra?.feature ||
-    legacyDetailDict?.feature ||
-    null
+  const feature = env?.extra?.feature || legacyDetailDict?.feature || null
 
   const err = new Error(friendlyMessageFor({ code, status, serverMessage, retryAfterSeconds }))
   err.status = status
@@ -102,48 +94,76 @@ function friendlyMessageFor({ code, status, serverMessage, retryAfterSeconds }) 
       ? ` Try again in ${humanizeSeconds(retryAfterSeconds)}.`
       : ''
 
+  // Heuristic: catch upstream-billing wording even when the code came
+  // through as a generic PROVIDER_ERROR or 5xx. OpenAI surfaces these
+  // as messages like "You exceeded your current quota" / "billing
+  // hard limit reached" / "insufficient_quota" — we don't want to
+  // expose any of that to the user.
+  const lowered = (serverMessage || '').toLowerCase()
+  const looksLikeProviderBilling =
+    lowered.includes('quota') ||
+    lowered.includes('billing') ||
+    lowered.includes('insufficient_quota') ||
+    lowered.includes('hard limit')
+
   switch (code) {
     case 'RATE_LIMITED':
-      return `Service is busy.${retryHint || ' Please retry in a moment.'}`
+      return `We're a bit busy right now.${retryHint || ' Please give it a moment and try again.'} Thanks for your patience.`
     case 'PROVIDER_UNAVAILABLE':
-      return `The AI service is temporarily unavailable.${retryHint || ' Please retry shortly.'}`
+      return `We're having a temporary issue on our end.${retryHint || ' Please try again in a moment.'} Thanks for bearing with us.`
     case 'PROVIDER_ERROR':
-      return 'The AI service returned an unexpected error. Please try again.'
+      if (looksLikeProviderBilling) {
+        return "We're having trouble connecting to our AI provider right now. We're on it — please try again shortly. Thanks for your patience."
+      }
+      return 'Something hiccupped on our end. Please try again — we appreciate your patience.'
     case 'CONTENT_BLOCKED':
-      return 'The provider blocked this request — try a different prompt or image.'
+      return 'This prompt or image was blocked by safety filters. Try rewording or using a different reference.'
     case 'INSUFFICIENT_CREDITS':
-      return 'Not enough credits. Add a top-up or wait for monthly renewal.'
+      return "You're out of credits for now. Add a top-up or wait for your monthly renewal."
     case 'NO_ACTIVE_SUBSCRIPTION':
       return 'Start your free trial or subscribe to use this feature.'
     case 'PLAN_UPGRADE_REQUIRED':
-      return 'This feature requires an upgraded plan.'
+      return 'This feature is on a higher plan. Upgrade to unlock it.'
     case 'IDEMPOTENT_REQUEST_IN_PROGRESS':
-      return 'This action is already in progress. Hang on a moment.'
+      return 'Already working on that one — hang tight a second.'
     case 'BAD_REQUEST':
     case 'VALIDATION_ERROR':
-      // The server's message is usually specific + actionable here
-      // (e.g. "title too long"). Surface it directly.
-      return serverMessage || 'Invalid input.'
+      // Server messages here are usually specific + actionable
+      // (e.g. "title too long"). Surface them directly.
+      return serverMessage || 'That input looks off — please double-check and try again.'
     case 'UNAUTHORIZED':
     case 'TOKEN_EXPIRED':
-      return 'Session expired. Please reload and sign in again.'
+      return 'Your session expired. Please reload and sign in again.'
     case 'FORBIDDEN':
-      return 'You don\'t have permission to do that.'
+      return "You don't have permission to do that."
     case 'NOT_FOUND':
-      return 'That resource was not found.'
+      return "We couldn't find that. It may have been removed."
     case 'CONFLICT':
-      return serverMessage || 'That action conflicts with current state.'
+      return serverMessage || 'That action conflicts with the current state. Try again.'
     case 'TIMEOUT':
-      return 'The request timed out. Please try again.'
-    default:
-      // Last resort — the server message, if it's short enough to be
-      // user-facing. If it's a debug stack-string we cap it.
-      if (typeof serverMessage === 'string' && serverMessage.length < 200) {
+      return 'That took longer than expected. Please try again — sorry for the wait.'
+    default: {
+      // Catch upstream-billing wording even when there's no specific code.
+      if (looksLikeProviderBilling) {
+        return "We're having trouble connecting to our AI provider right now. We're on it — please try again shortly. Thanks for your patience."
+      }
+      if (status >= 500) {
+        return "Something on our side broke. We're looking into it — please try again. Thanks for your patience."
+      }
+      if (status === 0) {
+        return "Looks like there's a network issue. Check your connection and try again."
+      }
+      // Last resort — surface the server message only if it's short and
+      // doesn't look like internal/debug noise.
+      if (
+        typeof serverMessage === 'string' &&
+        serverMessage.length < 200 &&
+        !/openai|gemini|gpt|claude|anthropic|stack|trace|exception/i.test(serverMessage)
+      ) {
         return serverMessage
       }
-      if (status >= 500) return 'Something on our side broke. Please try again.'
-      if (status === 0) return 'Network error. Check your connection and retry.'
-      return 'Something went wrong. Please try again.'
+      return 'Something went wrong. Please try again — thanks for your patience.'
+    }
   }
 }
 
@@ -178,11 +198,11 @@ export function aiAwareRetryDelay(failureCount, error) {
  * same way). Plug into ``retry: aiAwareShouldRetry`` in RQ defaults.
  */
 export function aiAwareShouldRetry(failureCount, error) {
-  if (failureCount >= 2) return false  // hard cap — never more than 2 retries
+  if (failureCount >= 2) return false // hard cap — never more than 2 retries
   const s = error?.status ?? 0
-  if (s === 401 || s === 403 || s === 404) return false  // auth/perm/missing
-  if (s === 402) return false  // payment required — credits won't appear by retrying
-  if (s === 400 || s === 422) return false  // bad input
+  if (s === 401 || s === 403 || s === 404) return false // auth/perm/missing
+  if (s === 402) return false // payment required — credits won't appear by retrying
+  if (s === 400 || s === 422) return false // bad input
   if (s === 409) {
     // Idempotency in-progress (the only 409 we currently emit from AI
     // routes) — a single retry is correct and lets the cached response

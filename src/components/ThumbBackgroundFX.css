@@ -76,9 +76,62 @@
   mask-repeat: no-repeat;
 }
 
-/* Legacy fade bands — kept hidden because the JSX still renders the
- * elements. Once the JSX nodes are removed these rules can go too. */
-.thumb-bg-fx-shadow,
+/* Top fade — still removed. The thread sits flush against the page. */
 .thumb-bg-fx-top-shadow {
   display: none;
+}
+
+/* The shared `.coach-main-wrap` adds 40px top + 32px bottom gradient
+ * overlays at z-index 80 (see `CoachChat.css`). On the thumbnail screen
+ * the bottom strip ends up painting ON TOP of the glow plate, leaving a
+ * dark band beneath the bright peak. Suppress both strips here so the
+ * glow reaches the actual visual bottom of the viewport. */
+.coach-main-wrap:has(.coach-main--thumb)::before,
+.coach-main-wrap:has(.coach-main--thumb)::after {
+  display: none;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Bottom glow plate — a wide bright deep-purple dome anchored to the
+ * viewport bottom, sitting BEHIND the input bar but ABOVE the chat
+ * thread.
+ *
+ * Lives as a sibling of `.coach-thread` and `.coach-composer-wrap`
+ * inside `.coach-chat-shell`. The composer-wrap is z-index: 3
+ * (creates its own stacking context with the chrome and input bar
+ * inside) — pinning this glow at z-index 2 places it above the
+ * thread (default 0) but below the entire composer-wrap subtree, so
+ * messages scroll behind it while the input bar paints on top.
+ *
+ * Result: messages scroll behind the glow, the input bar reads as a
+ * solid card resting on a luminous platform.
+ * ──────────────────────────────────────────────────────────────────── */
+.thumb-bg-fx-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  /* Slightly wider than the input bar so the glow spreads past its
+   * left/right edges as a natural halo. */
+  width: min(1050px, 105vw);
+  height: 120px;
+  z-index: 1;
+  pointer-events: none;
+  /* Bright at the peak (alpha 1.0 at the centre-bottom) → fully
+   * opaque, occluding messages that scroll behind it. The peak sits
+   * at `50% 100%` (centre, very bottom) and fades upward. */
+  background: radial-gradient(
+    ellipse 60% 150% at 50% 150%,
+    rgba(237, 230, 255, 1) 5%,
+    rgba(196, 181, 253, 0.95) 35%,
+    rgba(149, 110, 248, 0.78) 45%,
+    rgba(124, 58, 237, 0.5) 60%,
+    rgba(91, 33, 182, 0.22) 80%,
+    rgba(76, 29, 149, 0) 90%
+  );
+  /* Light blur softens the gradient banding without dissolving the
+   * solid peak — `glow must not be transparent` is satisfied because
+   * the centre stop is alpha 1.0, only the upper falloff fades. */
+  filter: blur(6px);
+  transform-origin: 50% 100%;
 }

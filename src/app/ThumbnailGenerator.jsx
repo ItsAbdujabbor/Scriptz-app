@@ -36,7 +36,7 @@ import { motion } from 'framer-motion'
 import { ChatHistorySkeleton } from '../components/ChatHistorySkeleton'
 import { friendlyMessage } from '../lib/aiErrors'
 import GenerationProgress from '../components/GenerationProgress'
-import { AnimatedComposerHint } from '../components/AnimatedComposerHint'
+import { useAnimatedHint } from '../lib/useAnimatedHint'
 import { LazyImg } from '../components/LazyImg'
 import { ThumbPillTabs } from '../components/ThumbPillTabs'
 import { ThumbBackgroundFX } from '../components/ThumbBackgroundFX'
@@ -946,7 +946,7 @@ const ThumbnailGenFill = memo(function ThumbnailGenFill({
       const next = Math.round(startPct + (100 - startPct) * eased)
       // Set-state-in-effect is intentional — fires only once per
       // generation completion, no cascading-render risk.
-       
+
       setPct(next)
       if (t < 1) rafRef.current = requestAnimationFrame(animate)
     }
@@ -1222,6 +1222,43 @@ export function ThumbnailGenerator({
   const editFileInputRef = useRef(null)
   const modePaneRef = useRef(null)
   const modePaneFromHeightRef = useRef(null)
+
+  // Rotating composer hint — bound directly to the textarea's
+  // native `placeholder` attribute so the browser renders it at the
+  // exact caret position. Pauses while the user has draft / image
+  // content (no point cycling hints they're not seeing).
+  const { hint: composerHint } = useAnimatedHint(THUMB_COMPOSER_HINTS, {
+    paused: !!draft || !!promptImageDataUrl,
+  })
+
+  // Latest handleSubmit captured in a ref so the toast's "Retry" action
+  // always calls the most recent definition (handleSubmit closes over a
+  // lot of state and is rebuilt every render). The ref is refreshed in
+  // a no-dep useEffect further down, after `handleSubmit` is in scope.
+  const handleSubmitRef = useRef(null)
+
+  // Errors-as-toasts: any time `sendError` / `editFooterError` becomes
+  // truthy, fire a top-right toast and clear the state immediately. The
+  // composer used to render an inline red error pill above the bar; that
+  // block is gone, the toast is the single source of error UI now.
+  useEffect(() => {
+    if (!sendError) return
+    const canRetry = !!sendErrorMeta?.retryable && !!draft.trim()
+    toast.error(sendError, {
+      duration: 4000,
+      ...(canRetry ? { action: 'Retry', onAction: () => handleSubmitRef.current?.() } : {}),
+    })
+    setSendError('')
+    setSendErrorMeta(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sendError])
+
+  useEffect(() => {
+    if (!editFooterError) return
+    toast.error(editFooterError, { duration: 4000 })
+    setEditFooterError('')
+     
+  }, [editFooterError])
 
   const startPending = useThumbnailChatActivityStore((s) => s.startPending)
   const clearPending = useThumbnailChatActivityStore((s) => s.clearPending)
@@ -2031,6 +2068,13 @@ export function ThumbnailGenerator({
     ]
   )
 
+  // Keep `handleSubmitRef` pointing at the latest `handleSubmit` so the
+  // error-toast's "Retry" action always invokes the most recent closure
+  // (with the most recent state). Runs after every render — cheap.
+  useEffect(() => {
+    handleSubmitRef.current = handleSubmit
+  })
+
   const handleRecreateFileChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file || !file.type.startsWith('image/')) return
@@ -2392,25 +2436,10 @@ export function ThumbnailGenerator({
           </div>
 
           <div className="thumb-gen-footer-chrome">
-            {(sendError || (thumbMode === 'edit' && editFooterError)) && (
-              <div className="coach-compose-error thumb-gen-footer-error">
-                <span className="thumb-gen-footer-error__msg">{sendError || editFooterError}</span>
-                {sendErrorMeta?.retryable && draft.trim() ? (
-                  <button
-                    type="button"
-                    className="thumb-gen-footer-error__retry"
-                    onClick={() => {
-                      setSendError('')
-                      setSendErrorMeta(null)
-                      handleSubmit()
-                    }}
-                    aria-label="Retry generation"
-                  >
-                    Retry
-                  </button>
-                ) : null}
-              </div>
-            )}
+            {/* Inline error pill removed — errors now surface as a top-
+             * right toast (see `useEffect` watchers on `sendError` /
+             * `editFooterError` further up, plus the `ToastStack`
+             * mounted globally in `AppShellLayout`). */}
 
             {/* Floating mode tabbar — each mode is its own pill, active
              * one fills with violet. Tab rendering lives in
@@ -2468,16 +2497,13 @@ export function ThumbnailGenerator({
                         rows={1}
                         className="coach-composer-input thumb-prompt-textarea"
                         maxLength={2000}
+                        placeholder={composerHint}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
                             handleSubmit(e)
                           }
                         }}
-                      />
-                      <AnimatedComposerHint
-                        hints={THUMB_COMPOSER_HINTS}
-                        hidden={!!draft || !!promptImageDataUrl}
                       />
                     </div>
                     <div className="coach-composer-actions thumb-gen-toolbar">

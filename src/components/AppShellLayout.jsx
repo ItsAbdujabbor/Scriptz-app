@@ -1,7 +1,6 @@
 import './AppShellLayout.css'
 import { useSidebarStore } from '../stores/sidebarStore'
 import { CelebrationOverlay } from './CelebrationOverlay'
-import { ToastStack } from './ToastStack'
 import { HeaderCreditsBadge } from './HeaderCreditsBadge' // kept as an optional override; no longer mounted by default
 
 /**
@@ -47,9 +46,9 @@ export function AppShellLayout({
       {/* Global celebration overlay — listens for `app:celebrate` events and
           shows a centered message + confetti for subscriptions, top-ups, etc. */}
       <CelebrationOverlay />
-      {/* Global toast stack — listens for `app:toast` events and shows
-          dismissible top-right notifications with a reverse progress bar. */}
-      <ToastStack />
+      {/* `<ToastStack />` lives at the AuthenticatedRoutes level so it's
+          mounted on every authenticated page, including ones (like the
+          thumbnail screen) that don't wrap themselves in AppShellLayout. */}
     </div>
   )
   if (shellOnly) return shell

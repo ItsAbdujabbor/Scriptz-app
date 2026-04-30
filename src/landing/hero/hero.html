@@ -210,10 +210,65 @@
               </div>
             </div><!-- /dashboard view -->
 
-            <!-- THUMBNAIL GENERATOR VIEW -->
+            <!-- THUMBNAIL GENERATOR VIEW — faithful copy of the live screen -->
             <div class="lin-view" id="lin-view-thumbnails">
-              <div class="lin-main-hdr"><span class="lin-main-ttl">Thumbnail Generator</span><span class="lin-main-ctx">· Your channel</span></div>
-              <div class="lin-view-empty">Describe a thumbnail in plain language. Pick a style and iterate in chat until you ship the one your channel deserves.</div>
+              <div class="lin-tg-shell">
+                <!-- Centred dot grid behind the chat — same vibe as the real screen -->
+                <div class="lin-tg-dotbed" aria-hidden="true"></div>
+
+                <!-- Chat thread: empty state at first, then user msg + generated card -->
+                <div class="lin-tg-thread" id="lin-tg-thread">
+                  <div class="lin-tg-empty">
+                    <span class="lin-tg-kicker">Thumbnail Generator</span>
+                    <h3 class="lin-tg-heading">What thumbnail do you need?</h3>
+                  </div>
+                </div>
+
+                <!-- Bottom violet glow plate -->
+                <div class="lin-tg-glow" aria-hidden="true"></div>
+
+                <!-- Floating composer -->
+                <div class="lin-tg-footer">
+                  <div class="lin-tg-tabs" role="tablist">
+                    <button class="lin-tg-tab active" type="button">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                      Prompt
+                    </button>
+                    <button class="lin-tg-tab" type="button">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.7 1 6.4 2.6"/><path d="M21 3v6h-6"/></svg>
+                      Recreate
+                    </button>
+                    <button class="lin-tg-tab" type="button">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                      Analyze
+                    </button>
+                    <button class="lin-tg-tab" type="button">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="m16.5 3.5 4 4L7 21l-4 1 1-4L16.5 3.5Z"/></svg>
+                      Edit
+                    </button>
+                  </div>
+
+                  <div class="lin-tg-composer">
+                    <div class="lin-tg-input" id="lin-tg-input">
+                      <span class="lin-tg-placeholder" id="lin-tg-placeholder">A smiling explorer on a misty mountain peak, bold yellow text "I SURVIVED 7 DAYS"</span>
+                    </div>
+                    <div class="lin-tg-tools">
+                      <span class="lin-tg-tool">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m21 15-6-6-9.5 9.5a2 2 0 0 0 2.83 2.83L18 12"/></svg>
+                      </span>
+                      <span class="lin-tg-tool">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+                      </span>
+                      <span class="lin-tg-tool lin-tg-tool--num">1×</span>
+                      <span class="lin-tg-spacer"></span>
+                      <span class="lin-tg-send">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+                        20
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- OPTIMIZE VIEW -->
