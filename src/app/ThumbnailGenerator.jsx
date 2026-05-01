@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect, useLayoutEffect, memo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { createPortal } from 'react-dom'
 import {
   ArrowUp as LucideArrowUp,
@@ -7,7 +8,6 @@ import {
   CloudUpload as LucideUploadCloud,
   Copy as LucideCopy,
   Download as LucideDownload,
-  Paperclip as LucidePaperclip,
   Pencil as LucidePencil,
   RefreshCw as LucideRefreshCw,
   Sparkles as LucideSparkles,
@@ -26,6 +26,7 @@ import {
   useCreateThumbnailConversationMutation,
   useLoadOlderThumbnailMessagesMutation,
   useThumbnailRatingQuery,
+  seedThumbnailRating,
 } from '../queries/thumbnails/thumbnailQueries'
 import { useThumbnailChatActivityStore } from '../stores/thumbnailChatActivityStore'
 import { EditThumbnailDialog } from '../components/EditThumbnailDialog'
@@ -94,13 +95,17 @@ const SRC_OPTIONS_URL = [
   { value: 'upload', label: 'Upload', icon: SRC_ICON_UPLOAD },
 ]
 
+// Two-line example hints. The blank line break is rendered by the
+// browser inside the native textarea placeholder, so users see the
+// full idea — subject on line 1, mood / title / styling on line 2 —
+// before they type anything.
 const THUMB_COMPOSER_HINTS = [
-  'A smiling explorer on a misty mountain peak, bold yellow text “I SURVIVED 7 DAYS”',
-  'Shocked face next to a huge pile of cash, red glow, title “I WON $1,000,000?!”',
-  'Close-up iPhone 16 on a neon-purple gradient, bold white text “WORTH THE HYPE?”',
-  'Ripped athlete mid-lift in dramatic red lighting, title “30-DAY TRANSFORMATION”',
-  'Dark desk + glowing laptop, cyan LEDs, bold “I BUILT A SAAS IN 24 HOURS”',
-  'Split before/after of a messy room, huge arrow, bold text “EXTREME CLEAN”',
+  'A smiling explorer on a misty mountain peak at golden hour\nbold yellow Impact title “I SURVIVED 7 DAYS”, dramatic backlight',
+  'Shocked face next to a huge pile of cash with red glow accents\nthick white outline, bold red title “I WON $1,000,000?!”',
+  'Close-up iPhone 16 floating on a neon-purple gradient backdrop\nglossy reflection, bold white sans title “WORTH THE HYPE?”',
+  'Ripped athlete mid-lift under dramatic red rim lighting\nblack vignette, bold yellow title “30-DAY TRANSFORMATION”',
+  'Dark desk with a glowing laptop and cyan LED strips behind it\nfilm-noir mood, bold cyan title “I BUILT A SAAS IN 24 HOURS”',
+  'Split before/after of a messy room and a clean room with arrow\nhigh-contrast lighting, bold green title “EXTREME CLEAN”',
 ]
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -120,13 +125,56 @@ function IconArrowUp(props) {
 }
 
 /**
+ * Top-of-screen plan callout. Floats at the top centre of the chat
+ * shell. Hidden entirely for paid Pro users (active subscription that
+ * isn't a trial); shown to free users and trialing users with the
+ * appropriate CTA. Both CTAs route to #pro.
+ *
+ * Visual: dark-glass body, violet-tinted border + glow, sparkle icon
+ * in brand violet, inset accent-gradient button on the right. Reads
+ * as a single unified chip — info on the left, action on the right.
+ */
+function PlanCallout() {
+  const { isSubscribed, isTrial } = usePlanEntitlements()
+  // Hook must be called unconditionally before any early return to
+  // satisfy rules-of-hooks.
+  const handleClick = useCallback(() => {
+    if (typeof window !== 'undefined') window.location.hash = 'pro'
+  }, [])
+  // Paid Pro (active subscription, not a trial) — nothing to upsell.
+  if (isSubscribed && !isTrial) return null
+  const onTrial = !!isTrial
+  return (
+    <div className="thumb-plan-callout" role="status" aria-live="polite">
+      <span className="thumb-plan-callout__icon" aria-hidden>
+        <LucideSparkles strokeWidth={2.2} />
+      </span>
+      <span className="thumb-plan-callout__text">
+        {onTrial ? (
+          <>
+            <span className="thumb-plan-callout__label">Trial active</span>
+            <span className="thumb-plan-callout__sub"> · finish setup</span>
+          </>
+        ) : (
+          <>
+            <span className="thumb-plan-callout__label">Unlock Pro</span>
+            <span className="thumb-plan-callout__sub"> · unlimited thumbnails</span>
+          </>
+        )}
+      </span>
+      <button type="button" className="thumb-plan-callout__cta" onClick={handleClick}>
+        <span className="thumb-plan-callout__cta-shine" aria-hidden />
+        <span className="thumb-plan-callout__cta-label">{onTrial ? 'Skip Trial' : 'Go Pro'}</span>
+      </button>
+    </div>
+  )
+}
+
+/**
  * Thin wrapper around the shared <PrimaryPill> primitive that keeps the
  * old ThumbSendPill call sites working without change, while routing the
- * visual spec to the canonical component. Only extra behaviour: hide the
- * credit chip for unsubscribed users (they can't spend credits yet, so
- * showing "⚡ 15" would be misleading). Once every screen has migrated
- * to PrimaryPill directly, this wrapper can be deleted and each call
- * site can pass `showCost={isSubscribed}` instead.
+ * visual spec to the canonical component. The credit chip is shown for
+ * every user so the cost is always visible alongside the send arrow.
  */
 function ThumbSendPill({
   featureKey = null,
@@ -140,13 +188,12 @@ function ThumbSendPill({
   size = 'sm',
   ...buttonProps
 }) {
-  const { isSubscribed } = usePlanEntitlements()
   return (
     <PrimaryPill
       type={type}
       featureKey={featureKey || undefined}
       count={count}
-      showCost={isSubscribed}
+      showCost
       disabled={disabled}
       ariaLabel={ariaLabel}
       icon={icon ?? <IconArrowUp />}
@@ -167,7 +214,14 @@ function IconChevronDown(props) {
 }
 
 function IconPaperclip(props) {
-  return <LucidePaperclip strokeWidth={2.2} {...props} />
+  // Custom add-image glyph (src/assets/add-image.svg) — fill-based
+  // icon that replaces the previous Lucide paperclip. Name kept for
+  // backwards-compat with existing call sites.
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
+      <path d="m12,21c0,.553-.448,1-1,1h-6c-2.757,0-5-2.243-5-5V5C0,2.243,2.243,0,5,0h12c2.757,0,5,2.243,5,5v6c0,.553-.448,1-1,1s-1-.447-1-1v-6c0-1.654-1.346-3-3-3H5c-1.654,0-3,1.346-3,3v6.959l2.808-2.808c1.532-1.533,4.025-1.533,5.558,0l5.341,5.341c.391.391.391,1.023,0,1.414-.195.195-.451.293-.707.293s-.512-.098-.707-.293l-5.341-5.341c-.752-.751-1.976-.752-2.73,0l-4.222,4.222v2.213c0,1.654,1.346,3,3,3h6c.552,0,1,.447,1,1ZM15,3.5c1.654,0,3,1.346,3,3s-1.346,3-3,3-3-1.346-3-3,1.346-3,3-3Zm0,2c-.551,0-1,.448-1,1s.449,1,1,1,1-.448,1-1-.449-1-1-1Zm8,12.5h-3v-3c0-.553-.448-1-1-1s-1,.447-1,1v3h-3c-.552,0-1,.447-1,1s.448,1,1,1h3v3c0,.553.448,1,1,1s1-.447,1-1v-3h3c.552,0,1-.447,1-1s-.448-1-1-1Z" />
+    </svg>
+  )
 }
 
 // Estimated durations for the GenerationProgress confidence bar. The
@@ -179,7 +233,6 @@ function IconPaperclip(props) {
 const GEN_DURATION_SINGLE_MS = 16000
 const GEN_DURATION_BATCH_MS = 24000
 const GEN_DURATION_RECREATE_MS = 18000
-const GEN_DURATION_ANALYZE_MS = 9000
 
 /**
  * Map a backend error code (from the thumbnails chat route's APIError)
@@ -331,16 +384,9 @@ const THUMB_GEN_SUB_TABS = [
     id: 'prompt',
     label: 'Prompt',
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden
-      >
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      // Sparkles glyph from src/assets/sparkles.svg.
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+        <path d="M19.5,24a1,1,0,0,1-.929-.628l-.844-2.113-2.116-.891a1.007,1.007,0,0,1,.035-1.857l2.088-.791.837-2.092a1.008,1.008,0,0,1,1.858,0l.841,2.1,2.1.841a1.007,1.007,0,0,1,0,1.858l-2.1.841-.841,2.1A1,1,0,0,1,19.5,24ZM10,21a2,2,0,0,1-1.936-1.413L6.45,14.54,1.387,12.846a2.032,2.032,0,0,1,.052-3.871L6.462,7.441,8.154,2.387A1.956,1.956,0,0,1,10.108,1a2,2,0,0,1,1.917,1.439l1.532,5.015,5.03,1.61a2.042,2.042,0,0,1,0,3.872h0l-5.039,1.612-1.612,5.039A2,2,0,0,1,10,21Zm.112-17.977L8.2,8.564a1,1,0,0,1-.656.64L2.023,10.888l5.541,1.917a1,1,0,0,1,.636.643l1.77,5.53,1.83-5.53a1,1,0,0,1,.648-.648l5.53-1.769a.072.072,0,0,0,.02-.009L12.448,9.2a1,1,0,0,1-.652-.661Zm8.17,8.96h0ZM20.5,7a1,1,0,0,1-.97-.757l-.357-1.43L17.74,4.428a1,1,0,0,1,.034-1.94l1.4-.325L19.53.757a1,1,0,0,1,1.94,0l.354,1.418,1.418.355a1,1,0,0,1,0,1.94l-1.418.355L21.47,6.243A1,1,0,0,1,20.5,7Z" />
       </svg>
     ),
   },
@@ -348,17 +394,10 @@ const THUMB_GEN_SUB_TABS = [
     id: 'recreate',
     label: 'Recreate',
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden
-      >
-        <path d="M23 4v6h-6" />
-        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+      // Refresh glyph from src/assets/refresh.svg.
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+        <path d="M12,2a10.032,10.032,0,0,1,7.122,3H16a1,1,0,0,0-1,1h0a1,1,0,0,0,1,1h4.143A1.858,1.858,0,0,0,22,5.143V1a1,1,0,0,0-1-1h0a1,1,0,0,0-1,1V3.078A11.981,11.981,0,0,0,.05,10.9a1.007,1.007,0,0,0,1,1.1h0a.982.982,0,0,0,.989-.878A10.014,10.014,0,0,1,12,2Z" />
+        <path d="M22.951,12a.982.982,0,0,0-.989.878A9.986,9.986,0,0,1,4.878,19H8a1,1,0,0,0,1-1H9a1,1,0,0,0-1-1H3.857A1.856,1.856,0,0,0,2,18.857V23a1,1,0,0,0,1,1H3a1,1,0,0,0,1-1V20.922A11.981,11.981,0,0,0,23.95,13.1a1.007,1.007,0,0,0-1-1.1Z" />
       </svg>
     ),
   },
@@ -366,17 +405,14 @@ const THUMB_GEN_SUB_TABS = [
     id: 'analyze',
     label: 'Analyze',
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden
-      >
-        <path d="M3 3v18h18" />
-        <path d="m19 9-5 5-4-4-3 3" />
+      // Chart-histogram glyph from src/assets/chart-histogram.svg.
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+        <path d="M23,22H5a3,3,0,0,1-3-3V1A1,1,0,0,0,0,1V19a5.006,5.006,0,0,0,5,5H23a1,1,0,0,0,0-2Z" />
+        <path d="M6,20a1,1,0,0,0,1-1V12a1,1,0,0,0-2,0v7A1,1,0,0,0,6,20Z" />
+        <path d="M10,10v9a1,1,0,0,0,2,0V10a1,1,0,0,0-2,0Z" />
+        <path d="M15,13v6a1,1,0,0,0,2,0V13a1,1,0,0,0-2,0Z" />
+        <path d="M20,9V19a1,1,0,0,0,2,0V9a1,1,0,0,0-2,0Z" />
+        <path d="M6,9a1,1,0,0,0,.707-.293l3.586-3.586a1.025,1.025,0,0,1,1.414,0l2.172,2.172a3,3,0,0,0,4.242,0l5.586-5.586A1,1,0,0,0,22.293.293L16.707,5.878a1,1,0,0,1-1.414,0L13.121,3.707a3,3,0,0,0-4.242,0L5.293,7.293A1,1,0,0,0,6,9Z" />
       </svg>
     ),
   },
@@ -384,17 +420,9 @@ const THUMB_GEN_SUB_TABS = [
     id: 'edit',
     label: 'Edit',
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden
-      >
-        <path d="M12 20h9" />
-        <path d="m16.5 3.5 4 4L7 21l-4 1 1-4Z" />
+      // Magic-wand glyph from src/assets/magic-wand.svg.
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+        <path d="m18 9.064a3.049 3.049 0 0 0 -.9-2.164 3.139 3.139 0 0 0 -4.334 0l-11.866 11.869a3.064 3.064 0 0 0 4.33 4.331l11.87-11.869a3.047 3.047 0 0 0 .9-2.167zm-14.184 12.624a1.087 1.087 0 0 1 -1.5 0 1.062 1.062 0 0 1 0-1.5l7.769-7.77 1.505 1.505zm11.872-11.872-2.688 2.689-1.5-1.505 2.689-2.688a1.063 1.063 0 1 1 1.5 1.5zm-10.825-6.961 1.55-.442.442-1.55a1.191 1.191 0 0 1 2.29 0l.442 1.55 1.55.442a1.191 1.191 0 0 1 0 2.29l-1.55.442-.442 1.55a1.191 1.191 0 0 1 -2.29 0l-.442-1.55-1.55-.442a1.191 1.191 0 0 1 0-2.29zm18.274 14.29-1.55.442-.442 1.55a1.191 1.191 0 0 1 -2.29 0l-.442-1.55-1.55-.442a1.191 1.191 0 0 1 0-2.29l1.55-.442.442-1.55a1.191 1.191 0 0 1 2.29 0l.442 1.55 1.55.442a1.191 1.191 0 0 1 0 2.29zm-5.382-14.645 1.356-.387.389-1.358a1.042 1.042 0 0 1 2 0l.387 1.356 1.356.387a1.042 1.042 0 0 1 0 2l-1.356.387-.387 1.359a1.042 1.042 0 0 1 -2 0l-.387-1.355-1.358-.389a1.042 1.042 0 0 1 0-2z" />
       </svg>
     ),
   },
@@ -604,19 +632,6 @@ function buildSelectionHint(selectedPersona, selectedStyle) {
   if (selectedPersona?.name) hints.push(`Use persona inspiration: ${selectedPersona.name}.`)
   if (selectedStyle?.name) hints.push(`Match visual style: ${selectedStyle.name}.`)
   return hints.join(' ')
-}
-
-function buildAnalyzeSummary(rating, videoTitle) {
-  const tier = rating?.tier ? `${rating.tier} ` : ''
-  const score = Math.round(rating?.overall_score ?? 0)
-  const strengths = Array.isArray(rating?.strengths) ? rating.strengths.slice(0, 2) : []
-  const fixes = Array.isArray(rating?.recommendations) ? rating.recommendations.slice(0, 3) : []
-  const bits = [
-    `${videoTitle ? `${videoTitle}: ` : ''}${tier}thumbnail score ${score}/100.`,
-    strengths.length ? `Strengths: ${strengths.join('; ')}.` : '',
-    fixes.length ? `Next fixes: ${fixes.join('; ')}.` : '',
-  ].filter(Boolean)
-  return bits.join(' ')
 }
 
 const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
@@ -974,6 +989,128 @@ const ThumbnailGenFill = memo(function ThumbnailGenFill({
   )
 })
 
+const ANALYZE_PHASES = [
+  'Analyzing visuals',
+  'Reading composition',
+  'Rating each criterion',
+  'Scoring CTR potential',
+  'Almost done',
+]
+
+/**
+ * Pending-state loader for analyze mode. Replaces the percentage-fill bar
+ * (which would lie — /rate returns synchronously, no real progress signal)
+ * with a scan sweep over the user's actual thumbnail and a rotating phase
+ * label. Same 16:9 stage as the generation loader so the layout doesn't
+ * jump when the result swaps in.
+ */
+const ThumbnailAnalyzeLoader = memo(function ThumbnailAnalyzeLoader({ imageUrl }) {
+  const [phaseIdx, setPhaseIdx] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => {
+      setPhaseIdx((i) => (i + 1) % ANALYZE_PHASES.length)
+    }, 1400)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <div className="thumb-analyze-loader" aria-busy="true" aria-label="Analyzing thumbnail">
+      <div className="thumb-analyze-loader__stage">
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt=""
+            className="thumb-analyze-loader__img"
+            decoding="async"
+            aria-hidden="true"
+          />
+        ) : null}
+        <div className="thumb-analyze-loader__veil" aria-hidden="true" />
+        <div className="thumb-analyze-loader__scan" aria-hidden="true" />
+        <div className="thumb-analyze-loader__phase">
+          <span className="thumb-analyze-loader__phase-dot" aria-hidden="true" />
+          <span className="thumb-analyze-loader__phase-text" aria-live="polite">
+            {ANALYZE_PHASES[phaseIdx]}
+          </span>
+          <span className="thumb-analyze-loader__phase-ellipsis" aria-hidden="true">
+            …
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+})
+
+function gradeFromScore(score) {
+  const n = Number(score)
+  if (!Number.isFinite(n)) return null
+  if (n >= 90) return 'A+'
+  if (n >= 80) return 'A'
+  if (n >= 70) return 'B'
+  if (n >= 60) return 'C'
+  if (n >= 50) return 'D'
+  return 'F'
+}
+
+function gradeTierClass(grade) {
+  const g = String(grade || '').toUpperCase()
+  if (g.startsWith('A')) return 'thumb-grade--a'
+  if (g.startsWith('B')) return 'thumb-grade--b'
+  if (g.startsWith('C')) return 'thumb-grade--c'
+  if (g.startsWith('D')) return 'thumb-grade--d'
+  if (g.startsWith('F')) return 'thumb-grade--f'
+  return ''
+}
+
+/**
+ * Why-the-thumbnail-got-that-score block. One compact card under the
+ * analyzed thumbnail: grade + score on the left, the AI's one-line
+ * reason on the right, and up to three terse "fix this" bullets below.
+ * Same width as the thumbnail card so the two read as a single unit.
+ */
+const AnalysisBreakdown = memo(function AnalysisBreakdown({ analysis }) {
+  const overallScore = useMemo(() => {
+    const n = Number(analysis?.overall_score)
+    return Number.isFinite(n) ? Math.round(n) : null
+  }, [analysis])
+  const grade = useMemo(() => {
+    if (analysis?.overall_grade) return String(analysis.overall_grade)
+    return gradeFromScore(analysis?.overall_score)
+  }, [analysis])
+  const fixes = useMemo(() => {
+    const list =
+      Array.isArray(analysis?.top_fixes) && analysis.top_fixes.length > 0
+        ? analysis.top_fixes
+        : Array.isArray(analysis?.recommendations)
+          ? analysis.recommendations
+          : []
+    return list.filter(Boolean).slice(0, 3)
+  }, [analysis])
+  const oneLiner = analysis?.one_liner || analysis?.specific_advice || ''
+
+  if (!analysis) return null
+  return (
+    <div className={`thumb-analysis-card coach-stream-block ${gradeTierClass(grade)}`}>
+      <div className="thumb-analysis-card-head">
+        <div className="thumb-analysis-card-grade">
+          <span className="thumb-analysis-card-grade-letter">{grade || '—'}</span>
+          <span className="thumb-analysis-card-score">
+            {overallScore != null ? overallScore : '—'}
+            <span className="thumb-analysis-card-score-max"> / 100</span>
+          </span>
+        </div>
+        {oneLiner && <p className="thumb-analysis-card-oneliner">{oneLiner}</p>}
+      </div>
+      {fixes.length > 0 && (
+        <ul className="thumb-analysis-card-fixes">
+          {fixes.map((s, i) => (
+            <li key={`fix-${i}`}>{s}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+})
+
 /**
  * Memoised chat message — the whole reason we extracted this from the
  * parent's inline `messages.map(...)` is so each existing message stops
@@ -1023,6 +1160,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
               canRegenerate
             />
           ) : null}
+          {msg.analysis ? <AnalysisBreakdown analysis={msg.analysis} /> : null}
           {msg.thumbnails?.length > 0 && (
             <ThumbnailGridBlock
               thumbnails={msg.thumbnails}
@@ -1141,6 +1279,21 @@ export function ThumbnailGenerator({
   conversationId,
   onConversationCreated,
 }) {
+  const queryClient = useQueryClient()
+  // Paywall gate. Trial users are subscribed; pure free users (no
+  // active subscription, no trial) are not. When they try to fire any
+  // generate/analyze/edit submit, we route them to #pro instead of
+  // running the action — `requirePaywall()` returns false in that
+  // case so handlers can short-circuit cleanly.
+  const { isSubscribed: hasPaidOrTrialPlan } = usePlanEntitlements()
+  const requirePaywall = useCallback(() => {
+    if (hasPaidOrTrialPlan) return true
+    toast.info('Start a plan to generate thumbnails.', {
+      title: 'Upgrade required',
+    })
+    if (typeof window !== 'undefined') window.location.hash = 'pro'
+    return false
+  }, [hasPaidOrTrialPlan])
   const selectedPersonaId = usePersonaStore((s) => s.selectedPersonaId)
   const selectedPersona = usePersonaStore((s) => s.selectedPersona)
   const selectedStyleId = useStyleStore((s) => s.selectedStyleId)
@@ -1152,13 +1305,16 @@ export function ThumbnailGenerator({
   const [recreateUrlInput, setRecreateUrlInput] = useState('')
   const [recreateSourceImage, setRecreateSourceImage] = useState(null)
   const [recreatePreviewUrl, setRecreatePreviewUrl] = useState(null)
-  const [recreateFetchingPreview, setRecreateFetchingPreview] = useState(false)
+  // Setter is used by the URL preview-fetch effect for any future
+  // loading UI (the small preview card was removed); the value itself
+  // is currently unread, so leading underscore satisfies the linter.
+  const [_recreateFetchingPreview, setRecreateFetchingPreview] = useState(false)
   const [analyzeTitle, setAnalyzeTitle] = useState('')
   const [analyzeSourceMode, setAnalyzeSourceMode] = useState('youtube')
   const [analyzeUrlInput, setAnalyzeUrlInput] = useState('')
   const [analyzeSourceImage, setAnalyzeSourceImage] = useState(null)
   const [analyzePreviewUrl, setAnalyzePreviewUrl] = useState(null)
-  const [analyzeFetchingPreview, setAnalyzeFetchingPreview] = useState(false)
+  const [_analyzeFetchingPreview, setAnalyzeFetchingPreview] = useState(false)
   const [editSourceMode, setEditSourceMode] = useState('url')
   const [editUrlInput, setEditUrlInput] = useState('')
   const [editDataUrl, setEditDataUrl] = useState(null)
@@ -1223,11 +1379,12 @@ export function ThumbnailGenerator({
   const modePaneRef = useRef(null)
   const modePaneFromHeightRef = useRef(null)
 
-  // Rotating composer hint — bound directly to the textarea's
-  // native `placeholder` attribute so the browser renders it at the
-  // exact caret position. Pauses while the user has draft / image
-  // content (no point cycling hints they're not seeing).
-  const { hint: composerHint } = useAnimatedHint(THUMB_COMPOSER_HINTS, {
+  // Rotating composer hint — rendered as an overlay on top of the
+  // textarea so it can fade in/out with `phase` instead of swapping
+  // abruptly via the native `placeholder` attribute. Pauses while the
+  // user has draft / image content (no point cycling hints they're
+  // not seeing).
+  const { hint: composerHint, phase: composerHintPhase } = useAnimatedHint(THUMB_COMPOSER_HINTS, {
     paused: !!draft || !!promptImageDataUrl,
   })
 
@@ -1257,7 +1414,6 @@ export function ThumbnailGenerator({
     if (!editFooterError) return
     toast.error(editFooterError, { duration: 4000 })
     setEditFooterError('')
-     
   }, [editFooterError])
 
   const startPending = useThumbnailChatActivityStore((s) => s.startPending)
@@ -1658,6 +1814,10 @@ export function ThumbnailGenerator({
     el.style.overflow = target >= 140 ? '' : 'hidden'
   }, [recreateDraft])
 
+  // YouTube → thumbnail extraction is gated behind a trial / paid plan
+  // (`hasPaidOrTrialPlan`). Free users never trigger the backend
+  // `fetchExistingThumbnail` call from any of the three URL inputs;
+  // direct image URLs still resolve locally for the edit form.
   useEffect(() => {
     if (recreateSourceMode !== 'youtube') {
       setRecreatePreviewUrl(null)
@@ -1667,6 +1827,11 @@ export function ThumbnailGenerator({
     const url = extractYoutubeUrl(recreateUrlInput)
     if (!url) {
       setRecreatePreviewUrl(null)
+      return
+    }
+    if (!hasPaidOrTrialPlan) {
+      setRecreatePreviewUrl(null)
+      setRecreateFetchingPreview(false)
       return
     }
     if (recreateFetchRef.current) clearTimeout(recreateFetchRef.current)
@@ -1686,7 +1851,7 @@ export function ThumbnailGenerator({
     return () => {
       if (recreateFetchRef.current) clearTimeout(recreateFetchRef.current)
     }
-  }, [recreateSourceMode, recreateUrlInput])
+  }, [recreateSourceMode, recreateUrlInput, hasPaidOrTrialPlan])
 
   useEffect(() => {
     if (analyzeSourceMode !== 'youtube') {
@@ -1697,6 +1862,11 @@ export function ThumbnailGenerator({
     const url = extractYoutubeUrl(analyzeUrlInput)
     if (!url) {
       setAnalyzePreviewUrl(null)
+      return
+    }
+    if (!hasPaidOrTrialPlan) {
+      setAnalyzePreviewUrl(null)
+      setAnalyzeFetchingPreview(false)
       return
     }
     if (analyzeFetchRef.current) clearTimeout(analyzeFetchRef.current)
@@ -1716,7 +1886,7 @@ export function ThumbnailGenerator({
     return () => {
       if (analyzeFetchRef.current) clearTimeout(analyzeFetchRef.current)
     }
-  }, [analyzeSourceMode, analyzeUrlInput])
+  }, [analyzeSourceMode, analyzeUrlInput, hasPaidOrTrialPlan])
 
   useEffect(() => {
     if (editSourceMode !== 'url') {
@@ -1735,7 +1905,11 @@ export function ThumbnailGenerator({
       try {
         const token = await getAccessTokenOrNull()
         if (extractYoutubeUrl(url)) {
-          if (!token) return
+          // Free users skip the YouTube extraction call entirely.
+          if (!hasPaidOrTrialPlan || !token) {
+            setEditPreviewUrl(null)
+            return
+          }
           const res = await thumbnailsApi.fetchExistingThumbnail(token, extractYoutubeUrl(url))
           setEditPreviewUrl(res?.thumbnail_url || null)
         } else {
@@ -1750,7 +1924,7 @@ export function ThumbnailGenerator({
     return () => {
       if (editFetchRef.current) clearTimeout(editFetchRef.current)
     }
-  }, [editSourceMode, editUrlInput, editDataUrl])
+  }, [editSourceMode, editUrlInput, editDataUrl, hasPaidOrTrialPlan])
 
   const pushLocalAssistantMessage = useCallback((userContent, assistant) => {
     // Warm the browser's HTTP cache for any freshly-generated thumbnail
@@ -1798,6 +1972,7 @@ export function ThumbnailGenerator({
         imageUrl: assistant.imageUrl || null,
         userRequest: assistant.userRequest || userContent,
         isRecreate: assistant.isRecreate || false,
+        analysis: assistant.analysis || null,
       },
     ])
   }, [])
@@ -1900,6 +2075,7 @@ export function ThumbnailGenerator({
 
   const handleSubmit = async (e) => {
     e?.preventDefault?.()
+    if (!requirePaywall()) return
     const combined = draft.trim()
     if (!combined || pendingAssistant) return
     if (!promptImageDataUrl && combined.length < 5) {
@@ -2085,6 +2261,7 @@ export function ThumbnailGenerator({
 
   const handleRecreateSubmit = async (e) => {
     e?.preventDefault?.()
+    if (!requirePaywall()) return
     if (pendingAssistant) return
     const instructions = recreateDraft.trim()
     const sourceImageUrl =
@@ -2176,6 +2353,7 @@ export function ThumbnailGenerator({
 
   const handleEditSubmit = (e) => {
     e.preventDefault()
+    if (!requirePaywall()) return
     setEditFooterError('')
     if (editSourceMode === 'upload' && editDataUrl) {
       setEditDialogUrl(editDataUrl)
@@ -2191,6 +2369,7 @@ export function ThumbnailGenerator({
   }
 
   const handleOpenEditFromFooter = () => {
+    if (!requirePaywall()) return
     setEditFooterError('')
     if (editSourceMode === 'upload' && editDataUrl) {
       setEditDialogUrl(editDataUrl)
@@ -2207,6 +2386,7 @@ export function ThumbnailGenerator({
 
   const handleAnalyzeFooterSubmit = async (e) => {
     e?.preventDefault?.()
+    if (!requirePaywall()) return
     if (pendingAssistant) return
     const imageUrl = analyzeSourceMode === 'upload' ? analyzeSourceImage : analyzePreviewUrl
     if (!imageUrl) {
@@ -2233,9 +2413,16 @@ export function ThumbnailGenerator({
         ...(base64 ? { thumbnail_image_base64: base64 } : { thumbnail_image_url: imageUrl }),
         video_title: titleTrim || undefined,
       })
+      // Prime the per-image rating cache so the analyze card's
+      // ScorePill resolves instantly from cache instead of firing a
+      // second /rate (which would double-charge credits).
+      seedThumbnailRating(queryClient, imageUrl, rating)
       pushLocalAssistantMessage(userText, {
-        content: buildAnalyzeSummary(rating, titleTrim),
+        content: '',
         userImageUrl: imageUrl,
+        imageUrl,
+        userRequest: '',
+        analysis: rating,
       })
       finishLoading()
     } catch (err) {
@@ -2299,6 +2486,7 @@ export function ThumbnailGenerator({
         transition={{ duration: 0.42, ease: IOS_EASE }}
       >
         <div className="thumb-bg-fx-top-shadow" aria-hidden="true" />
+        <PlanCallout />
         <div
           ref={threadRef}
           className={`coach-thread ${layoutCentered ? 'coach-thread--empty' : ''} coach-thread--thumb-panel ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
@@ -2383,27 +2571,34 @@ export function ThumbnailGenerator({
 
           {pendingAssistant && (
             <article className="coach-message coach-message--assistant coach-message--enter">
-              {/* Shared 16:9 placeholder slot that the result thumbnail
-               * will land in — keeps the layout stable so the loader →
-               * image swap doesn't cause a height jump. <ThumbnailGenFill />
-               * fills the whole stage left→right in a bright gradient
-               * with a centred percentage. */}
-              <div className="thumb-gen-loader" aria-busy="true" aria-label="Generating thumbnail">
-                <div className="thumb-gen-loader__stage">
-                  <ThumbnailGenFill
-                    done={pendingDone}
-                    estimatedDurationMs={(() => {
-                      if (thumbMode === 'analyze') return GEN_DURATION_ANALYZE_MS
-                      if (thumbMode === 'recreate') {
-                        return numRecreateThumbnails > 1
-                          ? GEN_DURATION_BATCH_MS
-                          : GEN_DURATION_RECREATE_MS
-                      }
-                      return numThumbnails > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_SINGLE_MS
-                    })()}
-                  />
+              {thumbMode === 'analyze' ? (
+                <ThumbnailAnalyzeLoader imageUrl={pendingUserImageUrl} />
+              ) : (
+                /* Shared 16:9 placeholder slot that the result thumbnail
+                 * will land in — keeps the layout stable so the loader →
+                 * image swap doesn't cause a height jump. <ThumbnailGenFill />
+                 * fills the whole stage left→right in a bright gradient
+                 * with a centred percentage. */
+                <div
+                  className="thumb-gen-loader"
+                  aria-busy="true"
+                  aria-label="Generating thumbnail"
+                >
+                  <div className="thumb-gen-loader__stage">
+                    <ThumbnailGenFill
+                      done={pendingDone}
+                      estimatedDurationMs={(() => {
+                        if (thumbMode === 'recreate') {
+                          return numRecreateThumbnails > 1
+                            ? GEN_DURATION_BATCH_MS
+                            : GEN_DURATION_RECREATE_MS
+                        }
+                        return numThumbnails > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_SINGLE_MS
+                      })()}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </article>
           )}
 
@@ -2494,10 +2689,10 @@ export function ThumbnailGenerator({
                         ref={textareaRef}
                         value={draft}
                         onChange={(e) => setDraft(String(e.target.value).slice(0, 2000))}
-                        rows={1}
+                        rows={2}
                         className="coach-composer-input thumb-prompt-textarea"
                         maxLength={2000}
-                        placeholder={composerHint}
+                        placeholder=""
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
@@ -2505,6 +2700,30 @@ export function ThumbnailGenerator({
                           }
                         }}
                       />
+                      {/* Rotating multi-line hint overlay. Fades out as
+                       * one block when the user starts typing or
+                       * attaches an image; otherwise cycles through the
+                       * THUMB_COMPOSER_HINTS examples with the
+                       * exit/enter phase classes from the shared
+                       * .coach-composer-placeholder recipe. */}
+                      <div
+                        className={`coach-composer-placeholder thumb-prompt-placeholder ${
+                          draft || promptImageDataUrl ? 'is-hidden' : ''
+                        }`}
+                        aria-hidden
+                      >
+                        <span
+                          className={`coach-composer-placeholder-text thumb-prompt-placeholder-text ${
+                            composerHintPhase === 'exiting'
+                              ? 'is-exiting'
+                              : composerHintPhase === 'entering'
+                                ? 'is-entering'
+                                : ''
+                          }`}
+                        >
+                          {composerHint}
+                        </span>
+                      </div>
                     </div>
                     <div className="coach-composer-actions thumb-gen-toolbar">
                       <div className="thumb-gen-toolbar-tools">
@@ -2606,29 +2825,10 @@ export function ThumbnailGenerator({
                           <input
                             type="url"
                             className="thumb-source-input"
-                            placeholder="Paste a YouTube or image link…"
+                            placeholder="Drop a YouTube link or image URL"
                             value={recreateUrlInput}
                             onChange={(e) => setRecreateUrlInput(e.target.value.slice(0, 280))}
                           />
-                          {(recreateFetchingPreview || recreatePreviewUrl) && (
-                            <div className="thumb-source-url-preview">
-                              {recreateFetchingPreview ? (
-                                <div
-                                  className="thumb-source-url-preview-loading"
-                                  aria-label="Loading preview"
-                                />
-                              ) : (
-                                <img
-                                  src={recreatePreviewUrl}
-                                  alt="Source thumbnail preview"
-                                  className="thumb-source-url-preview-img"
-                                  onClick={() =>
-                                    openThumbLightbox(recreatePreviewUrl, 'Source thumbnail')
-                                  }
-                                />
-                              )}
-                            </div>
-                          )}
                         </div>
                       ) : (
                         <>
@@ -2654,7 +2854,7 @@ export function ThumbnailGenerator({
                         ref={recreateTextareaRef}
                         value={recreateDraft}
                         onChange={(e) => setRecreateDraft(String(e.target.value).slice(0, 2000))}
-                        placeholder="Describe what should change (optional)…"
+                        placeholder="Anything you want to tweak? (optional)"
                         rows={1}
                         className="coach-composer-input thumb-visible-placeholder"
                         maxLength={2000}
@@ -2701,29 +2901,10 @@ export function ThumbnailGenerator({
                           <input
                             type="url"
                             className="thumb-source-input"
-                            placeholder="Paste a YouTube or image link…"
+                            placeholder="Drop a YouTube link or image URL"
                             value={analyzeUrlInput}
                             onChange={(e) => setAnalyzeUrlInput(e.target.value.slice(0, 280))}
                           />
-                          {(analyzeFetchingPreview || analyzePreviewUrl) && (
-                            <div className="thumb-source-url-preview">
-                              {analyzeFetchingPreview ? (
-                                <div
-                                  className="thumb-source-url-preview-loading"
-                                  aria-label="Loading preview"
-                                />
-                              ) : (
-                                <img
-                                  src={analyzePreviewUrl}
-                                  alt="Source thumbnail preview"
-                                  className="thumb-source-url-preview-img"
-                                  onClick={() =>
-                                    openThumbLightbox(analyzePreviewUrl, 'Source thumbnail')
-                                  }
-                                />
-                              )}
-                            </div>
-                          )}
                         </div>
                       ) : (
                         <>
@@ -2749,7 +2930,7 @@ export function ThumbnailGenerator({
                         type="text"
                         value={analyzeTitle}
                         onChange={(e) => setAnalyzeTitle(e.target.value.slice(0, 200))}
-                        placeholder="Video title (optional)…"
+                        placeholder="Add the video title for sharper analysis (optional)"
                         className="coach-composer-input thumb-single-line-input thumb-visible-placeholder"
                         maxLength={200}
                       />
@@ -2779,7 +2960,7 @@ export function ThumbnailGenerator({
                             setEditDataUrl(null)
                             setEditFooterError('')
                           }}
-                          placeholder="Paste an image link…"
+                          placeholder="Drop a YouTube link or image URL"
                           className="thumb-source-input"
                         />
                       ) : (
@@ -2812,17 +2993,12 @@ export function ThumbnailGenerator({
                         ariaLabel="Open editor"
                         label="Edit"
                         icon={
-                          <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden
-                          >
-                            <path d="M12 20h9" />
-                            <path d="m16.5 3.5 4 4L7 21l-4 1 1-4Z" />
+                          // Magic-wand glyph from src/assets/magic-wand.svg —
+                          // matches the icon used on the Edit tab itself so
+                          // the action button on the edit form reads as the
+                          // same family.
+                          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                            <path d="m18 9.064a3.049 3.049 0 0 0 -.9-2.164 3.139 3.139 0 0 0 -4.334 0l-11.866 11.869a3.064 3.064 0 0 0 4.33 4.331l11.87-11.869a3.047 3.047 0 0 0 .9-2.167zm-14.184 12.624a1.087 1.087 0 0 1 -1.5 0 1.062 1.062 0 0 1 0-1.5l7.769-7.77 1.505 1.505zm11.872-11.872-2.688 2.689-1.5-1.505 2.689-2.688a1.063 1.063 0 1 1 1.5 1.5zm-10.825-6.961 1.55-.442.442-1.55a1.191 1.191 0 0 1 2.29 0l.442 1.55 1.55.442a1.191 1.191 0 0 1 0 2.29l-1.55.442-.442 1.55a1.191 1.191 0 0 1 -2.29 0l-.442-1.55-1.55-.442a1.191 1.191 0 0 1 0-2.29zm18.274 14.29-1.55.442-.442 1.55a1.191 1.191 0 0 1 -2.29 0l-.442-1.55-1.55-.442a1.191 1.191 0 0 1 0-2.29l1.55-.442.442-1.55a1.191 1.191 0 0 1 2.29 0l.442 1.55 1.55.442a1.191 1.191 0 0 1 0 2.29zm-5.382-14.645 1.356-.387.389-1.358a1.042 1.042 0 0 1 2 0l.387 1.356 1.356.387a1.042 1.042 0 0 1 0 2l-1.356.387-.387 1.359a1.042 1.042 0 0 1 -2 0l-.387-1.355-1.358-.389a1.042 1.042 0 0 1 0-2z" />
                           </svg>
                         }
                       />

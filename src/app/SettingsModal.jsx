@@ -1,25 +1,21 @@
 /**
- * Settings — fresh redesign as a routed surface.
+ * Settings — centred dialog. Opens over whatever screen the user was
+ * on, closes via the ✕ button, the Escape key, or a click on the dim
+ * backdrop. Renders into a portal at document.body so the surrounding
+ * layout can't clip it, and locks body scroll while open.
  *
- * Layout:
- *   ┌───────────────────────────────────────────┐
- *   │  Settings header                  [✕]    │
- *   ├───────────────────────────────────────────┤
- *   │  ┌──── Profile hero ──────┐              │
- *   │  │ avatar+ring  greeting   │              │
- *   │  │              email      │              │
- *   │  └────────────────────────┘              │
- *   │  ┌── YouTube card ─────────┐             │
- *   │  ┌── Security card ────────┐             │
- *   │  ┌── Help ─┐  ┌── Legal ─┐                │
- *   │  ┌── Danger zone (red) ───┐               │
- *   │  [ Sign out ]                             │
- *   └───────────────────────────────────────────┘
+ * Sections:
+ *   1. Profile hero        — avatar, greeting, email, sign out
+ *   2. Plan                — current plan + manage / upgrade CTA
+ *   3. Security            — change password
+ *   4. Help & Legal        — support contacts + legal pages
+ *   5. Danger zone         — reset data, delete account
  *
- * No portal — settings is a route, not a dialog. The wrapper
- * SharedSettingsModal threads in auth/onboarding state from Zustand.
+ * The wrapper SharedSettingsModal threads in auth state from Zustand
+ * and the live subscription query.
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import './SettingsModal.css'
 import { friendlyMessage } from '../lib/aiErrors'
 
@@ -37,32 +33,6 @@ const I = {
       <path d="M18 6L6 18M6 6l12 12" />
     </svg>
   ),
-  user: () => (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" />
-    </svg>
-  ),
-  youtube: () => (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="6" width="18" height="12" rx="3" />
-      <path d="m10 9 5 3-5 3z" fill="currentColor" />
-    </svg>
-  ),
   lock: () => (
     <svg
       viewBox="0 0 24 24"
@@ -74,6 +44,11 @@ const I = {
     >
       <rect x="4" y="11" width="16" height="10" rx="2" />
       <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  ),
+  sparkle: () => (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 3l1.7 4.6L18 9l-4.3 1.4L12 15l-1.7-4.6L6 9l4.3-1.4z" />
     </svg>
   ),
   help: () => (
@@ -157,29 +132,14 @@ const I = {
       <path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5" />
     </svg>
   ),
-  imageOff: () => (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 3l18 18" />
-      <path d="M21 17V5a2 2 0 0 0-2-2H7" />
-      <path d="M3 7v12a2 2 0 0 0 2 2h12" />
-    </svg>
-  ),
 }
 
-/* ───────────────────────── small subcomponents ────────────────────── */
+/* ──────────────────────── small subcomponents ────────────────────── */
 
 function Avatar({ src, name, size = 'md' }) {
   const [errored, setErrored] = useState(false)
   const initial = (name || 'Y')[0].toUpperCase()
   const cls = `s-avatar s-avatar--${size}`
-
   if (!src || errored) {
     return (
       <span className={`${cls} s-avatar--fallback`} aria-hidden>
@@ -215,57 +175,6 @@ function SectionCard({ icon, title, subtitle, tone, children }) {
     </section>
   )
 }
-
-function ChannelRow({ channel, isActive, onSwitch, onDisconnect, busy }) {
-  return (
-    <div className={`s-channel${isActive ? ' s-channel--active' : ''}`}>
-      <Avatar
-        src={channel.profile_image || channel.avatar}
-        name={channel.channel_title || channel.channelName}
-        size="md"
-      />
-      <div className="s-channel-info">
-        <span className="s-channel-name">
-          {channel.channel_title || channel.channelName || 'Channel'}
-        </span>
-        <span className="s-channel-meta">
-          {formatSubs(channel.subscriber_count ?? channel.subscriberCount)}
-          {channel.video_count != null || channel.videoCount != null
-            ? ` · ${channel.video_count ?? channel.videoCount} videos`
-            : ''}
-        </span>
-      </div>
-      {isActive ? (
-        <div className="s-channel-actions">
-          <span className="s-pill s-pill--active">Active</span>
-          <button
-            type="button"
-            className="s-btn s-btn--ghost"
-            onClick={onDisconnect}
-            disabled={busy}
-          >
-            Disconnect
-          </button>
-        </div>
-      ) : (
-        <button type="button" className="s-btn s-btn--ghost" onClick={onSwitch} disabled={busy}>
-          Switch
-        </button>
-      )}
-    </div>
-  )
-}
-
-function formatSubs(n) {
-  if (n == null || n === '') return 'Connected'
-  const num = typeof n === 'number' ? n : parseInt(String(n).replace(/\D/g, ''), 10)
-  if (isNaN(num)) return 'Connected'
-  if (num >= 1e6) return `${(num / 1e6).toFixed(1).replace(/\.0$/, '')}M subscribers`
-  if (num >= 1e3) return `${(num / 1e3).toFixed(1).replace(/\.0$/, '')}K subscribers`
-  return `${num} subscribers`
-}
-
-/* ────────────────────────────── modal-ish prompts ─────────────────── */
 
 function ConfirmSheet({
   open,
@@ -305,7 +214,7 @@ function ConfirmSheet({
   )
 }
 
-/* ──────────────────────── main component ─────────────────────────── */
+/* ──────────────────────────── main ────────────────────────────────── */
 
 export function SettingsModal({
   open,
@@ -317,14 +226,7 @@ export function SettingsModal({
   deleteData,
   deleteAccount,
   clearLocalData,
-  youtube,
-  youtubeChannels,
-  youtubeLoading,
-  youtubeOAuthError,
-  setYoutubeOAuthError,
-  onConnectYouTube,
-  onDisconnectYouTube,
-  onSwitchChannel,
+  subscription,
   onLogout,
 }) {
   // Change-password sub-form
@@ -336,20 +238,38 @@ export function SettingsModal({
   const [pwError, setPwError] = useState('')
   const [pwSuccess, setPwSuccess] = useState(false)
 
-  // Delete-data sheet (typed-word verification)
+  // Confirm sheets
   const [delDataOpen, setDelDataOpen] = useState(false)
   const [delDataConfirm, setDelDataConfirm] = useState('')
   const [delDataBusy, setDelDataBusy] = useState(false)
   const [delDataError, setDelDataError] = useState('')
 
-  // Delete-account sheet
   const [delAcctOpen, setDelAcctOpen] = useState(false)
   const [delAcctPw, setDelAcctPw] = useState('')
   const [delAcctConfirm, setDelAcctConfirm] = useState('')
   const [delAcctBusy, setDelAcctBusy] = useState(false)
   const [delAcctError, setDelAcctError] = useState('')
 
+  // Escape closes; while open, lock body scroll.
+  useEffect(() => {
+    if (!open) return undefined
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose?.()
+    }
+    document.addEventListener('keydown', onKey)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [open, onClose])
+
   if (!open) return null
+
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) onClose?.()
+  }
 
   const handleChangePassword = async (e) => {
     e.preventDefault()
@@ -421,22 +341,10 @@ export function SettingsModal({
     }
   }
 
-  const channelId = youtube?.channelId || youtube?.channel_id
-  const connected = !!youtube?.connected
-  const channels =
-    youtubeChannels && youtubeChannels.length > 0
-      ? youtubeChannels
-      : connected
-        ? [
-            {
-              channel_id: channelId,
-              channel_title: youtube?.channelName || youtube?.channel_title,
-              profile_image: youtube?.avatar || youtube?.profile_image,
-              subscriber_count: youtube?.subscriberCount ?? youtube?.subscriber_count,
-              video_count: youtube?.videoCount ?? youtube?.video_count,
-            },
-          ]
-        : []
+  const goToPro = () => {
+    onClose?.()
+    if (typeof window !== 'undefined') window.location.hash = 'pro'
+  }
 
   const memberSinceMs =
     user?.created_at && !isNaN(Date.parse(user.created_at)) ? Date.parse(user.created_at) : null
@@ -444,351 +352,336 @@ export function SettingsModal({
     ? new Date(memberSinceMs).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
     : null
 
-  return (
-    <div className="s-screen" role="region" aria-label="Settings">
-      <header className="s-header">
-        <h1 className="s-header-title">Settings</h1>
-        <button type="button" className="s-icon-btn" onClick={onClose} aria-label="Close settings">
-          <I.close />
-        </button>
-      </header>
+  // Plan derived from subscription. `isSubscribed` covers active /
+  // trialing / past_due; trial users see a different CTA than paid.
+  const ACTIVE = ['active', 'trialing', 'past_due']
+  const hasActivePlan = !!(subscription && ACTIVE.includes(subscription.status))
+  const isTrial = !!subscription?.is_trial
+  const planName = (() => {
+    if (!hasActivePlan) return 'Free'
+    const name = subscription.plan_name || subscription.tier || 'Pro'
+    const cap = name.charAt(0).toUpperCase() + name.slice(1)
+    return isTrial ? `${cap} · Trial` : cap
+  })()
+  const planSubtitle = hasActivePlan
+    ? isTrial
+      ? 'Your trial is active. Continue to keep all features after it ends.'
+      : `Billed ${subscription.billing_period === 'year' ? 'annually' : 'monthly'}.`
+    : 'Upgrade to unlock unlimited generations and the SRX-3 model.'
 
-      <div className="s-scroll">
-        <div className="s-content">
-          {/* ── Profile hero ── */}
-          <section className="s-hero">
-            <div className="s-hero-bg" aria-hidden />
-            {onLogout ? (
-              <button
-                type="button"
-                className="s-hero-signout"
-                onClick={onLogout}
-                aria-label="Sign out"
-              >
-                <I.signout />
-                <span>Sign out</span>
-              </button>
-            ) : null}
-            <div className="s-hero-avatar-wrap">
-              <Avatar
-                src={youtube?.avatar || youtube?.profile_image}
-                name={user?.email || youtube?.channelName}
-                size="xl"
-              />
-            </div>
-            <div className="s-hero-info">
-              <h2 className="s-hero-greeting">{greetingFromEmail(user?.email)}</h2>
-              <p className="s-hero-email">{user?.email || '—'}</p>
-              <div className="s-hero-meta">
-                {connected ? (
-                  <span className="s-pill s-pill--accent">
-                    <I.youtube /> {youtube.channelName || youtube.channel_title || 'Connected'}
+  return createPortal(
+    <div className="s-dialog-backdrop" role="presentation" onMouseDown={handleBackdropClick}>
+      <div
+        className="s-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Settings"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="s-screen">
+          <header className="s-header">
+            <h1 className="s-header-title">Settings</h1>
+            <button
+              type="button"
+              className="s-icon-btn"
+              onClick={onClose}
+              aria-label="Close settings"
+            >
+              <I.close />
+            </button>
+          </header>
+
+          <div className="s-scroll">
+            <div className="s-content">
+              {/* ── Profile hero ── */}
+              <section className="s-hero">
+                {onLogout ? (
+                  <button
+                    type="button"
+                    className="s-hero-signout"
+                    onClick={onLogout}
+                    aria-label="Sign out"
+                  >
+                    <I.signout />
+                    <span>Sign out</span>
+                  </button>
+                ) : null}
+                <div className="s-hero-avatar-wrap">
+                  <Avatar name={user?.email} size="xl" />
+                </div>
+                <div className="s-hero-info">
+                  <h2 className="s-hero-greeting">{greetingFromEmail(user?.email)}</h2>
+                  <p className="s-hero-email">{user?.email || '—'}</p>
+                  <div className="s-hero-meta">
+                    <span
+                      className={`s-pill ${hasActivePlan ? 's-pill--accent' : 's-pill--muted'}`}
+                    >
+                      {planName}
+                    </span>
+                    {memberSinceLabel && (
+                      <span className="s-pill s-pill--muted">Since {memberSinceLabel}</span>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              {/* ── Plan ── */}
+              <SectionCard icon="sparkle" title="Plan" subtitle={planSubtitle}>
+                <button
+                  type="button"
+                  className="s-btn s-btn--primary s-btn--full"
+                  onClick={goToPro}
+                >
+                  <span className="s-btn-icon" aria-hidden>
+                    <I.sparkle />
                   </span>
-                ) : (
-                  <span className="s-pill s-pill--muted">No channel connected</span>
-                )}
-                {memberSinceLabel && (
-                  <span className="s-pill s-pill--muted">Member since {memberSinceLabel}</span>
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* ── YouTube ── */}
-          <SectionCard
-            icon="youtube"
-            title="YouTube channels"
-            subtitle="Connect, switch, or disconnect."
-          >
-            {youtubeOAuthError && (
-              <div className="s-alert s-alert--error">
-                <span>{youtubeOAuthError}</span>
-                <button
-                  type="button"
-                  className="s-alert-dismiss"
-                  onClick={() => setYoutubeOAuthError?.(null)}
-                  aria-label="Dismiss"
-                >
-                  ×
-                </button>
-              </div>
-            )}
-            {channels.length === 0 ? (
-              <div className="s-empty">
-                <p>Connect your channel to unlock personalized insights and AI scripts.</p>
-                <button
-                  type="button"
-                  className="s-btn s-btn--primary s-btn--lg"
-                  onClick={onConnectYouTube}
-                  disabled={youtubeLoading}
-                >
-                  {youtubeLoading ? 'Connecting…' : 'Connect YouTube'}
+                  <span>{hasActivePlan ? 'Manage plan' : 'Go Pro'}</span>
                   <I.arrow />
                 </button>
-              </div>
-            ) : (
-              <div className="s-channels">
-                {channels.map((c) => {
-                  const cid = c.channel_id || c.channelId
-                  const isActive = cid === channelId
-                  return (
-                    <ChannelRow
-                      key={cid || 'current'}
-                      channel={c}
-                      isActive={isActive}
-                      busy={youtubeLoading}
-                      onSwitch={() => onSwitchChannel?.(cid)}
-                      onDisconnect={onDisconnectYouTube}
-                    />
-                  )
-                })}
-                <button
-                  type="button"
-                  className="s-btn s-btn--ghost s-btn--full"
-                  onClick={onConnectYouTube}
-                  disabled={youtubeLoading}
-                >
-                  {youtubeLoading ? 'Connecting…' : 'Add another channel'}
-                </button>
-              </div>
-            )}
-          </SectionCard>
+              </SectionCard>
 
-          {/* ── Security ── */}
-          <SectionCard icon="lock" title="Security" subtitle="Change your account password.">
-            {!pwOpen ? (
-              <button type="button" className="s-btn s-btn--ghost" onClick={() => setPwOpen(true)}>
-                Change password
-                <I.arrow />
-              </button>
-            ) : (
-              <form className="s-form" onSubmit={handleChangePassword}>
-                {pwSuccess && <div className="s-alert s-alert--success">Password updated.</div>}
-                {pwError && <div className="s-alert s-alert--error">{pwError}</div>}
-                <label className="s-field">
-                  <span className="s-field-label">Current password</span>
-                  <input
-                    type="password"
-                    className="s-input"
-                    value={pwCurrent}
-                    onChange={(e) => setPwCurrent(e.target.value)}
-                    autoComplete="current-password"
-                    required
-                  />
-                </label>
-                <label className="s-field">
-                  <span className="s-field-label">New password</span>
-                  <input
-                    type="password"
-                    className="s-input"
-                    value={pwNew}
-                    onChange={(e) => setPwNew(e.target.value)}
-                    autoComplete="new-password"
-                    minLength={8}
-                    required
-                  />
-                </label>
-                <label className="s-field">
-                  <span className="s-field-label">Confirm new password</span>
-                  <input
-                    type="password"
-                    className="s-input"
-                    value={pwConfirm}
-                    onChange={(e) => setPwConfirm(e.target.value)}
-                    autoComplete="new-password"
-                    required
-                  />
-                </label>
-                <div className="s-form-actions">
+              {/* ── Security ── */}
+              <SectionCard icon="lock" title="Security" subtitle="Change your account password.">
+                {!pwOpen ? (
+                  <button
+                    type="button"
+                    className="s-btn s-btn--ghost s-btn--full"
+                    onClick={() => setPwOpen(true)}
+                  >
+                    <span>Change password</span>
+                    <I.arrow />
+                  </button>
+                ) : (
+                  <form className="s-form" onSubmit={handleChangePassword}>
+                    {pwSuccess && <div className="s-alert s-alert--success">Password updated.</div>}
+                    {pwError && <div className="s-alert s-alert--error">{pwError}</div>}
+                    <label className="s-field">
+                      <span className="s-field-label">Current password</span>
+                      <input
+                        type="password"
+                        className="s-input"
+                        value={pwCurrent}
+                        onChange={(e) => setPwCurrent(e.target.value)}
+                        autoComplete="current-password"
+                        required
+                      />
+                    </label>
+                    <label className="s-field">
+                      <span className="s-field-label">New password</span>
+                      <input
+                        type="password"
+                        className="s-input"
+                        value={pwNew}
+                        onChange={(e) => setPwNew(e.target.value)}
+                        autoComplete="new-password"
+                        minLength={8}
+                        required
+                      />
+                    </label>
+                    <label className="s-field">
+                      <span className="s-field-label">Confirm new password</span>
+                      <input
+                        type="password"
+                        className="s-input"
+                        value={pwConfirm}
+                        onChange={(e) => setPwConfirm(e.target.value)}
+                        autoComplete="new-password"
+                        required
+                      />
+                    </label>
+                    <div className="s-form-actions">
+                      <button
+                        type="button"
+                        className="s-btn s-btn--ghost"
+                        onClick={() => {
+                          setPwOpen(false)
+                          setPwError('')
+                          setPwSuccess(false)
+                        }}
+                        disabled={pwBusy}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="s-btn s-btn--primary"
+                        disabled={pwBusy || authLoading}
+                      >
+                        {pwBusy ? 'Saving…' : 'Save password'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </SectionCard>
+
+              {/* ── Help + Legal grid ── */}
+              <div className="s-grid-2">
+                <SectionCard icon="help" title="Help">
+                  <ul className="s-link-list">
+                    <li>
+                      <a href="mailto:support@scriptz.ai?subject=Help" className="s-link">
+                        <span>Help center</span>
+                        <I.arrow />
+                      </a>
+                    </li>
+                    <li>
+                      <a href="mailto:support@scriptz.ai" className="s-link">
+                        <span>Contact support</span>
+                        <I.arrow />
+                      </a>
+                    </li>
+                    <li>
+                      <a
+                        href="https://scriptz.ai/docs"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="s-link"
+                      >
+                        <span>Documentation</span>
+                        <I.external />
+                      </a>
+                    </li>
+                  </ul>
+                </SectionCard>
+                <SectionCard icon="scroll" title="Legal">
+                  <ul className="s-link-list">
+                    <li>
+                      <a href="#privacy" className="s-link" onClick={onClose}>
+                        <span>Privacy policy</span>
+                        <I.arrow />
+                      </a>
+                    </li>
+                    <li>
+                      <a href="#terms" className="s-link" onClick={onClose}>
+                        <span>Terms of service</span>
+                        <I.arrow />
+                      </a>
+                    </li>
+                    <li>
+                      <a href="#refund" className="s-link" onClick={onClose}>
+                        <span>Refund policy</span>
+                        <I.arrow />
+                      </a>
+                    </li>
+                  </ul>
+                </SectionCard>
+              </div>
+
+              {/* ── Danger zone ── */}
+              <SectionCard
+                icon="alert"
+                title="Danger zone"
+                subtitle="Irreversible actions. Read carefully before continuing."
+                tone="danger"
+              >
+                <div className="s-danger-row">
+                  <div className="s-danger-text">
+                    <strong>Reset your data</strong>
+                    <p>Wipes thumbnails, optimizations, and personalisation. Your account stays.</p>
+                  </div>
                   <button
                     type="button"
                     className="s-btn s-btn--ghost"
-                    onClick={() => {
-                      setPwOpen(false)
-                      setPwError('')
-                      setPwSuccess(false)
-                    }}
-                    disabled={pwBusy}
+                    onClick={() => setDelDataOpen(true)}
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="s-btn s-btn--primary"
-                    disabled={pwBusy || authLoading}
-                  >
-                    {pwBusy ? 'Saving…' : 'Save password'}
+                    Reset data
                   </button>
                 </div>
-              </form>
-            )}
-          </SectionCard>
-
-          {/* ── Help + Legal grid ── */}
-          <div className="s-grid-2">
-            <SectionCard icon="help" title="Help">
-              <ul className="s-link-list">
-                <li>
-                  <a href="#help" className="s-link">
-                    <span>Help center</span>
-                    <I.arrow />
-                  </a>
-                </li>
-                <li>
-                  <a href="mailto:support@scriptz.ai" className="s-link">
-                    <span>Contact support</span>
-                    <I.arrow />
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="https://scriptz.ai/docs"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="s-link"
+                <div className="s-danger-divider" />
+                <div className="s-danger-row">
+                  <div className="s-danger-text">
+                    <strong>Delete account</strong>
+                    <p>Removes your account and every associated record. Cannot be undone.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="s-btn s-btn--danger"
+                    onClick={() => setDelAcctOpen(true)}
                   >
-                    <span>Documentation</span>
-                    <I.external />
-                  </a>
-                </li>
-              </ul>
-            </SectionCard>
-            <SectionCard icon="scroll" title="Legal">
-              <ul className="s-link-list">
-                <li>
-                  <a href="#privacy" className="s-link">
-                    <span>Privacy policy</span>
-                    <I.arrow />
-                  </a>
-                </li>
-                <li>
-                  <a href="#terms" className="s-link">
-                    <span>Terms of service</span>
-                    <I.arrow />
-                  </a>
-                </li>
-                <li>
-                  <a href="#refund" className="s-link">
-                    <span>Refund policy</span>
-                    <I.arrow />
-                  </a>
-                </li>
-              </ul>
-            </SectionCard>
+                    Delete account
+                  </button>
+                </div>
+              </SectionCard>
+            </div>
           </div>
 
-          {/* ── Danger zone ── */}
-          <SectionCard
-            icon="alert"
-            title="Danger zone"
-            subtitle="Irreversible actions. Read carefully before continuing."
-            tone="danger"
+          {/* Confirm sheets */}
+          <ConfirmSheet
+            open={delDataOpen}
+            title="Reset all your data?"
+            body="This wipes generated thumbnails, video optimizations, personalisation, and cached settings. Your account remains active."
+            danger
+            busy={delDataBusy}
+            error={delDataError}
+            onCancel={() => {
+              setDelDataOpen(false)
+              setDelDataError('')
+              setDelDataConfirm('')
+            }}
+            onConfirm={handleDeleteData}
+            confirmLabel="Yes, reset"
           >
-            <div className="s-danger-row">
-              <div className="s-danger-text">
-                <strong>Reset your data</strong>
-                <p>Wipes thumbnails, optimizations, and personalisation. Your account stays.</p>
-              </div>
-              <button
-                type="button"
-                className="s-btn s-btn--ghost"
-                onClick={() => setDelDataOpen(true)}
-              >
-                Reset data
-              </button>
+            <div className="s-form">
+              <label className="s-field">
+                <span className="s-field-label">Type RESET to confirm</span>
+                <input
+                  type="text"
+                  className="s-input"
+                  value={delDataConfirm}
+                  onChange={(e) => setDelDataConfirm(e.target.value.toUpperCase())}
+                  placeholder="RESET"
+                  autoComplete="off"
+                />
+              </label>
             </div>
-            <div className="s-danger-divider" />
-            <div className="s-danger-row">
-              <div className="s-danger-text">
-                <strong>Delete account</strong>
-                <p>Removes your account and every associated record. Cannot be undone.</p>
-              </div>
-              <button
-                type="button"
-                className="s-btn s-btn--danger"
-                onClick={() => setDelAcctOpen(true)}
-              >
-                Delete account
-              </button>
+          </ConfirmSheet>
+
+          <ConfirmSheet
+            open={delAcctOpen}
+            title="Delete your account?"
+            body="This permanently removes your account, channel data, generations, and credits. There is no undo."
+            danger
+            busy={delAcctBusy}
+            error={delAcctError}
+            onCancel={() => {
+              setDelAcctOpen(false)
+              setDelAcctError('')
+              setDelAcctConfirm('')
+              setDelAcctPw('')
+            }}
+            onConfirm={handleDeleteAccount}
+            confirmLabel="Delete account"
+          >
+            <div className="s-form">
+              <label className="s-field">
+                <span className="s-field-label">Type DELETE to confirm</span>
+                <input
+                  type="text"
+                  className="s-input"
+                  value={delAcctConfirm}
+                  onChange={(e) => setDelAcctConfirm(e.target.value.toUpperCase())}
+                  placeholder="DELETE"
+                  autoComplete="off"
+                />
+              </label>
+              {!accountDeletePasswordOptional && (
+                <label className="s-field">
+                  <span className="s-field-label">Password</span>
+                  <input
+                    type="password"
+                    className="s-input"
+                    value={delAcctPw}
+                    onChange={(e) => setDelAcctPw(e.target.value)}
+                    autoComplete="current-password"
+                  />
+                </label>
+              )}
             </div>
-          </SectionCard>
+          </ConfirmSheet>
         </div>
       </div>
-
-      {/* Confirm sheets */}
-      <ConfirmSheet
-        open={delDataOpen}
-        title="Reset all your data?"
-        body="This wipes generated thumbnails, video optimizations, personalisation, and cached settings. Your account remains active."
-        danger
-        busy={delDataBusy}
-        error={delDataError}
-        onCancel={() => {
-          setDelDataOpen(false)
-          setDelDataError('')
-          setDelDataConfirm('')
-        }}
-        onConfirm={handleDeleteData}
-        confirmLabel="Yes, reset"
-      >
-        <div className="s-form" style={{ marginTop: '0.5rem' }}>
-          <label className="s-field">
-            <span className="s-field-label">Type RESET to confirm</span>
-            <input
-              type="text"
-              className="s-input"
-              value={delDataConfirm}
-              onChange={(e) => setDelDataConfirm(e.target.value.toUpperCase())}
-              placeholder="RESET"
-              autoComplete="off"
-            />
-          </label>
-        </div>
-      </ConfirmSheet>
-
-      <ConfirmSheet
-        open={delAcctOpen}
-        title="Delete your account?"
-        body="This permanently removes your account, channel data, generations, and credits. There is no undo."
-        danger
-        busy={delAcctBusy}
-        error={delAcctError}
-        onCancel={() => {
-          setDelAcctOpen(false)
-          setDelAcctError('')
-          setDelAcctConfirm('')
-          setDelAcctPw('')
-        }}
-        onConfirm={handleDeleteAccount}
-        confirmLabel="Delete account"
-      >
-        <div className="s-form" style={{ marginTop: '0.5rem' }}>
-          <label className="s-field">
-            <span className="s-field-label">Type DELETE to confirm</span>
-            <input
-              type="text"
-              className="s-input"
-              value={delAcctConfirm}
-              onChange={(e) => setDelAcctConfirm(e.target.value.toUpperCase())}
-              placeholder="DELETE"
-              autoComplete="off"
-            />
-          </label>
-          {!accountDeletePasswordOptional && (
-            <label className="s-field">
-              <span className="s-field-label">Password</span>
-              <input
-                type="password"
-                className="s-input"
-                value={delAcctPw}
-                onChange={(e) => setDelAcctPw(e.target.value)}
-                autoComplete="current-password"
-              />
-            </label>
-          )}
-        </div>
-      </ConfirmSheet>
-    </div>
+    </div>,
+    document.body
   )
 }
 

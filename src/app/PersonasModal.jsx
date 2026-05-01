@@ -1,16 +1,19 @@
 /**
- * PersonasModal — character-look manager rendered inside the shared
- * <Dialog> primitive so it inherits the same portal, backdrop, entrance
- * motion, and close-X as every other modal in the app.
+ * PersonasModal — character library for the signed-in user.
  *
- * Personas are **user-private**: every character you see in this modal
- * was created by the signed-in user from their own uploaded photos.
- * There's no stock/admin library — each account curates its own.
+ * Personas are user-private: every character was created by the user
+ * from their own uploaded photos. There's no stock/admin library —
+ * each account curates its own.
  *
- * Embeds CostHint inside the Generate button (same chip style as the
- * coach send button).
+ * Sections inside the modal:
+ *   - Header: title + subtitle + close ✕
+ *   - Create CTA + bulk-remove (only when there's at least one persona)
+ *   - Inline create form: Front / Left / Right photo slots (with drag
+ *     & drop), name input, Cancel / Create
+ *   - Empty state placeholder
+ *   - Persona grid with rename / delete / favourite controls
  */
-import { useRef, useState } from 'react'
+import { useRef, useState, useCallback } from 'react'
 import {
   usePersonasQuery,
   useCreatePersonaFromImagesMutation,
@@ -22,7 +25,6 @@ import {
 import { usePersonaStore } from '../stores/personaStore'
 import { CostHint } from '../components/CostHint'
 import { Dialog } from '../components/ui/Dialog'
-import { PrimaryPill } from '../components/ui/PrimaryPill'
 import { InlineSpinner } from '../components/ui'
 import { useObjectURL } from '../lib/useObjectURL'
 import { friendlyMessage } from '../lib/aiErrors'
@@ -39,7 +41,9 @@ const PHOTO_SLOTS = [
   { key: 'right', label: 'Right' },
 ]
 
-function IconX({ size = 18 }) {
+/* ── Inline icons ─────────────────────────────────────────────────── */
+
+function IconX({ size = 14 }) {
   return (
     <svg
       width={size}
@@ -47,7 +51,7 @@ function IconX({ size = 18 }) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2.2"
+      strokeWidth="2.4"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
@@ -76,11 +80,23 @@ function IconPlus({ size = 16 }) {
   )
 }
 
+/** User glyph from src/assets/user.svg — reused for the empty-state
+ * placeholder and the persona-card image fallback so the empty UI
+ * reads as the same character motif used everywhere else. */
+function IconUser({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12,12A6,6,0,1,0,6,6,6.006,6.006,0,0,0,12,12ZM12,2A4,4,0,1,1,8,6,4,4,0,0,1,12,2Z" />
+      <path d="M12,14a9.01,9.01,0,0,0-9,9,1,1,0,0,0,2,0,7,7,0,0,1,14,0,1,1,0,0,0,2,0A9.01,9.01,0,0,0,12,14Z" />
+    </svg>
+  )
+}
+
 function IconStar({ filled }) {
   return (
     <svg
-      width="14"
-      height="14"
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill={filled ? 'currentColor' : 'none'}
       stroke="currentColor"
@@ -97,8 +113,8 @@ function IconStar({ filled }) {
 function IconPencil() {
   return (
     <svg
-      width="14"
-      height="14"
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -116,8 +132,8 @@ function IconPencil() {
 function IconTrash() {
   return (
     <svg
-      width="14"
-      height="14"
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -132,26 +148,124 @@ function IconTrash() {
   )
 }
 
-function IconUsers() {
+/* ── Photo slot with drag-and-drop ────────────────────────────────── */
+
+function PhotoSlot({ slotKey, label, file, onPick, onClear, fileInputRef }) {
+  const [dragOver, setDragOver] = useState(false)
+
+  const onDragEnter = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOver(true)
+  }
+  const onDragOver = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!dragOver) setDragOver(true)
+  }
+  const onDragLeave = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    // Only clear when leaving the wrap, not when crossing into a child.
+    if (e.currentTarget.contains(e.relatedTarget)) return
+    setDragOver(false)
+  }
+  const onDrop = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOver(false)
+    const dropped = e.dataTransfer?.files?.[0]
+    if (dropped) onPick(slotKey, dropped)
+  }
+
   return (
-    <svg
-      width="42"
-      height="42"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
+    <div
+      className={`pm-slot-wrap${dragOver ? ' pm-slot-wrap--dragover' : ''}`}
+      onDragEnter={onDragEnter}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
     >
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
+      <span className="pm-slot-label">{label}</span>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="pm-slot-input"
+        onChange={(e) => onPick(slotKey, e.target.files?.[0])}
+      />
+      {file ? (
+        <div className="pm-slot pm-slot--filled">
+          <SlotImage file={file} alt={label} />
+          <button
+            type="button"
+            className="pm-slot-clear"
+            onClick={(e) => {
+              e.stopPropagation()
+              onClear(slotKey)
+            }}
+            aria-label={`Remove ${label}`}
+          >
+            <IconX size={12} />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="pm-slot pm-slot--empty"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <span className="pm-slot-empty-icon" aria-hidden>
+            <IconPlus size={20} />
+          </span>
+          <span className="pm-slot-empty-hint">{dragOver ? 'Drop image' : 'Drop or click'}</span>
+        </button>
+      )}
+    </div>
   )
 }
+
+/* ── Buttons ──────────────────────────────────────────────────────── */
+
+/** Primary pill — exact recipe of the sidebar's New-chat pill. Accent
+ * gradient body, no border, inset top glaze, diagonal shine sweep on
+ * hover, brightness lift, scale on press, slotted icon rotates on
+ * hover. The label can be a string or a React node (used to embed the
+ * CostHint chip alongside "Create"). */
+function PrimaryButton({
+  type = 'button',
+  onClick,
+  disabled,
+  busy,
+  busyLabel,
+  children,
+  icon,
+  size = 'md',
+  fullWidth,
+  className = '',
+}) {
+  const cls = ['pm-pp', size === 'sm' ? 'pm-pp--sm' : '', fullWidth ? 'pm-pp--full' : '', className]
+    .filter(Boolean)
+    .join(' ')
+  return (
+    <button
+      type={type}
+      className={cls}
+      onClick={onClick}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
+    >
+      {icon && (
+        <span className="pm-pp-icon" aria-hidden>
+          {busy ? <InlineSpinner size={size === 'sm' ? 11 : 13} /> : icon}
+        </span>
+      )}
+      <span className="pm-pp-label">{busy && busyLabel ? busyLabel : children}</span>
+    </button>
+  )
+}
+
+/* ── Main ─────────────────────────────────────────────────────────── */
 
 export function PersonasModal({ onClose }) {
   const { data, isPending } = usePersonasQuery()
@@ -169,30 +283,36 @@ export function PersonasModal({ onClose }) {
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
   const [bulkDeleting, setBulkDeleting] = useState(false)
-  const fileRefs = useRef({ front: null, left: null, right: null })
+  const frontRef = useRef(null)
+  const leftRef = useRef(null)
+  const rightRef = useRef(null)
+  const slotRefs = { front: frontRef, left: leftRef, right: rightRef }
 
   const requestClose = () => onClose?.()
 
   const items = data?.items ?? []
   const pinnedIds = new Set(data?.pinned_ids ?? [])
-  // User-only: keep personal items the signed-in user created. Any legacy
-  // admin/stock rows returned by the API are hidden so creators see a clean
-  // "my characters" library.
   const filteredItems = items.filter((p) => p.visibility === 'personal')
 
-  const pickFile = (slot, file) => {
+  const pickFile = useCallback((slot, file) => {
     if (!file?.type?.startsWith('image/')) return
     setCreateImages((prev) => ({ ...prev, [slot]: file }))
     setCreateError('')
-  }
+  }, [])
+
+  const clearSlot = useCallback((slot) => {
+    setCreateImages((prev) => ({ ...prev, [slot]: null }))
+    if (slotRefs[slot]?.current) slotRefs[slot].current.value = ''
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const clearCreateForm = () => {
     setCreateImages({ front: null, left: null, right: null })
     setCreateName('')
     setCreateError('')
     setShowCreate(false)
-    Object.values(fileRefs.current).forEach((el) => {
-      if (el) el.value = ''
+    Object.values(slotRefs).forEach((ref) => {
+      if (ref.current) ref.current.value = ''
     })
   }
 
@@ -239,7 +359,7 @@ export function PersonasModal({ onClose }) {
       await deleteMutation.mutateAsync(persona.id)
       if (selectedPersonaId === persona.id) setSelectedPersona(null)
     } catch (_) {
-      /* swallow — row stays */
+      /* swallow */
     }
   }
 
@@ -257,7 +377,7 @@ export function PersonasModal({ onClose }) {
         try {
           await deleteMutation.mutateAsync(p.id)
         } catch (_) {
-          /* continue deleting the rest */
+          /* keep going */
         }
       }
       setSelectedPersona(null)
@@ -273,7 +393,7 @@ export function PersonasModal({ onClose }) {
       if (isFav) await removeFavoriteMutation.mutateAsync(persona.id)
       else await addFavoriteMutation.mutateAsync({ persona_id: persona.id, is_pinned: true })
     } catch (_) {
-      /* ignore — badge stays in prior state */
+      /* swallow */
     }
   }
 
@@ -286,7 +406,7 @@ export function PersonasModal({ onClose }) {
   return (
     <Dialog open onClose={requestClose} size="lg" ariaLabelledBy="personas-modal-title">
       <div className="pm-body">
-        {/* Header — title band, matches the Optimize-screen dropdown language */}
+        {/* Header ── */}
         <div className="pm-header">
           <div className="pm-header-titles">
             <h2 id="personas-modal-title" className="pm-title">
@@ -298,29 +418,21 @@ export function PersonasModal({ onClose }) {
                 : 'Reusable faces for your thumbnails'}
             </p>
           </div>
-          <button
-            type="button"
-            className="pm-press pm-icon-btn"
-            onClick={requestClose}
-            aria-label="Close"
-          >
-            <IconX />
+          <button type="button" className="pm-icon-btn" onClick={requestClose} aria-label="Close">
+            <IconX size={14} />
           </button>
         </div>
 
-        {/* Create CTA + manage row */}
+        {/* Create CTA + bulk remove */}
         {!showCreate && (
           <div className="pm-actions-row">
-            <PrimaryPill
-              onClick={() => setShowCreate(true)}
-              label="Create character"
-              icon={<IconPlus size={12} />}
-              size="sm"
-            />
+            <PrimaryButton onClick={() => setShowCreate(true)} icon={<IconUser size={14} />}>
+              Create character
+            </PrimaryButton>
             {showGrid && (
               <button
                 type="button"
-                className="pm-press pm-manage-btn"
+                className="pm-manage-btn"
                 onClick={handleDeleteAll}
                 disabled={bulkDeleting || deleteMutation.isPending}
                 title="Delete every character you've created"
@@ -345,83 +457,54 @@ export function PersonasModal({ onClose }) {
         {showCreate && (
           <form onSubmit={handleCreate} className="pm-create-form">
             <div className="pm-slots-grid">
-              {PHOTO_SLOTS.map(({ key, label }) => {
-                const file = createImages[key]
-                return (
-                  <div key={key} className="pm-slot-wrap">
-                    <span className="pm-slot-label">{label}</span>
-                    <input
-                      ref={(el) => {
-                        fileRefs.current[key] = el
-                      }}
-                      type="file"
-                      accept="image/*"
-                      className="pm-slot-input"
-                      onChange={(e) => pickFile(key, e.target.files?.[0])}
-                    />
-                    {file ? (
-                      <div className="pm-slot-preview">
-                        <SlotImage file={file} alt={label} />
-                        <button
-                          type="button"
-                          className="pm-press pm-slot-clear"
-                          onClick={() => {
-                            setCreateImages((prev) => ({ ...prev, [key]: null }))
-                            if (fileRefs.current[key]) fileRefs.current[key].value = ''
-                          }}
-                          aria-label={`Remove ${label}`}
-                        >
-                          <IconX size={14} />
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        className="pm-slot pm-slot-empty"
-                        onClick={() => fileRefs.current[key]?.click()}
-                      >
-                        <IconPlus size={22} />
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
+              {PHOTO_SLOTS.map(({ key, label }) => (
+                <PhotoSlot
+                  key={key}
+                  slotKey={key}
+                  label={label}
+                  file={createImages[key]}
+                  onPick={pickFile}
+                  onClear={clearSlot}
+                  fileInputRef={slotRefs[key]}
+                />
+              ))}
             </div>
 
-            <input
-              type="text"
-              className="pm-input pm-name-input"
-              placeholder="Name this character"
-              value={createName}
-              onChange={(e) => setCreateName(e.target.value)}
-              maxLength={120}
-              required
-            />
+            <div className="pm-name-field">
+              <input
+                type="text"
+                className="pm-input pm-name-input"
+                placeholder="Name this character"
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+                maxLength={120}
+                required
+              />
+            </div>
 
             {createError && <p className="pm-error-text">{createError}</p>}
 
             <div className="pm-form-actions">
-              <PrimaryPill
-                onClick={clearCreateForm}
-                label="Cancel"
-                variant="ghost"
-                size="sm"
+              <button
                 type="button"
-              />
-              <PrimaryPill
+                className="pm-btn-ghost"
+                onClick={clearCreateForm}
+                disabled={createMutation.isPending}
+              >
+                Cancel
+              </button>
+              <PrimaryButton
                 type="submit"
-                onClick={() => {}}
                 disabled={createDisabled}
                 busy={createMutation.isPending}
-                label={
-                  <span className="pm-generate-label">
-                    Create
-                    <CostHint featureKey="persona_generate" />
-                  </span>
-                }
                 busyLabel="Creating…"
-                size="sm"
-              />
+                icon={<IconPlus size={13} />}
+              >
+                <span className="pm-pp-label-with-cost">
+                  Create
+                  <CostHint featureKey="persona_generate" />
+                </span>
+              </PrimaryButton>
             </div>
           </form>
         )}
@@ -430,14 +513,14 @@ export function PersonasModal({ onClose }) {
         {isEmpty && (
           <div className="pm-empty">
             <div className="pm-empty-icon" aria-hidden>
-              <IconUsers />
+              <IconUser size={32} />
             </div>
             <h3 className="pm-empty-title">No characters yet</h3>
             <p className="pm-empty-body">Upload 3 photos — front, left, right.</p>
           </div>
         )}
 
-        {/* Persona grid — fixed-size cards */}
+        {/* Persona grid */}
         {showGrid && (
           <div className="pm-grid">
             {filteredItems.map((p, idx) => {
@@ -447,7 +530,7 @@ export function PersonasModal({ onClose }) {
               return (
                 <div
                   key={p.id}
-                  className={`pm-card pm-card--fixed ${isSelected ? 'pm-card--selected' : ''}`}
+                  className={`pm-card${isSelected ? ' pm-card--selected' : ''}`}
                   style={{ animationDelay: `${Math.min(idx * 28, 280)}ms` }}
                 >
                   {isEditing ? (
@@ -464,14 +547,14 @@ export function PersonasModal({ onClose }) {
                       <div className="pm-edit-actions">
                         <button
                           type="submit"
-                          className="pm-press pm-btn-save"
+                          className="pm-btn-ghost"
                           disabled={updateMutation.isPending}
                         >
                           Save
                         </button>
                         <button
                           type="button"
-                          className="pm-press pm-btn-ghost"
+                          className="pm-btn-ghost"
                           onClick={() => setEditingId(null)}
                         >
                           Cancel
@@ -494,7 +577,7 @@ export function PersonasModal({ onClose }) {
                             <img src={p.image_url} alt={p.name} loading="lazy" />
                           ) : (
                             <div className="pm-card-image-placeholder" aria-hidden>
-                              <IconUsers />
+                              <IconUser size={24} />
                             </div>
                           )}
                           {isSelected && (
@@ -508,7 +591,7 @@ export function PersonasModal({ onClose }) {
 
                       <button
                         type="button"
-                        className={`pm-press pm-card-fav ${isPinned ? 'pm-card-fav--on' : ''}`}
+                        className={`pm-card-fav${isPinned ? ' pm-card-fav--on' : ''}`}
                         onClick={(e) => handleFavorite(p, e)}
                         title={isPinned ? 'Unpin' : 'Pin to top'}
                         aria-label={isPinned ? 'Unpin' : 'Pin to top'}
@@ -519,7 +602,7 @@ export function PersonasModal({ onClose }) {
                       <div className="pm-card-actions">
                         <button
                           type="button"
-                          className="pm-press pm-card-action"
+                          className="pm-card-action"
                           onClick={() => {
                             setEditingId(p.id)
                             setEditName(p.name)
@@ -531,7 +614,7 @@ export function PersonasModal({ onClose }) {
                         </button>
                         <button
                           type="button"
-                          className="pm-press pm-card-action pm-card-action--danger"
+                          className="pm-card-action pm-card-action--danger"
                           onClick={() => handleDelete(p)}
                           aria-label={`Delete ${p.name}`}
                           title="Delete"

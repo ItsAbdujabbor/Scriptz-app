@@ -4,6 +4,7 @@ import { usePersonasQuery } from '../queries/personas/personaQueries'
 import { usePersonaStore } from '../stores/personaStore'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 import { useFloatingPosition } from '../lib/useFloatingPosition'
+import { toast } from '../lib/toast'
 import { Skeleton, SkeletonGroup } from './ui'
 import './PersonaSelector.css'
 
@@ -25,26 +26,12 @@ function IconLock() {
 }
 
 function IconPersona() {
+  // User glyph from src/assets/user.svg — fill-based, replaces the
+  // previous stroke-based head + shoulders + sparkle composition.
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      {/* head */}
-      <circle cx="12" cy="9" r="3.4" />
-      {/* shoulders / shirt line */}
-      <path d="M5 20.2c1-3.6 3.8-5.6 7-5.6s6 2 7 5.6" />
-      {/* sparkle — denotes "AI character" */}
-      <path
-        d="M18.5 4.4 19 3l.5 1.4L21 5l-1.5.6L19 7l-.5-1.4L17 5z"
-        fill="currentColor"
-        stroke="none"
-      />
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12,12A6,6,0,1,0,6,6,6.006,6.006,0,0,0,12,12ZM12,2A4,4,0,1,1,8,6,4,4,0,0,1,12,2Z" />
+      <path d="M12,14a9.01,9.01,0,0,0-9,9,1,1,0,0,0,2,0,7,7,0,0,1,14,0,1,1,0,0,0,2,0A9.01,9.01,0,0,0,12,14Z" />
     </svg>
   )
 }
@@ -145,27 +132,38 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
 
   const isGlassCircle = variant === 'glassCircle'
 
-  // Locked tier: redirect to pricing instead of opening the dropdown.
+  // Free tier: render the trigger looking identical to the unlocked
+  // version — no violet "locked" tint, no lock badge. Click sends the
+  // user to the Pro upgrade screen with a brief toast.
   if (locked) {
+    const handleLockedClick = () => {
+      toast.info('Characters are a Pro feature. Upgrade to unlock.', {
+        title: 'Upgrade required',
+      })
+      if (typeof window !== 'undefined') window.location.hash = 'pro'
+    }
     return (
       <div
         ref={ref}
-        className={`persona-selector persona-selector--locked ${compact ? 'persona-selector--compact' : ''} ${isGlassCircle ? 'persona-selector--glass-circle' : ''}`}
+        className={`persona-selector ${compact ? 'persona-selector--compact' : ''} ${isGlassCircle ? 'persona-selector--glass-circle' : ''}`}
       >
         <button
           type="button"
-          className={`persona-selector-trigger persona-selector-trigger--locked ${isGlassCircle ? 'persona-selector-trigger--circle' : ''}`}
-          onClick={() => {
-            window.location.hash = 'pro'
-          }}
-          aria-label="Character looks — upgrade to Creator to unlock"
-          title="Character looks are a Creator+ feature. Click to upgrade."
+          className={`persona-selector-trigger ${isGlassCircle ? 'persona-selector-trigger--circle' : ''}`}
+          onClick={handleLockedClick}
+          aria-label="Characters"
+          title="Character — a reusable on-brand look for your thumbnails"
         >
           <span className="persona-selector-icon">
-            <IconLock />
+            <IconPersona />
           </span>
           {!isGlassCircle && (
-            <span className="persona-selector-label persona-selector-label--locked">Creator+</span>
+            <>
+              <span className="persona-selector-label">Character</span>
+              <span className="persona-selector-chevron">
+                <IconChevronDown />
+              </span>
+            </>
           )}
         </button>
       </div>
@@ -254,33 +252,26 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
             role="listbox"
             style={popoverStyle}
           >
-            {isPending && (
-              <SkeletonGroup className="persona-selector-loading" label="Loading characters">
-                <Skeleton height={36} radius={10} />
-                <Skeleton height={36} radius={10} />
-                <Skeleton height={36} radius={10} />
-              </SkeletonGroup>
-            )}
-            {!isPending && items.length === 0 && (
-              <div className="persona-selector-empty">
-                {onOpenLibrary && (
-                  <button
-                    type="button"
-                    className="persona-selector-create"
-                    onClick={() => {
-                      setOpen(false)
-                      onOpenLibrary()
-                    }}
-                  >
-                    <IconPlus />
-                    Create
-                  </button>
-                )}
-              </div>
-            )}
-            {!isPending && items.length > 0 && (
-              <>
-                {items.map((p) => (
+            {/* Header — compact label so the picker has a name. */}
+            <div className="persona-selector-header">Characters</div>
+
+            {/* Inner scroll area. Lives in its own element so the
+             * outer container can keep `overflow: visible` for the
+             * speech-bubble tail without losing the scrollable list. */}
+            <div className="persona-selector-dropdown-inner">
+              {isPending && (
+                <SkeletonGroup className="persona-selector-loading" label="Loading characters">
+                  <Skeleton height={36} radius={999} />
+                  <Skeleton height={36} radius={999} />
+                  <Skeleton height={36} radius={999} />
+                </SkeletonGroup>
+              )}
+              {!isPending && items.length === 0 && (
+                <div className="persona-selector-empty">No characters yet</div>
+              )}
+              {!isPending &&
+                items.length > 0 &&
+                items.map((p) => (
                   <button
                     key={p.id}
                     type="button"
@@ -306,22 +297,22 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
                     )}
                   </button>
                 ))}
-                {onOpenLibrary && (
-                  <div className="persona-selector-footer">
-                    <button
-                      type="button"
-                      className="persona-selector-create"
-                      onClick={() => {
-                        setOpen(false)
-                        onOpenLibrary()
-                      }}
-                    >
-                      <IconPlus />
-                      Create
-                    </button>
-                  </div>
-                )}
-              </>
+            </div>
+
+            {!isPending && onOpenLibrary && (
+              <div className="persona-selector-footer">
+                <button
+                  type="button"
+                  className="persona-selector-create"
+                  onClick={() => {
+                    setOpen(false)
+                    onOpenLibrary()
+                  }}
+                >
+                  <IconPlus />
+                  Create
+                </button>
+              </div>
             )}
           </div>,
           document.body

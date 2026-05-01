@@ -12,7 +12,7 @@
       <span class="lin-h1-accent">Impossible to Ignore.</span>
     </h1>
     <p class="lin-sub">
-      One workspace for your channel: Dashboard insights, AI Thumbnail Generator,<br>
+      One workspace for your channel: Dashboard insights, AI Thumbnail Generator,
       and Optimize for packaging — all connected to your real YouTube data.
     </p>
   </div>
@@ -25,311 +25,83 @@
         <div class="lin-db-edge"></div>
         <div class="lin-db-fade"></div>
 
-        <!-- Browser title bar -->
-        <div class="lin-titlebar">
-          <span class="lin-tl lin-tl-r"></span>
-          <span class="lin-tl lin-tl-y"></span>
-          <span class="lin-tl lin-tl-g"></span>
-          <div class="lin-urlbar">
-            <span class="lin-urlpill">scriptz.app · #dashboard</span>
-          </div>
-        </div>
-
-        <!-- 3-column body -->
+        <!-- Single-view mockup: only the Thumbnail Generator screen.
+             Sidebar / Dashboard view / browser chrome were stripped per
+             design spec — the landing preview now shows just the one
+             mock-functional screen, full-bleed inside the frame. -->
         <div class="lin-db-body">
 
-          <!-- ── SIDEBAR ── -->
-          <nav class="lin-sidebar">
-            <div class="lin-sb-top">
-              <div class="lin-workspace">
-                <div class="lin-ws-logo">S</div>
-                <span class="lin-ws-name">Scriptz AI</span>
-                <svg class="lin-ws-chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-              </div>
-            </div>
-            <div class="lin-sb-body">
-
-              <div class="lin-sb-lbl">Main</div>
-              <div class="lin-ni active" data-lin-view="dashboard">
-                <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-                Dashboard
-              </div>
-              <div class="lin-ni" data-lin-view="thumbnails">
-                <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-                Thumbnail Generator
-              </div>
-              <div class="lin-ni" data-lin-view="optimize">
-                <svg class="lin-ni-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-                Optimize
-              </div>
-
-            </div>
-            <div class="lin-sb-foot">
-              <div class="lin-av-sm">JD</div>
-              <span class="lin-sb-uname">James Doe</span>
-            </div>
-          </nav>
-
-          <!-- ── MAIN ── -->
           <main class="lin-main">
 
-            <!-- DASHBOARD VIEW (default active) -->
-            <div class="lin-view active" id="lin-view-dashboard">
-              <div class="lin-main-hdr">
-                <span class="lin-main-ttl">Dashboard</span>
-                <span class="lin-main-ctx">· Your channel</span>
-                <div class="lin-toolbar">
-                  <button class="lin-tbtn">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><line x1="14" y1="2" x2="14" y2="6"/><line x1="8" y1="10" x2="8" y2="14"/></svg>
-                    Filter
+            <!-- THUMBNAIL GENERATOR — only screen in the mockup. Always
+                 active; sidebar / dashboard / view-switching all stripped.
+                 The shell + animation cycle (driven by hero.js) match the
+                 live screen's empty state, "user prompt → generating →
+                 finished card" loop. -->
+            <div class="lin-tg-shell">
+              <!-- Centred dot grid behind the chat — same vibe as the real screen -->
+              <div class="lin-tg-dotbed" aria-hidden="true"></div>
+
+              <!-- Chat thread: empty state at first, then user msg + generated card -->
+              <div class="lin-tg-thread" id="lin-tg-thread">
+                <div class="lin-tg-empty">
+                  <span class="lin-tg-kicker">Thumbnail Generator</span>
+                  <h3 class="lin-tg-heading">What thumbnail do you need?</h3>
+                </div>
+              </div>
+
+              <!-- Bottom violet glow plate -->
+              <div class="lin-tg-glow" aria-hidden="true"></div>
+
+              <!-- Floating composer -->
+              <div class="lin-tg-footer">
+                <div class="lin-tg-tabs" role="tablist">
+                  <button class="lin-tg-tab active" type="button">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    Prompt
                   </button>
-                  <button class="lin-tbtn">Last 28 days</button>
-                  <button class="lin-tbtn">Export</button>
-                </div>
-              </div>
-              <div class="lin-main-body">
-
-                <!-- VIDEOS TO REPACKAGE -->
-                <div class="lin-grp" id="lin-grp-prog">
-                  <div class="lin-grp-hdr" data-lin-toggle="lin-grp-prog">
-                    <span class="lin-grp-dot" style="background:#e8a03a;box-shadow:0 0 6px rgba(232,160,58,0.5)"></span>
-                    <span class="lin-grp-name">Videos to repackage</span>
-                    <span class="lin-grp-cnt">3</span>
-                    <svg class="lin-grp-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-                  </div>
-                  <div class="lin-grp-body">
-                    <div class="lin-iss" data-lin-status="prog">
-                      <span class="lin-pri lin-pri-urg"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="6" y="1" width="4" height="8" rx="1"/><rect x="6" y="11" width="4" height="4" rx="1"/></svg></span>
-                      <span class="lin-iss-id">VID-041</span>
-                      <span class="lin-iss-ttl">Q4 product launch — CTR 3.1%, title feels weak</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-prog"></span>Low CTR</div>
-                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#5e6ad2,#a78bfa)">▲</div>
-                    </div>
-                    <div class="lin-iss" data-lin-status="prog">
-                      <span class="lin-pri lin-pri-hi"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="7" width="3" height="8" rx="1"/><rect x="6" y="4" width="3" height="11" rx="1"/><rect x="11" y="1" width="3" height="14" rx="1"/></svg></span>
-                      <span class="lin-iss-id">VID-038</span>
-                      <span class="lin-iss-ttl">Workflow tutorial — stuck at 1.2k views, retention soft</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-prog"></span>Optimize</div>
-                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">▲</div>
-                    </div>
-                    <div class="lin-iss" data-lin-status="prog">
-                      <span class="lin-pri lin-pri-med"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="7" width="3" height="8" rx="1"/><rect x="6" y="4" width="3" height="11" rx="1"/><rect x="11" y="4" width="3" height="11" rx="1"/></svg></span>
-                      <span class="lin-iss-id">VID-035</span>
-                      <span class="lin-iss-ttl">Tutorial ep.5 — impressions high, clicks low</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-prog"></span>New thumbnail</div>
-                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#10b981,#3b82f6)">◆</div>
-                    </div>
-                  </div>
+                  <button class="lin-tg-tab" type="button">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.7 1 6.4 2.6"/><path d="M21 3v6h-6"/></svg>
+                    Recreate
+                  </button>
+                  <button class="lin-tg-tab" type="button">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                    Analyze
+                  </button>
+                  <button class="lin-tg-tab" type="button">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="m16.5 3.5 4 4L7 21l-4 1 1-4L16.5 3.5Z"/></svg>
+                    Edit
+                  </button>
                 </div>
 
-                <!-- IDEAS -->
-                <div class="lin-grp" id="lin-grp-todo">
-                  <div class="lin-grp-hdr" data-lin-toggle="lin-grp-todo">
-                    <span class="lin-grp-dot" style="border:1.5px solid rgba(255,255,255,0.28);display:inline-block;width:8px;height:8px;border-radius:50%"></span>
-                    <span class="lin-grp-name">Suggested next videos</span>
-                    <span class="lin-grp-cnt">4</span>
-                    <svg class="lin-grp-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                <div class="lin-tg-composer" id="lin-tg-composer">
+                  <div class="lin-tg-input" id="lin-tg-input">
+                    <!-- Three layers: placeholder (idle), typed text (during/
+                         after typewriter), and caret (blinks while typing).
+                         hero.js toggles the `.is-typing` class on the input to
+                         hide the placeholder and reveal the typed span. -->
+                    <span class="lin-tg-placeholder" id="lin-tg-placeholder">A smiling explorer on a misty mountain peak, bold yellow text "I SURVIVED 7 DAYS"</span>
+                    <span class="lin-tg-typed" id="lin-tg-typed"></span><span class="lin-tg-caret" id="lin-tg-caret" aria-hidden="true" hidden></span>
                   </div>
-                  <div class="lin-grp-body">
-                    <div class="lin-iss" data-lin-status="todo">
-                      <span class="lin-pri lin-pri-hi"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="7" width="3" height="8" rx="1"/><rect x="6" y="4" width="3" height="11" rx="1"/><rect x="11" y="1" width="3" height="14" rx="1"/></svg></span>
-                      <span class="lin-iss-id">IDEA-045</span>
-                      <span class="lin-iss-ttl">How to grow from 0 to 10k subscribers</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-todo"></span>High topic score</div>
-                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#8b5cf6,#ec4899)">◆</div>
-                    </div>
-                    <div class="lin-iss" data-lin-status="todo">
-                      <span class="lin-pri lin-pri-med"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="7" width="3" height="8" rx="1"/><rect x="6" y="4" width="3" height="11" rx="1"/><rect x="11" y="4" width="3" height="11" rx="1"/></svg></span>
-                      <span class="lin-iss-id">IDEA-044</span>
-                      <span class="lin-iss-ttl">Best thumbnail styles for tutorial channels</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-todo"></span>Niche match</div>
-                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#5e6ad2,#a78bfa)">◆</div>
-                    </div>
-                    <div class="lin-iss" data-lin-status="todo">
-                      <span class="lin-pri lin-pri-lo"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="11" width="3" height="4" rx="1" opacity="0.4"/><rect x="6" y="7" width="3" height="8" rx="1" opacity="0.6"/><rect x="11" y="4" width="3" height="11" rx="1"/></svg></span>
-                      <span class="lin-iss-id">IDEA-043</span>
-                      <span class="lin-iss-ttl">Behind the scenes — channel rebrand</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-todo"></span>Idea</div>
-                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#f59e0b,#10b981)">◆</div>
-                    </div>
-                    <div class="lin-iss" data-lin-status="todo">
-                      <span class="lin-pri lin-pri-no"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/></svg></span>
-                      <span class="lin-iss-id">IDEA-042</span>
-                      <span class="lin-iss-ttl">Recap — biggest YouTube packaging wins of 2026</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-todo"></span>Idea</div>
-                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#10b981,#3b82f6)">◆</div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- WINNERS -->
-                <div class="lin-grp" id="lin-grp-done">
-                  <div class="lin-grp-hdr" data-lin-toggle="lin-grp-done">
-                    <span class="lin-grp-dot" style="background:#26c281;box-shadow:0 0 5px rgba(38,194,129,0.5)"></span>
-                    <span class="lin-grp-name">Outperformers</span>
-                    <span class="lin-grp-cnt">8</span>
-                    <svg class="lin-grp-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-                  </div>
-                  <div class="lin-grp-body">
-                    <div class="lin-iss lin-iss-done" data-lin-status="done">
-                      <span class="lin-pri lin-pri-hi"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="7" width="3" height="8" rx="1"/><rect x="6" y="4" width="3" height="11" rx="1"/><rect x="11" y="1" width="3" height="14" rx="1"/></svg></span>
-                      <span class="lin-iss-id">VID-033</span>
-                      <span class="lin-iss-ttl">AI workflow tips for creators — 240k views</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-done"></span>Above avg</div>
-                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#5e6ad2,#a78bfa)">★</div>
-                    </div>
-                    <div class="lin-iss lin-iss-done" data-lin-status="done">
-                      <span class="lin-pri lin-pri-urg"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="6" y="1" width="4" height="8" rx="1"/><rect x="6" y="11" width="4" height="4" rx="1"/></svg></span>
-                      <span class="lin-iss-id">VID-031</span>
-                      <span class="lin-iss-ttl">Faceless channel guide — 180k views</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-done"></span>Top 10%</div>
-                      <div class="lin-iss-av" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">★</div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- ARCHIVE -->
-                <div class="lin-grp lin-collapsed" id="lin-grp-back">
-                  <div class="lin-grp-hdr" data-lin-toggle="lin-grp-back">
-                    <span class="lin-grp-dot" style="border:1.5px solid rgba(255,255,255,0.13);display:inline-block;width:8px;height:8px;border-radius:50%"></span>
-                    <span class="lin-grp-name">Older uploads</span>
-                    <span class="lin-grp-cnt">14</span>
-                    <svg class="lin-grp-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-                  </div>
-                  <div class="lin-grp-body">
-                    <div class="lin-iss" data-lin-status="back">
-                      <span class="lin-pri lin-pri-lo"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="11" width="3" height="4" rx="1" opacity="0.4"/><rect x="6" y="7" width="3" height="8" rx="1" opacity="0.6"/><rect x="11" y="4" width="3" height="11" rx="1"/></svg></span>
-                      <span class="lin-iss-id">VID-028</span>
-                      <span class="lin-iss-ttl">Monetization mistakes new creators make</span>
-                      <div class="lin-iss-st"><span class="lin-iss-dot lin-dot-back"></span>Archive</div>
-                      <div class="lin-iss-av" style="background:rgba(255,255,255,0.07)">—</div>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </div><!-- /dashboard view -->
-
-            <!-- THUMBNAIL GENERATOR VIEW — faithful copy of the live screen -->
-            <div class="lin-view" id="lin-view-thumbnails">
-              <div class="lin-tg-shell">
-                <!-- Centred dot grid behind the chat — same vibe as the real screen -->
-                <div class="lin-tg-dotbed" aria-hidden="true"></div>
-
-                <!-- Chat thread: empty state at first, then user msg + generated card -->
-                <div class="lin-tg-thread" id="lin-tg-thread">
-                  <div class="lin-tg-empty">
-                    <span class="lin-tg-kicker">Thumbnail Generator</span>
-                    <h3 class="lin-tg-heading">What thumbnail do you need?</h3>
-                  </div>
-                </div>
-
-                <!-- Bottom violet glow plate -->
-                <div class="lin-tg-glow" aria-hidden="true"></div>
-
-                <!-- Floating composer -->
-                <div class="lin-tg-footer">
-                  <div class="lin-tg-tabs" role="tablist">
-                    <button class="lin-tg-tab active" type="button">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                      Prompt
-                    </button>
-                    <button class="lin-tg-tab" type="button">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.7 1 6.4 2.6"/><path d="M21 3v6h-6"/></svg>
-                      Recreate
-                    </button>
-                    <button class="lin-tg-tab" type="button">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-                      Analyze
-                    </button>
-                    <button class="lin-tg-tab" type="button">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="m16.5 3.5 4 4L7 21l-4 1 1-4L16.5 3.5Z"/></svg>
-                      Edit
-                    </button>
-                  </div>
-
-                  <div class="lin-tg-composer">
-                    <div class="lin-tg-input" id="lin-tg-input">
-                      <span class="lin-tg-placeholder" id="lin-tg-placeholder">A smiling explorer on a misty mountain peak, bold yellow text "I SURVIVED 7 DAYS"</span>
-                    </div>
-                    <div class="lin-tg-tools">
-                      <span class="lin-tg-tool">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m21 15-6-6-9.5 9.5a2 2 0 0 0 2.83 2.83L18 12"/></svg>
-                      </span>
-                      <span class="lin-tg-tool">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
-                      </span>
-                      <span class="lin-tg-tool lin-tg-tool--num">1×</span>
-                      <span class="lin-tg-spacer"></span>
-                      <span class="lin-tg-send">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
-                        20
-                      </span>
-                    </div>
+                  <div class="lin-tg-tools">
+                    <span class="lin-tg-tool">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m21 15-6-6-9.5 9.5a2 2 0 0 0 2.83 2.83L18 12"/></svg>
+                    </span>
+                    <span class="lin-tg-tool">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+                    </span>
+                    <span class="lin-tg-tool lin-tg-tool--num">1×</span>
+                    <span class="lin-tg-spacer"></span>
+                    <span class="lin-tg-send" id="lin-tg-send">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+                      20
+                    </span>
                   </div>
                 </div>
               </div>
-            </div>
-
-            <!-- OPTIMIZE VIEW -->
-            <div class="lin-view" id="lin-view-optimize">
-              <div class="lin-main-hdr"><span class="lin-main-ttl">Optimize</span><span class="lin-main-ctx">· Video packaging</span></div>
-              <div class="lin-view-empty">Paste a YouTube video to get title, thumbnail, and retention‑oriented suggestions for that specific upload.</div>
             </div>
 
           </main>
-
-          <!-- ── RIGHT PANEL ── -->
-          <aside class="lin-right">
-            <div class="lin-right-hdr">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-              Channel pulse
-            </div>
-            <div class="lin-rtabs">
-              <button class="lin-rtab active" data-lin-rtab="act">Activity</button>
-              <button class="lin-rtab" data-lin-rtab="ai">Insights</button>
-            </div>
-
-            <!-- Activity feed -->
-            <div class="lin-act-feed active" id="lin-panel-act">
-              <div class="lin-act-row">
-                <div class="lin-act-av" style="background:linear-gradient(135deg,#5e6ad2,#a78bfa)">▲</div>
-                <div class="lin-act-body"><div class="lin-act-txt"><strong>CTR up 1.4 pp</strong> on <span class="lin-act-ref">VID-041</span> after new thumbnail</div><div class="lin-act-ts">3 min ago</div></div>
-              </div>
-              <div class="lin-act-row">
-                <div class="lin-act-av" style="background:rgba(255,255,255,0.07);font-size:0.62rem">✨</div>
-                <div class="lin-act-body"><div class="lin-act-txt"><strong>4 thumbnails</strong> generated for <span class="lin-act-ref">VID-038</span></div><div class="lin-act-ts">11 min ago</div></div>
-              </div>
-              <div class="lin-act-row">
-                <div class="lin-act-av" style="background:linear-gradient(135deg,#10b981,#3b82f6)">◆</div>
-                <div class="lin-act-body"><div class="lin-act-txt"><strong>4 video ideas</strong> added to <span class="lin-act-ref">Suggested</span></div><div class="lin-act-ts">1 hr ago</div></div>
-              </div>
-              <div class="lin-act-row">
-                <div class="lin-act-av" style="background:rgba(255,255,255,0.07);font-size:0.62rem">✨</div>
-                <div class="lin-act-body"><div class="lin-act-txt"><strong>Optimize report</strong> ready for <span class="lin-act-ref">VID-031</span></div><div class="lin-act-ts">2 hr ago</div></div>
-              </div>
-              <div class="lin-act-row">
-                <div class="lin-act-av" style="background:linear-gradient(135deg,#8b5cf6,#ec4899)">★</div>
-                <div class="lin-act-body"><div class="lin-act-txt"><strong>VID-033 crossed 240k views</strong> — top 10% on your channel</div><div class="lin-act-ts">3 hr ago</div></div>
-              </div>
-              <div class="lin-act-row">
-                <div class="lin-act-av" style="background:linear-gradient(135deg,#f59e0b,#10b981)">▲</div>
-                <div class="lin-act-body"><div class="lin-act-txt">Best posting window: <span class="lin-act-ref">Tue 6–9pm</span> based on last 28 days</div><div class="lin-act-ts">5 hr ago</div></div>
-              </div>
-            </div>
-
-            <!-- Insights feed -->
-            <div class="lin-ai-feed" id="lin-panel-ai">
-              <div class="lin-ai-row ai">
-                <div class="lin-ai-who"><span class="lin-ai-dot"></span>Insight</div>
-                <div class="lin-ai-bubble">You have <strong>3 videos with low CTR</strong>. Repackaging VID-041 could lift impressions‑to‑clicks by ~1.8 pp based on the last 28 days.</div>
-              </div>
-              <div class="lin-ai-row ai">
-                <div class="lin-ai-who"><span class="lin-ai-dot"></span>Insight</div>
-                <div class="lin-ai-bubble">Thumbnails using <strong>high‑contrast faces + 2‑word overlays</strong> outperformed your channel average by 32%.</div>
-              </div>
-            </div>
-          </aside>
 
         </div><!-- /lin-db-body -->
       </div><!-- /lin-db-frame -->

@@ -154,19 +154,16 @@ export function useLoadOlderThumbnailMessagesMutation() {
       if (!cursor || !hasMore) return null
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Not authenticated')
-      const olderPage = await thumbnailsApi.getConversation(
-        token,
-        conversationId,
-        { limit: THUMB_DETAIL_OLDER_LIMIT, before_id: cursor }
-      )
+      const olderPage = await thumbnailsApi.getConversation(token, conversationId, {
+        limit: THUMB_DETAIL_OLDER_LIMIT,
+        before_id: cursor,
+      })
       // Prepend older items in chronological order; deduplicate by id
       // in case of a race with a refresh that already pulled them in.
       queryClient.setQueryData(detailKey, (old) => {
         if (!old?.messages?.items) return old
         const seen = new Set(old.messages.items.map((m) => m.id))
-        const incoming = (olderPage?.messages?.items || []).filter(
-          (m) => !seen.has(m.id)
-        )
+        const incoming = (olderPage?.messages?.items || []).filter((m) => !seen.has(m.id))
         return {
           ...old,
           messages: {
@@ -372,4 +369,16 @@ export function useThumbnailRatingQuery(imageUrl) {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   })
+}
+
+/**
+ * Seed the rating cache for an image we already have a rating for. Called by
+ * the analyze chat flow after `thumbnailsApi.rate` returns: when the analyze
+ * card mounts and `useThumbnailRatingQuery` runs, the data is already there
+ * — no second /rate call, no double credit charge, no loading flicker.
+ */
+export function seedThumbnailRating(queryClient, imageUrl, rating) {
+  if (!queryClient || !imageUrl || !rating) return
+  const fingerprint = fingerprintImageUrl(imageUrl)
+  queryClient.setQueryData(queryKeys.thumbnails.rating(fingerprint), rating)
 }

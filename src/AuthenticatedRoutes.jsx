@@ -6,10 +6,11 @@ import { emitShellEvent } from './lib/shellEvents'
 import { Sidebar } from './app/Sidebar'
 import { CreatePersonaDialog } from './components/CreatePersonaDialog'
 import { ToastStack } from './components/ToastStack'
-// Each view is its own lazy chunk — landing on /dashboard no longer
-// downloads the JS+CSS for Thumbnails/Optimize/Pro/Billing. See lazyViews.js
-// for the shared prefetch hook used by the sidebar on hover.
-import { Dashboard, Thumbnails, Optimize, Pro, Billing } from './lazyViews'
+// Each view is its own lazy chunk — Dashboard / Optimize / Billing are
+// temporarily hidden from the UI; Pro stays reachable for the "Go Pro"
+// CTA in the sidebar. (lazyViews.js still exports the hidden ones for
+// the day they come back.)
+import { Thumbnails, Pro } from './lazyViews'
 
 import './app/Sidebar.css'
 
@@ -77,12 +78,17 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
     sidebarCollapsed ? 'dashboard-shell-unified--merged' : 'dashboard-shell-unified--split',
   ].join(' ')
 
-  const isThumbnails = view === 'thumbnails'
+  // Settings is no longer a swappable view — it's a centred dialog
+  // overlaid on the underlying screen. When the URL hash is "settings"
+  // we still render thumbnails (the home surface) underneath and pop
+  // the dialog on top, so deep-linking to #settings still works and
+  // closing the dialog reveals the thumbnail page already mounted.
+  const isSettings = view === 'settings'
+  const baseView = isSettings ? 'thumbnails' : view
+  const isThumbnails = baseView === 'thumbnails'
 
   const content = (() => {
-    switch (view) {
-      case 'dashboard':
-        return <Dashboard onLogout={onLogout} shellManaged />
+    switch (baseView) {
       case 'thumbnails':
         return (
           <Thumbnails
@@ -90,20 +96,14 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
             onOpenStyles={() => setShowStylesModal(true)}
           />
         )
-      case 'optimize':
-        return <Optimize onLogout={onLogout} shellManaged />
       case 'pro':
         return <Pro onLogout={onLogout} shellManaged />
-      case 'billing':
-        return <Billing onLogout={onLogout} shellManaged />
-      case 'settings':
-        return <SettingsLazy onLogout={handleLogout} />
       default:
-        // Unknown view shouldn't reach here — App.jsx handles the
-        // 'not-found' case at the top level (full-screen, no shell).
-        // If something does land here it means routing is desynced
-        // upstream; render nothing so the issue is visible rather
-        // than masked by a fake-looking screen.
+        // Unknown view shouldn't reach here — App.jsx now redirects
+        // every legacy hash (dashboard / optimize / billing) to
+        // 'thumbnails', and the 'not-found' case is handled full-screen
+        // upstream. If something does land here, render nothing so the
+        // upstream desync is visible rather than masked.
         return null
     }
   })()
@@ -128,6 +128,12 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
 
       {showPersonasModal && <PersonasModalLazy onClose={() => setShowPersonasModal(false)} />}
       {showStylesModal && <StylesModalLazy onClose={() => setShowStylesModal(false)} />}
+
+      {/* Settings dialog — portal-mounted overlay, opens whenever the
+       * hash is #settings. The underlying view (thumbnails) stays
+       * rendered behind so closing the dialog reveals the user's
+       * actual workspace, not a remount. */}
+      {isSettings && <SettingsLazy onLogout={handleLogout} />}
 
       {/* Always-mounted create-persona dialog. Listens for the
        * `app:open-create-persona-dialog` window event from anywhere in the
@@ -176,11 +182,12 @@ const SettingsModule = lazy(() =>
   import('./app/SharedSettingsModal').then((m) => ({ default: m.SharedSettingsModal }))
 )
 function SettingsLazy({ onLogout }) {
-  // Closing settings goes back to dashboard (back/swipe behaviour can
-  // reach any other route normally — this is just the explicit ✕ tap).
+  // Closing settings goes back to thumbnails — dashboard is hidden right
+  // now (back/swipe behaviour can still reach other routes normally;
+  // this is just the explicit ✕ tap).
   const handleClose = useCallback(() => {
     if (typeof window !== 'undefined') {
-      window.location.hash = 'dashboard'
+      window.location.hash = 'thumbnails'
     }
   }, [])
   return (

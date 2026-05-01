@@ -167,27 +167,19 @@ const IconEraser = (p) => (
     }
   />
 )
-const IconUndo = (p) => (
-  <Svg
-    {...p}
-    path={
-      <>
-        <path d="M3 7v6h6" />
-        <path d="M3.51 13A9 9 0 1 0 6 5.3L3 7.5" />
-      </>
-    }
-  />
+// Undo / Redo glyphs from src/assets/undo-alt.svg + redo-alt.svg.
+// These are fill-based (not stroke), so they bypass the local Svg
+// helper which is configured for stroke icons. `currentColor` keeps
+// them tied to the surrounding button colour.
+const IconUndo = ({ size = 16 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden>
+    <path d="M22.535,8.46A4.965,4.965,0,0,0,19,7h0L2.8,7,7.1,2.7A1,1,0,0,0,5.682,1.288L.732,6.237a2.5,2.5,0,0,0,0,3.535l4.95,4.951A1,1,0,1,0,7.1,13.309L2.788,9,19,9h0a3,3,0,0,1,3,3v7a3,3,0,0,1-3,3H5a1,1,0,0,0,0,2H19a5.006,5.006,0,0,0,5-5V12A4.969,4.969,0,0,0,22.535,8.46Z" />
+  </svg>
 )
-const IconRedo = (p) => (
-  <Svg
-    {...p}
-    path={
-      <>
-        <path d="M21 7v6h-6" />
-        <path d="M20.49 13A9 9 0 1 1 18 5.3L21 7.5" />
-      </>
-    }
-  />
+const IconRedo = ({ size = 16 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden>
+    <path d="M16.9,14.723a1,1,0,0,0,1.414,0l4.949-4.95a2.5,2.5,0,0,0,0-3.536l-4.95-4.949A1,1,0,0,0,16.9,2.7L21.2,7,5,7H5a5,5,0,0,0-5,5v7a5.006,5.006,0,0,0,5,5H19a1,1,0,0,0,0-2H5a3,3,0,0,1-3-3V12A3,3,0,0,1,5,9H5L21.212,9,16.9,13.309A1,1,0,0,0,16.9,14.723Z" />
+  </svg>
 )
 const IconTrash = (p) => (
   <Svg

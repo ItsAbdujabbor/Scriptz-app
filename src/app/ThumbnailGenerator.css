@@ -309,6 +309,219 @@
   min-height: 100%;
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+ * Plan callout — floating pill at the top centre of the thumbnail
+ * screen. Replaces the sidebar Go-Pro pill so the upgrade path lives
+ * on the actual feature surface. Hidden for paid Pro users; shown for
+ * free + trialing users.
+ *
+ * Visual: dark-glass body with a violet-tinted hairline + soft violet
+ * ambient glow. Sparkle icon in brand violet on the left, then the
+ * label (with a muted sub-line), then an inset accent-gradient CTA
+ * pill on the right. Whole chip lifts subtly on hover; CTA has its
+ * own internal shine sweep on hover and a real press-down on click.
+ * ══════════════════════════════════════════════════════════════════════ */
+.thumb-plan-callout {
+  position: absolute;
+  top: 0.9rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  /* 4px right padding leaves a clean inset for the CTA's outer rect; the
+   * left-side gets more breathing room around the icon + label. */
+  padding: 4px 4px 4px 12px;
+  height: 38px;
+  border-radius: 999px;
+  background:
+    /* Soft violet wash across the top so the label feels like it sits
+     * on a faint glow, not a flat bar. */
+    radial-gradient(120% 80% at 50% 0%, rgba(124, 58, 237, 0.16) 0%, transparent 70%),
+    rgba(20, 18, 28, 0.85);
+  border: 1px solid rgba(196, 181, 253, 0.18);
+  backdrop-filter: blur(22px) saturate(1.5);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 6px 22px rgba(0, 0, 0, 0.34),
+    /* Faint violet ambient — ties the chip to the brand. */ 0 0 22px rgba(124, 58, 237, 0.18);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: rgba(245, 245, 247, 0.92);
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  pointer-events: auto;
+  transition:
+    border-color 0.22s ease,
+    box-shadow 0.22s ease,
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: thumb-plan-callout-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes thumb-plan-callout-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.thumb-plan-callout:hover {
+  border-color: rgba(196, 181, 253, 0.28);
+  transform: translateX(-50%) translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 26px rgba(0, 0, 0, 0.4),
+    0 0 28px rgba(124, 58, 237, 0.26);
+}
+
+.thumb-plan-callout__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  /* Brand violet — matches the sparkle icon used elsewhere on the
+   * thumbnail screen (composer cost-hint, AI improve button, etc). */
+  color: #c4b5fd;
+  filter: drop-shadow(0 0 6px rgba(196, 181, 253, 0.45));
+}
+
+.thumb-plan-callout__icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.thumb-plan-callout__text {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+  padding-right: 0.4rem;
+  white-space: nowrap;
+}
+
+.thumb-plan-callout__label {
+  color: rgba(248, 246, 255, 0.96);
+  font-weight: 600;
+}
+
+.thumb-plan-callout__sub {
+  color: rgba(229, 229, 231, 0.55);
+  font-weight: 500;
+}
+
+/* Inset CTA — accent-gradient pill (matches the brand's Go-Pro button
+ * + the New Chat sidebar pill). White label, internal shine sweep on
+ * hover, real press-down on click. */
+.thumb-plan-callout__cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent-gradient);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 2px 8px rgba(76, 29, 149, 0.35);
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  /* 1:1 with .sidebar-new-chat-pill so hover/press feel identical. */
+  transition:
+    filter 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.15s ease;
+}
+
+/* Diagonal shine — slides L → R on hover. 1:1 with .sidebar-new-chat-pill
+ * (same gradient stops, same translate range, same 0.55s ease). */
+.thumb-plan-callout__cta-shine {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 100%
+  );
+  transform: translateX(-110%);
+  transition: transform 0.55s ease;
+  pointer-events: none;
+}
+
+.thumb-plan-callout__cta-label {
+  position: relative;
+  z-index: 1;
+}
+
+/* Hover — same recipe as New Chat: brightness 1.08 + inner top glaze
+ * lift. The outer drop-shadow follows the same curve so the violet
+ * underglow grows naturally with the brightness bump. */
+.thumb-plan-callout__cta:hover {
+  filter: brightness(1.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 4px 14px rgba(76, 29, 149, 0.5);
+}
+
+.thumb-plan-callout__cta:hover .thumb-plan-callout__cta-shine {
+  transform: translateX(110%);
+}
+
+/* Press-down — same scale + brightness as .sidebar-new-chat-pill. */
+.thumb-plan-callout__cta:active {
+  transform: scale(0.97);
+  filter: brightness(0.97);
+}
+
+.thumb-plan-callout__cta:focus-visible {
+  outline: none;
+  box-shadow: var(--accent-focus-ring);
+}
+
+/* Tight viewports — collapse the sub-line so the chip doesn't overflow
+ * on narrow phones. The primary label + CTA stay; the muted secondary
+ * descriptor hides since space is too tight to read it cleanly. */
+@media (max-width: 560px) {
+  .thumb-plan-callout {
+    height: 36px;
+    gap: 0.45rem;
+    padding: 3px 3px 3px 11px;
+    font-size: 0.78rem;
+  }
+  .thumb-plan-callout__icon {
+    width: 18px;
+    height: 18px;
+  }
+  .thumb-plan-callout__icon svg {
+    width: 14px;
+    height: 14px;
+  }
+  .thumb-plan-callout__sub {
+    display: none;
+  }
+  .thumb-plan-callout__cta {
+    height: 28px;
+    padding: 0 11px;
+    font-size: 0.76rem;
+  }
+}
+
 /* Kill the global top/bottom edge-fade scrims that coach-main-wrap paints
  * across every chat screen. On the thumbnail screen we want the input bar
  * to float over the bare canvas with nothing obscuring what's behind it.
@@ -360,30 +573,68 @@
   margin-bottom: 0;
 }
 
-/* Input bar — flat solid card. The deep-purple glow lives on a
- * separate background element (`.thumb-bg-fx-shadow` — see
- * `ThumbBackgroundFX.css`) anchored to the bottom of the screen,
- * NOT on the input bar itself. Keeping the bar visually neutral so
- * the glow plate behind it can do all the work. */
+/* Whole thumbnail screen → Poppins. Cascades to composer, tabs,
+ * chips, send pill, and any text inside the bar so the typography is
+ * consistent across every interactive surface. */
+.coach-main--thumb,
+.coach-main--thumb input,
+.coach-main--thumb textarea,
+.coach-main--thumb button {
+  font-family:
+    'Poppins',
+    system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+/* Selection colour — every input/textarea inside the thumbnail screen
+ * highlights with the brand deep-purple instead of the browser-default
+ * blue. `::selection` only takes a solid colour, so we pick #5b21b6
+ * (the dark stop of --accent-gradient) with white text. */
+.coach-main--thumb input::selection,
+.coach-main--thumb textarea::selection {
+  background: #5b21b6;
+  color: #ffffff;
+}
+.coach-main--thumb input::-moz-selection,
+.coach-main--thumb textarea::-moz-selection {
+  background: #5b21b6;
+  color: #ffffff;
+}
+
+/* Input bar — fully opaque dark surface with a clean white hairline
+ * rim. No translucency, no accent purple in the border. Focus-within
+ * just brightens the rim and adds the standard focus halo. */
+/* Border ladder — single source of truth shared by composer, mode
+ * tabs, toolbar chips, and send pill:
+ *   resting   rgba(255, 255, 255, 0.14)
+ *   hover     rgba(255, 255, 255, 0.24)
+ *   active    rgba(255, 255, 255, 0.32)
+ *   send pill rgba(255, 255, 255, 0.32) → 0.45 (always one step ahead).
+ * Width is `1px solid` everywhere so silhouettes never shift. */
 .coach-main--thumb .coach-composer {
   position: relative;
   width: min(780px, calc(100% - 1.5rem));
   max-width: min(780px, calc(100% - 1.5rem));
-  background: #181820;
-  border-radius: 26px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  /* Tighter inner padding (was inherited 1.15rem 1rem from
-   * `.coach-composer`). Less breathing room inside the bar so the
-   * textarea and tools row sit closer to the bar's edges. */
+  background: #1c1c24;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 22px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 0 rgba(0, 0, 0, 0.25);
   padding: 0.7rem 0.85rem;
   gap: 0.5rem;
-  transition: border-color 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition:
+    background 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .coach-main--thumb .coach-composer:focus-within {
-  border-color: rgba(196, 181, 253, 0.28);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 0 rgba(0, 0, 0, 0.25);
 }
 
 /* Thumbnail shown in user's sent message (analyze mode) */
@@ -1490,26 +1741,84 @@
   padding: 0;
   margin: 0;
   position: relative;
-  min-height: 1.5rem;
+  min-height: 3rem;
 }
 
-/* Native placeholder colour — muted neutral so it reads as a hint, not
- * actual content. `!important` because the shared
- * `.coach-composer-input::placeholder { color: transparent }` rule from
- * CoachChat.css has identical specificity (1 class + 1 pseudo) and the
- * cascade tie-break would depend on stylesheet load order. */
+/* Native placeholder is suppressed — the visible hint comes from the
+ * `.thumb-prompt-placeholder` overlay below so we can fade it. */
 .thumb-prompt-textarea::placeholder {
-  color: rgba(229, 229, 231, 0.42) !important;
-  opacity: 1 !important;
+  color: transparent !important;
+  opacity: 0 !important;
 }
 .thumb-prompt-textarea::-webkit-input-placeholder {
-  color: rgba(229, 229, 231, 0.42) !important;
+  color: transparent !important;
+}
+
+/* Multi-line rotating-hint overlay for the prompt textarea. Inherits
+ * the base `.coach-composer-placeholder` recipe (absolute, layered
+ * under the typed text via pointer-events: none) and overrides the
+ * text node to allow line breaks (`white-space: pre-line`) and match
+ * the smaller 0.88rem / 1.5 line-height that the thumbnail textarea
+ * uses, so the hint sits at the exact same caret position the user
+ * will type from.
+ *
+ * `.is-hidden` smoothly fades the whole block out when the user types
+ * or attaches an image; the inner `.is-exiting` / `.is-entering`
+ * classes (driven by `useAnimatedHint`'s phase) handle the per-hint
+ * cross-fade with a subtle vertical slide. */
+.coach-composer-placeholder.thumb-prompt-placeholder {
+  font-family:
+    'Poppins',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  letter-spacing: 0;
+  padding: 0;
+  color: rgba(229, 229, 231, 0.45);
+  overflow: visible;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0s linear 0s;
+}
+
+.coach-composer-placeholder.thumb-prompt-placeholder.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  /* Delay the visibility flip until the opacity transition has
+   * finished so the fade-out is actually visible. */
+  transition:
+    opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0s linear 0.28s;
+}
+
+/* Two-line layout: `pre-line` keeps the explicit `\n` from
+ * THUMB_COMPOSER_HINTS as a real line break; `display: block` +
+ * `overflow: visible` + `text-overflow: clip` defeat the single-line
+ * `nowrap` / ellipsis baked into the shared `.coach-composer-
+ * placeholder-text` rule. The second line gets a slightly dimmer tint
+ * so the example reads as a hierarchy: subject (top) → styling
+ * (bottom). */
+.coach-composer-placeholder-text.thumb-prompt-placeholder-text {
+  display: block;
+  white-space: pre-line;
+  overflow: visible;
+  text-overflow: clip;
+  max-width: 100%;
+  word-break: normal;
+  font-feature-settings: 'ss01' on;
+  transition:
+    opacity 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .thumb-prompt-textarea {
   display: block;
   width: 100%;
-  min-height: 1.5rem;
+  min-height: 3rem;
   margin: 0;
   padding: 0;
   border: 0;
@@ -1847,14 +2156,14 @@
   flex-wrap: nowrap;
 }
 
-/* All composer toolbar buttons share the same compact 32px height to
- * match the bottom tabbar — small tools, single visual rhythm across
- * the whole composer. The send pill (also 32px) stays distinct via
- * its gradient + extra padding, not extra height. */
+/* All composer toolbar buttons share the same 34px height — matches
+ * .sidebar-new-chat-pill, .thumb-gen-pill-tab, .thumb-send-pill, and
+ * the persona/style triggers, so the whole button family across the
+ * thumbnail screen reads as one consistent rhythm. */
 .thumb-gen-toolbar-tools .coach-composer-tool--circle {
-  width: 32px !important;
-  height: 32px !important;
-  min-width: 32px;
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px;
 }
 .thumb-gen-toolbar-tools .coach-composer-tool--circle svg {
   width: 14px !important;
@@ -1862,9 +2171,9 @@
 }
 
 .thumb-gen-toolbar-attach {
-  width: 32px !important;
-  height: 32px !important;
-  min-width: 32px;
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px;
   padding: 0 !important;
   border-radius: 50% !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
@@ -1893,26 +2202,22 @@
   height: 14px !important;
 }
 
-/* Unified toolbar-button sizing on the thumbnail screen — persona,
- * style, and batch triggers bumped from 32px → 40px so they match
- * the attach button and read as a single row of equal chips. */
+/* Unified toolbar-button sizing on the thumbnail screen — every empty-
+ * state circle button (attach, persona, style, batch) shares the same
+ * 34px square as the sidebar's New-chat pill so the whole row reads as
+ * one consistent button family. */
 .coach-main--thumb .persona-selector--glass-circle .persona-selector-trigger--circle,
 .coach-main--thumb .style-selector--glass-circle .style-selector-trigger--circle,
-/* Composer-toolbar buttons all share the 32px height defined further
- * down (`.thumb-gen-toolbar-tools .coach-composer-tool--circle` and
- * `.thumb-gen-toolbar-attach`). The persona/style selector icon + img
- * + the batch-trigger badge are sized down to fit that 32px chip
- * without overflowing. */
 .coach-main--thumb .thumb-batch-circle-trigger {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
 }
 
 .coach-main--thumb .persona-selector--glass-circle .persona-selector-icon svg,
 .coach-main--thumb .style-selector--glass-circle .style-selector-icon svg {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
 }
 
 .coach-main--thumb .persona-selector--glass-circle .persona-selector-trigger-img,
@@ -1922,7 +2227,154 @@
 }
 
 .coach-main--thumb .thumb-batch-circle-trigger-badge {
-  font-size: 0.72rem;
+  font-size: 0.74rem;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * COMPOSER TOOLBAR — QUIET GLASS CHIPS
+ * ──────────────────────────────────────────────────────────────────────
+ * Attach / Persona / Style / Batch are *supporting* controls, so they
+ * stay quiet: a faint frosted disc that recedes against the composer
+ * surface. The active mode tab and the send pill keep all the accent
+ * brightness — these chips just hint at being clickable.
+ *
+ * Resting   — translucent white tile, soft rim, muted icon.
+ * Hover     — rim tints accent purple, surface lifts to a lighter
+ *             frost, icon brightens to full white. No fill, no glow.
+ * Open      — accent rim stays lit + faint inner accent wash so the
+ *             user can see which dropdown is open without the chip
+ *             becoming a hero.
+ * Press     — quick 0.94 scale. */
+/* Custom toolbar chips — opaque "key-cap" buttons.
+ *
+ * Resting   — solid `#23232d` body, vertical top-to-bottom gloss
+ *             (lighter at the top, darker at the bottom), crisp
+ *             rgba(255,255,255,0.12) hairline border, soft inner
+ *             top highlight + bottom shadow for key-cap depth.
+ * Hover     — body brightens to `#2c2c38`, border to white-ish
+ *             rgba(255,255,255,0.22), icon goes full white. The
+ *             chip lifts 1px so it reads as pressable.
+ * Open      — body becomes `#33333f` (not purple — keeps the row
+ *             neutral) and the border brightens to white-ish so
+ *             you can see which dropdown is anchored.
+ * Press     — drops back to baseline + scale 0.94. */
+.coach-main--thumb .thumb-gen-toolbar-attach,
+.coach-main--thumb
+  .persona-selector--glass-circle
+  .persona-selector-trigger--circle:not(.persona-selector-trigger--has-selection),
+.coach-main--thumb
+  .style-selector--glass-circle
+  .style-selector-trigger--circle:not(.style-selector-trigger--has-selection),
+.coach-main--thumb .thumb-batch-circle-trigger {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 100%), #23232d !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 1px 0 rgba(0, 0, 0, 0.3) !important;
+  color: rgba(229, 231, 235, 0.78) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  font-family:
+    'Poppins',
+    system-ui,
+    -apple-system,
+    sans-serif !important;
+  transition:
+    background 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.coach-main--thumb .thumb-gen-toolbar-attach:hover:not(:disabled),
+.coach-main--thumb
+  .persona-selector--glass-circle
+  .persona-selector-trigger--circle:not(.persona-selector-trigger--has-selection):hover,
+.coach-main--thumb
+  .style-selector--glass-circle
+  .style-selector-trigger--circle:not(.style-selector-trigger--has-selection):hover,
+.coach-main--thumb .thumb-batch-circle-trigger:hover:not(:disabled) {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 100%), #2c2c38 !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 1px 0 rgba(0, 0, 0, 0.3) !important;
+  filter: none !important;
+}
+
+.coach-main--thumb .thumb-gen-toolbar-attach:active:not(:disabled),
+.coach-main--thumb
+  .persona-selector--glass-circle
+  .persona-selector-trigger--circle:not(.persona-selector-trigger--has-selection):active,
+.coach-main--thumb
+  .style-selector--glass-circle
+  .style-selector-trigger--circle:not(.style-selector-trigger--has-selection):active,
+.coach-main--thumb .thumb-batch-circle-trigger:active:not(:disabled) {
+  transform: scale(0.94) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 100%), #1f1f28 !important;
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.28),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+
+.coach-main--thumb .thumb-gen-toolbar-attach:focus-visible,
+.coach-main--thumb
+  .persona-selector--glass-circle
+  .persona-selector-trigger--circle:not(.persona-selector-trigger--has-selection):focus-visible,
+.coach-main--thumb
+  .style-selector--glass-circle
+  .style-selector-trigger--circle:not(.style-selector-trigger--has-selection):focus-visible,
+.coach-main--thumb .thumb-batch-circle-trigger:focus-visible {
+  outline: none !important;
+  border-color: rgba(255, 255, 255, 0.32) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 3px rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Open dropdown — neutral lift, no purple. Solid body brightens
+ * one step, border brightens to white. */
+.coach-main--thumb
+  .persona-selector--glass-circle
+  .persona-selector-trigger--circle:not(
+    .persona-selector-trigger--has-selection
+  )[aria-expanded='true'],
+.coach-main--thumb
+  .style-selector--glass-circle
+  .style-selector-trigger--circle:not(.style-selector-trigger--has-selection)[aria-expanded='true'],
+.coach-main--thumb .thumb-batch-circle-trigger[aria-expanded='true'] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%), #33333f !important;
+  border-color: rgba(255, 255, 255, 0.32) !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18) !important;
+}
+
+/* Icon + badge — soft white that lifts on hover (handled via the
+ * shared `color` change above; svg uses currentColor). */
+.coach-main--thumb .thumb-gen-toolbar-attach svg,
+.coach-main--thumb
+  .persona-selector--glass-circle
+  .persona-selector-trigger--circle:not(.persona-selector-trigger--has-selection)
+  svg,
+.coach-main--thumb
+  .style-selector--glass-circle
+  .style-selector-trigger--circle:not(.style-selector-trigger--has-selection)
+  svg {
+  color: currentColor !important;
+}
+
+.coach-main--thumb .thumb-batch-circle-trigger .thumb-batch-circle-trigger-badge {
+  color: currentColor !important;
 }
 
 /* Batch size — circle + glass popover */
@@ -1984,32 +2436,53 @@
   text-shadow: none;
 }
 
-/* Batch-count popover — same visual language as the Optimize-screen
- * SelectPill menu and the Personas/Styles modal chrome. */
+/* Batch-count popover — speech-bubble surface anchored to the
+ * trigger circle. Same recipe as the persona / style dropdowns. */
 .thumb-batch-circle-popover {
   position: absolute;
-  bottom: calc(100% + 8px);
+  bottom: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%);
-  width: 112px;
-  padding: 3px;
-  border-radius: 12px;
+  width: 132px;
+  padding: 6px;
+  border-radius: 16px;
   z-index: 120;
-  background: #1a1a20;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+  background: #1c1c24;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.32);
   transform-origin: bottom center;
-  animation: thumb-batch-circle-pop-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: thumb-batch-circle-pop-in 0.2s cubic-bezier(0.4, 0, 0.2, 1) both;
+  overflow: visible;
+}
+
+/* Diamond tail — 12×12 rotated square, half tucked behind the body
+ * so its bottom-right corner becomes a properly outlined arrow. */
+.thumb-batch-circle-popover::before {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translateX(-50%) rotate(45deg);
+  background: #1c1c24;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom-right-radius: 3px;
+  z-index: -1;
+  pointer-events: none;
 }
 
 @keyframes thumb-batch-circle-pop-in {
   from {
     opacity: 0;
-    transform: translate(-50%, 6px) scale(0.97);
+    transform: translate(-50%, 4px);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, 0) scale(1);
+    transform: translate(-50%, 0);
   }
 }
 
@@ -2028,11 +2501,11 @@
 @keyframes thumb-batch-circle-pop-in-floating {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(0.97);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
@@ -2183,59 +2656,57 @@
   background: rgba(239, 68, 68, 0.7);
 }
 
-/* Popover title — compact hairline section header, narrow negative margin
- * cancels the 3px container padding so the 1px divider runs edge-to-edge. */
+/* Popover title — compact uppercase header, no divider. Matches
+ * the persona / style header pattern. */
 .thumb-batch-circle-popover-title {
-  margin: 0 -3px 3px;
-  padding: 5px 10px 6px;
-  font-size: 9px;
+  margin: 0;
+  padding: 4px 10px 8px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.5);
   text-align: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Compact option row — number-only picker, so rows can be much shorter
- * than the persona/style lists which also carry a thumbnail + name. */
+/* Compact option row — number-only picker. Pill-shaped to match
+ * persona / style options. */
 .thumb-batch-circle-option {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 26px;
-  padding: 3px 8px;
+  min-height: 30px;
+  padding: 4px 10px;
   border: none;
-  border-radius: 6px;
+  border-radius: 999px;
   background: transparent;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(229, 231, 235, 0.78);
   font-family: inherit;
   cursor: pointer;
   transition:
-    background 0.14s ease,
-    color 0.14s ease,
-    box-shadow 0.14s ease;
+    background 0.18s ease,
+    color 0.18s ease;
 }
 
 .thumb-batch-circle-option + .thumb-batch-circle-option {
-  margin-top: 1px;
+  margin-top: 2px;
 }
 
 .thumb-batch-circle-option:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.06);
   color: #ffffff;
 }
 
-.thumb-batch-circle-option:active {
-  transform: scale(0.98);
-  transition: transform 0.08s ease;
+.thumb-batch-circle-option:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.thumb-batch-circle-option.is-active {
-  background: rgba(167, 139, 250, 0.18);
+.thumb-batch-circle-option.is-active,
+.thumb-batch-circle-option.is-active:hover {
+  background: var(--accent-gradient);
   color: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.28);
 }
 
 .thumb-batch-circle-option-n {
@@ -2260,7 +2731,7 @@
 #coach-panel-thumbnails .coach-thread--thumb-panel {
   align-items: stretch;
   gap: 1.4rem;
-  padding-bottom: calc(var(--coach-composer-stack-px, 148px) + 1.75rem);
+  padding-bottom: 200px;
 }
 
 /* Invisible probe at the very top of the thread; the IntersectionObserver
@@ -2418,6 +2889,316 @@
 .coach-thread--thumb-edit {
   padding: 1rem 1rem 1.25rem;
   overflow-y: auto;
+}
+
+/* ── Analyze pending loader ─────────────────────────────────────────────
+ * Replaces the percentage-fill bar for analyze mode (no real progress
+ * signal — /rate is one synchronous round-trip). Mirrors the generation
+ * loader's 16:9 stage so layout doesn't jump when the result swaps in.
+ * The user's actual thumbnail is the backdrop with a sweeping scan-line
+ * over it, and a frosted phase-label pill cycles through what the AI is
+ * doing right now ("Analyzing visuals…", "Rating each criterion…", etc).
+ * Visually distinct from the violet generation fill but shares the card
+ * chrome so the two feel like siblings, not strangers. */
+.thumb-analyze-loader {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  max-width: 720px;
+  padding: 4px;
+  border-radius: 22px 22px 22px 4px;
+  overflow: hidden;
+  background: var(--dash-surface-card, #18181c);
+  border: 1px solid var(--dash-surface-border, rgba(255, 255, 255, 0.07));
+  box-shadow: var(--dash-shadow-md, 0 2px 12px rgba(0, 0, 0, 0.3));
+}
+
+.thumb-analyze-loader__stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 18px 18px 18px 2px;
+  overflow: hidden;
+  background: #0c0c12;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.thumb-analyze-loader__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(1.05) brightness(0.78);
+}
+
+.thumb-analyze-loader__veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(12, 12, 18, 0.35) 0%,
+    rgba(12, 12, 18, 0.05) 38%,
+    rgba(12, 12, 18, 0.6) 100%
+  );
+  pointer-events: none;
+}
+
+/* Vertical scan line that sweeps top → bottom on a loop. The line
+ * itself is a thin violet ribbon with a soft glow; the gradient above
+ * and below it gives the "scanner reading the image" cue. Pure
+ * transform animation, no layout work — cheap on the GPU. */
+.thumb-analyze-loader__scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -25%;
+  height: 50%;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(124, 58, 237, 0) 0%,
+    rgba(124, 58, 237, 0.04) 38%,
+    rgba(196, 181, 253, 0.55) 50%,
+    rgba(124, 58, 237, 0.04) 62%,
+    rgba(124, 58, 237, 0) 100%
+  );
+  filter: blur(0.4px);
+  transform: translateY(0);
+  animation: thumbAnalyzeScan 2.4s cubic-bezier(0.55, 0, 0.45, 1) infinite;
+  will-change: transform;
+}
+
+@keyframes thumbAnalyzeScan {
+  0% {
+    transform: translateY(0%);
+  }
+  50% {
+    transform: translateY(360%);
+  }
+  50.0001% {
+    transform: translateY(360%);
+    opacity: 0;
+  }
+  50.001% {
+    transform: translateY(0%);
+    opacity: 0;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(360%);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb-analyze-loader__scan {
+    animation: none;
+    opacity: 0.6;
+    transform: translateY(170%);
+  }
+}
+
+.thumb-analyze-loader__phase {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.85rem 0.5rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(20, 16, 28, 0.78);
+  border: 1px solid rgba(196, 181, 253, 0.25);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 8px 26px rgba(76, 29, 149, 0.25);
+  color: rgba(245, 240, 255, 0.95);
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  font-variant-numeric: tabular-nums;
+}
+
+.thumb-analyze-loader__phase-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #c4b5fd;
+  box-shadow: 0 0 0 0 rgba(196, 181, 253, 0.6);
+  animation: thumbAnalyzePulse 1.4s ease-in-out infinite;
+}
+
+@keyframes thumbAnalyzePulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(196, 181, 253, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(196, 181, 253, 0);
+  }
+}
+
+.thumb-analyze-loader__phase-text {
+  display: inline-block;
+  animation: thumbAnalyzePhaseFade 1.4s ease both;
+}
+
+/* Re-trigger the fade by using the text content as a key via animation
+ * restart on prop change. Browsers honour animation restart when the
+ * element identity changes — React re-renders the span when phase
+ * changes, but the same DOM node persists, so the animation only plays
+ * on mount. That's still enough to soften the very first label change;
+ * subsequent ones cross-fade via opacity on the parent pill. */
+.thumb-analyze-loader__phase-ellipsis {
+  opacity: 0.6;
+  animation: thumbAnalyzeEllipsis 1.2s steps(4, end) infinite;
+}
+
+@keyframes thumbAnalyzePhaseFade {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes thumbAnalyzeEllipsis {
+  0% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
+
+/* ── Analysis breakdown ─────────────────────────────────────────────────
+ * Single compact card under the analyzed thumbnail. Same width as the
+ * thumb card above so the two read as one unit. Grade letter + score
+ * sit on the left, the AI's one-line reason wraps to its right, and a
+ * three-up bullet list of fixes drops below. Tier-coloured rim only —
+ * no second card, no per-criterion grid, no extra labels. */
+.thumb-analysis-card {
+  width: 100%;
+  max-width: 720px;
+  margin-top: 0.6rem;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: rgba(20, 18, 28, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+.thumb-analysis-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--thumb-grade-accent, rgba(196, 181, 253, 0.55));
+}
+
+.thumb-analysis-card.thumb-grade--a {
+  --thumb-grade-accent: #10b981;
+}
+.thumb-analysis-card.thumb-grade--b {
+  --thumb-grade-accent: #8b5cf6;
+}
+.thumb-analysis-card.thumb-grade--c {
+  --thumb-grade-accent: #f59e0b;
+}
+.thumb-analysis-card.thumb-grade--d {
+  --thumb-grade-accent: #f97316;
+}
+.thumb-analysis-card.thumb-grade--f {
+  --thumb-grade-accent: #ef4444;
+}
+
+.thumb-analysis-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.thumb-analysis-card-grade {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding-right: 0.85rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.thumb-analysis-card-grade-letter {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--thumb-grade-accent, #fafafa);
+  font-variant-numeric: tabular-nums;
+}
+
+.thumb-analysis-card-score {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #fafafa;
+  font-variant-numeric: tabular-nums;
+}
+
+.thumb-analysis-card-score-max {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: rgba(229, 229, 231, 0.45);
+  margin-left: 0.1rem;
+}
+
+.thumb-analysis-card-oneliner {
+  margin: 0;
+  flex: 1 1 auto;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: rgba(229, 229, 231, 0.78);
+  letter-spacing: -0.003em;
+}
+
+.thumb-analysis-card-fixes {
+  margin: 0.7rem 0 0;
+  padding-left: 1.05rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: rgba(229, 229, 231, 0.82);
+  letter-spacing: -0.003em;
+}
+
+.thumb-analysis-card-fixes li::marker {
+  color: var(--thumb-grade-accent, rgba(196, 181, 253, 0.6));
+}
+
+@media (max-width: 640px) {
+  .thumb-analysis-card-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .thumb-analysis-card-grade {
+    border-right: none;
+    padding-right: 0;
+  }
 }
 
 .thumb-mode-edit-thread {
@@ -2996,59 +3777,103 @@
   justify-content: flex-end;
 }
 
-/* ── Discrete pill buttons for the mode tabs ──
- * Same 32px height as the composer toolbar buttons (attach / persona /
- * style / batch / send) so the whole composer reads as one button
- * family. Inactive = transparent ghost chip with a hairline border;
- * active = filled accent. Cheap to paint (no shadow, no gradient). */
+/* ── Mode tabs — same gradient-ring system as the toolbar chips ──
+ * Inactive  = quiet glass tile, hairline ring fades white→faint
+ *             accent.
+ * Hover     = ring stops shift to full accent purple.
+ * Active    = brand accent gradient body framed by a brighter
+ *             accent ring (same gradient family as inactive, just
+ *             higher opacities) and a soft static outer halo.
+ *
+ * Border slot is 1px transparent in every state — the visible rim
+ * is painted by the second background layer in `border-box`. That
+ * keeps the silhouette identical across states (no jump on select)
+ * and lets the rim *colour* change with a smooth `background`
+ * transition instead of a flat `border-color` swap.
+ *
+ * No entrance animation, no shine sweep — the active tab sits still
+ * so focus stays on the composer below. */
 .thumb-gen-pill-tab {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  height: 32px;
-  padding: 0 0.85rem;
+  gap: 0.5rem;
+  height: 34px;
+  padding: 0 14px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 999px;
-  /* Solid dark surface — matches the input bar below it so the row
-     reads as one component family. No more see-through to the
-     thumbnail behind. */
-  background: #181820;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(235, 235, 240, 0.7);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: -0.005em;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 100%), #23232d;
+  color: rgba(229, 231, 235, 0.78);
+  font-family:
+    'Poppins',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0;
   line-height: 1;
   cursor: pointer;
   white-space: nowrap;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 1px 0 rgba(0, 0, 0, 0.3);
   transition:
-    background 0.14s cubic-bezier(0.33, 1, 0.68, 1),
-    border-color 0.14s cubic-bezier(0.33, 1, 0.68, 1),
-    color 0.14s cubic-bezier(0.33, 1, 0.68, 1),
-    transform 0.08s cubic-bezier(0.33, 1, 0.68, 1);
+    background 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.thumb-gen-pill-tab:hover {
-  background: #1f1f27;
-  border-color: rgba(255, 255, 255, 0.16);
+.thumb-gen-pill-tab:hover:not(.thumb-gen-pill-tab--active) {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 100%), #2c2c38;
+  border-color: rgba(255, 255, 255, 0.24);
   color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 1px 0 rgba(0, 0, 0, 0.3);
 }
 
+/* Active — accent gradient body. Border has to read clearly on top
+ * of bright purple, so the rim opacity is bumped to 0.5 (white at
+ * 0.32 disappears against the gradient). The inner top highlight is
+ * also strengthened so the chip gets a proper bezel feel. */
 .thumb-gen-pill-tab--active,
 .thumb-gen-pill-tab--active:hover {
   background: var(
     --accent-gradient,
     linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)
   );
-  border-color: transparent;
+  border-color: rgba(255, 255, 255, 0.5);
   color: #ffffff;
+  filter: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 2px 10px rgba(0, 0, 0, 0.3);
+  transform: none;
 }
 
-.thumb-gen-pill-tab:active,
-.thumb-gen-pill-tab--active:active {
-  transform: scale(0.96);
-  transition-duration: 0.06s;
+.thumb-gen-pill-tab:not(.thumb-gen-pill-tab--active):active {
+  transform: scale(0.97);
+  transition: transform 0.1s ease;
+}
+
+.thumb-gen-pill-tab:focus-visible {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.32);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 3px rgba(255, 255, 255, 0.08);
 }
 
 .thumb-gen-pill-tab--active svg {
@@ -3322,9 +4147,10 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
- * ThumbSendPill — pill-shaped send button with the credit cost embedded
- * inside (zap icon + number) followed by the send arrow. Visual twin of
- * the "+ Create" button on the A/B Testing screen.
+ * ThumbSendPill — accent pill for Send / Edit / Recreate / Analyze.
+ * Solid gradient body, soft accent border, gentle outer halo. No shine
+ * sweep, no expanding glow — same restrained recipe as the active mode
+ * tab so the row reads as one family.
  * ─────────────────────────────────────────────────────────────────────── */
 .thumb-send-pill {
   position: relative;
@@ -3332,29 +4158,43 @@
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  height: 32px;
-  padding: 0 0.95rem;
-  border: none;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 999px;
-  font: inherit;
+  font-family:
+    'Poppins',
+    system-ui,
+    -apple-system,
+    sans-serif;
   font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: -0.005em;
+  font-weight: 600;
+  letter-spacing: 0;
   color: #ffffff;
   cursor: pointer;
   white-space: nowrap;
   outline: none;
   background: var(--accent-gradient);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 2px 10px rgba(0, 0, 0, 0.3);
   -webkit-tap-highlight-color: transparent;
   transition:
-    filter 0.22s ease,
-    opacity 0.14s ease,
-    transform 0.15s ease;
+    filter 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .thumb-send-pill:hover:not(:disabled) {
-  filter: brightness(1.08);
+  filter: brightness(1.06);
+  border-color: rgba(255, 255, 255, 0.65);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
 .thumb-send-pill:active:not(:disabled) {
@@ -3364,12 +4204,17 @@
 
 .thumb-send-pill:focus-visible {
   outline: none;
-  box-shadow: var(--accent-focus-ring);
+  border-color: rgba(255, 255, 255, 0.65);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 0 0 3px rgba(255, 255, 255, 0.1);
 }
 
 .thumb-send-pill:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
 .thumb-send-pill-cost {

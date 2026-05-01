@@ -94,34 +94,80 @@
  * every dropdown in the app reads as one component family. Background,
  * border, radius, shadow, and backdrop-filter all lifted from
  * `.pill-dd-menu`. */
+/* Speech-bubble surface — solid #1c1c24, soft drop shadow, with a
+ * downward-pointing diamond tail painted by `::before` so the panel
+ * reads as anchored to the trigger circle below. The outer container
+ * keeps `overflow: visible` so the tail isn't clipped; the scrolling
+ * list lives in `.persona-selector-dropdown-inner`. */
 .persona-selector-dropdown {
   position: absolute;
   bottom: 100%;
-  left: 0;
-  margin-bottom: 6px;
-  width: 168px;
-  max-height: 320px;
-  overflow-y: auto;
-  padding: 4px;
-  background: rgba(22, 22, 28, 0.88);
-  backdrop-filter: blur(32px) saturate(1.5);
-  -webkit-backdrop-filter: blur(32px) saturate(1.5);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 10px;
+  width: 220px;
+  padding: 6px;
+  background: #1c1c24;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.32);
   z-index: 100;
   transform-origin: bottom center;
-  animation: persona-selector-pop-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: persona-selector-pop-in 0.2s cubic-bezier(0.4, 0, 0.2, 1) both;
+  overflow: visible;
 }
-.persona-selector-dropdown::-webkit-scrollbar {
-  width: 8px;
+
+/* Diamond tail. A 10×10 square rotated 45° anchored half-out the
+ * bottom edge, with two of its sides carrying the popover's border so
+ * the visible point gets a proper outline. `z-index: -1` tucks it
+ * behind the popover body so the top half disappears under the
+ * rounded corner and the bottom half becomes the arrow. */
+.persona-selector-dropdown::before {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translateX(-50%) rotate(45deg);
+  background: #1c1c24;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom-right-radius: 3px;
+  z-index: -1;
+  pointer-events: none;
 }
-.persona-selector-dropdown::-webkit-scrollbar-thumb {
+
+/* Section label at the top of the panel. Compact, uppercase, soft
+ * grey — gives the picker a name without crowding the option list. */
+.persona-selector-header {
+  padding: 6px 10px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Inner scroll area. Holds the option list; the outer keeps
+ * overflow: visible for the tail. */
+.persona-selector-dropdown-inner {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.persona-selector-dropdown-inner::-webkit-scrollbar {
+  width: 6px;
+}
+.persona-selector-dropdown-inner::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-pill);
+  border-radius: 999px;
 }
-.persona-selector-dropdown::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.14);
+.persona-selector-dropdown-inner::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.16);
 }
 
 /* Floating variant — portaled to <body> and positioned via inline top/left
@@ -137,53 +183,47 @@
 
 .persona-selector-loading,
 .persona-selector-empty {
-  padding: 10px 8px;
-  color: var(--text-muted);
-  font-size: var(--text-sm);
+  padding: 10px 12px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
   text-align: center;
 }
 .persona-selector-loading {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
-/* Footer under the persona list — sits flush with the panel edges and
- * carries a 1px hairline divider so the Create pill is clearly the
- * primary action below the items. */
+/* Footer holding the Create pill. Hairline divider above sets it
+ * apart from the option list. */
 .persona-selector-footer {
-  margin: 4px -4px 0;
-  padding: 6px 8px 4px;
+  margin: 6px -2px 0;
+  padding: 8px 0 2px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Primary "+ Create" button — compact pill sized for the 168px-wide
- * dropdown. Canonical accent gradient + plus-icon. */
 .persona-selector-create {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 6px;
   width: 100%;
-  height: 30px;
+  height: 32px;
   padding: 0 12px;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 999px;
   background: var(--accent-gradient);
   color: #ffffff;
   font: inherit;
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.005em;
+  letter-spacing: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    0 4px 14px rgba(124, 58, 237, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
   transition:
     transform 0.14s cubic-bezier(0.33, 1, 0.68, 1),
-    filter 0.18s ease,
-    box-shadow 0.18s ease;
+    filter 0.18s ease;
 }
 
 .persona-selector-create svg {
@@ -192,14 +232,11 @@
 }
 
 .persona-selector-create:hover {
-  filter: brightness(1.08);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 6px 18px rgba(124, 58, 237, 0.38);
+  filter: brightness(1.06);
 }
 
 .persona-selector-create:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
   transition: transform 0.08s ease;
 }
 
@@ -211,26 +248,20 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: 40px;
-  padding: 6px 10px;
+  min-height: 38px;
+  padding: 6px 12px;
   border: none;
-  border-radius: 8px;
+  border-radius: 999px;
   background: transparent;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(229, 231, 235, 0.78);
   font-size: 0.8rem;
   font-weight: 500;
   font-family: inherit;
   text-align: left;
   cursor: pointer;
   transition:
-    background 0.14s ease,
-    color 0.14s ease,
-    box-shadow 0.14s ease;
-}
-
-.persona-selector-option:active {
-  transform: scale(0.98);
-  transition: transform 0.08s ease;
+    background 0.18s ease,
+    color 0.18s ease;
 }
 
 .persona-selector-option + .persona-selector-option {
@@ -238,47 +269,26 @@
 }
 
 .persona-selector-option:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.06);
   color: #ffffff;
 }
 
 .persona-selector-option:focus-visible {
   outline: none;
-  box-shadow: var(--accent-focus-ring);
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.persona-selector-option.is-selected {
-  background: rgba(167, 139, 250, 0.18);
+/* Selected — pill-shaped accent gradient fill, white text. */
+.persona-selector-option.is-selected,
+.persona-selector-option.is-selected:hover {
+  background: var(--accent-gradient);
   color: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.28);
-}
-
-/* Full-bleed separators — the 4px container padding is cancelled with a
- * negative horizontal margin so the 1px line runs edge-to-edge inside the
- * dropdown panel, giving the sharp hairline look the rest of the app uses. */
-.persona-selector-option--clear {
-  margin: 0 -4px 4px;
-  padding: 6px 14px;
-  color: rgba(255, 255, 255, 0.55);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0;
-  min-height: 36px;
-}
-
-.persona-selector-option--manage {
-  margin: 4px -4px 0;
-  padding: 6px 14px;
-  color: #c4b5fd;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0;
-  min-height: 36px;
-  font-weight: var(--font-weight-medium);
 }
 
 .persona-selector-option-img {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
   overflow: hidden;
   flex-shrink: 0;
   background: rgba(0, 0, 0, 0.35);
@@ -315,16 +325,23 @@
 }
 
 .persona-selector-pin {
-  font-size: 11px;
-  color: #fbbf24;
+  font-size: 10px;
+  color: #c4b5fd;
   line-height: 1;
+  flex-shrink: 0;
 }
 
-/* Thumbnail toolbar: circular trigger + glass popover */
+.persona-selector-option.is-selected .persona-selector-pin {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Thumbnail toolbar: circular trigger + glass popover. 34px matches
+ * .sidebar-new-chat-pill / .thumb-gen-pill-tab / .thumb-send-pill so
+ * every button on the thumbnail screen shares a single height. */
 .persona-selector--glass-circle .persona-selector-trigger--circle {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
   padding: 0;
   border-radius: 50%;
   justify-content: center;
@@ -417,11 +434,11 @@
 @keyframes persona-selector-pop-in {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(0.97);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
@@ -436,23 +453,7 @@
   }
 }
 
-/* ── Locked state (free/starter user) ───────────────────────────────── */
-.persona-selector--locked .persona-selector-trigger--locked {
-  cursor: pointer;
-  border: 1px dashed rgba(167, 139, 250, 0.45);
-  background: rgba(139, 92, 246, 0.08);
-  color: rgba(196, 181, 253, 0.85);
-}
-.persona-selector--locked .persona-selector-trigger--locked:hover {
-  background: rgba(139, 92, 246, 0.18);
-  border-color: rgba(196, 181, 253, 0.6);
-}
-.persona-selector--locked .persona-selector-icon {
-  color: rgba(196, 181, 253, 0.85);
-}
-.persona-selector-label--locked {
-  font-size: 0.67rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: rgba(196, 181, 253, 0.9);
-}
+/* Locked-state CSS removed — the free-tier trigger now reuses the
+ * unlocked-trigger styles verbatim (no violet "blocked" tint, no
+ * lock badge). The redirect happens silently on click via the JSX
+ * paywall handler. */

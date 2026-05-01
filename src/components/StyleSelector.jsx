@@ -4,6 +4,7 @@ import { useStylesQuery } from '../queries/styles/styleQueries'
 import { useStyleStore } from '../stores/styleStore'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 import { useFloatingPosition } from '../lib/useFloatingPosition'
+import { toast } from '../lib/toast'
 import { Skeleton, SkeletonGroup } from './ui'
 import './StyleSelector.css'
 
@@ -25,22 +26,11 @@ function IconLock() {
 }
 
 function IconStyle() {
+  // Graphic-style glyph from src/assets/graphic-style.svg — picture
+  // frame with a sparkle, replacing the previous palette silhouette.
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      {/* artist palette silhouette */}
-      <path d="M12 2.5a9.5 9.5 0 1 0 0 19h1.6a2 2 0 0 0 0-4h-1.1a2 2 0 1 1 0-4H17a5.5 5.5 0 0 0 0-11h-5z" />
-      {/* three colour dots */}
-      <circle cx="8" cy="11" r="1.2" fill="currentColor" stroke="none" />
-      <circle cx="10.5" cy="7.5" r="1.2" fill="currentColor" stroke="none" />
-      <circle cx="14.8" cy="7.5" r="1.2" fill="currentColor" stroke="none" />
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M8.5,5c.83,0,1.5,.67,1.5,1.5s-.67,1.5-1.5,1.5-1.5-.67-1.5-1.5,.67-1.5,1.5-1.5Zm7.32,3.18l-.35-1.42c-.11-.44-.51-.76-.97-.76s-.86,.31-.97,.76l-.35,1.41-1.4,.32c-.45,.1-.77,.5-.77,.96,0,.46,.3,.86,.74,.98l1.43,.39,.36,1.43c.11,.44,.51,.76,.97,.76s.86-.31,.97-.76l.35-1.42,1.42-.35c.44-.11,.76-.51,.76-.97s-.31-.86-.76-.97l-1.42-.35Zm.79-3.3l1.76,.74,.7,1.75c.15,.38,.52,.63,.93,.63s.78-.25,.93-.63l.7-1.74,1.74-.7c.38-.15,.63-.52,.63-.93s-.25-.78-.63-.93l-1.74-.7-.7-1.74c-.15-.38-.52-.63-.93-.63s-.78,.25-.93,.63l-.69,1.73-1.73,.66c-.38,.14-.64,.51-.65,.92,0,.41,.23,.78,.61,.94Zm7.39,4.12v10c0,2.76-2.24,5-5,5H5c-2.76,0-5-2.24-5-5V5C0,2.24,2.24,0,5,0H15c.55,0,1,.45,1,1s-.45,1-1,1H5c-1.65,0-3,1.35-3,3v6.59l.56-.56c1.34-1.34,3.53-1.34,4.88,0l5.58,5.58c.54,.54,1.43,.54,1.97,0l.58-.58c1.34-1.34,3.53-1.34,4.88,0l1.56,1.56V9c0-.55,.45-1,1-1s1,.45,1,1Zm-2.24,11.17l-2.74-2.74c-.56-.56-1.48-.56-2.05,0l-.58,.58c-1.32,1.32-3.48,1.32-4.8,0l-5.58-5.58c-.56-.56-1.48-.56-2.05,0l-1.98,1.98v4.59c0,1.65,1.35,3,3,3h14c1.24,0,2.3-.75,2.76-1.83Z" />
     </svg>
   )
 }
@@ -134,26 +124,38 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
 
   const isGlassCircle = variant === 'glassCircle'
 
+  // Free tier: render the trigger looking identical to the unlocked
+  // version — no violet "locked" tint, no lock badge. Click sends the
+  // user to the Pro upgrade screen with a brief toast.
   if (locked) {
+    const handleLockedClick = () => {
+      toast.info('Styles are a Pro feature. Upgrade to unlock.', {
+        title: 'Upgrade required',
+      })
+      if (typeof window !== 'undefined') window.location.hash = 'pro'
+    }
     return (
       <div
         ref={ref}
-        className={`style-selector style-selector--locked ${compact ? 'style-selector--compact' : ''} ${isGlassCircle ? 'style-selector--glass-circle' : ''}`}
+        className={`style-selector ${compact ? 'style-selector--compact' : ''} ${isGlassCircle ? 'style-selector--glass-circle' : ''}`}
       >
         <button
           type="button"
-          className={`style-selector-trigger style-selector-trigger--locked ${isGlassCircle ? 'style-selector-trigger--circle' : ''}`}
-          onClick={() => {
-            window.location.hash = 'pro'
-          }}
-          aria-label="Styles — upgrade to Creator to unlock"
-          title="Styles are a Creator+ feature. Click to upgrade."
+          className={`style-selector-trigger ${isGlassCircle ? 'style-selector-trigger--circle' : ''}`}
+          onClick={handleLockedClick}
+          aria-label="Styles"
+          title="Style — a reusable visual treatment for your thumbnails"
         >
           <span className="style-selector-icon">
-            <IconLock />
+            <IconStyle />
           </span>
           {!isGlassCircle && (
-            <span className="style-selector-label style-selector-label--locked">Creator+</span>
+            <>
+              <span className="style-selector-label">Style</span>
+              <span className="style-selector-chevron">
+                <IconChevronDown />
+              </span>
+            </>
           )}
         </button>
       </div>
@@ -236,33 +238,22 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
             role="listbox"
             style={popoverStyle}
           >
-            {isPending && (
-              <SkeletonGroup className="style-selector-loading" label="Loading styles">
-                <Skeleton height={36} radius={10} />
-                <Skeleton height={36} radius={10} />
-                <Skeleton height={36} radius={10} />
-              </SkeletonGroup>
-            )}
-            {!isPending && items.length === 0 && (
-              <div className="style-selector-empty">
-                {onOpenLibrary && (
-                  <button
-                    type="button"
-                    className="style-selector-create"
-                    onClick={() => {
-                      setOpen(false)
-                      onOpenLibrary()
-                    }}
-                  >
-                    <IconPlus />
-                    Create
-                  </button>
-                )}
-              </div>
-            )}
-            {!isPending && items.length > 0 && (
-              <>
-                {items.map((s) => (
+            <div className="style-selector-header">Styles</div>
+
+            <div className="style-selector-dropdown-inner">
+              {isPending && (
+                <SkeletonGroup className="style-selector-loading" label="Loading styles">
+                  <Skeleton height={36} radius={999} />
+                  <Skeleton height={36} radius={999} />
+                  <Skeleton height={36} radius={999} />
+                </SkeletonGroup>
+              )}
+              {!isPending && items.length === 0 && (
+                <div className="style-selector-empty">No styles yet</div>
+              )}
+              {!isPending &&
+                items.length > 0 &&
+                items.map((s) => (
                   <button
                     key={s.id}
                     type="button"
@@ -282,22 +273,22 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
                     )}
                   </button>
                 ))}
-                {onOpenLibrary && (
-                  <div className="style-selector-footer">
-                    <button
-                      type="button"
-                      className="style-selector-create"
-                      onClick={() => {
-                        setOpen(false)
-                        onOpenLibrary()
-                      }}
-                    >
-                      <IconPlus />
-                      Create
-                    </button>
-                  </div>
-                )}
-              </>
+            </div>
+
+            {!isPending && onOpenLibrary && (
+              <div className="style-selector-footer">
+                <button
+                  type="button"
+                  className="style-selector-create"
+                  onClick={() => {
+                    setOpen(false)
+                    onOpenLibrary()
+                  }}
+                >
+                  <IconPlus />
+                  Create
+                </button>
+              </div>
             )}
           </div>,
           document.body

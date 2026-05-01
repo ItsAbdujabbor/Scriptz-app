@@ -277,8 +277,10 @@
    3-COLUMN LAYOUT
 ───────────────────────────────────── */
 .lin-db-body {
-  display: grid;
-  grid-template-columns: 196px 1fr 256px;
+  /* Single-column now — sidebar was stripped per spec. The mockup
+   * shows only the Thumbnail Generator screen, full-bleed inside the
+   * frame. */
+  display: block;
   height: 660px;
 }
 
@@ -291,130 +293,362 @@
   overflow: hidden;
   font-size: 0.8rem;
 }
+/* ── Sidebar — mirror of `.app-sidebar` from src/app/Sidebar.css ──
+ *
+ * Matches the production sidebar's three vertical sections:
+ *   .lin-sb-top   header (brand row + new-chat pill)
+ *   .lin-sb-body  flex-1 scroll body (nav items + history)
+ *   .lin-sb-foot  account pill at bottom
+ *
+ * Visual tokens are pulled from the production stylesheet so the
+ * landing mockup reads as a 1:1 preview.
+ * ─────────────────────────────────────────────────────────────── */
 .lin-sb-top {
-  padding: 12px 12px 10px;
-  border-bottom: 1px solid var(--lb1);
+  padding: 12px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-.lin-workspace {
+
+.lin-sb-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 6px;
+}
+
+.lin-sb-logo {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lin-sb-logo svg {
+  width: 100%;
+  height: 100%;
+}
+
+.lin-sb-brandname {
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #fff;
+  flex: 1;
+}
+
+.lin-sb-toggle {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(229, 229, 231, 0.55);
+  background: transparent;
+}
+
+.lin-sb-toggle svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* "New chat" pill — liquid-glass style of production */
+.lin-sb-newchat {
+  position: relative;
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 7px;
-  border-radius: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)), #16161a;
+  color: #f2f2f5;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
   cursor: pointer;
-  transition: background 0.14s;
-  -webkit-user-select: none;
-  user-select: none;
-}
-.lin-workspace:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-.lin-ws-logo {
-  width: 22px;
-  height: 22px;
-  border-radius: 5px;
-  background: var(--lacc);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.6rem;
-  font-weight: 800;
-  color: #fff;
-  flex-shrink: 0;
-}
-.lin-ws-name {
-  font-size: 0.81rem;
-  font-weight: 600;
-  color: var(--lt1);
-  flex: 1;
-}
-.lin-ws-chev {
-  color: var(--lt3);
-  flex-shrink: 0;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
+    0 6px 16px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
 }
 
+.lin-sb-newchat-glow {
+  position: absolute;
+  top: -40%;
+  left: -10%;
+  right: -10%;
+  height: 80%;
+  background: radial-gradient(
+    ellipse at 50% 100%,
+    rgba(167, 139, 250, 0.3) 0%,
+    rgba(167, 139, 250, 0) 60%
+  );
+  pointer-events: none;
+}
+
+.lin-sb-newchat-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(229, 229, 231, 0.78);
+}
+
+.lin-sb-newchat-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.lin-sb-newchat-label {
+  flex: 1;
+}
+
+/* ── Body: nav items + history list ── */
 .lin-sb-body {
   flex: 1;
   overflow-y: auto;
-  padding: 6px 8px;
+  padding: 4px 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
   scrollbar-width: none;
 }
 .lin-sb-body::-webkit-scrollbar {
   display: none;
 }
 
-.lin-sb-lbl {
-  font-size: 0.59rem;
-  font-weight: 600;
-  color: var(--lt4);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 9px 8px 2px;
-}
 .lin-ni {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 8px;
-  border-radius: 5px;
+  gap: 9px;
+  padding: 7px 10px;
+  border-radius: 7px;
   cursor: pointer;
   font-size: 0.78rem;
-  font-weight: 450;
-  color: var(--lt2);
+  font-weight: 500;
+  color: rgba(229, 229, 231, 0.65);
   transition:
-    background 0.13s,
-    color 0.13s;
+    background 0.15s,
+    color 0.15s;
   -webkit-user-select: none;
   user-select: none;
 }
+
 .lin-ni:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--lt1);
-}
-.lin-ni.active {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--lt1);
-}
-.lin-ni-ico {
-  width: 15px;
-  height: 15px;
-  opacity: 0.45;
-  flex-shrink: 0;
-}
-.lin-ni.active .lin-ni-ico {
-  opacity: 0.85;
-}
-.lin-ni-cnt {
-  margin-left: auto;
-  font-size: 0.63rem;
-  color: var(--lt3);
-  font-weight: 500;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
 }
 
-.lin-sb-foot {
-  padding: 10px 12px;
-  border-top: 1px solid var(--lb1);
+.lin-ni.active {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.lin-ni--noop {
+  /* Optimize tab — purely visual, no click target effect (handler in
+   * hero.js skips items without `data-lin-view`). */
+}
+
+.lin-ni-ico {
+  width: 16px;
+  height: 16px;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.lin-ni.active .lin-ni-ico {
+  opacity: 0.95;
+}
+
+/* ── HISTORY section ── */
+.lin-sb-section {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lin-sb-section-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px 6px;
+}
+
+.lin-sb-section-lbl {
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(229, 229, 231, 0.4);
+}
+
+.lin-sb-section-search {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(229, 229, 231, 0.45);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.lin-sb-section-search:hover {
+  color: #fff;
+}
+
+.lin-sb-section-search svg {
+  width: 13px;
+  height: 13px;
+}
+
+.lin-sb-hist {
+  display: flex;
+  flex-direction: column;
+}
+
+.lin-sb-hist-row {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 450;
+  color: rgba(229, 229, 231, 0.62);
+  transition:
+    background 0.15s,
+    color 0.15s;
+  -webkit-user-select: none;
+  user-select: none;
 }
-.lin-av-sm {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #5e6ad2, #9f7aea);
+
+.lin-sb-hist-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+}
+
+.lin-sb-hist-icon {
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
+  color: rgba(229, 229, 231, 0.4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lin-sb-hist-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.lin-sb-hist-title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Account pill at the bottom ── */
+.lin-sb-foot {
+  padding: 8px 8px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.lin-sb-account {
+  width: 100%;
   display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(22, 22, 26, 0.65);
+  color: #fff;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.lin-sb-account:hover {
+  background: rgba(28, 28, 34, 0.85);
+  border-color: rgba(255, 255, 255, 0.09);
+}
+
+.lin-sb-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 0.55rem;
   font-weight: 700;
   color: #fff;
+  letter-spacing: 0.02em;
 }
-.lin-sb-uname {
-  font-size: 0.74rem;
+
+.lin-sb-account-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.lin-sb-account-email {
+  font-size: 0.7rem;
   font-weight: 500;
-  color: var(--lt2);
+  color: rgba(255, 255, 255, 0.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.005em;
+}
+
+.lin-sb-account-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lin-sb-account-credits {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(167, 139, 250, 0.14);
+  border: 1px solid rgba(167, 139, 250, 0.22);
+  color: #c4b5fd;
+  font-size: 0.6rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.lin-sb-account-chev {
+  width: 14px;
+  height: 14px;
+  color: rgba(229, 229, 231, 0.45);
+  flex-shrink: 0;
 }
 
 /* ══════════ MAIN ══════════ */
@@ -422,7 +656,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #070708;
+  background: #0e0e12;
+  height: 100%;
 }
 
 .lin-main-hdr {
@@ -565,13 +800,26 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: center;
   padding: 18px 22px 0;
   gap: 10px;
   overflow: hidden;
-  transition: justify-content 0.4s ease;
 }
 
+/* Empty state — shell flex-centers thread + footer together so the
+ * heading + tabs + composer read as one grouped block, exactly like
+ * production. The thread shrinks to content height. */
+.lin-tg-shell--empty {
+  justify-content: center;
+}
+
+.lin-tg-shell--empty .lin-tg-thread {
+  flex: 0 0 auto;
+  padding: 0 22px 0;
+}
+
+/* Once the cycle moves past empty-state the thread takes the full
+ * height and the user / loader / done card stacks toward the bottom —
+ * a regular chat layout. */
 .lin-tg-shell--sending .lin-tg-thread,
 .lin-tg-shell--generating .lin-tg-thread,
 .lin-tg-shell--done .lin-tg-thread {
@@ -799,7 +1047,15 @@
   filter: blur(6px);
 }
 
-/* Composer + tabs — anchored to the bottom */
+/* Composer + tabs.
+ *
+ * Default (filled state): pinned to the bottom of the shell, padding
+ * lifts it off the violet glow plate slightly.
+ *
+ * Empty state: lifted into the centred cluster (heading + tabs +
+ * composer group together at the visual centre, just like the live
+ * production screen). The `--empty` class is added by hero.js when
+ * the cycle is in its idle/empty phase. */
 .lin-tg-footer {
   position: relative;
   z-index: 4;
@@ -810,9 +1066,14 @@
   align-items: stretch;
 }
 
+.lin-tg-shell--empty .lin-tg-footer {
+  padding-bottom: 0;
+}
+
+/* ── Mode tabs ──────────────────────────────────────────────── */
 .lin-tg-tabs {
   display: flex;
-  gap: 5px;
+  gap: 6px;
   align-self: center;
   background: transparent;
   padding: 0;
@@ -822,15 +1083,24 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 9px;
+  padding: 6px 11px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.07);
   background: rgba(24, 24, 28, 0.72);
   color: rgba(229, 229, 231, 0.72);
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.lin-tg-tab:hover {
+  background: rgba(34, 34, 40, 0.85);
+  color: #fff;
 }
 
 .lin-tg-tab.active {
@@ -842,40 +1112,95 @@
 
 .lin-tg-tab svg {
   flex-shrink: 0;
+  width: 12px;
+  height: 12px;
 }
 
+/* ── Composer (input bar) ───────────────────────────────────── */
 .lin-tg-composer {
   position: relative;
   background: #181820;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  padding: 10px 12px 8px;
+  border-radius: 22px;
+  /* Tighter, more even padding — matches the production composer
+   * (`0.7rem 0.85rem`) so the input + tools row sit closer to the
+   * bar's edges instead of looking cramped on one side and loose on
+   * the other. */
+  padding: 12px 14px 10px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 9px;
+  transition: border-color 0.2s ease;
+}
+
+.lin-tg-composer.is-focused {
+  border-color: rgba(196, 181, 253, 0.28);
 }
 
 .lin-tg-input {
-  min-height: 18px;
-  font-size: 0.66rem;
-  line-height: 1.4;
+  position: relative;
+  min-height: 20px;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: #f8fafc;
+  /* Wrap long prompts naturally so the typewriter caret stays
+   * visible at the end of the typed text. word-break stops a single
+   * very long token from overflowing horizontally. */
+  white-space: normal;
+  word-break: break-word;
+  overflow: hidden;
+}
+
+/* Placeholder + the typed text live at the same baseline. We toggle
+ * between them via the `.is-typing` modifier on `.lin-tg-input`. */
+.lin-tg-placeholder {
+  color: rgba(229, 229, 231, 0.42);
+  transition: opacity 0.2s ease;
+}
+
+.lin-tg-input.is-typing .lin-tg-placeholder {
+  display: none;
+}
+
+.lin-tg-typed {
   color: #f8fafc;
 }
 
-.lin-tg-placeholder {
-  color: rgba(229, 229, 231, 0.42);
+/* Caret — solid 1px bar that blinks. Sits inline so it appears
+ * exactly after the typed text (or in place of the placeholder
+ * during the brief idle moment before typing starts). */
+.lin-tg-caret {
+  display: inline-block;
+  width: 1px;
+  height: 0.95em;
+  margin-left: 1px;
+  background: rgba(196, 181, 253, 0.85);
+  vertical-align: text-bottom;
+  animation: linTgCaret 1s steps(2) infinite;
 }
 
+@keyframes linTgCaret {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ── Tools row ──────────────────────────────────────────────── */
 .lin-tg-tools {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
 }
 
 .lin-tg-tool {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   display: inline-flex;
@@ -885,10 +1210,15 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
+.lin-tg-tool svg {
+  width: 12px;
+  height: 12px;
+}
+
 .lin-tg-tool--num {
   width: auto;
-  padding: 0 7px;
-  font-size: 0.58rem;
+  padding: 0 9px;
+  font-size: 0.62rem;
   font-weight: 600;
   color: rgba(229, 229, 231, 0.85);
 }
@@ -897,22 +1227,45 @@
   flex: 1;
 }
 
+/* Send pill — pulses on every "send" tick of the cycle. */
 .lin-tg-send {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px 4px 8px;
+  gap: 5px;
+  padding: 5px 11px 5px 9px;
   border-radius: 999px;
   background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
   color: #fff;
-  font-size: 0.6rem;
+  font-size: 0.66rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   box-shadow: 0 4px 12px rgba(124, 58, 237, 0.42);
+  transition: transform 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.lin-tg-send.is-sending {
+  animation: linTgSendPulse 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes linTgSendPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.42);
+  }
+  35% {
+    transform: scale(1.08);
+    box-shadow: 0 8px 22px rgba(167, 139, 250, 0.7);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.42);
+  }
 }
 
 .lin-tg-send svg {
   flex-shrink: 0;
+  width: 12px;
+  height: 12px;
 }
 
 /* ── Animations ─────────────────────────────────────────────────── */
@@ -934,6 +1287,326 @@
   100% {
     transform: translateX(160%);
   }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * Dashboard view mockup — copy of the production Dashboard hero.
+ *
+ * Layout:
+ *   .lin-db-page              padded column, scroll-safe
+ *   .lin-db-page-hdr          greeting block
+ *   .lin-db-stats             3-up KPI grid (Subs / Views / Avg)
+ *   .lin-db-milestones        two arc-charts side-by-side + per-tier list
+ *
+ * Visual tokens mirror Dashboard.css: same radii, same surface card
+ * colour, same growth-pill green/red, same milestone arc style.
+ * ────────────────────────────────────────────────────────────────── */
+.lin-db-page {
+  flex: 1;
+  min-height: 0;
+  padding: 26px 32px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow-y: auto;
+  background: #0e0e12;
+  box-sizing: border-box;
+}
+
+.lin-db-page-hdr {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.lin-db-greeting {
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.022em;
+  line-height: 1.2;
+  color: #fff;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lin-db-greeting-soft {
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+}
+
+.lin-db-greeting-name {
+  color: #fff;
+}
+
+/* ── KPI cards ───────────────────────────────────────────────── */
+.lin-db-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.lin-db-stat {
+  position: relative;
+  background: #18181c;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.lin-db-stat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.lin-db-stat-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(229, 229, 231, 0.78);
+}
+
+.lin-db-stat-growth {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: rgba(229, 229, 231, 0.4);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.lin-db-stat-growth--down {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.18);
+}
+
+.lin-db-stat-growth--up {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.22);
+}
+
+.lin-db-stat-value {
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
+
+.lin-db-stat-label {
+  font-size: 0.72rem;
+  color: rgba(229, 229, 231, 0.55);
+  letter-spacing: -0.01em;
+  font-weight: 500;
+}
+
+/* ── Milestones card ─────────────────────────────────────────── */
+.lin-db-milestones {
+  background: #18181c;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 22px 22px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.lin-db-mil-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+}
+
+.lin-db-mil-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* Half-circle arc with the running total + denominator overlaid */
+.lin-db-arc {
+  position: relative;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.lin-db-arc svg {
+  display: block;
+}
+
+.lin-db-arc-num {
+  position: absolute;
+  top: 38px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.lin-db-arc-cur {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.lin-db-arc-cap {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(229, 229, 231, 0.5);
+}
+
+.lin-db-arc-cap-lbl {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: rgba(229, 229, 231, 0.85);
+}
+
+/* Per-tier milestone list */
+.lin-db-mil-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lin-db-mil-row {
+  display: grid;
+  grid-template-columns: 8px 1fr 90px 24px;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 4px;
+  border-radius: 6px;
+}
+
+.lin-db-mil-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  justify-self: center;
+}
+
+.lin-db-mil-dot--violet {
+  background: #7c3aed;
+  box-shadow: 0 0 6px rgba(124, 58, 237, 0.55);
+}
+
+.lin-db-mil-dot--indigo {
+  background: #6366f1;
+  box-shadow: 0 0 6px rgba(99, 102, 241, 0.55);
+}
+
+.lin-db-mil-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.lin-db-mil-text strong {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.lin-db-mil-text span {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: rgba(229, 229, 231, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lin-db-mil-bar {
+  height: 3px;
+  width: 100%;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+.lin-db-mil-bar-fill {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+
+.lin-db-mil-pct {
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: rgba(229, 229, 231, 0.7);
+  text-align: right;
+}
+
+.lin-db-mil-pct--mute {
+  color: rgba(229, 229, 231, 0.25);
+}
+
+.lin-db-mil-check {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(52, 211, 153, 0.16);
+  border: 1px solid rgba(52, 211, 153, 0.32);
+  color: #34d399;
+  font-size: 0.6rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+}
+
+.lin-db-mil-foot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.74rem;
+  color: rgba(229, 229, 231, 0.55);
+  cursor: pointer;
+  align-self: center;
+}
+
+.lin-db-mil-foot:hover {
+  color: #fff;
 }
 
 /* Projects list */
