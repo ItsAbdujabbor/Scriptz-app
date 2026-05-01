@@ -1,13 +1,16 @@
 /**
- * StylesModal — style-library manager rendered inside the shared <Dialog>
- * primitive so it inherits the same portal, backdrop, entrance motion,
- * and close-X as every other modal in the app.
+ * StylesModal — style-library manager.
  *
- * Dual-source: "Personal" tab shows user-created styles (upload or from
- * a YouTube link); "Stock" tab shows admin-published styles. Creators
- * pick either to steer thumbnail generation.
+ * Dual-source: "Your styles" tab shows user-created styles (upload or
+ * from a YouTube link); "Stock" tab shows admin-published styles.
+ * Creators pick either to steer thumbnail generation.
+ *
+ * Visual language matches the thumbnail screen — pill-shaped mode
+ * tabs (.sm-tab), New-chat-pill recipe primary buttons (.sm-pp), the
+ * same card padding + rounded-inner-image treatment as the Personas
+ * modal, and ConfirmDialog for delete confirmation.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   useStylesQuery,
   useCreateStyleFromUploadMutation,
@@ -21,13 +24,16 @@ import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { extractYoutubeUrl } from '../lib/youtubeUrl'
 import { useObjectURL } from '../lib/useObjectURL'
 import { Dialog } from '../components/ui/Dialog'
-import { SegmentedTabs } from '../components/ui/SegmentedTabs'
-import { PrimaryPill } from '../components/ui/PrimaryPill'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 import { InlineSpinner, SkeletonCard, SkeletonGroup } from '../components/ui'
 import { friendlyMessage } from '../lib/aiErrors'
 import './StylesModal.css'
 
-function IconX({ size = 18 }) {
+const STYLE_NAME_MAX = 40
+
+/* ── Inline icons ─────────────────────────────────────────────────── */
+
+function IconX({ size = 14 }) {
   return (
     <svg
       width={size}
@@ -35,7 +41,7 @@ function IconX({ size = 18 }) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2.2"
+      strokeWidth="2.4"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
@@ -46,7 +52,7 @@ function IconX({ size = 18 }) {
   )
 }
 
-function IconPlus({ size = 16 }) {
+function IconPlus({ size = 14 }) {
   return (
     <svg
       width={size}
@@ -64,11 +70,60 @@ function IconPlus({ size = 16 }) {
   )
 }
 
-function IconPencil() {
+function IconUpload() {
   return (
     <svg
       width="14"
       height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  )
+}
+
+function IconLink() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  )
+}
+
+/** Graphic-style glyph from src/assets/graphic-style.svg — picture
+ * frame with sparkle, used in the empty-state and Create button. */
+function IconStyle({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M8.5,5c.83,0,1.5,.67,1.5,1.5s-.67,1.5-1.5,1.5-1.5-.67-1.5-1.5,.67-1.5,1.5-1.5Zm7.32,3.18l-.35-1.42c-.11-.44-.51-.76-.97-.76s-.86,.31-.97,.76l-.35,1.41-1.4,.32c-.45,.1-.77,.5-.77,.96,0,.46,.3,.86,.74,.98l1.43,.39,.36,1.43c.11,.44,.51,.76,.97,.76s.86-.31,.97-.76l.35-1.42,1.42-.35c.44-.11,.76-.51,.76-.97s-.31-.86-.76-.97l-1.42-.35Zm.79-3.3l1.76,.74,.7,1.75c.15,.38,.52,.63,.93,.63s.78-.25,.93-.63l.7-1.74,1.74-.7c.38-.15,.63-.52,.63-.93s-.25-.78-.63-.93l-1.74-.7-.7-1.74c-.15-.38-.52-.63-.93-.63s-.78,.25-.93,.63l-.69,1.73-1.73,.66c-.38,.14-.64,.51-.65,.92,0,.41,.23,.78,.61,.94Zm7.39,4.12v10c0,2.76-2.24,5-5,5H5c-2.76,0-5-2.24-5-5V5C0,2.24,2.24,0,5,0H15c.55,0,1,.45,1,1s-.45,1-1,1H5c-1.65,0-3,1.35-3,3v6.59l.56-.56c1.34-1.34,3.53-1.34,4.88,0l5.58,5.58c.54,.54,1.43,.54,1.97,0l.58-.58c1.34-1.34,3.53-1.34,4.88,0l1.56,1.56V9c0-.55,.45-1,1-1s1,.45,1,1Zm-2.24,11.17l-2.74-2.74c-.56-.56-1.48-.56-2.05,0l-.58,.58c-1.32,1.32-3.48,1.32-4.8,0l-5.58-5.58c-.56-.56-1.48-.56-2.05,0l-1.98,1.98v4.59c0,1.65,1.35,3,3,3h14c1.24,0,2.3-.75,2.76-1.83Z" />
+    </svg>
+  )
+}
+
+function IconPencil() {
+  return (
+    <svg
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -83,11 +138,29 @@ function IconPencil() {
   )
 }
 
-function IconTrash() {
+function IconCheck() {
   return (
     <svg
       width="14"
       height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="5 12 10 17 19 7" />
+    </svg>
+  )
+}
+
+function IconTrash() {
+  return (
+    <svg
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -102,27 +175,54 @@ function IconTrash() {
   )
 }
 
-function IconPalette() {
+/* ── Pill tab — same recipe as the thumbnail generator's mode tabs ── */
+
+function PillTab({ active, onClick, children, icon }) {
   return (
-    <svg
-      width="42"
-      height="42"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      className={`sm-tab${active ? ' sm-tab--active' : ''}`}
+      onClick={onClick}
     >
-      <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
-      <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
-      <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />
-      <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
-      <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1-.23-.27-.38-.61-.38-1 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-5.5-4.5-10-10-10z" />
-    </svg>
+      {icon}
+      <span>{children}</span>
+    </button>
   )
 }
+
+/* ── Primary pill — exact recipe of the sidebar's New-chat pill ───── */
+
+function PrimaryButton({
+  type = 'button',
+  onClick,
+  disabled,
+  busy,
+  busyLabel,
+  children,
+  icon,
+  className = '',
+}) {
+  return (
+    <button
+      type={type}
+      className={`sm-pp${className ? ` ${className}` : ''}`}
+      onClick={onClick}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
+    >
+      {icon && (
+        <span className="sm-pp-icon" aria-hidden>
+          {busy ? <InlineSpinner size={13} /> : icon}
+        </span>
+      )}
+      <span className="sm-pp-label">{busy && busyLabel ? busyLabel : children}</span>
+    </button>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────────────── */
 
 export function StylesModal({ onClose }) {
   const { data, isPending } = useStylesQuery()
@@ -141,9 +241,11 @@ export function StylesModal({ onClose }) {
   const [createYoutubeFetching, setCreateYoutubeFetching] = useState(false)
   const [createName, setCreateName] = useState('')
   const [createError, setCreateError] = useState('')
-  const [styleTab, setStyleTab] = useState('personal')
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
+  const [styleToDelete, setStyleToDelete] = useState(null)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -170,9 +272,17 @@ export function StylesModal({ onClose }) {
   }, [createYoutubeUrl, createSourceTab])
 
   const items = data?.items ?? []
-  const personalItems = items.filter((s) => s.visibility === 'personal')
+  // Show stock styles (admin-curated) FIRST, then the user's own
+  // styles. Stock items get a small "Stock" badge in the grid; the
+  // user can pick from either bucket. Bulk-remove only deletes the
+  // user's personal styles — admins can't have their stock library
+  // wiped from the user-facing app.
   const stockItems = items.filter((s) => s.visibility === 'admin' || s.visibility === 'stock')
-  const filteredItems = styleTab === 'personal' ? personalItems : stockItems
+  const personalItems = items.filter((s) => s.visibility === 'personal')
+  const orderedItems = [...stockItems, ...personalItems]
+  // `filteredItems` keeps its name for legacy refs; the order now is
+  // stock-first, personal-second.
+  const filteredItems = orderedItems
 
   const handleImageSelect = (file) => {
     if (!file?.type?.startsWith('image/')) return
@@ -236,14 +346,40 @@ export function StylesModal({ onClose }) {
     }
   }
 
-  const handleDelete = async (style) => {
+  const requestDelete = (style) => {
     if (style.visibility !== 'personal') return
-    if (!window.confirm(`Delete "${style.name}"?`)) return
+    setStyleToDelete(style)
+  }
+
+  const confirmDelete = async () => {
+    const s = styleToDelete
+    if (!s) return
+    setStyleToDelete(null)
     try {
-      await deleteMutation.mutateAsync(style.id)
-      if (selectedStyleId === style.id) setSelectedStyle(null)
+      await deleteMutation.mutateAsync(s.id)
+      if (selectedStyleId === s.id) setSelectedStyle(null)
     } catch (_) {
       /* ignore */
+    }
+  }
+
+  const handleDeleteAll = async () => {
+    if (!personalItems.length) return
+    setConfirmDeleteAll(false)
+    setBulkDeleting(true)
+    try {
+      // Only personal styles are deletable from the user app — stock
+      // (admin) styles stay regardless.
+      for (const s of personalItems) {
+        try {
+          await deleteMutation.mutateAsync(s.id)
+        } catch (_) {
+          /* keep going */
+        }
+      }
+      setSelectedStyle(null)
+    } finally {
+      setBulkDeleting(false)
     }
   }
 
@@ -257,153 +393,236 @@ export function StylesModal({ onClose }) {
     setShowCreate(false)
   }
 
+  // While the create form is open the dialog is dedicated to that
+  // single task — same UX pattern as the Characters dialog. Grid +
+  // empty state are hidden so the form has the surface to itself.
   const showEmpty = !isPending && filteredItems.length === 0 && !showCreate
+  const showGrid = !isPending && filteredItems.length > 0 && !showCreate
+
+  // Lazy render: keep `visibleCount` items in the DOM and grow on
+  // scroll-to-end via IntersectionObserver. Cards carry images
+  // (potentially data: URLs which are heavy to decode), so even mid-
+  // sized libraries benefit from this.
+  const PAGE_SIZE = 24
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const visibleItems = useMemo(
+    () => filteredItems.slice(0, visibleCount),
+    [filteredItems, visibleCount]
+  )
+  const sentinelRef = useRef(null)
+  const scrollRef = useRef(null)
+
+  // Reset paging whenever the underlying list changes (after a delete,
+  // create, etc.) so we always start at the top.
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE)
+  }, [filteredItems.length])
+
+  // IntersectionObserver fires when the sentinel enters the viewport
+  // of the scroll surface. We watch within `scrollRef` (the dialog's
+  // own scroll body) so it doesn't accidentally trigger from the
+  // outer page scroll.
+  useEffect(() => {
+    if (!showGrid) return undefined
+    if (visibleCount >= filteredItems.length) return undefined
+    const root = scrollRef.current
+    const target = sentinelRef.current
+    if (!root || !target) return undefined
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisibleCount((n) => Math.min(n + PAGE_SIZE, filteredItems.length))
+        }
+      },
+      { root, rootMargin: '200px 0px', threshold: 0 }
+    )
+    io.observe(target)
+    return () => io.disconnect()
+  }, [showGrid, visibleCount, filteredItems.length])
 
   return (
     <Dialog open onClose={() => onClose?.()} size="lg" ariaLabelledBy="styles-modal-title">
       <div className="sm-body">
-        {/* Header — matches PersonasModal + Optimize dropdown language */}
+        {/* Header — title + close. Subtitle splits the counts so the
+         * user can see at a glance which mix of stock vs personal
+         * styles they're looking at. */}
         <div className="sm-header">
           <div className="sm-header-titles">
             <h2 id="styles-modal-title" className="sm-title">
               Thumbnail styles
             </h2>
-            <p className="sm-subtitle">Reference looks for your thumbnails</p>
+            <p className="sm-subtitle">
+              {filteredItems.length > 0
+                ? [
+                    stockItems.length > 0 ? `${stockItems.length} stock` : null,
+                    personalItems.length > 0 ? `${personalItems.length} yours` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')
+                : 'Reference looks for your thumbnails'}
+            </p>
           </div>
           <button
             type="button"
-            className="sm-press sm-icon-btn"
+            className="sm-icon-btn"
             onClick={() => onClose?.()}
             aria-label="Close"
           >
-            <IconX />
+            <IconX size={14} />
           </button>
         </div>
 
-        {/* Personal / Stock tabs */}
-        <div className="sm-tabs-row">
-          <SegmentedTabs
-            value={styleTab}
-            onChange={setStyleTab}
-            options={[
-              { value: 'personal', label: 'Your styles' },
-              { value: 'stock', label: 'Stock' },
-            ]}
-            ariaLabel="Style sections"
-          />
-        </div>
-
-        {/* Create CTA (only on Personal tab) */}
-        {styleTab === 'personal' && !showCreate && (
-          <div className="sm-actions-row">
-            <PrimaryPill
-              onClick={() => setShowCreate(true)}
-              label="Create style"
-              icon={<IconPlus size={12} />}
-              size="sm"
-            />
-          </div>
-        )}
-
-        {/* Inline create form */}
-        {showCreate && styleTab === 'personal' && (
-          <div className="sm-create-card">
-            <div className="sm-create-source-tabs">
-              <SegmentedTabs
-                value={createSourceTab}
-                onChange={(v) => {
-                  setCreateError('')
-                  setCreateSourceTab(v)
-                }}
-                options={[
-                  { value: 'upload', label: 'Upload image' },
-                  { value: 'video', label: 'From YouTube' },
-                ]}
-                ariaLabel="How to add reference image"
-              />
+        {/* Scroll body — flex-1 wrapper that owns the dialog's only
+         * scroll surface. Top + bottom shadow gradients on the parent
+         * `.sm-body` overlay this region for a smooth fade against
+         * the header / dialog floor. */}
+        <div className="sm-scroll" ref={scrollRef}>
+          {/* Actions row — Create on the left, Remove all on the right
+           * (only when there's something to remove). Mirrors the
+           * Personas dialog so both manager modals behave the same. */}
+          {!showCreate && (
+            <div className="sm-actions-row">
+              <PrimaryButton onClick={() => setShowCreate(true)} icon={<IconStyle size={14} />}>
+                Create style
+              </PrimaryButton>
+              {personalItems.length > 0 && (
+                <button
+                  type="button"
+                  className="sm-manage-btn"
+                  onClick={() => setConfirmDeleteAll(true)}
+                  disabled={bulkDeleting || deleteMutation.isPending}
+                  title="Delete every style you've created"
+                >
+                  {bulkDeleting ? (
+                    <>
+                      <InlineSpinner size={12} />
+                      Removing…
+                    </>
+                  ) : (
+                    <>
+                      <IconTrash />
+                      Remove all
+                    </>
+                  )}
+                </button>
+              )}
             </div>
+          )}
 
-            {createSourceTab === 'upload' && (
-              <form onSubmit={handleCreate}>
-                <div className="sm-upload-wrap">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="sm-upload-input"
-                    onChange={(e) => handleImageSelect(e.target.files?.[0])}
-                  />
-                  {createImage ? (
-                    <div className="sm-upload-preview">
-                      <img src={createImagePreviewUrl} alt="Preview" />
+          {/* Inline create form */}
+          {showCreate && (
+            <div className="sm-create-card">
+              {/* Source tabs — Upload vs YouTube link. Same pill family
+               * as the top tabs but smaller. */}
+              <div className="sm-tab-row sm-tab-row--inner" role="tablist" aria-label="Source">
+                <PillTab
+                  active={createSourceTab === 'upload'}
+                  onClick={() => {
+                    setCreateError('')
+                    setCreateSourceTab('upload')
+                  }}
+                  icon={<IconUpload />}
+                >
+                  Upload image
+                </PillTab>
+                <PillTab
+                  active={createSourceTab === 'video'}
+                  onClick={() => {
+                    setCreateError('')
+                    setCreateSourceTab('video')
+                  }}
+                  icon={<IconLink />}
+                >
+                  From YouTube
+                </PillTab>
+              </div>
+
+              {createSourceTab === 'upload' && (
+                <form onSubmit={handleCreate} className="sm-form">
+                  <div className="sm-upload-wrap">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="sm-upload-input"
+                      onChange={(e) => handleImageSelect(e.target.files?.[0])}
+                    />
+                    {createImage ? (
+                      <div className="sm-upload-preview">
+                        <img src={createImagePreviewUrl} alt="Preview" />
+                        <button
+                          type="button"
+                          className="sm-preview-remove"
+                          onClick={() => {
+                            setCreateImage(null)
+                            if (fileInputRef.current) fileInputRef.current.value = ''
+                          }}
+                          aria-label="Remove image"
+                        >
+                          <IconX size={12} />
+                        </button>
+                      </div>
+                    ) : (
                       <button
                         type="button"
-                        className="sm-press sm-preview-remove"
-                        onClick={() => {
-                          setCreateImage(null)
-                          if (fileInputRef.current) fileInputRef.current.value = ''
-                        }}
+                        className="sm-upload-empty"
+                        onClick={() => fileInputRef.current?.click()}
                       >
-                        Remove
+                        <span className="sm-upload-empty-icon" aria-hidden>
+                          <IconPlus size={20} />
+                        </span>
+                        <span className="sm-upload-empty-hint">Click to upload thumbnail</span>
                       </button>
-                    </div>
-                  ) : (
+                    )}
+                  </div>
+                  <div className="sm-name-field">
+                    <input
+                      type="text"
+                      className="sm-input sm-name-input"
+                      placeholder="Name this style"
+                      value={createName}
+                      onChange={(e) => setCreateName(e.target.value.slice(0, STYLE_NAME_MAX))}
+                      maxLength={STYLE_NAME_MAX}
+                      required
+                    />
+                    <span
+                      className={`sm-name-counter${createName.length >= STYLE_NAME_MAX - 5 ? ' sm-name-counter--warn' : ''}`}
+                    >
+                      {createName.length} / {STYLE_NAME_MAX}
+                    </span>
+                  </div>
+                  {createError && <p className="sm-error-text">{createError}</p>}
+                  <div className="sm-form-actions">
                     <button
                       type="button"
-                      className="sm-press sm-upload-empty"
-                      onClick={() => fileInputRef.current?.click()}
+                      className="sm-btn-ghost"
+                      onClick={clearCreateForm}
+                      disabled={createMutation.isPending}
                     >
-                      <IconPlus size={26} />
-                      <span>Click to upload thumbnail</span>
+                      Cancel
                     </button>
-                  )}
-                </div>
-                <input
-                  type="text"
-                  className="sm-input"
-                  placeholder="Name this style"
-                  value={createName}
-                  onChange={(e) => setCreateName(e.target.value)}
-                  maxLength={80}
-                  required
-                />
-                {createError && <p className="sm-error-text">{createError}</p>}
-                <div className="sm-form-actions">
-                  <PrimaryPill
-                    onClick={clearCreateForm}
-                    label="Cancel"
-                    variant="ghost"
-                    size="sm"
-                    type="button"
-                  />
-                  <PrimaryPill
-                    type="submit"
-                    onClick={() => {}}
-                    disabled={createMutation.isPending || !createImage}
-                    busy={createMutation.isPending}
-                    label="Create"
-                    busyLabel="Creating…"
-                    size="sm"
-                  />
-                </div>
-              </form>
-            )}
+                    <PrimaryButton
+                      type="submit"
+                      disabled={createMutation.isPending || !createImage}
+                      busy={createMutation.isPending}
+                      busyLabel="Creating…"
+                    >
+                      Create
+                    </PrimaryButton>
+                  </div>
+                </form>
+              )}
 
-            {createSourceTab === 'video' && (
-              <form onSubmit={handleCreateFromYoutube}>
-                <label htmlFor="styles-yt-url" className="sm-field-label">
-                  Video URL
-                </label>
-                <input
-                  id="styles-yt-url"
-                  type="url"
-                  className="sm-input"
-                  placeholder="https://www.youtube.com/watch?v=…"
-                  value={createYoutubeUrl}
-                  onChange={(e) => setCreateYoutubeUrl(e.target.value.slice(0, 280))}
-                  autoComplete="off"
-                />
-                <div className="sm-yt-preview-wrap">
+              {createSourceTab === 'video' && (
+                <form onSubmit={handleCreateFromYoutube} className="sm-form">
+                  <input
+                    type="url"
+                    className="sm-input sm-url-input"
+                    placeholder="Paste a YouTube link"
+                    value={createYoutubeUrl}
+                    onChange={(e) => setCreateYoutubeUrl(e.target.value.slice(0, 280))}
+                    autoComplete="off"
+                  />
                   <div className="sm-yt-preview">
                     {createYoutubeFetching && (
                       <span className="sm-yt-preview-state">
@@ -411,7 +630,7 @@ export function StylesModal({ onClose }) {
                       </span>
                     )}
                     {!createYoutubeFetching && createYoutubePreview && (
-                      <img src={createYoutubePreview} alt="" />
+                      <img src={createYoutubePreview} alt="Preview" />
                     )}
                     {!createYoutubeFetching &&
                       !createYoutubePreview &&
@@ -421,141 +640,125 @@ export function StylesModal({ onClose }) {
                     {!createYoutubeFetching &&
                       !createYoutubePreview &&
                       !extractYoutubeUrl(createYoutubeUrl) && (
-                        <span className="sm-yt-preview-state">Preview appears here</span>
+                        <span className="sm-yt-preview-state">Preview will appear here</span>
                       )}
                   </div>
-                </div>
-                <input
-                  type="text"
-                  className="sm-input"
-                  placeholder="Name this style"
-                  value={createName}
-                  onChange={(e) => setCreateName(e.target.value)}
-                  maxLength={80}
-                  required
-                />
-                {createError && <p className="sm-error-text">{createError}</p>}
-                <div className="sm-form-actions">
-                  <PrimaryPill
-                    onClick={clearCreateForm}
-                    label="Cancel"
-                    variant="ghost"
-                    size="sm"
-                    type="button"
-                  />
-                  <PrimaryPill
-                    type="submit"
-                    onClick={() => {}}
-                    disabled={
-                      createFromUrlMutation.isPending ||
-                      !createYoutubePreview ||
-                      !extractYoutubeUrl(createYoutubeUrl)
-                    }
-                    busy={createFromUrlMutation.isPending}
-                    label="Create"
-                    busyLabel="Creating…"
-                    size="sm"
-                  />
-                </div>
-              </form>
-            )}
-          </div>
-        )}
+                  <div className="sm-name-field">
+                    <input
+                      type="text"
+                      className="sm-input sm-name-input"
+                      placeholder="Name this style"
+                      value={createName}
+                      onChange={(e) => setCreateName(e.target.value.slice(0, STYLE_NAME_MAX))}
+                      maxLength={STYLE_NAME_MAX}
+                      required
+                    />
+                    <span
+                      className={`sm-name-counter${createName.length >= STYLE_NAME_MAX - 5 ? ' sm-name-counter--warn' : ''}`}
+                    >
+                      {createName.length} / {STYLE_NAME_MAX}
+                    </span>
+                  </div>
+                  {createError && <p className="sm-error-text">{createError}</p>}
+                  <div className="sm-form-actions">
+                    <button
+                      type="button"
+                      className="sm-btn-ghost"
+                      onClick={clearCreateForm}
+                      disabled={createFromUrlMutation.isPending}
+                    >
+                      Cancel
+                    </button>
+                    <PrimaryButton
+                      type="submit"
+                      disabled={
+                        createFromUrlMutation.isPending ||
+                        !createYoutubePreview ||
+                        !extractYoutubeUrl(createYoutubeUrl)
+                      }
+                      busy={createFromUrlMutation.isPending}
+                      busyLabel="Creating…"
+                    >
+                      Create
+                    </PrimaryButton>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
 
-        {/* Loading skeleton */}
-        {isPending && (
-          <SkeletonGroup label="Loading styles">
+          {/* Loading skeleton */}
+          {isPending && (
+            <SkeletonGroup label="Loading styles">
+              <div className="sm-grid">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <SkeletonCard key={i} ratio="16 / 9" lines={1} />
+                ))}
+              </div>
+            </SkeletonGroup>
+          )}
+
+          {/* Empty state — same recipe as the Characters dialog. */}
+          {showEmpty && (
+            <div className="sm-empty">
+              <div className="sm-empty-icon" aria-hidden>
+                <IconStyle size={28} />
+              </div>
+              <h3 className="sm-empty-title">No styles yet</h3>
+              <p className="sm-empty-body">
+                Upload a thumbnail or paste a YouTube link to save the look.
+              </p>
+            </div>
+          )}
+
+          {/* Style grid — hidden while the create form is open so the
+           * dialog focuses on a single task at a time. Renders the
+           * lazy `visibleItems` slice and grows on scroll via the
+           * `.sm-scroll-sentinel` IntersectionObserver below. */}
+          {showGrid && (
             <div className="sm-grid">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <SkeletonCard key={i} ratio="16 / 9" lines={1} />
-              ))}
-            </div>
-          </SkeletonGroup>
-        )}
+              {visibleItems.map((s, idx) => {
+                const isSelected = s.id === selectedStyleId
+                const isStock = s.visibility === 'admin' || s.visibility === 'stock'
+                const isEditing = editingId === s.id && s.visibility === 'personal'
+                return (
+                  <div
+                    key={s.id}
+                    className={`sm-card${isSelected ? ' sm-card--selected' : ''}${isStock ? ' sm-card--stock' : ''}${isEditing ? ' sm-card--editing' : ''}`}
+                    style={{ animationDelay: `${Math.min(idx * 28, 280)}ms` }}
+                  >
+                    {/* Image stays visible during rename so the card
+                     * silhouette doesn't shift. Pick / actions hide
+                     * while editing so taps don't fight the form. */}
+                    <div className="sm-card-image">
+                      <img src={s.image_url} alt={s.name} loading="lazy" />
+                      {!isEditing && isSelected ? (
+                        <span className="sm-card-badge" aria-hidden>
+                          Active
+                        </span>
+                      ) : !isEditing && isStock ? (
+                        <span className="sm-card-badge sm-card-badge--stock" aria-hidden>
+                          Stock
+                        </span>
+                      ) : null}
 
-        {/* Empty state */}
-        {showEmpty && (
-          <div className="sm-empty">
-            <div className="sm-empty-icon" aria-hidden>
-              <IconPalette />
-            </div>
-            <h3 className="sm-empty-title">
-              {styleTab === 'personal' ? 'No styles yet' : 'No stock styles available'}
-            </h3>
-            <p className="sm-empty-body">
-              {styleTab === 'personal'
-                ? 'Upload a thumbnail or paste a YouTube link.'
-                : 'Stock styles will appear here soon.'}
-            </p>
-          </div>
-        )}
-
-        {/* Style grid — fixed-size 16:9 cards */}
-        {!isPending && filteredItems.length > 0 && (
-          <div className="sm-grid">
-            {filteredItems.map((s, idx) => {
-              const isSelected = s.id === selectedStyleId
-              const isEditing = editingId === s.id && s.visibility === 'personal'
-              return (
-                <div
-                  key={s.id}
-                  className={`sm-card sm-card--fixed ${isSelected ? 'sm-card--selected' : ''}`}
-                  style={{ animationDelay: `${Math.min(idx * 28, 280)}ms` }}
-                >
-                  {isEditing ? (
-                    <form onSubmit={handleUpdate} className="sm-edit-form">
-                      <input
-                        type="text"
-                        className="sm-input sm-edit-input"
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        maxLength={80}
-                        required
-                        autoFocus
-                      />
-                      <div className="sm-edit-actions">
-                        <button
-                          type="submit"
-                          className="sm-press sm-btn-save"
-                          disabled={updateMutation.isPending}
-                        >
-                          Save
-                        </button>
+                      {!isEditing && (
                         <button
                           type="button"
-                          className="sm-press sm-btn-ghost"
-                          onClick={() => setEditingId(null)}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        className="sm-card-pick"
-                        onClick={() => {
-                          setSelectedStyle(s)
-                          onClose?.()
-                        }}
-                        aria-label={`Use ${s.name}`}
-                      >
-                        <div className="sm-card-image">
-                          <img src={s.image_url} alt={s.name} loading="lazy" />
-                          {isSelected && (
-                            <span className="sm-card-badge" aria-hidden>
-                              Active
-                            </span>
-                          )}
-                        </div>
-                        <h4 className="sm-card-name">{s.name}</h4>
-                      </button>
-                      {s.visibility === 'personal' && (
+                          className="sm-card-pick"
+                          onClick={() => {
+                            setSelectedStyle(s)
+                            onClose?.()
+                          }}
+                          aria-label={`Use ${s.name}`}
+                        />
+                      )}
+
+                      {!isEditing && s.visibility === 'personal' && (
                         <div className="sm-card-actions">
                           <button
                             type="button"
-                            className="sm-press sm-card-action"
+                            className="sm-card-action"
                             onClick={() => {
                               setEditingId(s.id)
                               setEditName(s.name)
@@ -567,8 +770,8 @@ export function StylesModal({ onClose }) {
                           </button>
                           <button
                             type="button"
-                            className="sm-press sm-card-action sm-card-action--danger"
-                            onClick={() => handleDelete(s)}
+                            className="sm-card-action sm-card-action--danger"
+                            onClick={() => requestDelete(s)}
                             aria-label={`Delete ${s.name}`}
                             title="Delete"
                           >
@@ -576,14 +779,81 @@ export function StylesModal({ onClose }) {
                           </button>
                         </div>
                       )}
-                    </>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
+                    </div>
+
+                    {isEditing ? (
+                      <form onSubmit={handleUpdate} className="sm-card-rename">
+                        <input
+                          type="text"
+                          className="sm-rename-input"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value.slice(0, STYLE_NAME_MAX))}
+                          maxLength={STYLE_NAME_MAX}
+                          required
+                          autoFocus
+                          aria-label="New name"
+                        />
+                        <button
+                          type="button"
+                          className="sm-rename-btn sm-rename-btn--cancel"
+                          onClick={() => setEditingId(null)}
+                          disabled={updateMutation.isPending}
+                          aria-label="Cancel rename"
+                          title="Cancel"
+                        >
+                          <IconX size={11} />
+                        </button>
+                        <button
+                          type="submit"
+                          className="sm-rename-btn sm-rename-btn--save"
+                          disabled={updateMutation.isPending || !editName.trim()}
+                          aria-label="Save name"
+                          title="Save"
+                        >
+                          <IconCheck />
+                        </button>
+                      </form>
+                    ) : (
+                      <h4 className="sm-card-name">{s.name}</h4>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Sentinel for IntersectionObserver — when this enters the
+           * viewport of `.sm-scroll`, we grow `visibleCount` by one
+           * page. */}
+          {showGrid && visibleCount < filteredItems.length && (
+            <div ref={sentinelRef} className="sm-scroll-sentinel" aria-hidden />
+          )}
+        </div>
       </div>
+
+      <ConfirmDialog
+        open={!!styleToDelete}
+        title={`Delete "${styleToDelete?.name || ''}"?`}
+        description="This permanently removes the style. Thumbnails generated before will keep their original look."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setStyleToDelete(null)}
+      />
+
+      {/* Bulk-remove confirm — wipes every personal style. Stock
+       * styles are admin-curated and stay regardless. */}
+      <ConfirmDialog
+        open={confirmDeleteAll}
+        title={`Delete all ${personalItems.length} of your style${personalItems.length === 1 ? '' : 's'}?`}
+        description="This permanently removes every style you've created. Stock styles stay. Cannot be undone."
+        confirmLabel="Delete all"
+        cancelLabel="Cancel"
+        danger
+        onConfirm={handleDeleteAll}
+        onCancel={() => setConfirmDeleteAll(false)}
+      />
     </Dialog>
   )
 }

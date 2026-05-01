@@ -1,162 +1,576 @@
-/* Outer chrome (overlay, panel framing, entry animation) lives in
- * Dialog.css. This file only styles the styles-specific content. */
+/* ═════════════════════════════════════════════════════════════════════
+ * StylesModal — clean rewrite.
+ *
+ * Same visual language as the PersonasModal + the thumbnail screen:
+ *   - Header with tapered hairline divider
+ *   - Pill mode tabs that mirror `.thumb-gen-pill-tab` (resting glass,
+ *     active = accent gradient)
+ *   - Primary CTA mirrors `.sidebar-new-chat-pill` (gradient, shine,
+ *     scale on press)
+ *   - Cards have inner padding + rounded image container, no halo
+ *   - Hover-revealed rename/delete actions on the image
+ * ═══════════════════════════════════════════════════════════════════ */
 
+/* Body is a flex column that fills the dialog panel. The header sits
+ * at the top with its own padding; everything else lives in
+ * `.sm-scroll` which is the actual scroll surface. Top + bottom
+ * shadow gradients overlay this region for a smooth scroll fade. */
 .sm-body {
-  padding: 22px 22px 20px;
-  color: var(--text-body);
-  font-family: inherit;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  color: #f5f5f7;
+  font-family:
+    'Poppins',
+    system-ui,
+    -apple-system,
+    sans-serif;
   box-sizing: border-box;
 }
 
-/* ── Header — plain title row with a close-X; matches PersonasModal
- *           and the Optimize-screen SelectPill language. ── */
+/* Top shadow — fades content into the header so rows that scrolled
+ * past don't slam into the title bar. Sits just below the header
+ * region. */
+.sm-body::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--sm-header-h, 70px);
+  height: 18px;
+  pointer-events: none;
+  z-index: 3;
+  background: linear-gradient(
+    180deg,
+    rgba(22, 22, 28, 0.92) 0%,
+    rgba(22, 22, 28, 0.45) 55%,
+    rgba(22, 22, 28, 0) 100%
+  );
+}
+
+/* Bottom shadow — symmetrical fade so the last row of cards doesn't
+ * crash into the dialog floor. */
+.sm-body::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 22px;
+  pointer-events: none;
+  z-index: 3;
+  background: linear-gradient(
+    0deg,
+    rgba(22, 22, 28, 0.95) 0%,
+    rgba(22, 22, 28, 0.5) 55%,
+    rgba(22, 22, 28, 0) 100%
+  );
+}
+
+.sm-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 22px 22px;
+  /* Stable gutter keeps the scrollbar inside the dialog frame; without
+   * this the bar appears flush against the panel's right border. */
+  scrollbar-gutter: stable;
+}
+.sm-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.sm-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sm-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+}
+.sm-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.sm-scroll-sentinel {
+  width: 100%;
+  height: 1px;
+  pointer-events: none;
+}
+
+.sm-body input,
+.sm-body button,
+.sm-body textarea {
+  font-family:
+    'Poppins',
+    system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+.sm-body *::selection {
+  background: #5b21b6;
+  color: #ffffff;
+}
+
+/* ── Header ───────────────────────────────────────────────────────── */
 .sm-header {
   position: relative;
   display: grid;
   grid-template-columns: 1fr 32px;
   align-items: center;
   gap: 12px;
-  margin-bottom: 18px;
-  padding-bottom: 14px;
-  border-bottom: 0;
+  flex-shrink: 0;
+  padding: 22px 22px 14px;
+  /* z above the body's top-shadow so the title row never sits
+   * inside the fade region. */
+  z-index: 4;
 }
-/* Hairline divider — tapers to transparent at both ends so it doesn't
- * hit the modal edges. Mirrors the personas modal so both feel matched. */
+/* Sharp tapered hairline — same recipe as `.sidebar-divider`. */
 .sm-header::after {
   content: '';
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 22px;
+  right: 22px;
   bottom: 0;
   height: 1px;
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.14) 18%,
-    rgba(255, 255, 255, 0.14) 82%,
+    rgba(255, 255, 255, 0.14) 15%,
+    rgba(255, 255, 255, 0.14) 85%,
     transparent 100%
   );
   pointer-events: none;
 }
+
 .sm-header-titles {
   min-width: 0;
 }
+
 .sm-title {
   margin: 0 0 2px;
-  font-size: var(--text-lg);
-  font-weight: var(--font-weight-semibold);
+  font-size: 17px;
+  font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--text-primary);
+  color: #ffffff;
 }
+
 .sm-subtitle {
   margin: 0;
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  line-height: 1.45;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .sm-icon-btn {
   width: 32px;
   height: 32px;
-  padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-muted);
-  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  border-radius: 999px;
   cursor: pointer;
   justify-self: end;
-  font-family: inherit;
   transition:
-    color 0.18s var(--ease-standard),
-    background 0.18s var(--ease-standard),
-    border-color 0.18s var(--ease-standard);
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.12s ease,
+    filter 0.12s ease;
 }
 .sm-icon-btn:hover {
-  color: var(--text-body);
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
 }
-.sm-icon-btn:focus-visible {
-  outline: none;
-  box-shadow: var(--accent-focus-ring);
+.sm-icon-btn:active {
+  transform: scale(0.9);
+  filter: brightness(0.85);
+  transition:
+    transform 0.06s ease,
+    filter 0.06s ease;
 }
 
-.sm-tabs-row {
+/* ── Pill mode tabs — recipe of `.thumb-gen-pill-tab` ─────────────── */
+
+.sm-tab-row {
   display: flex;
   justify-content: center;
-  margin-bottom: var(--space-lg);
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 
+.sm-tab-row--inner {
+  margin-bottom: 14px;
+}
+
+.sm-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 100%), #23232d;
+  color: rgba(229, 231, 235, 0.78);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+  transition:
+    background 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sm-tab svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.sm-tab:hover:not(.sm-tab--active) {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 100%), #2c2c38;
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.sm-tab--active,
+.sm-tab--active:hover {
+  background: var(
+    --accent-gradient,
+    linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)
+  );
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.sm-tab:not(.sm-tab--active):active {
+  transform: scale(0.97);
+  transition: transform 0.1s ease;
+}
+
+.sm-tab:focus-visible {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.32);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 3px rgba(255, 255, 255, 0.08);
+}
+
+/* ── Actions row ──────────────────────────────────────────────────── */
+
+/* Actions row — Create on the LEFT, Remove all on the RIGHT, on the
+ * same line. Mirrors the Characters dialog so both manager modals
+ * feel identical. */
 .sm-actions-row {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+/* Remove-all button — neutral resting, red-tinted on hover. Same
+ * recipe as the Characters dialog's `.pm-manage-btn`. */
+.sm-manage-btn {
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  margin-bottom: var(--space-lg);
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.12s ease,
+    filter 0.12s ease;
+}
+.sm-manage-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.32);
+  color: #fecaca;
+}
+.sm-manage-btn:active:not(:disabled) {
+  transform: scale(0.94);
+  filter: brightness(0.88);
+  transition:
+    transform 0.06s ease,
+    filter 0.06s ease;
+}
+.sm-manage-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
-/* ── Create card ── */
+/* ── Primary pill — sidebar New-chat recipe ──────────────────────── */
+
+.sm-pp {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 36px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: #ffffff;
+  cursor: pointer;
+  white-space: nowrap;
+  outline: none;
+  overflow: hidden;
+  background: var(
+    --accent-gradient,
+    linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    filter 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.15s ease;
+}
+
+.sm-pp > * {
+  position: relative;
+  z-index: 1;
+}
+
+.sm-pp::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 100%
+  );
+  transform: translateX(-110%);
+  transition: transform 0.55s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sm-pp:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.sm-pp:hover:not(:disabled)::before {
+  transform: translateX(110%);
+}
+
+.sm-pp:active:not(:disabled) {
+  transform: scale(0.95);
+  filter: brightness(0.92);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  transition:
+    transform 0.06s ease,
+    filter 0.06s ease,
+    box-shadow 0.06s ease;
+}
+
+.sm-pp:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    var(--accent-focus-ring, 0 0 0 3px rgba(167, 139, 250, 0.32));
+}
+
+.sm-pp:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.sm-pp:disabled::before {
+  display: none;
+}
+
+.sm-pp-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.sm-pp-icon svg {
+  display: block;
+}
+
+.sm-pp-label {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ── Ghost button (Cancel, Save) ──────────────────────────────────── */
+.sm-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.12s ease,
+    filter 0.12s ease;
+}
+.sm-btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+.sm-btn-ghost:active:not(:disabled) {
+  transform: scale(0.95);
+  filter: brightness(0.9);
+  transition:
+    transform 0.06s ease,
+    filter 0.06s ease;
+}
+.sm-btn-ghost:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Create form ──────────────────────────────────────────────────── */
 .sm-create-card {
-  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
   padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
-  animation: sm-create-card-in 0.34s cubic-bezier(0.32, 0.72, 0, 1) both;
-  transform-origin: top center;
+  background: #18181c;
+  margin-bottom: 16px;
+  animation: sm-fade-in 220ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
-@keyframes sm-create-card-in {
+@keyframes sm-fade-in {
   from {
     opacity: 0;
-    transform: translateY(-6px) scale(0.985);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
-.sm-create-title {
-  margin: 0 0 var(--space-md);
-  font-size: 11px;
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  text-align: center;
-}
-.sm-create-source-tabs {
-  display: flex;
-  justify-content: center;
-  margin-bottom: var(--space-md);
-}
 
-.sm-form-hint {
-  margin: 0 0 var(--space-md);
-  font-size: var(--text-xs);
-  line-height: 1.5;
-  color: var(--text-muted);
-  text-align: center;
+.sm-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .sm-upload-wrap {
-  margin-bottom: var(--space-md);
+  position: relative;
 }
+
 .sm-upload-input {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
+
+.sm-upload-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.12);
+  background: #0a0a0c;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  transition:
+    background 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.12s ease;
+}
+.sm-upload-empty:hover {
+  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.8);
+}
+.sm-upload-empty:active {
+  transform: scale(0.99);
+  transition: transform 0.06s ease;
+}
+.sm-upload-empty-icon {
+  display: inline-flex;
+}
+.sm-upload-empty-hint {
+  font-size: 13px;
+}
+
 .sm-upload-preview {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: #0c0c10;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  background: #0a0a0c;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 .sm-upload-preview img {
   width: 100%;
@@ -166,88 +580,48 @@
 }
 .sm-preview-remove {
   position: absolute;
-  bottom: 10px;
-  right: 10px;
-  padding: 6px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: var(--radius-pill);
-  background: rgba(0, 0, 0, 0.7);
-  color: #fff;
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  font-family: inherit;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  transition: background var(--dur-fast) var(--ease-standard);
-}
-.sm-preview-remove:hover {
-  background: rgba(0, 0, 0, 0.85);
-}
-.sm-upload-empty {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  display: flex;
-  flex-direction: column;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  border: 1.5px dashed rgba(255, 255, 255, 0.16);
-  border-radius: 16px;
-  background: radial-gradient(70% 60% at 50% 40%, rgba(255, 255, 255, 0.03) 0%, transparent 60%);
-  color: rgba(255, 255, 255, 0.55);
-  font-size: var(--text-sm);
-  font-family: inherit;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #ffffff;
   cursor: pointer;
   transition:
-    border-color 0.22s ease,
-    background 0.22s ease,
-    color 0.22s ease;
+    background 0.18s ease,
+    transform 0.12s ease;
 }
-.sm-upload-empty:hover {
-  border-color: rgba(167, 139, 250, 0.5);
-  background: rgba(167, 139, 250, 0.06);
-  color: rgba(255, 255, 255, 0.85);
+.sm-preview-remove:hover {
+  background: rgba(239, 68, 68, 0.78);
 }
-
-.sm-field-label {
-  display: block;
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 6px;
+.sm-preview-remove:active {
+  transform: scale(0.88);
 }
 
-.sm-yt-preview-wrap {
-  display: flex;
-  justify-content: center;
-  margin-bottom: var(--space-md);
-}
+/* YouTube preview block */
 .sm-yt-preview {
-  width: 100%;
-  max-width: 320px;
-  aspect-ratio: 16 / 9;
-  border-radius: 16px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.32);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  text-align: center;
-  padding: 8px;
-  box-sizing: border-box;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  background: #0a0a0c;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
 }
 .sm-yt-preview img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
 }
 .sm-yt-preview-state {
   display: inline-flex;
@@ -255,52 +629,100 @@
   gap: 6px;
 }
 
+/* ── Inputs ───────────────────────────────────────────────────────── */
 .sm-input {
   display: block;
   width: 100%;
+  height: 40px;
+  padding: 0 18px;
+  margin: 0;
   box-sizing: border-box;
-  margin-bottom: var(--space-sm);
-  padding: 11px 18px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-pill);
-  background: rgba(0, 0, 0, 0.32);
-  color: var(--text-body);
-  font-size: var(--text-sm);
+  border-radius: 999px;
+  background: #0a0a0c;
+  color: #ffffff;
   font-family: inherit;
+  font-size: 13px;
   text-align: center;
   outline: none;
   transition:
-    border-color 0.22s var(--ease-standard),
-    box-shadow 0.22s var(--ease-standard),
-    background 0.22s var(--ease-standard);
+    border-color 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    background 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.sm-input::placeholder {
+  color: rgba(255, 255, 255, 0.36);
+  text-align: center;
 }
 .sm-input:hover {
-  border-color: var(--border-input-hover);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 .sm-input:focus {
-  border-color: var(--border-input-focus);
-  box-shadow: var(--accent-focus-ring);
-  background: rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.32);
+  background: #101015;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.05);
+}
+
+.sm-name-input {
+  height: 42px;
+}
+
+.sm-url-input {
+  text-align: left;
+  padding: 0 16px;
+}
+
+.sm-edit-input {
+  height: 32px;
+  font-size: 12px;
+  padding: 0 12px;
+  border-radius: 999px;
+  text-align: left;
+}
+
+.sm-name-field {
+  position: relative;
+  width: 100%;
+}
+
+.sm-name-counter {
+  display: block;
+  margin: 6px 14px 0 auto;
+  width: max-content;
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.42);
+  transition: color 0.18s ease;
+  pointer-events: none;
+}
+.sm-name-counter--warn {
+  color: #fca5a5;
 }
 
 .sm-error-text {
-  margin: var(--space-sm) 0 0;
-  font-size: var(--text-xs);
-  color: #fca5a5;
-  text-align: center;
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  border-radius: 10px;
 }
 
+/* Form-actions row — divider above + Cancel/Create on the right.
+ * Mirrors the Characters dialog's `.pm-form-actions` exactly. */
 .sm-form-actions {
   position: relative;
   display: flex;
-  gap: var(--space-md);
-  margin-top: var(--space-md);
-  padding-top: var(--space-md);
-  justify-content: center;
-  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin: 4px -16px 0;
+  padding: 14px 16px 0;
 }
-/* Tapered hairline above the action row — same sharp-tapered look as
- * the header so all dividers in the dialog feel matched. */
+
 .sm-form-actions::before {
   content: '';
   position: absolute;
@@ -311,327 +733,333 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.14) 18%,
-    rgba(255, 255, 255, 0.14) 82%,
+    rgba(255, 255, 255, 0.12) 15%,
+    rgba(255, 255, 255, 0.12) 85%,
     transparent 100%
   );
   pointer-events: none;
 }
 
-/* ── Empty state ── */
+/* ── Empty state ──────────────────────────────────────────────────── */
 .sm-empty {
-  padding: 36px 24px 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-align: center;
+  justify-content: center;
   gap: 8px;
-  border-radius: 14px;
-  border: 1px dashed rgba(255, 255, 255, 0.1);
-  background: radial-gradient(60% 70% at 50% 0%, rgba(167, 139, 250, 0.08) 0%, transparent 65%);
+  padding: 36px 20px 24px;
+  text-align: center;
 }
+
 .sm-empty-icon {
-  width: 64px;
-  height: 64px;
-  margin-bottom: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  background: rgba(167, 139, 250, 0.12);
-  border: 1px solid rgba(167, 139, 250, 0.22);
-  color: #c4b5fd;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: #18181c;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.42);
+  margin-bottom: 4px;
 }
+
 .sm-empty-title {
   margin: 0;
-  font-size: var(--text-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-  letter-spacing: -0.01em;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
 }
+
 .sm-empty-body {
   margin: 0;
-  max-width: 420px;
-  font-size: var(--text-sm);
-  line-height: 1.4;
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
 }
 
-/* ── Grid + fixed-size landscape card ── */
+/* ── Style grid ───────────────────────────────────────────────────── */
 .sm-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--space-lg);
+  /* Three cards per row at the dialog's standard width. Steps down
+   * to two cards on tablet (≤ 640px) and a single column on phone
+   * (≤ 420px) so each tile stays comfortably tappable. */
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 4px;
 }
 
-.sm-card--fixed {
+@media (max-width: 640px) {
+  .sm-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 420px) {
+  .sm-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sm-card {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  background: #18181c;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   overflow: hidden;
+  animation: sm-fade-in 240ms cubic-bezier(0.4, 0, 0.2, 1) both;
   transition:
-    border-color 0.18s var(--ease-standard),
-    background 0.18s var(--ease-standard),
-    transform 0.18s var(--ease-standard);
-}
-.sm-card--fixed:hover {
-  border-color: rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.05);
-  transform: translateY(-1px);
-}
-.sm-card--fixed.sm-card--selected {
-  border-color: rgba(167, 139, 250, 0.55);
-  background: rgba(167, 139, 250, 0.08);
+    border-color 0.22s ease,
+    background 0.22s ease,
+    transform 0.12s ease;
 }
 
-.sm-card-pick {
-  display: block;
-  width: 100%;
-  padding: 0;
-  border: none;
-  background: none;
-  text-align: left;
-  cursor: pointer;
-  color: inherit;
-  font-family: inherit;
+.sm-card:hover {
+  border-color: rgba(255, 255, 255, 0.14);
 }
+
+.sm-card--selected {
+  border-color: rgba(167, 139, 250, 0.55);
+  background: #1a1922;
+}
+
 .sm-card-image {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
+  background: #0a0a0c;
+  border-radius: 10px;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.3);
-  border-top-left-radius: 13px;
-  border-top-right-radius: 13px;
 }
+
 .sm-card-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform var(--dur-standard) var(--ease-standard);
 }
-.sm-card--fixed:hover .sm-card-image img {
-  transform: scale(1.04);
+
+.sm-card-pick {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  z-index: 1;
 }
+.sm-card-pick:focus-visible {
+  outline: 2px solid rgba(167, 139, 250, 0.55);
+  outline-offset: -3px;
+}
+
 .sm-card-badge {
   position: absolute;
-  bottom: 10px;
-  left: 10px;
-  padding: 3px 10px;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  padding: 3px 9px;
+  border-radius: 999px;
   font-size: 10px;
-  font-weight: var(--font-weight-semibold);
+  font-weight: 600;
+  color: #ffffff;
+  background: var(
+    --accent-gradient,
+    linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  letter-spacing: 0.02em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #fff;
-  background: var(--accent-gradient);
-  border-radius: var(--radius-pill);
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.45);
 }
-.sm-card-name {
-  margin: 0;
-  padding: 12px 14px 10px;
-  font-size: var(--text-base);
-  font-weight: var(--font-weight-medium);
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+
+/* Stock badge — neutral pill on stock (admin-curated) styles, so the
+ * user can tell at a glance they're picking from the shared library
+ * vs their own personal styles. Solid dark surface with white-grey
+ * border to match the rest of the dialog's neutral chrome. */
+.sm-card-badge--stock {
+  background: rgba(0, 0, 0, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .sm-card-actions {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  z-index: 2;
   display: flex;
-  gap: 8px;
-  padding: 0 12px 12px;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
 }
+.sm-card:hover .sm-card-actions,
+.sm-card-actions:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Touch / small-screen devices have no hover, so revealing the rename
+ * + delete actions on hover hides them entirely. Always show them on
+ * mobile + touch — same visual recipe, just visible by default. */
+@media (hover: none), (max-width: 640px) {
+  .sm-card-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 .sm-card-action {
-  flex: 1;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 10px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-medium);
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.62);
+  color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
-  font-family: inherit;
   transition:
-    color 0.22s var(--ease-standard),
-    background 0.22s var(--ease-standard),
-    border-color 0.22s var(--ease-standard);
+    background 0.18s ease,
+    color 0.18s ease,
+    transform 0.12s ease;
 }
 .sm-card-action:hover {
-  color: var(--text-body);
-  background: rgba(255, 255, 255, 0.07);
-  border-color: var(--border-card-hover);
-}
-.sm-card-action:focus-visible {
-  outline: none;
-  box-shadow: var(--accent-focus-ring);
-}
-.sm-card-action--danger {
-  color: #f87171;
-  border-color: rgba(248, 113, 113, 0.22);
-  background: rgba(248, 113, 113, 0.04);
+  background: rgba(0, 0, 0, 0.8);
+  color: #ffffff;
 }
 .sm-card-action--danger:hover {
-  color: #fca5a5;
-  background: rgba(248, 113, 113, 0.12);
-  border-color: rgba(248, 113, 113, 0.42);
+  background: rgba(239, 68, 68, 0.78);
+  color: #ffffff;
+}
+.sm-card-action:active {
+  transform: scale(0.88);
+  transition: transform 0.06s ease;
 }
 
-.sm-edit-form {
-  padding: var(--space-md);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
+.sm-card-name {
+  margin: 0;
+  padding: 9px 6px 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #f5f5f7;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.sm-edit-input {
-  margin-bottom: 0;
-  font-size: var(--text-sm);
+
+/* Inline rename — replaces only the name strip while the image
+ * stays visible above. Three columns: input | cancel | save. The
+ * input shrinks to fit any card width thanks to `min-width: 0`. */
+.sm-card-rename {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 6px 4px 4px;
 }
-.sm-edit-actions {
-  display: flex;
-  gap: 8px;
-}
-.sm-btn-save {
-  flex: 1;
-  padding: 8px 14px;
-  border-radius: var(--radius-pill);
-  border: none;
-  background: var(--accent-gradient);
-  color: #fff;
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
+
+.sm-rename-input {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 10px;
+  margin: 0;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: #0a0a0c;
+  color: #ffffff;
   font-family: inherit;
-  transition: filter var(--dur-fast) var(--ease-standard);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: left;
+  outline: none;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
 }
-.sm-btn-save:hover:not(:disabled) {
-  filter: brightness(1.08);
+.sm-rename-input:focus {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: #101015;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.05);
 }
-.sm-btn-save:disabled {
-  opacity: 0.55;
+
+.sm-rename-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    filter 0.18s ease,
+    transform 0.12s ease;
+}
+.sm-rename-btn:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
-.sm-btn-ghost {
-  flex: 1;
-  padding: 8px 14px;
-  border: 1px solid var(--border-card);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  font-family: inherit;
-  transition:
-    color var(--dur-fast) var(--ease-standard),
-    background var(--dur-fast) var(--ease-standard);
-}
-.sm-btn-ghost:hover {
-  color: var(--text-body);
-  background: rgba(255, 255, 255, 0.05);
-}
 
-/* ── Animations + press feedback ── */
-@keyframes sm-card-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.sm-rename-btn--save {
+  background: var(--accent-gradient);
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
-.sm-card {
-  animation: sm-card-in 0.32s cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-.sm-press {
-  transition:
-    transform 0.22s cubic-bezier(0.32, 0.72, 0, 1),
-    filter 0.18s ease,
-    box-shadow 0.2s ease,
-    background 0.18s ease,
-    border-color 0.18s ease;
-}
-.sm-press:hover {
+.sm-rename-btn--save:hover:not(:disabled) {
   filter: brightness(1.08);
-  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
-.sm-press:active {
-  transform: scale(0.94) translateY(0);
-  transition: transform 0.08s cubic-bezier(0.33, 1, 0.68, 1);
-}
-
-/* Upload dropzone — elastic press + subtle lift glow on hover. */
-.sm-upload-empty {
+.sm-rename-btn--save:active:not(:disabled) {
+  transform: scale(0.92);
+  filter: brightness(0.92);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.22);
   transition:
-    transform 0.22s cubic-bezier(0.32, 0.72, 0, 1),
-    border-color 0.22s ease,
-    background 0.22s ease,
-    color 0.22s ease,
-    box-shadow 0.22s ease;
-}
-.sm-upload-empty:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(167, 139, 250, 0.18);
-}
-.sm-upload-empty:active {
-  transform: scale(0.99);
+    transform 0.06s ease,
+    filter 0.06s ease;
 }
 
-/* Upload preview (after file drop) — scale-in so the drop feels tactile. */
-.sm-upload-preview {
-  animation: sm-upload-preview-in 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
+.sm-rename-btn--cancel {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
 }
-@keyframes sm-upload-preview-in {
-  from {
-    opacity: 0;
-    transform: scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+.sm-rename-btn--cancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+.sm-rename-btn--cancel:active:not(:disabled) {
+  transform: scale(0.92);
+  transition: transform 0.06s ease;
+}
+
+/* Editing card — slightly stronger border so the user can see
+ * which card is being renamed. */
+.sm-card--editing {
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sm-card,
-  .sm-press,
   .sm-create-card,
-  .sm-upload-empty,
-  .sm-upload-preview {
+  .sm-card {
     animation: none;
+  }
+  .sm-pp::before {
     transition: none;
-  }
-  .sm-press:hover,
-  .sm-upload-empty:hover {
-    transform: none;
-  }
-  .sm-card--fixed:hover {
-    transform: none;
-  }
-  .sm-card--fixed:hover .sm-card-image img {
-    transform: none;
-  }
-}
-
-@media (max-width: 640px) {
-  .sm-body {
-    padding: var(--space-lg) var(--space-md) var(--space-md);
-  }
-  .sm-grid {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: var(--space-md);
   }
 }

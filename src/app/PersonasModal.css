@@ -8,8 +8,17 @@
  * tinting on hover/drop.
  * ═══════════════════════════════════════════════════════════════════ */
 
+/* Body is a flex column that fills the dialog panel. The header
+ * sits at the top with its own padding; everything else lives in
+ * `.pm-scroll` which is the actual scroll surface. Top + bottom
+ * shadow gradients overlay this region for a smooth scroll fade. */
 .pm-body {
-  padding: 22px 22px 20px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 0;
   color: #f5f5f7;
   font-family:
     'Poppins',
@@ -17,6 +26,71 @@
     -apple-system,
     sans-serif;
   box-sizing: border-box;
+}
+
+/* Top shadow — fades content into the header. */
+.pm-body::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--pm-header-h, 70px);
+  height: 18px;
+  pointer-events: none;
+  z-index: 3;
+  background: linear-gradient(
+    180deg,
+    rgba(22, 22, 28, 0.92) 0%,
+    rgba(22, 22, 28, 0.45) 55%,
+    rgba(22, 22, 28, 0) 100%
+  );
+}
+
+/* Bottom shadow — symmetrical fade at the dialog floor. */
+.pm-body::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 22px;
+  pointer-events: none;
+  z-index: 3;
+  background: linear-gradient(
+    0deg,
+    rgba(22, 22, 28, 0.95) 0%,
+    rgba(22, 22, 28, 0.5) 55%,
+    rgba(22, 22, 28, 0) 100%
+  );
+}
+
+.pm-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 22px 22px;
+  /* Stable gutter so the scrollbar always lives inside the dialog
+   * frame, not flush against the panel's right border. */
+  scrollbar-gutter: stable;
+}
+.pm-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.pm-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.pm-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+}
+.pm-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.pm-scroll-sentinel {
+  width: 100%;
+  height: 1px;
+  pointer-events: none;
 }
 
 .pm-body input,
@@ -41,20 +115,27 @@
   grid-template-columns: 1fr 32px;
   align-items: center;
   gap: 12px;
-  margin-bottom: 16px;
-  padding-bottom: 14px;
+  flex-shrink: 0;
+  padding: 22px 22px 14px;
+  /* Sit above the body's top-shadow so the title row never gets
+   * faded by the gradient overlay. */
+  z-index: 4;
 }
-/* Hairline divider — solid line, edge-to-edge of the dialog (breaks
- * out of the body's 22px padding via negative margins) so the ends
- * meet the modal's wall cleanly instead of stopping mid-chrome. */
 .pm-header::after {
   content: '';
   position: absolute;
-  left: -22px;
-  right: -22px;
+  left: 22px;
+  right: 22px;
   bottom: 0;
   height: 1px;
-  background: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.14) 15%,
+    rgba(255, 255, 255, 0.14) 85%,
+    transparent 100%
+  );
+  border-radius: 0;
   pointer-events: none;
 }
 
@@ -123,14 +204,15 @@
 .pm-manage-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  height: 32px;
-  padding: 0 12px;
+  height: 36px;
+  padding: 0 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   background: transparent;
   color: rgba(255, 255, 255, 0.7);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition:
@@ -277,10 +359,36 @@
   align-items: center;
 }
 
-.pm-pp-label-with-cost {
+/* Credit chip on the Create button — same recipe as `.pp-cost` on the
+ * thumbnail send pill. ⚡ N sits on the LEFT, separated from the rest
+ * of the button by a vertical hairline. */
+.pm-pp-cost {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 3px;
+  line-height: 1;
+  padding-right: 0.5rem;
+  margin-right: 0.1rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.pm-pp-cost-zap {
+  display: inline-grid;
+  place-items: center;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+.pm-pp-cost-zap svg {
+  display: block;
+}
+
+.pm-pp-cost-num {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 /* ── Ghost button (Cancel, Save, Edit Save/Cancel) ────────────────── */
@@ -289,14 +397,14 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 32px;
-  padding: 0 14px;
+  height: 36px;
+  padding: 0 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   background: transparent;
   color: rgba(255, 255, 255, 0.85);
   font-family: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition:
@@ -506,19 +614,26 @@
 /* ── Name input ───────────────────────────────────────────────────── */
 .pm-name-field {
   position: relative;
+  width: 100%;
 }
 
+/* Input fills the form's content area (form width − 32px padding) and
+ * uses `box-sizing: border-box` so the 18px text padding stays inside
+ * the rounded pill instead of pushing the field wider. */
 .pm-input {
   display: block;
   width: 100%;
   height: 40px;
-  padding: 0 14px;
+  padding: 0 18px;
+  margin: 0;
+  box-sizing: border-box;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  border-radius: 999px;
   background: #0a0a0c;
   color: #ffffff;
   font-family: inherit;
   font-size: 13px;
+  text-align: center;
   outline: none;
   transition:
     border-color 0.22s cubic-bezier(0.4, 0, 0.2, 1),
@@ -528,6 +643,7 @@
 
 .pm-input::placeholder {
   color: rgba(255, 255, 255, 0.36);
+  text-align: center;
 }
 
 .pm-input:hover {
@@ -544,11 +660,32 @@
   height: 42px;
 }
 
+/* Char counter — sits under the name input, right-aligned. Goes
+ * accent-red when the user is within 5 chars of the cap so they get
+ * a clear "running out of room" cue before the input hard-stops. */
+.pm-name-counter {
+  display: block;
+  margin: 6px 14px 0 auto;
+  width: max-content;
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.42);
+  transition: color 0.18s ease;
+  pointer-events: none;
+}
+
+.pm-name-counter--warn {
+  color: #fca5a5;
+}
+
 .pm-edit-input {
   height: 32px;
   font-size: 12px;
   padding: 0 10px;
-  border-radius: 8px;
+  border-radius: 999px;
+  text-align: left;
 }
 
 .pm-error-text {
@@ -561,12 +698,36 @@
   border-radius: 10px;
 }
 
+/* Form-actions row sits below a sharp hairline that runs the full
+ * width of the create-form card. Negative margins cancel the form's
+ * 16px padding so the line meets the form's left and right walls
+ * with hard, sharp ends. */
 .pm-form-actions {
+  position: relative;
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 8px;
-  margin-top: 2px;
+  margin: 4px -16px 0;
+  padding: 14px 16px 0;
+}
+
+.pm-form-actions::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.12) 15%,
+    rgba(255, 255, 255, 0.12) 85%,
+    transparent 100%
+  );
+  border-radius: 0;
+  pointer-events: none;
 }
 
 /* ── Empty state ──────────────────────────────────────────────────── */
@@ -609,13 +770,42 @@
 /* ── Persona grid ─────────────────────────────────────────────────── */
 .pm-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  /* Four cards per row at the dialog's standard width — square
+   * portraits stay legible at this density. Steps down to three on
+   * tablet (≤ 760px), two on landscape phone (≤ 540px), and a
+   * single column on narrow phones (≤ 380px). */
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
   margin-top: 4px;
 }
 
+@media (max-width: 760px) {
+  .pm-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 540px) {
+  .pm-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 380px) {
+  .pm-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Persona card — padded container holding a rounded inner image and
+ * a name strip. The padding gives the image space to breathe inside
+ * the card frame instead of bleeding edge-to-edge. Selected state is
+ * a clean accent-purple border (no halo glow, no outer box-shadow). */
 .pm-card {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
   border-radius: 14px;
   background: #18181c;
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -628,37 +818,49 @@
 }
 
 .pm-card:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 .pm-card--selected {
-  border-color: rgba(167, 139, 250, 0.5);
-  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.32);
+  border-color: rgba(167, 139, 250, 0.55);
+  background: #1a1922;
 }
 
+/* Pick affordance — absolute overlay covering the image so clicking
+ * anywhere in the tile selects the persona. Sits BELOW fav and
+ * actions (lower z-index) so those interactive controls win the
+ * click. No visual styling — purely a hit-target. */
 .pm-card-pick {
-  display: flex;
-  flex-direction: column;
+  position: absolute;
+  inset: 0;
   width: 100%;
+  height: 100%;
   padding: 0;
-  background: transparent;
   border: none;
-  color: inherit;
+  background: transparent;
   cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  transition: transform 0.12s ease;
+  font: inherit;
+  z-index: 1;
 }
-.pm-card-pick:active {
-  transform: scale(0.985);
-  transition: transform 0.06s ease;
+.pm-card-pick:focus-visible {
+  outline: 2px solid rgba(167, 139, 250, 0.55);
+  outline-offset: -3px;
+}
+.pm-card:active .pm-card-pick {
+  /* Tap feedback — scales the parent card slightly when the overlay
+   * receives a press. */
+  transform: none;
 }
 
+/* Inner image container — rounded corners that sit inside the
+ * card's 6px padding so the image reads as a framed photo, not
+ * a full-bleed billboard. */
 .pm-card-image {
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
   background: #0a0a0c;
+  border-radius: 10px;
   overflow: hidden;
 }
 
@@ -678,11 +880,13 @@
   color: rgba(255, 255, 255, 0.32);
 }
 
+/* "Active" badge — sits on the image's top-left corner with the
+ * card's padding offset, so it lands inside the rounded image rim. */
 .pm-card-badge {
   position: absolute;
   top: 8px;
   left: 8px;
-  padding: 3px 8px;
+  padding: 3px 9px;
   border-radius: 999px;
   font-size: 10px;
   font-weight: 600;
@@ -693,23 +897,40 @@
   );
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
   letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
+/* Demo badge — neutral pill on admin-curated (stock) personas, so the
+ * user can tell at a glance they're picking from the shared library vs
+ * their own characters. Same recipe as `.sm-card-badge--stock`. */
+.pm-card-badge--demo {
+  background: rgba(0, 0, 0, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* Name strip — sits below the image, snug to the card padding. */
 .pm-card-name {
   margin: 0;
-  padding: 10px 12px 12px;
+  padding: 9px 6px 5px;
   font-size: 13px;
   font-weight: 600;
   color: #f5f5f7;
+  letter-spacing: -0.005em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* Fav star — sits on the image's top-right corner. Inside the image
+ * (now its parent) so positioning is relative to the rounded photo,
+ * not the outer card. z-index 2 keeps it clickable above the pick
+ * overlay. */
 .pm-card-fav {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
   width: 26px;
   height: 26px;
   display: inline-flex;
@@ -718,7 +939,7 @@
   border: none;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.55);
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
   transition:
     background 0.18s ease,
@@ -726,8 +947,8 @@
     transform 0.12s ease;
 }
 .pm-card-fav:hover {
-  background: rgba(0, 0, 0, 0.7);
-  color: rgba(255, 255, 255, 0.95);
+  background: rgba(0, 0, 0, 0.72);
+  color: #ffffff;
 }
 .pm-card-fav--on {
   color: #fbbf24;
@@ -737,17 +958,35 @@
   transition: transform 0.06s ease;
 }
 
+/* Hover-revealed action row — sits on the image's bottom-right.
+ * Hidden by default, fades in when the user hovers any part of the
+ * card (so it appears even before the cursor reaches the image). */
 .pm-card-actions {
   position: absolute;
-  bottom: 8px;
-  right: 8px;
+  bottom: 6px;
+  right: 6px;
+  z-index: 2;
   display: flex;
   gap: 4px;
   opacity: 0;
   transition: opacity 0.18s ease;
+  pointer-events: none;
 }
-.pm-card:hover .pm-card-actions {
+.pm-card:hover .pm-card-actions,
+.pm-card-actions:focus-within {
   opacity: 1;
+  pointer-events: auto;
+}
+
+/* Touch / small-screen devices have no hover, so revealing the
+ * rename + delete actions on hover hides them entirely. Always show
+ * them on mobile + touch — same visual recipe, just visible by
+ * default. */
+@media (hover: none), (max-width: 640px) {
+  .pm-card-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .pm-card-action {
@@ -759,7 +998,7 @@
   border: none;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.62);
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
   transition:
     background 0.18s ease,
@@ -767,7 +1006,7 @@
     transform 0.12s ease;
 }
 .pm-card-action:hover {
-  background: rgba(0, 0, 0, 0.78);
+  background: rgba(0, 0, 0, 0.8);
   color: #ffffff;
 }
 .pm-card-action--danger:hover {
@@ -779,18 +1018,179 @@
   transition: transform 0.06s ease;
 }
 
-/* Inline rename form */
-.pm-edit-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+/* Inline rename — replaces only the name strip while the image
+ * stays visible above. Three columns: input | cancel | save. The
+ * input shrinks to fit any card width thanks to `min-width: 0`.
+ * Compact icon buttons keep the form within the card silhouette
+ * without breaking layout. */
+.pm-card-rename {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 6px 4px 4px;
 }
 
-.pm-edit-actions {
-  display: flex;
-  gap: 6px;
-  justify-content: flex-end;
+.pm-rename-input {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 10px;
+  margin: 0;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: #0a0a0c;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: left;
+  outline: none;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+.pm-rename-input:focus {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: #101015;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.05);
+}
+
+.pm-rename-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    filter 0.18s ease,
+    transform 0.12s ease;
+}
+.pm-rename-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pm-rename-btn--save {
+  background: var(--accent-gradient);
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.pm-rename-btn--save:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.pm-rename-btn--save:active:not(:disabled) {
+  transform: scale(0.92);
+  filter: brightness(0.92);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.22);
+  transition:
+    transform 0.06s ease,
+    filter 0.06s ease;
+}
+
+.pm-rename-btn--cancel {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+}
+.pm-rename-btn--cancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+.pm-rename-btn--cancel:active:not(:disabled) {
+  transform: scale(0.92);
+  transition: transform 0.06s ease;
+}
+
+/* Editing card — slightly stronger border so the user can see
+ * which card is being renamed at a glance. */
+.pm-card--editing {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Generating overlay — uses the canonical <GenerationProgress /> in
+ * slot mode (see src/components/GenerationProgress.css). The form
+ * keeps rendering its slots/input/actions underneath (disabled via
+ * <fieldset>) so the card's natural size is preserved; the overlay
+ * sits on top filling the same bounds with the accent gradient
+ * growth + white shimmer sweep + tabular percentage that the
+ * thumbnail-generation slot uses.
+ * ───────────────────────────────────────────────────────────────── */
+.pm-create-form {
+  position: relative;
+}
+
+.pm-create-form--busy {
+  border-color: rgba(167, 139, 250, 0.45);
+}
+
+/* Disabled fieldset wrapper — makes every input/button inside the
+ * form non-interactive without changing layout. The opaque overlay
+ * sits on top so no visual fade is needed; this is purely a11y. */
+.pm-create-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: contents;
+}
+
+/* Overlay surface — anchored to the form's rounded rectangle. Solid
+ * dark plate so the form content underneath never shows through; the
+ * accent gradient + percentage from `<GenerationProgress />` then
+ * paints on top. The fill below is bumped to a brighter mix than the
+ * default slot variant so the animation reads as appealing brand
+ * accent, not faint wash. */
+.pm-create-overlay {
+  border-radius: inherit;
+  overflow: hidden;
+  background: #14121c;
+}
+
+/* Brighter slot fill — overrides the default slot recipe in
+ * GenerationProgress.css for this dialog only. Saturated brand
+ * accent so the growing bar is clearly visible against the dark
+ * plate, with a stronger sheen on the moving shimmer. */
+.pm-create-overlay .gen-progress__fill {
+  background: linear-gradient(
+    135deg,
+    rgba(167, 139, 250, 0.85) 0%,
+    rgba(196, 181, 253, 0.65) 55%,
+    rgba(124, 58, 237, 0.85) 100%
+  );
+  box-shadow: 0 0 60px rgba(124, 58, 237, 0.45);
+}
+
+.pm-create-overlay .gen-progress__bar {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.pm-create-overlay .gen-progress__shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+.pm-create-overlay .gen-progress__pct {
+  font-weight: 800;
+  text-shadow:
+    0 2px 18px rgba(0, 0, 0, 0.6),
+    0 0 24px rgba(167, 139, 250, 0.4);
 }
 
 @media (prefers-reduced-motion: reduce) {

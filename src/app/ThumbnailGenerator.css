@@ -522,12 +522,11 @@
   }
 }
 
-/* Kill the global top/bottom edge-fade scrims that coach-main-wrap paints
- * across every chat screen. On the thumbnail screen we want the input bar
- * to float over the bare canvas with nothing obscuring what's behind it.
- * The `--thumb` modifier class is added in AuthenticatedRoutes for this
- * route specifically, so the coach/script screens keep their fade. */
-.coach-main-wrap--thumb::before,
+/* Suppress the bottom edge-fade scrim that coach-main-wrap paints —
+ * on the thumbnail screen the input bar floats at the bottom and a
+ * fade there would muddy the composer. Top scrim is kept (the same
+ * shadow header the Pro / Dashboard pages render) so the screen has
+ * a consistent depth cue under the topbar. */
 .coach-main-wrap--thumb::after {
   display: none !important;
 }
@@ -1756,11 +1755,12 @@
 
 /* Multi-line rotating-hint overlay for the prompt textarea. Inherits
  * the base `.coach-composer-placeholder` recipe (absolute, layered
- * under the typed text via pointer-events: none) and overrides the
- * text node to allow line breaks (`white-space: pre-line`) and match
- * the smaller 0.88rem / 1.5 line-height that the thumbnail textarea
- * uses, so the hint sits at the exact same caret position the user
- * will type from.
+ * under the typed text via pointer-events: none) and overrides font
+ * size + wrapping so the hint reads as a single natural sentence that
+ * the browser breaks across two lines on its own — the first line
+ * fills the input bar's width, the rest spills onto line 2. Font size
+ * matches the textarea exactly so the hint sits at the same caret
+ * position the user will type from.
  *
  * `.is-hidden` smoothly fades the whole block out when the user types
  * or attaches an image; the inner `.is-exiting` / `.is-entering`
@@ -1772,11 +1772,17 @@
     system-ui,
     -apple-system,
     sans-serif;
-  font-size: 0.86rem;
-  line-height: 1.55;
+  font-size: 0.94rem;
+  line-height: 1.5;
   letter-spacing: 0;
-  padding: 0;
-  color: rgba(229, 229, 231, 0.45);
+  /* Nudge the hint down so its first line sits on the textarea's
+   * typed-text baseline. Native textareas have an implicit top inset
+   * (browser-internal padding + line-box leading) that the absolutely-
+   * positioned overlay doesn't share, which was leaving the hint
+   * floating noticeably above the caret. 6px lines them up flush
+   * across Chrome/Safari/Firefox without splitting hairs. */
+  padding: 4px 0 0;
+  color: rgba(229, 229, 231, 0.5);
   overflow: visible;
   opacity: 1;
   visibility: visible;
@@ -1795,20 +1801,25 @@
     visibility 0s linear 0.28s;
 }
 
-/* Two-line layout: `pre-line` keeps the explicit `\n` from
- * THUMB_COMPOSER_HINTS as a real line break; `display: block` +
- * `overflow: visible` + `text-overflow: clip` defeat the single-line
- * `nowrap` / ellipsis baked into the shared `.coach-composer-
- * placeholder-text` rule. The second line gets a slightly dimmer tint
- * so the example reads as a hierarchy: subject (top) → styling
- * (bottom). */
+/* Natural two-line wrap: hints are written as one continuous sentence,
+ * so `white-space: normal` lets the browser break at word boundaries
+ * when the line fills the input bar's width. `-webkit-line-clamp: 2`
+ * caps the hint at two lines and renders an ellipsis if a hint is
+ * unusually long for the current viewport — same ceiling on desktop
+ * and mobile so the input bar's height never jumps. The base
+ * `.coach-composer-placeholder-text` rule's `nowrap` / single-line
+ * ellipsis is overridden via `display: -webkit-box` + flex column. */
 .coach-composer-placeholder-text.thumb-prompt-placeholder-text {
-  display: block;
-  white-space: pre-line;
-  overflow: visible;
-  text-overflow: clip;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
   max-width: 100%;
   word-break: normal;
+  overflow-wrap: break-word;
   font-feature-settings: 'ss01' on;
   transition:
     opacity 0.32s cubic-bezier(0.4, 0, 0.2, 1),
@@ -1818,13 +1829,15 @@
 .thumb-prompt-textarea {
   display: block;
   width: 100%;
-  min-height: 3rem;
+  /* 2 × line-height of 1.5 × 0.94rem ≈ 2.82rem; 3.1rem leaves a
+   * hair of breathing room so the second hint line never clips. */
+  min-height: 3.1rem;
   margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
   font-family: inherit;
-  font-size: 0.88rem;
+  font-size: 0.94rem;
   line-height: 1.5;
   font-weight: 400;
   letter-spacing: normal;
@@ -1837,6 +1850,21 @@
    * paints at full opacity and lines up cleanly with the hint. */
   -webkit-mask-image: none;
   mask-image: none;
+}
+
+/* Mobile — keep the hint readable without letting it eat the
+ * composer's vertical budget. Slight font-size shrink + the same
+ * 2-line min-height so the input bar has consistent height whether
+ * empty or filled. */
+@media (max-width: 640px) {
+  .coach-composer-placeholder.thumb-prompt-placeholder,
+  .thumb-prompt-textarea {
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+  .thumb-prompt-textarea {
+    min-height: 2.85rem;
+  }
 }
 
 /* ──────────────────────────────────────────────────────────────────────
@@ -2134,10 +2162,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   padding-right: 2px;
-}
-
-.thumb-single-line-input {
-  min-height: 36px;
 }
 
 .thumb-gen-toolbar {
@@ -3090,6 +3114,13 @@
 .thumb-analysis-card {
   width: 100%;
   max-width: 720px;
+  /* Centre under the thumbnail card above. The assistant message uses
+   * `align-items: stretch`, so without explicit auto margins this card
+   * was pinning to the left edge of the column even with `max-width`
+   * set — resulting in the analysis card sitting to the left while
+   * the image card above stayed centered via its own inner wrapper. */
+  margin-left: auto;
+  margin-right: auto;
   margin-top: 0.6rem;
   padding: 0.85rem 1rem;
   border-radius: 14px;
@@ -4019,9 +4050,86 @@
 }
 
 /* Visible placeholder override — CoachChat.css hides ::placeholder globally for
-   the animated hint. These inputs need a real visible placeholder instead. */
-.thumb-visible-placeholder::placeholder {
+   the animated hint. Kept for any input still leaning on the native attribute. */
+.thumb-visible-placeholder::placeholder,
+.thumb-source-input::placeholder {
   color: rgba(148, 163, 184, 0.52) !important;
+}
+
+/* SmoothHint overlay — shared recipe used by the Recreate / Analyze /
+ * Edit inputs so their placeholders fade out smoothly on first
+ * keystroke (instead of snapping off the way the native ::placeholder
+ * does). Visibility is driven from React state — the `.is-hidden`
+ * modifier flips opacity to 0 the moment the field has any content.
+ * `pointer-events: none` keeps clicks falling through to the input. */
+.smooth-hint {
+  position: absolute;
+  pointer-events: none;
+  color: rgba(148, 163, 184, 0.52);
+  opacity: 1;
+  transition: opacity 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.smooth-hint.is-hidden {
+  opacity: 0;
+}
+
+/* Top-aligned variant — sits at the textarea's caret position so the
+ * hint reads as if it lives inside the typing area. Matches
+ * `.coach-composer-input`'s font + line-height + 0.2rem top padding,
+ * plus a 4px nudge to compensate for the textarea's implicit top
+ * inset (same offset as `.thumb-prompt-placeholder`). nowrap +
+ * ellipsis keeps short hints on a single line. */
+.smooth-hint--textarea {
+  top: 0;
+  left: 0;
+  right: 0;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  /* Textarea's own padding is 0.2rem; +1px lands the hint right on
+   * the typed-text baseline. */
+  padding: calc(0.2rem + 1px) 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Centred pill variant — sits inside the URL pill input. `inset: 0`
+ * spans the input box exactly; flex centring matches the input's
+ * `text-align: center`. Font-size matches `.thumb-source-input` so
+ * the hint and typed text occupy the same baseline. */
+.smooth-hint--url {
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.82rem;
+  padding: 0 1rem;
+}
+
+/* Relative wrapper for the URL inputs — gives the absolute-positioned
+ * SmoothHint a containing block, while preserving the row's flex
+ * stretch behaviour so the input still fills the available width. */
+.thumb-source-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+.thumb-source-input-wrap .thumb-source-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Mobile — drop the textarea hint to match the textarea's downsized
+ * font in the same media query, so the overlay never desyncs from
+ * the typed text on phones. */
+@media (max-width: 640px) {
+  .smooth-hint--textarea {
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
 }
 
 /* Link/Upload mini pill — positioned in the tab row */

@@ -21,19 +21,29 @@
  * work with.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
+import {
+  Square as LucideSquare,
+  Paintbrush as LucidePaintbrush,
+  Eraser as LucideEraser,
+  Undo2 as LucideUndo2,
+  Redo2 as LucideRedo2,
+  Trash2 as LucideTrash2,
+  Pencil as LucidePencil,
+  UserRoundCog as LucideUserRoundCog,
+} from 'lucide-react'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { thumbnailsApi } from '../api/thumbnails'
 import { invalidateCredits, useCostOf } from '../queries/billing/creditsQueries'
 import { PrimaryPill } from './ui/PrimaryPill'
-import { PersonaSelector } from './PersonaSelector'
+import { Dialog } from './ui/Dialog'
+import { ThumbPillTabs } from './ThumbPillTabs'
 import { usePersonaStore } from '../stores/personaStore'
+import { usePersonasQuery } from '../queries/personas/personaQueries'
 import GenerationProgress from './GenerationProgress'
 import { friendlyMessage } from '../lib/aiErrors'
 import { canvasToBase64Png } from '../lib/canvasToBase64'
 
-const Z_INDEX = 2147483647
 const PRIMARY_GRADIENT = 'var(--accent-gradient)'
 const MASK_CSS_OPACITY = 0.4
 const MASK_THRESHOLD = 10
@@ -47,6 +57,14 @@ const COLOR_SWATCHES = [
   '#A78BFA', // violet
   '#FFFFFF', // white
 ]
+
+// Brush-size preset chips — the popover renders these as a row of
+// dots that visually scale up so the user picks by *appearance* of
+// the stroke they'll be making, not by reading a number off a
+// slider. Covers fine-detail (8px) through bold area-fill (96px).
+const BRUSH_SIZE_PRESETS = [8, 16, 32, 56, 96]
+const BRUSH_PREVIEW_MIN = 6
+const BRUSH_PREVIEW_MAX = 22
 
 /* ── Icons ────────────────────────────────────────────────────────── */
 function Svg({ path, size = 16, strokeWidth = 2 }) {
@@ -83,33 +101,9 @@ const IconSparkle = ({ size = 14 }) => (
     <path d="M13 2 3 14h7l-1 8 11-13h-8l1-7z" />
   </svg>
 )
-const IconPencil = (p) => (
-  <Svg
-    {...p}
-    path={
-      <>
-        <path d="M14.7 5.3a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 9.7-9.7z" />
-        <path d="M13 7 17 11" />
-      </>
-    }
-  />
-)
-const IconFaceSwap = (p) => (
-  <Svg
-    {...p}
-    path={
-      <>
-        {/* head silhouette */}
-        <circle cx="12" cy="9" r="3.2" />
-        <path d="M6 19c1-3 3.4-4.5 6-4.5s5 1.5 6 4.5" />
-        {/* swap arrows arcing around the head */}
-        <path d="M3 10.5a6 6 0 0 1 4-4.2" />
-        <polyline points="7.2 4.2 7 6.3 9 6.5" />
-        <path d="M21 13.5a6 6 0 0 1-4 4.2" />
-        <polyline points="16.8 19.8 17 17.7 15 17.5" />
-      </>
-    }
-  />
+const IconPencil = ({ size = 13 }) => <LucidePencil size={size} strokeWidth={2.2} aria-hidden />
+const IconFaceSwap = ({ size = 14 }) => (
+  <LucideUserRoundCog size={size} strokeWidth={2.2} aria-hidden />
 )
 const IconChevron = (p) => (
   <Svg {...p} strokeWidth={2.4} path={<polyline points="6 9 12 15 18 9" />} />
@@ -142,56 +136,17 @@ const IconArrowUp = (p) => (
     }
   />
 )
-const IconRect = (p) => (
-  <Svg {...p} path={<rect x="4" y="6" width="16" height="12" rx="1.5" strokeDasharray="2.5 2" />} />
-)
-const IconBrush = (p) => (
-  <Svg
-    {...p}
-    path={
-      <>
-        <path d="M3 14.5c.8-1.2 2.2-1.8 3.5-1.3 1.3.5 2.8.1 3.8-.9L16 6.5a2 2 0 0 0-2.5-2.5l-5.7 5.7c-1 1-1.4 2.5-.9 3.8.5 1.3-.1 2.7-1.3 3.5" />
-        <circle cx="3.5" cy="15.5" r="1.5" fill="currentColor" stroke="none" />
-      </>
-    }
-  />
-)
-const IconEraser = (p) => (
-  <Svg
-    {...p}
-    path={
-      <>
-        <path d="m14 6-7.5 7.5M4 16h12" />
-        <path d="M4.5 13.5 10 8l4.5 4.5-3.5 3.5H7.5L4.5 13.5Z" />
-      </>
-    }
-  />
-)
-// Undo / Redo glyphs from src/assets/undo-alt.svg + redo-alt.svg.
-// These are fill-based (not stroke), so they bypass the local Svg
-// helper which is configured for stroke icons. `currentColor` keeps
-// them tied to the surrounding button colour.
-const IconUndo = ({ size = 16 }) => (
-  <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden>
-    <path d="M22.535,8.46A4.965,4.965,0,0,0,19,7h0L2.8,7,7.1,2.7A1,1,0,0,0,5.682,1.288L.732,6.237a2.5,2.5,0,0,0,0,3.535l4.95,4.951A1,1,0,1,0,7.1,13.309L2.788,9,19,9h0a3,3,0,0,1,3,3v7a3,3,0,0,1-3,3H5a1,1,0,0,0,0,2H19a5.006,5.006,0,0,0,5-5V12A4.969,4.969,0,0,0,22.535,8.46Z" />
-  </svg>
-)
-const IconRedo = ({ size = 16 }) => (
-  <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden>
-    <path d="M16.9,14.723a1,1,0,0,0,1.414,0l4.949-4.95a2.5,2.5,0,0,0,0-3.536l-4.95-4.949A1,1,0,0,0,16.9,2.7L21.2,7,5,7H5a5,5,0,0,0-5,5v7a5.006,5.006,0,0,0,5,5H19a1,1,0,0,0,0-2H5a3,3,0,0,1-3-3V12A3,3,0,0,1,5,9H5L21.212,9,16.9,13.309A1,1,0,0,0,16.9,14.723Z" />
-  </svg>
-)
-const IconTrash = (p) => (
-  <Svg
-    {...p}
-    path={
-      <>
-        <polyline points="3 6 5 6 21 6" />
-        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      </>
-    }
-  />
-)
+// Tool + history icons come from `lucide-react` for visual parity
+// with the rest of the composer (the thumbnail generator's toolbar
+// pills and the persona/style selectors all draw from the same set).
+// `strokeWidth: 2.2` matches the slightly heavier weight used on the
+// composer-level icons so the editor doesn't read as thinner.
+const IconRect = ({ size = 14 }) => <LucideSquare size={size} strokeWidth={2.2} aria-hidden />
+const IconBrush = ({ size = 14 }) => <LucidePaintbrush size={size} strokeWidth={2.2} aria-hidden />
+const IconEraser = ({ size = 14 }) => <LucideEraser size={size} strokeWidth={2.2} aria-hidden />
+const IconUndo = ({ size = 14 }) => <LucideUndo2 size={size} strokeWidth={2.4} aria-hidden />
+const IconRedo = ({ size = 14 }) => <LucideRedo2 size={size} strokeWidth={2.4} aria-hidden />
+const IconTrash = ({ size = 14 }) => <LucideTrash2 size={size} strokeWidth={2.2} aria-hidden />
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 function extractBase64FromDataUrl(url) {
@@ -478,6 +433,7 @@ function PrimaryActionBtn({
   return (
     <PrimaryPill
       type="button"
+      size="sm"
       onClick={onClick}
       disabled={disabled}
       busy={busy}
@@ -492,16 +448,16 @@ function PrimaryActionBtn({
                 alignItems: 'center',
                 gap: 3,
                 lineHeight: 1,
-                paddingRight: '0.5rem',
+                paddingRight: '0.45rem',
                 marginRight: '0.15rem',
                 borderRight: '1px solid rgba(255, 255, 255, 0.22)',
               }}
             >
-              <IconZapFilled size={12} />
+              <IconZapFilled size={11} />
               <span
                 style={{
                   fontVariantNumeric: 'tabular-nums',
-                  fontSize: '0.78rem',
+                  fontSize: '0.74rem',
                   fontWeight: 700,
                   letterSpacing: '0.01em',
                 }}
@@ -568,6 +524,92 @@ function popoverOptionStyle(isActive) {
   }
 }
 
+// Mode-tab options consumed by `<ThumbPillTabs>`. Same { value, label,
+// icon } contract the generator's tab row uses.
+const EDIT_MODE_OPTIONS = [
+  { value: 'edit', label: 'Edit', icon: <IconPencil size={13} /> },
+  { value: 'faceswap', label: 'Face swap', icon: <IconFaceSwap size={14} /> },
+]
+
+/**
+ * BrushSizePopover — preset chip selector. Each chip renders a dot
+ * scaled to its preset value so the user picks by visual size, not
+ * by reading a number. Tapping a chip commits the size and the
+ * active chip glows so the current size always reads at a glance.
+ */
+function BrushSizePopover({ value, onChange }) {
+  return (
+    <div
+      role="listbox"
+      aria-label="Brush size"
+      style={{
+        position: 'absolute',
+        bottom: 'calc(100% + 8px)',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: 8,
+        background: 'rgba(14, 14, 18, 0.88)',
+        border: '0.5px solid rgba(255,255,255,0.1)',
+        borderRadius: 14,
+        boxShadow: '0 10px 32px rgba(0,0,0,0.55)',
+        backdropFilter: 'blur(22px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(22px) saturate(180%)',
+        zIndex: 10,
+        animation: 'etd-popover-in 0.18s cubic-bezier(0.32, 0.72, 0, 1) both',
+      }}
+    >
+      {BRUSH_SIZE_PRESETS.map((sz) => {
+        const active = value === sz
+        // Map preset → dot diameter inside its 36px chip. Largest
+        // preset still leaves a comfortable rim of breathing room.
+        const span = BRUSH_SIZE_PRESETS[BRUSH_SIZE_PRESETS.length - 1] - BRUSH_SIZE_PRESETS[0]
+        const t = (sz - BRUSH_SIZE_PRESETS[0]) / span
+        const dot = BRUSH_PREVIEW_MIN + Math.round(t * (BRUSH_PREVIEW_MAX - BRUSH_PREVIEW_MIN))
+        return (
+          <button
+            key={sz}
+            type="button"
+            role="option"
+            aria-selected={active}
+            aria-label={`Brush size ${sz} pixels`}
+            title={`${sz}px`}
+            onClick={() => onChange(sz)}
+            style={{
+              width: 36,
+              height: 36,
+              padding: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '50%',
+              border: `1px solid ${active ? 'rgba(167,139,250,0.7)' : 'rgba(255,255,255,0.08)'}`,
+              background: active ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.04)',
+              color: active ? '#ffffff' : 'rgba(255,255,255,0.78)',
+              cursor: 'pointer',
+              transition:
+                'background 0.15s ease, border-color 0.15s ease, transform 0.12s cubic-bezier(0.33, 1, 0.68, 1)',
+            }}
+          >
+            <span
+              style={{
+                width: dot,
+                height: dot,
+                borderRadius: '50%',
+                background: 'currentColor',
+                boxShadow: active ? '0 0 12px rgba(167,139,250,0.5)' : 'none',
+              }}
+              aria-hidden
+            />
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 /* ── Component ────────────────────────────────────────────────────── */
 export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
   const [mode, setMode] = useState('edit') // 'edit' | 'faceswap'
@@ -598,6 +640,24 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
   const maskCanvasRef = useRef(null) // full natural resolution mask canvas — holds committed strokes
   const overlayCanvasRef = useRef(null) // same-size sibling canvas — rect-tool in-progress preview only
   const stageRef = useRef(null) // the wrapper whose rect we measure
+  // Custom brush cursor preview — a circle that tracks the pointer
+  // while in brush/eraser mode. Position is updated imperatively
+  // (`cursorPreviewRef.current.style.transform = …`) on every
+  // pointermove so we don't burn React re-renders at ~60 fps.
+  const cursorPreviewRef = useRef(null)
+  const [cursorVisible, setCursorVisible] = useState(false)
+  // Marching-ants marquee — a data URL of the painted region's
+  // outline. Computed at the end of every stroke (and after undo /
+  // redo / clear) by walking the alpha channel of the mask canvas
+  // and marking pixels that sit on a transparent → opaque boundary.
+  // Rendered as the `mask-image` of an animated striped div so the
+  // stripes only show along the painted regions' perimeters.
+  const [marqueeUrl, setMarqueeUrl] = useState(null)
+  // Stage aspect-ratio — derived from the source thumbnail so the
+  // editor adapts to landscape (16:9), portrait (9:16), and square
+  // (1:1) thumbnails without cropping. Default 16:9 for the brief
+  // window between mount and image load.
+  const [imageAspect, setImageAspect] = useState(16 / 9)
   const baseSnapshotRef = useRef(null) // ImageData captured at pointerdown; converted to blob and pushed to undo on pointerup
   // Undo/redo stacks now hold `Promise<Blob>` (compressed PNG snapshots)
   // instead of raw ImageData. A full 1536×864 ImageData is 5.3 MB; the
@@ -642,7 +702,14 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     editTextareaRef.current?.focus()
   }, [])
 
-  // Load the image + size the canvas to its natural dimensions.
+  // Load the image + size the canvas to its natural dimensions, with a
+  // 1920-px-wide minimum so thumbnails that ship at low resolution
+  // still get a high-density paint surface. The canvas is then scaled
+  // DOWN to display via CSS — downscaling stays sharp under the
+  // browser's bilinear filter, whereas an upscaled canvas (low
+  // intrinsic res, larger CSS size) is what makes brush strokes look
+  // pixelated. The mask we send to the backend keeps the same density,
+  // which the region-edit service resizes back to the source image.
   useEffect(() => {
     let cancelled = false
     if (!imageUrl) return
@@ -653,8 +720,16 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
         const canvas = maskCanvasRef.current
         const overlay = overlayCanvasRef.current
         if (!canvas) return
-        const w = img.naturalWidth || img.width || 1536
-        const h = img.naturalHeight || img.height || 864
+        const MIN_CANVAS_W = 1920
+        const naturalW = img.naturalWidth || img.width || 1536
+        const naturalH = img.naturalHeight || img.height || 864
+        const aspect = naturalH / naturalW
+        // Drive the stage's CSS aspect-ratio from the actual image so
+        // the card snaps from landscape (16:9) to portrait (9:16) to
+        // square cleanly — no letterboxing, no cropping.
+        setImageAspect(naturalW / naturalH)
+        const w = Math.max(naturalW, MIN_CANVAS_W)
+        const h = Math.round(w * aspect)
         canvas.width = w
         canvas.height = h
         canvas.getContext('2d').clearRect(0, 0, w, h)
@@ -668,6 +743,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
         setUndoDepth(0)
         setRedoDepth(0)
         setHasDrawn(false)
+        setMarqueeUrl(null)
       })
       .catch(() => {
         /* image failed — drawing will no-op, edit still works as full-mask */
@@ -677,10 +753,16 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     }
   }, [imageUrl])
 
-  // Outside-click for popovers.
+  // Outside-click for popovers. Uses `pointerdown` on the CAPTURE
+  // phase because the shared <Dialog> panel calls `stopPropagation`
+  // on bubble, which would otherwise prevent any document-level
+  // listener from firing for clicks inside the dialog. Capture phase
+  // runs before the panel sees the event, so we still hear outside
+  // clicks (anywhere except inside the popover itself) and can close
+  // cleanly without dismissing the dialog.
   useEffect(() => {
     if (!sizePopoverOpen && !colorPopoverOpen) return
-    const onDoc = (e) => {
+    const onDocDown = (e) => {
       if (sizePopoverOpen && sizePopoverRef.current && !sizePopoverRef.current.contains(e.target)) {
         setSizePopoverOpen(false)
       }
@@ -692,8 +774,8 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
         setColorPopoverOpen(false)
       }
     }
-    document.addEventListener('click', onDoc)
-    return () => document.removeEventListener('click', onDoc)
+    document.addEventListener('pointerdown', onDocDown, true)
+    return () => document.removeEventListener('pointerdown', onDocDown, true)
   }, [sizePopoverOpen, colorPopoverOpen])
 
   /* ── Canvas drawing primitives ────────────────────────────────── */
@@ -709,6 +791,18 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
       x: ((clientX - rect.left) / rect.width) * canvas.width,
       y: ((clientY - rect.top) / rect.height) * canvas.height,
     }
+  }, [])
+
+  // Position the brush-cursor preview in CSS pixels relative to the
+  // stage. brushSize is already in CSS-px terms (the canvas-coord
+  // scale is applied to the actual stroke, not to the visible
+  // overlay), so feeding the raw client coords through is enough.
+  const moveCursorPreview = useCallback((e) => {
+    const stage = stageRef.current
+    const el = cursorPreviewRef.current
+    if (!stage || !el) return
+    const rect = stage.getBoundingClientRect()
+    el.style.transform = `translate(${e.clientX - rect.left}px, ${e.clientY - rect.top}px) translate(-50%, -50%)`
   }, [])
 
   // Grab the current mask pixels as ImageData. Used only while a stroke
@@ -767,22 +861,45 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     }
   }, [])
 
-  const paintBrushSegment = useCallback((ctx, p1, p2, size, rgba, erase) => {
+  // Smooth quadratic-Bezier brush. We track three rolling points
+  // (`p0` previous-previous, `p1` previous, `p2` current) and stroke
+  // a curve from the midpoint of (p0,p1) to the midpoint of (p1,p2)
+  // using p1 as the control point. The result is a continuously
+  // tangent-smooth path even when pointer events are sparse — no
+  // visible polyline corners between samples. A filled disc is
+  // dropped at every sample and at the start of every stroke as a
+  // safety net so even single-pixel taps render as a clean circle.
+  const paintBrushSegment = useCallback((ctx, prev2, prev1, curr, size, rgba, erase) => {
     ctx.globalCompositeOperation = erase ? 'destination-out' : 'source-over'
     ctx.strokeStyle = rgba
     ctx.fillStyle = rgba
     ctx.lineWidth = size
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
-    if (!p2 || (p1.x === p2.x && p1.y === p2.y)) {
+
+    // Stamp a filled circle at the current sample — guarantees a
+    // perfect disc at every event even if the curve segment ends up
+    // degenerate, and fills any sub-pixel rendering gaps near caps.
+    ctx.beginPath()
+    ctx.arc(curr.x, curr.y, size / 2, 0, Math.PI * 2)
+    ctx.fill()
+
+    if (!prev1) return // first sample of the stroke — disc is enough
+    if (!prev2) {
+      // Second sample: straight line; round caps make joins seamless.
       ctx.beginPath()
-      ctx.arc(p1.x, p1.y, size / 2, 0, Math.PI * 2)
-      ctx.fill()
+      ctx.moveTo(prev1.x, prev1.y)
+      ctx.lineTo(curr.x, curr.y)
+      ctx.stroke()
       return
     }
+    // Three samples: quadratic curve through (mid(p0,p1)) → (mid(p1,p2))
+    // with p1 as control. Standard "smooth brush" curve.
+    const m1 = { x: (prev2.x + prev1.x) / 2, y: (prev2.y + prev1.y) / 2 }
+    const m2 = { x: (prev1.x + curr.x) / 2, y: (prev1.y + curr.y) / 2 }
     ctx.beginPath()
-    ctx.moveTo(p1.x, p1.y)
-    ctx.lineTo(p2.x, p2.y)
+    ctx.moveTo(m1.x, m1.y)
+    ctx.quadraticCurveTo(prev1.x, prev1.y, m2.x, m2.y)
     ctx.stroke()
   }, [])
 
@@ -795,6 +912,79 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     const h = Math.abs(y2 - y1)
     ctx.fillRect(x, y, w, h)
   }, [])
+
+  // Build the marching-ants outline mask from the current mask canvas
+  // and stash it as a data URL for the striped overlay to consume via
+  // `mask-image`. Walks the alpha channel once: for every painted
+  // pixel (alpha > MASK_THRESHOLD) we check its 4-neighbours; if any
+  // is below the threshold the pixel sits on an edge, so we paint
+  // the pixel + a small ring around it into the output. The ring
+  // width controls the visible thickness of the marquee. Down-samples
+  // first when the canvas is huge so the walk is sub-50ms even on
+  // big paint surfaces. */
+  const rebuildMarquee = useCallback(() => {
+    const src = maskCanvasRef.current
+    if (!src) {
+      setMarqueeUrl(null)
+      return
+    }
+    if (!hasDrawn) {
+      setMarqueeUrl(null)
+      return
+    }
+    // Down-sample by `step` so the edge walk stays cheap on big
+    // canvases. Strokes are rounded so the marquee tolerates a 2x
+    // density loss without looking jagged.
+    const STEP = 2
+    const sw = Math.max(1, Math.floor(src.width / STEP))
+    const sh = Math.max(1, Math.floor(src.height / STEP))
+    const tmp = document.createElement('canvas')
+    tmp.width = sw
+    tmp.height = sh
+    const tctx = tmp.getContext('2d')
+    tctx.imageSmoothingEnabled = true
+    tctx.drawImage(src, 0, 0, sw, sh)
+    const data = tctx.getImageData(0, 0, sw, sh).data
+    const out = document.createElement('canvas')
+    out.width = sw
+    out.height = sh
+    const octx = out.getContext('2d')
+    const dst = octx.createImageData(sw, sh)
+    const T = MASK_THRESHOLD
+    const RING = 1 // half-thickness in down-sampled px (so 3 px total)
+    let edgeCount = 0
+    for (let y = 0; y < sh; y++) {
+      for (let x = 0; x < sw; x++) {
+        const i = (y * sw + x) * 4
+        const a = data[i + 3]
+        if (a <= T) continue
+        const left = x > 0 ? data[i - 4 + 3] : 0
+        const right = x < sw - 1 ? data[i + 4 + 3] : 0
+        const up = y > 0 ? data[i - sw * 4 + 3] : 0
+        const down = y < sh - 1 ? data[i + sw * 4 + 3] : 0
+        if (left > T && right > T && up > T && down > T) continue
+        edgeCount++
+        for (let dy = -RING; dy <= RING; dy++) {
+          for (let dx = -RING; dx <= RING; dx++) {
+            const nx = x + dx
+            const ny = y + dy
+            if (nx < 0 || nx >= sw || ny < 0 || ny >= sh) continue
+            const j = (ny * sw + nx) * 4
+            dst.data[j] = 255
+            dst.data[j + 1] = 255
+            dst.data[j + 2] = 255
+            dst.data[j + 3] = 255
+          }
+        }
+      }
+    }
+    if (edgeCount === 0) {
+      setMarqueeUrl(null)
+      return
+    }
+    octx.putImageData(dst, 0, 0)
+    setMarqueeUrl(out.toDataURL('image/png'))
+  }, [hasDrawn])
 
   // Push a Promise<Blob> onto the undo stack. Accepts either a ready
   // Promise or a raw ImageData — we convert either way. The Promise
@@ -820,6 +1010,12 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
   )
 
   /* ── Pointer handlers ─────────────────────────────────────────── */
+  const onPointerEnter = (e) => {
+    if (busy) return
+    moveCursorPreview(e)
+    setCursorVisible(true)
+  }
+
   const onPointerDown = (e) => {
     if (busy) return
     const pos = getCanvasCoords(e)
@@ -837,11 +1033,15 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
       color: rgba,
       startX: pos.x,
       startY: pos.y,
-      lastX: pos.x,
-      lastY: pos.y,
+      // Rolling 3-sample window for the smooth-curve brush. `prev2` and
+      // `prev1` are null at the start of a stroke; the painter handles
+      // both cases (single disc → straight segment → quadratic curve).
+      prev2: null,
+      prev1: null,
+      curr: pos,
     }
     if (tool === 'brush' || tool === 'eraser') {
-      paintBrushSegment(ctx, pos, null, effectiveSize, rgba, tool === 'eraser')
+      paintBrushSegment(ctx, null, null, pos, effectiveSize, rgba, tool === 'eraser')
     } else if (tool === 'rect') {
       // Clear overlay; rect previews land there during move so we never
       // do a full-canvas putImageData per frame.
@@ -851,11 +1051,16 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
   }
 
   const onPointerMove = (e) => {
+    // Track the cursor preview every move, even when the user isn't
+    // actively drawing — the brush ring follows the pointer through
+    // the whole hover window so the user always sees what their next
+    // stroke will look like.
+    moveCursorPreview(e)
     if (!drawingRef.current) return
-    const pos = getCanvasCoords(e)
-    if (!pos) return
-    const { tool: t, size, color: rgba, startX, startY, lastX, lastY } = drawingRef.current
+    const { tool: t, size, color: rgba, startX, startY } = drawingRef.current
     if (t === 'rect') {
+      const pos = getCanvasCoords(e)
+      if (!pos) return
       // Draw the in-progress rect on the overlay canvas. The base
       // (mask) canvas stays untouched until pointerup, so we avoid the
       // 5 MB putImageData blit that used to run on every mousemove.
@@ -864,12 +1069,27 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
       const octx = overlay.getContext('2d')
       octx.clearRect(0, 0, overlay.width, overlay.height)
       paintRectPreview(octx, startX, startY, pos.x, pos.y, rgba)
+      drawingRef.current.curr = pos
     } else {
+      // Drain coalesced sub-frame events so quick flicks render every
+      // intermediate sample the OS captured between paint frames —
+      // produces a continuous, perfectly smooth stroke instead of a
+      // segmented polyline. Falls back to the single event when
+      // `getCoalescedEvents` isn't available (older browsers).
+      const events = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : null
+      const list = events && events.length ? events : [e]
       const canvas = maskCanvasRef.current
       const ctx = canvas.getContext('2d')
-      paintBrushSegment(ctx, { x: lastX, y: lastY }, pos, size, rgba, t === 'eraser')
-      drawingRef.current.lastX = pos.x
-      drawingRef.current.lastY = pos.y
+      for (const ev of list) {
+        const pos = getCanvasCoords(ev)
+        if (!pos) continue
+        const { prev1, curr } = drawingRef.current
+        // Shift the rolling window: (prev2, prev1, curr) ← (prev1, curr, pos).
+        paintBrushSegment(ctx, prev1, curr, pos, size, rgba, t === 'eraser')
+        drawingRef.current.prev2 = prev1
+        drawingRef.current.prev1 = curr
+        drawingRef.current.curr = pos
+      }
     }
   }
 
@@ -892,6 +1112,9 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     baseSnapshotRef.current = null
     if (snap) pushUndoPromise(imageDataToBlobPromise(snap))
     setHasDrawn(true)
+    // Defer marquee rebuild a frame so React can flush the state
+    // first; reads run after the canvas paint settles.
+    requestAnimationFrame(rebuildMarquee)
   }
 
   /* ── History actions ──────────────────────────────────────────── */
@@ -907,10 +1130,11 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
       setRedoDepth(redoStackRef.current.length)
       setHasDrawn(undoStackRef.current.length > 0)
       await restoreBlobToCanvas(prevPromise)
+      requestAnimationFrame(rebuildMarquee)
     } finally {
       undoBusyRef.current = false
     }
-  }, [snapshotCanvasAsBlobPromise, restoreBlobToCanvas])
+  }, [snapshotCanvasAsBlobPromise, restoreBlobToCanvas, rebuildMarquee])
 
   const handleRedo = useCallback(async () => {
     if (redoStackRef.current.length === 0 || undoBusyRef.current) return
@@ -924,10 +1148,11 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
       setRedoDepth(redoStackRef.current.length)
       setHasDrawn(true)
       await restoreBlobToCanvas(nextPromise)
+      requestAnimationFrame(rebuildMarquee)
     } finally {
       undoBusyRef.current = false
     }
-  }, [snapshotCanvasAsBlobPromise, restoreBlobToCanvas])
+  }, [snapshotCanvasAsBlobPromise, restoreBlobToCanvas, rebuildMarquee])
 
   const handleClear = useCallback(() => {
     const canvas = maskCanvasRef.current
@@ -937,6 +1162,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     if (snap) pushUndoPromise(imageDataToBlobPromise(snap))
     setHasDrawn(false)
+    setMarqueeUrl(null)
   }, [snapshotCanvas, pushUndoPromise, imageDataToBlobPromise])
 
   /* ── Mask export ──────────────────────────────────────────────── */
@@ -1059,34 +1285,16 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
       ? 'Optional hint — e.g. "keep the same expression" or "match the lighting".'
       : 'Describe the change — paint a region for targeted edits, or leave blank to edit the whole thumbnail.'
 
-  const dialog = (
-    <div
-      onClick={() => (busy ? null : onClose?.())}
-      role="presentation"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: Z_INDEX,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
-        background: 'rgba(8, 6, 14, 0.78)',
-        backdropFilter: 'blur(22px) saturate(160%)',
-        WebkitBackdropFilter: 'blur(22px) saturate(160%)',
-        animation: 'etd-overlay-in 0.22s cubic-bezier(0.32, 0.72, 0, 1) both',
-        boxSizing: 'border-box',
-      }}
+  return (
+    <Dialog
+      open
+      onClose={busy ? undefined : onClose}
+      closeOnBackdrop={!busy}
+      closeOnEscape={!busy}
+      size="wide"
+      ariaLabel="Edit thumbnail"
     >
       <style>{`
-        @keyframes etd-overlay-in {
-          from { opacity: 0 }
-          to   { opacity: 1 }
-        }
-        @keyframes etd-panel-in {
-          from { opacity: 0; transform: translateY(14px) scale(0.97); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
         @keyframes etd-spin { to { transform: rotate(360deg); } }
         @keyframes etd-popover-in {
           from { opacity: 0; transform: translateX(-50%) translateY(4px) scale(0.95); }
@@ -1096,54 +1304,27 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
           from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        /* Widen the PersonaSelector trigger into a full-row button when it
-         * lives inside the face-swap panel. */
-        .etd-face-panel .persona-selector { width: 100%; }
-        .etd-face-panel .persona-selector-trigger {
-          display: flex;
-          width: 100%;
-          padding: 10px 14px;
-          border-radius: 12px;
-          background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(255,255,255,0.08);
-          font-size: 13px;
+        /* Marching-ants — slides the diagonal stripe pattern by one
+         * full repeat (17px) so the dashes appear to crawl along the
+         * outline mask. 0.9s loop is brisk enough to read as motion
+         * without feeling jittery. */
+        @keyframes etd-marching-ants {
+          from { background-position: 0 0; }
+          to   { background-position: 17px 17px; }
         }
-        .etd-face-panel .persona-selector-trigger:hover {
-          background: rgba(139, 92, 246, 0.1);
-          border-color: rgba(139, 92, 246, 0.38);
-        }
-        .etd-face-panel .persona-selector-label { max-width: none; flex: 1; text-align: left; }
-        .etd-face-panel .persona-selector-trigger-img { width: 22px; height: 22px; border-radius: 999px; }
-        .etd-face-panel .persona-selector-icon svg { width: 18px; height: 18px; }
-        .etd-face-panel .persona-selector-reset { top: 6px; right: 6px; }
       `}</style>
 
       <div
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Edit thumbnail"
         style={{
           position: 'relative',
           width: '100%',
-          maxWidth: 1040,
-          maxHeight: 'calc(100dvh - 48px)',
           padding: '22px 22px 18px',
-          borderRadius: 22,
-          overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           gap: 12,
-          background:
-            'linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 40%, rgba(255,255,255,0.01) 100%)',
-          backdropFilter: 'blur(50px) saturate(190%) brightness(1.05)',
-          WebkitBackdropFilter: 'blur(50px) saturate(190%) brightness(1.05)',
-          border: '0.5px solid rgba(255, 255, 255, 0.22)',
-          boxShadow:
-            'inset 0 0.5px 0 rgba(255,255,255,0.18), inset 0 -0.5px 0 rgba(255,255,255,0.05), 0 0 0 0.5px rgba(0,0,0,0.14), 0 16px 48px rgba(0,0,0,0.48), 0 28px 72px rgba(0,0,0,0.28)',
           color: '#fff',
           fontFamily: 'inherit',
-          animation: 'etd-panel-in 0.3s cubic-bezier(0.32, 0.72, 0, 1) both',
+          overflowY: 'auto',
           boxSizing: 'border-box',
         }}
       >
@@ -1212,16 +1393,20 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
           Edit thumbnail
         </div>
 
-        {/* Thumbnail + canvas — 16:9 card, bigger stage so the image
-         * reads clearly while masking and you can see faceswap results. */}
+        {/* Thumbnail + canvas — aspect adapts to the source image so
+         * landscape (16:9), portrait (9:16), and square thumbnails
+         * all fill the card without cropping. `maxWidth` is computed
+         * via `calc(60vh * aspect)` so portrait thumbnails are
+         * height-bound instead of overflowing — landscape stays
+         * width-bound at 1040px. */}
         <div
           ref={stageRef}
           style={{
             position: 'relative',
             alignSelf: 'center',
             width: '100%',
-            maxWidth: 880,
-            aspectRatio: '16 / 9',
+            maxWidth: `min(1040px, calc(60vh * ${imageAspect}))`,
+            aspectRatio: String(imageAspect),
             borderRadius: 16,
             overflow: 'hidden',
             background: 'rgba(12, 10, 18, 0.55)',
@@ -1266,7 +1451,11 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
-            onPointerLeave={onPointerUp}
+            onPointerEnter={onPointerEnter}
+            onPointerLeave={(e) => {
+              onPointerUp(e)
+              setCursorVisible(false)
+            }}
             style={{
               position: 'absolute',
               inset: 0,
@@ -1277,7 +1466,14 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
               // the same spot twice doesn't accumulate darker — it stays one
               // uniform transparent layer.
               opacity: MASK_CSS_OPACITY,
-              cursor: busy ? 'default' : 'crosshair',
+              // Hide the native crosshair while in brush/eraser mode so
+              // only the custom circle preview is visible. Rect tool still
+              // uses crosshair so the corner-anchored drag is unambiguous.
+              cursor: busy
+                ? 'default'
+                : tool === 'brush' || tool === 'eraser'
+                  ? 'none'
+                  : 'crosshair',
               touchAction: 'none',
               pointerEvents: busy ? 'none' : 'auto',
             }}
@@ -1299,6 +1495,67 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
               pointerEvents: 'none',
             }}
           />
+
+          {/* Marching-ants marquee — outline of the painted region
+           * rendered as a striped pattern masked through the edge
+           * mask. Stripes animate along their gradient axis at a
+           * gentle 1.4 s loop, the classic Photoshop marquee feel.
+           * Hidden during an active stroke so the live brush isn't
+           * cluttered, and only mounts once we have an outline mask
+           * to clip against. */}
+          {marqueeUrl && !drawingRef.current && (
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+                backgroundImage:
+                  'repeating-linear-gradient(45deg, rgba(255,255,255,0.95) 0 6px, rgba(0,0,0,0.85) 6px 12px)',
+                backgroundSize: '17px 17px',
+                WebkitMaskImage: `url(${marqueeUrl})`,
+                maskImage: `url(${marqueeUrl})`,
+                WebkitMaskSize: '100% 100%',
+                maskSize: '100% 100%',
+                WebkitMaskRepeat: 'no-repeat',
+                maskRepeat: 'no-repeat',
+                animation: 'etd-marching-ants 0.9s linear infinite',
+                mixBlendMode: 'normal',
+                zIndex: 3,
+              }}
+            />
+          )}
+
+          {/* Brush cursor preview — circle that follows the pointer
+           * while a paint tool is active. Centre is the chosen colour
+           * (semi-transparent so the user still sees the image
+           * underneath); border is white-tinted with a contrasting
+           * dark outer ring so the preview is legible on any
+           * brightness of background. Position is updated imperatively
+           * by `moveCursorPreview`; React only re-renders when tool /
+           * brushSize / colour / visibility change. */}
+          {(tool === 'brush' || tool === 'eraser') && !busy && (
+            <div
+              ref={cursorPreviewRef}
+              aria-hidden
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: brushSize,
+                height: brushSize,
+                borderRadius: '50%',
+                background: tool === 'eraser' ? 'transparent' : hexToRgba(color, 0.45),
+                border: '1.5px solid rgba(255, 255, 255, 0.92)',
+                boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.32)',
+                pointerEvents: 'none',
+                opacity: cursorVisible ? 1 : 0,
+                transition: 'opacity 0.12s ease, width 0.12s ease, height 0.12s ease',
+                willChange: 'transform',
+                zIndex: 2,
+              }}
+            />
+          )}
 
           {busy && (
             <div
@@ -1325,28 +1582,49 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
           )}
         </div>
 
-        {/* Toolbar — visible only in Edit mode. Centered under the
-         * thumbnail, constrained to the same max-width so it shares the
-         * column. Hidden on the Face-swap tab to keep that UI focused. */}
+        {/* Toolbar + mode tabs — one cohesive centered row.
+         *
+         *   [ tools (rect, brush, eraser, size, colour) ]
+         *   [ Edit | Face-swap tabs (center) ]
+         *   [ history (undo, redo, clear) ]
+         *
+         * The mode tabs use `<ThumbPillTabs>` so the bar reads as the
+         * same component family as the generator's mode tabs. Tools
+         * + history fade out when face-swap is active (mode tabs stay
+         * put so the user can flip back). Width tracks the thumbnail
+         * card so the toolbar stays flush with the stage on every
+         * aspect ratio (portrait + square cards shrink the toolbar
+         * to match instead of leaving it ballooned). */}
         <div
           style={{
             alignSelf: 'center',
             width: '100%',
-            maxWidth: 880,
-            display: mode === 'edit' ? 'flex' : 'none',
+            maxWidth: `min(1040px, calc(60vh * ${imageAspect}))`,
+            display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 8,
-            padding: '6px 10px',
-            borderRadius: 14,
+            justifyContent: 'center',
+            gap: 12,
+            padding: '7px 12px',
+            borderRadius: 16,
             background: 'rgba(14, 14, 18, 0.45)',
             border: '1px solid rgba(255, 255, 255, 0.06)',
             backdropFilter: 'blur(22px) saturate(1.4)',
             WebkitBackdropFilter: 'blur(22px) saturate(1.4)',
+            flexWrap: 'wrap',
           }}
         >
-          {/* Left side — tools, separated by gap */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Left cluster — paint tools. Same set is available on
+           * face-swap so users can mark a region around the face
+           * they want replaced (the mask isn't sent today, but the
+           * UI is consistent and undo / clear all behave the same). */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flex: '0 0 auto',
+            }}
+          >
             <CircleBtn
               onClick={() => setTool('rect')}
               active={tool === 'rect'}
@@ -1372,7 +1650,9 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
               <IconEraser size={14} />
             </CircleBtn>
 
-            {/* Brush size popover */}
+            {/* Brush-size selector — preset chips inside a popover. The
+             * trigger renders a dot whose diameter scales with the
+             * current `brushSize`, giving an at-a-glance preview. */}
             <div ref={sizePopoverRef} style={{ position: 'relative' }}>
               <CircleBtn
                 onClick={() => {
@@ -1393,55 +1673,10 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
                   aria-hidden
                 />
               </CircleBtn>
-              {sizePopoverOpen && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: 'calc(100% + 8px)',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '10px 14px',
-                    background: 'rgba(14, 14, 18, 0.88)',
-                    border: '0.5px solid rgba(255,255,255,0.1)',
-                    borderRadius: 14,
-                    boxShadow: '0 10px 32px rgba(0,0,0,0.55)',
-                    backdropFilter: 'blur(22px) saturate(180%)',
-                    animation: 'etd-popover-in 0.18s cubic-bezier(0.32, 0.72, 0, 1) both',
-                    WebkitBackdropFilter: 'blur(22px) saturate(180%)',
-                    zIndex: 10,
-                    width: 200,
-                  }}
-                >
-                  <input
-                    type="range"
-                    min="8"
-                    max="120"
-                    step="2"
-                    value={brushSize}
-                    onChange={(e) => setBrushSize(Number(e.target.value))}
-                    style={{ flex: 1, accentColor: '#a78bfa' }}
-                    aria-label="Brush size"
-                  />
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      fontVariantNumeric: 'tabular-nums',
-                      color: 'rgba(255,255,255,0.75)',
-                      minWidth: 32,
-                      textAlign: 'right',
-                    }}
-                  >
-                    {brushSize}px
-                  </span>
-                </div>
-              )}
+              {sizePopoverOpen && <BrushSizePopover value={brushSize} onChange={setBrushSize} />}
             </div>
 
-            {/* Color popover */}
+            {/* Colour swatch — popover with the predefined palette. */}
             <div ref={colorPopoverRef} style={{ position: 'relative' }}>
               <button
                 type="button"
@@ -1533,11 +1768,28 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
             </div>
           </div>
 
-          {/* Spacer */}
-          <span style={{ flex: 1 }} />
+          {/* Center — Edit / Face-swap mode tabs. Same pill recipe as
+           * the generator's mode tabs (`ThumbPillTabs`) so the editor
+           * reads as part of the same component family. */}
+          <div style={{ flex: '1 1 auto', display: 'flex', justifyContent: 'center' }}>
+            <ThumbPillTabs
+              options={EDIT_MODE_OPTIONS}
+              value={mode}
+              onChange={setMode}
+              ariaLabel="Edit mode"
+            />
+          </div>
 
-          {/* Right side — history */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Right cluster — undo / redo / clear. Always visible so
+           * the toolbar reads as one cohesive row in both modes. */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flex: '0 0 auto',
+            }}
+          >
             <CircleBtn onClick={handleUndo} disabled={busy || undoDepth === 0} title="Undo (⌘Z)">
               <IconUndo size={14} />
             </CircleBtn>
@@ -1550,85 +1802,17 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
           </div>
         </div>
 
-        {/* Mode tabbar — Edit (paint + prompt) vs Face swap (persona). */}
-        <div
-          role="tablist"
-          aria-label="Edit mode"
-          style={{
-            alignSelf: 'center',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: 4,
-            borderRadius: 999,
-            background: 'rgba(14, 14, 18, 0.55)',
-            border: '0.5px solid rgba(255, 255, 255, 0.1)',
-            backdropFilter: 'blur(22px) saturate(1.4)',
-            WebkitBackdropFilter: 'blur(22px) saturate(1.4)',
-          }}
-        >
-          <TabButton
-            active={mode === 'edit'}
-            onClick={() => setMode('edit')}
-            icon={<IconPencil size={13} />}
-            label="Edit"
-          />
-          <TabButton
-            active={mode === 'faceswap'}
-            onClick={() => setMode('faceswap')}
-            icon={<IconFaceSwap size={14} />}
-            label="Face swap"
-          />
-        </div>
-
         {/* Face-swap panel — persona picker. Shown only when face-swap
          * mode is active; the drawing toolbar above is hidden in this
          * case so the UI stays focused. */}
         {mode === 'faceswap' && (
-          <div
-            className="etd-face-panel"
-            style={{
-              alignSelf: 'center',
-              width: '100%',
-              maxWidth: 560,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-              padding: 14,
-              borderRadius: 14,
-              background: 'rgba(14, 14, 18, 0.45)',
-              border: '0.5px solid rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(22px) saturate(1.4)',
-              WebkitBackdropFilter: 'blur(22px) saturate(1.4)',
-              animation: 'etd-fade-in 0.24s cubic-bezier(0.32, 0.72, 0, 1) both',
-            }}
-          >
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                color: 'rgba(255,255,255,0.55)',
-                textAlign: 'center',
-              }}
-            >
-              Swap face with
-            </span>
-            <PersonaSelector />
-            {!selectedPersona && (
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 12,
-                  color: 'rgba(255,255,255,0.5)',
-                  textAlign: 'center',
-                }}
-              >
-                Pick a character above to use their face.
-              </p>
-            )}
-          </div>
+          <FaceSwapPanel
+            busy={busy}
+            disabled={!canSubmit}
+            onGenerate={handleSubmit}
+            unitCost={unitCost}
+            totalCost={batch > 1 ? totalCost : unitCost}
+          />
         )}
 
         {/* Error */}
@@ -1651,122 +1835,430 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
           </p>
         )}
 
-        {/* Input area — liquid-glass pill matching the app language:
-         * dark black-tint gradient, heavy blur, thin highlight border.
-         * In faceswap mode the prompt is optional (hint only), in edit
-         * mode it's the main driver. */}
-        <div
-          style={{
-            alignSelf: 'center',
-            width: '100%',
-            maxWidth: 640,
-            display: 'flex',
-            alignItems: 'flex-end',
-            gap: 10,
-            padding: '0.55rem 0.55rem 0.55rem 0.9rem',
-            borderRadius: 999,
-            background: 'linear-gradient(180deg, rgba(0,0,0,0.48) 0%, rgba(0,0,0,0.3) 100%)',
-            backdropFilter: 'blur(30px) saturate(1.8)',
-            WebkitBackdropFilter: 'blur(30px) saturate(1.8)',
-            border: '0.5px solid rgba(255, 255, 255, 0.14)',
-            boxShadow:
-              'inset 0 0.5px 0 rgba(255,255,255,0.2), inset 0 -0.5px 0 rgba(255,255,255,0.04), 0 6px 22px rgba(0, 0, 0, 0.32)',
-            animation: 'etd-fade-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) both',
-          }}
-        >
-          <textarea
-            ref={editTextareaRef}
-            value={editPrompt}
-            onChange={(e) => {
-              setEditPrompt(e.target.value)
-              if (error) setError(null)
-            }}
-            placeholder={placeholder}
-            rows={1}
-            maxLength={400}
-            disabled={busy}
-            onKeyDown={(e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                e.preventDefault()
-                handleSubmit()
-              }
-            }}
+        {/* Input area — only mounted in Edit mode; face-swap mode
+         * has no prompt textarea, just the persona pill + Generate
+         * button rendered by `<FaceSwapPanel>` above. */}
+        {mode === 'edit' && (
+          <div
             style={{
-              flex: 1,
-              padding: '0.5rem 0.2rem',
-              fontSize: '0.86rem',
-              fontFamily: 'inherit',
-              color: 'rgba(255,255,255,0.95)',
-              background: 'transparent',
-              border: 'none',
-              outline: 'none',
-              lineHeight: 1.5,
-              resize: 'none',
-              minHeight: '1.5em',
-              maxHeight: '6em',
-              overflowY: 'auto',
-              boxSizing: 'border-box',
+              alignSelf: 'center',
+              width: '100%',
+              maxWidth: 720,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+              padding: '12px 14px',
+              borderRadius: 22,
+              background:
+                'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 40%, rgba(255,255,255,0.01) 100%)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 6px 22px rgba(0, 0, 0, 0.22)',
+              animation: 'etd-fade-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) both',
             }}
-          />
-          <PrimaryActionBtn
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            busy={busy}
-            label="Generate"
-            busyLabel="Generating…"
-            icon={<IconArrowUp size={13} />}
-            creditCost={unitCost ? (batch > 1 ? totalCost : unitCost) : null}
-          />
-        </div>
+          >
+            <textarea
+              ref={editTextareaRef}
+              value={editPrompt}
+              onChange={(e) => {
+                setEditPrompt(e.target.value)
+                if (error) setError(null)
+              }}
+              placeholder={placeholder}
+              rows={1}
+              maxLength={400}
+              disabled={busy}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                  e.preventDefault()
+                  handleSubmit()
+                }
+              }}
+              style={{
+                width: '100%',
+                padding: '4px 2px',
+                fontSize: '0.92rem',
+                fontFamily: 'inherit',
+                color: 'rgba(255,255,255,0.95)',
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                lineHeight: 1.5,
+                resize: 'none',
+                minHeight: '2.6em',
+                maxHeight: '7em',
+                overflowY: 'auto',
+                boxSizing: 'border-box',
+              }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <PrimaryActionBtn
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                busy={busy}
+                label="Generate"
+                busyLabel="Generating…"
+                icon={<IconArrowUp size={13} />}
+                creditCost={unitCost ? (batch > 1 ? totalCost : unitCost) : null}
+              />
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </Dialog>
   )
-
-  return createPortal(dialog, document.body)
 }
 
-function TabButton({ active, onClick, icon, label }) {
+/**
+ * FaceSwapPanel — bespoke face-swap UI for the editor.
+ *
+ *   ┌──────────────────────────────────────┐
+ *   │  [face]  Persona name           [×]  │   ← pill picker (full-width)
+ *   └──────────────────────────────────────┘
+ *   ┌──────────────────────────────────────┐
+ *   │            Generate · 12cr           │   ← primary CTA
+ *   └──────────────────────────────────────┘
+ *
+ * Rolls its own pill trigger + popover (instead of embedding the
+ * shared <PersonaSelector>) so every detail — the avatar size, the
+ * gradient on the active state, the hairline border, the popover
+ * surface — matches the editor's design language exactly. Click the
+ * pill to open / dismiss the persona list; click outside to close.
+ */
+function FaceSwapPanel({ busy, disabled, onGenerate, unitCost, totalCost }) {
+  const { selectedPersona, setSelectedPersona, clearSelectedPersona } = usePersonaStore()
+  const { data, isPending } = usePersonasQuery()
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', onDown, true)
+    return () => document.removeEventListener('pointerdown', onDown, true)
+  }, [open])
+
+  const items = data?.items ?? []
+  const cost = unitCost ? totalCost : null
+
   return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      onPointerDown={(e) => {
-        e.currentTarget.style.transform = 'scale(0.93)'
-      }}
-      onPointerUp={(e) => {
-        e.currentTarget.style.transform = ''
-      }}
-      onPointerLeave={(e) => {
-        e.currentTarget.style.transform = ''
-      }}
+    <div
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 7,
-        padding: '7px 16px',
-        border: 'none',
-        borderRadius: 999,
-        background: active
-          ? 'linear-gradient(135deg, rgba(144,97,240,0.28) 0%, rgba(124,58,237,0.22) 100%)'
-          : 'transparent',
-        color: active ? '#ffffff' : 'rgba(255,255,255,0.6)',
-        fontSize: 13,
-        fontWeight: 600,
-        letterSpacing: '0.005em',
-        fontFamily: 'inherit',
-        cursor: 'pointer',
-        boxShadow: active
-          ? 'inset 0 1px 0 rgba(255,255,255,0.14), 0 4px 14px rgba(124,58,237,0.22)'
-          : 'none',
-        transition:
-          'background 0.22s ease, color 0.22s ease, box-shadow 0.22s ease, transform 0.12s cubic-bezier(0.33, 1, 0.68, 1)',
+        alignSelf: 'center',
+        width: '100%',
+        maxWidth: 540,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        animation: 'etd-fade-in 0.24s cubic-bezier(0.32, 0.72, 0, 1) both',
       }}
     >
-      {icon}
-      <span>{label}</span>
-    </button>
+      {/* Pill picker. The two visual states (empty vs selected)
+       * share the same silhouette: full-width capsule, white-grey
+       * hairline, soft inset highlight. Selected state lifts the
+       * border into a subtle violet to match the active mode tab. */}
+      <div ref={wrapRef} style={{ position: 'relative' }}>
+        <button
+          type="button"
+          onClick={() => !busy && setOpen((o) => !o)}
+          disabled={busy}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-label={selectedPersona ? `Character: ${selectedPersona.name}` : 'Pick a character'}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            width: '100%',
+            padding: selectedPersona ? '8px 12px 8px 8px' : '12px 16px',
+            border: `1px solid ${
+              open
+                ? 'rgba(167, 139, 250, 0.65)'
+                : selectedPersona
+                  ? 'rgba(167, 139, 250, 0.42)'
+                  : 'rgba(255, 255, 255, 0.12)'
+            }`,
+            borderRadius: 999,
+            background: selectedPersona
+              ? 'linear-gradient(180deg, rgba(139, 92, 246, 0.18) 0%, rgba(139, 92, 246, 0.07) 100%)'
+              : 'rgba(255, 255, 255, 0.04)',
+            color: '#ffffff',
+            cursor: busy ? 'not-allowed' : 'pointer',
+            fontFamily: 'inherit',
+            fontSize: 13,
+            fontWeight: 500,
+            boxShadow: selectedPersona
+              ? 'inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 6px 18px rgba(124, 58, 237, 0.18)'
+              : 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
+            transition:
+              'background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.12s cubic-bezier(0.33, 1, 0.68, 1)',
+            opacity: busy ? 0.55 : 1,
+          }}
+        >
+          {selectedPersona ? (
+            <>
+              <span
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  background: 'rgba(0, 0, 0, 0.35)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                }}
+              >
+                {selectedPersona.image_url && (
+                  <img
+                    src={selectedPersona.image_url}
+                    alt=""
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                )}
+              </span>
+              <span
+                style={{
+                  flex: 1,
+                  textAlign: 'left',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {selectedPersona.name}
+              </span>
+              <span
+                role="button"
+                aria-label="Clear character"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  clearSelectedPersona()
+                  setOpen(false)
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 28,
+                  height: 28,
+                  borderRadius: '50%',
+                  background: 'rgba(0, 0, 0, 0.35)',
+                  color: 'rgba(255, 255, 255, 0.85)',
+                  flexShrink: 0,
+                  cursor: 'pointer',
+                }}
+              >
+                <IconX size={12} />
+              </span>
+            </>
+          ) : (
+            <>
+              <span style={{ flex: 1, textAlign: 'center', color: 'rgba(255, 255, 255, 0.6)' }}>
+                Pick a character
+              </span>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  transform: open ? 'rotate(180deg)' : 'none',
+                  transition: 'transform 0.2s',
+                  color: 'rgba(255, 255, 255, 0.55)',
+                }}
+              >
+                <IconChevron size={14} />
+              </span>
+            </>
+          )}
+        </button>
+
+        {open && (
+          <div
+            role="listbox"
+            style={{
+              position: 'absolute',
+              // Pops UPWARD above the pill — speech-bubble style. The
+              // generator's pill-tab popovers all open this way too.
+              bottom: 'calc(100% + 6px)',
+              left: 0,
+              right: 0,
+              maxHeight: 280,
+              overflowY: 'auto',
+              padding: 6,
+              // Solid panel surface (no backdrop-filter) — same recipe
+              // as the editor's input bar so the popover reads as the
+              // same dialog family, not a translucent dropdown.
+              background: '#1c1c24',
+              backgroundImage:
+                'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 40%, rgba(255,255,255,0.01) 100%)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: 18,
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 14px 36px rgba(0, 0, 0, 0.6)',
+              transformOrigin: 'bottom center',
+              animation: 'etd-fade-in 0.18s cubic-bezier(0.32, 0.72, 0, 1) both',
+              zIndex: 5,
+            }}
+          >
+            {isPending && (
+              <div
+                style={{
+                  padding: 12,
+                  fontSize: 12,
+                  color: 'rgba(255, 255, 255, 0.55)',
+                  textAlign: 'center',
+                }}
+              >
+                Loading characters…
+              </div>
+            )}
+            {!isPending && items.length === 0 && (
+              <div
+                style={{
+                  padding: 12,
+                  fontSize: 12,
+                  color: 'rgba(255, 255, 255, 0.55)',
+                  textAlign: 'center',
+                }}
+              >
+                No characters yet — create one from the Characters menu.
+              </div>
+            )}
+            {items.map((p) => {
+              const active = selectedPersona?.id === p.id
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  onClick={() => {
+                    setSelectedPersona(p)
+                    setOpen(false)
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    width: '100%',
+                    padding: '8px 10px',
+                    border: 'none',
+                    borderRadius: 10,
+                    background: active ? 'rgba(167, 139, 250, 0.16)' : 'transparent',
+                    color: active ? '#ffffff' : 'rgba(229, 231, 235, 0.85)',
+                    fontFamily: 'inherit',
+                    fontSize: 13,
+                    fontWeight: 500,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'background 0.15s ease, color 0.15s ease',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: '50%',
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                      background: 'rgba(0, 0, 0, 0.35)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                    }}
+                  >
+                    {p.image_url && (
+                      <img
+                        src={p.image_url}
+                        alt=""
+                        loading="lazy"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          display: 'block',
+                        }}
+                      />
+                    )}
+                  </span>
+                  <span
+                    style={{
+                      flex: 1,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {p.name}
+                  </span>
+                  {(p.visibility === 'admin' || p.visibility === 'stock') && (
+                    <span
+                      style={{
+                        flexShrink: 0,
+                        padding: '2px 7px',
+                        borderRadius: 999,
+                        fontSize: 9,
+                        fontWeight: 600,
+                        letterSpacing: '0.04em',
+                        textTransform: 'uppercase',
+                        color: 'rgba(255, 255, 255, 0.92)',
+                        background: 'rgba(0, 0, 0, 0.62)',
+                        boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.16)',
+                      }}
+                      aria-hidden
+                    >
+                      Demo
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Generate — full-width primary pill. PrimaryPill at size=md
+       * here (not sm) because this is the only CTA on the screen. */}
+      <PrimaryPill
+        type="button"
+        size="md"
+        fullWidth
+        onClick={onGenerate}
+        disabled={disabled}
+        busy={busy}
+        busyLabel="Swapping…"
+        label={
+          cost ? (
+            <>
+              <span
+                aria-hidden
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  lineHeight: 1,
+                  paddingRight: '0.55rem',
+                  marginRight: '0.2rem',
+                  borderRight: '1px solid rgba(255, 255, 255, 0.22)',
+                }}
+              >
+                <IconZapFilled size={12} />
+                <span
+                  style={{
+                    fontVariantNumeric: 'tabular-nums',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.01em',
+                  }}
+                >
+                  {cost}
+                </span>
+              </span>
+              Generate
+            </>
+          ) : (
+            'Generate'
+          )
+        }
+        ariaLabel="Run face swap"
+      />
+    </div>
   )
 }
 

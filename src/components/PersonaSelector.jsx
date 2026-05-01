@@ -290,6 +290,11 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
                       )}
                     </span>
                     <span className="persona-selector-option-name">{p.name}</span>
+                    {(p.visibility === 'admin' || p.visibility === 'stock') && (
+                      <span className="persona-selector-option-badge" aria-hidden>
+                        Demo
+                      </span>
+                    )}
                     {pinnedIds.has(p.id) && (
                       <span className="persona-selector-pin" aria-hidden>
                         ★

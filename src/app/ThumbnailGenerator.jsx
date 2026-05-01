@@ -95,17 +95,18 @@ const SRC_OPTIONS_URL = [
   { value: 'upload', label: 'Upload', icon: SRC_ICON_UPLOAD },
 ]
 
-// Two-line example hints. The blank line break is rendered by the
-// browser inside the native textarea placeholder, so users see the
-// full idea — subject on line 1, mood / title / styling on line 2 —
-// before they type anything.
+// Example prompt hints. Written as single natural sentences so the
+// browser word-wraps them across the input bar — line 1 fills the
+// available width, line 2 picks up the rest. No hardcoded `\n`: the
+// shape is now driven by the textarea's actual width, which makes the
+// hint read the same on desktop, tablet, and mobile.
 const THUMB_COMPOSER_HINTS = [
-  'A smiling explorer on a misty mountain peak at golden hour\nbold yellow Impact title “I SURVIVED 7 DAYS”, dramatic backlight',
-  'Shocked face next to a huge pile of cash with red glow accents\nthick white outline, bold red title “I WON $1,000,000?!”',
-  'Close-up iPhone 16 floating on a neon-purple gradient backdrop\nglossy reflection, bold white sans title “WORTH THE HYPE?”',
-  'Ripped athlete mid-lift under dramatic red rim lighting\nblack vignette, bold yellow title “30-DAY TRANSFORMATION”',
-  'Dark desk with a glowing laptop and cyan LED strips behind it\nfilm-noir mood, bold cyan title “I BUILT A SAAS IN 24 HOURS”',
-  'Split before/after of a messy room and a clean room with arrow\nhigh-contrast lighting, bold green title “EXTREME CLEAN”',
+  'A smiling explorer on a misty mountain peak at golden hour, bold yellow Impact title “I SURVIVED 7 DAYS”, dramatic backlight',
+  'Shocked face next to a huge pile of cash with red glow accents, thick white outline, bold red title “I WON $1,000,000?!”',
+  'Close-up iPhone 16 floating on a neon-purple gradient backdrop, glossy reflection, bold white sans title “WORTH THE HYPE?”',
+  'Ripped athlete mid-lift under dramatic red rim lighting, black vignette, bold yellow title “30-DAY TRANSFORMATION”',
+  'Dark desk with a glowing laptop and cyan LED strips behind it, film-noir mood, bold cyan title “I BUILT A SAAS IN 24 HOURS”',
+  'Split before/after of a messy room and a clean room with arrow, high-contrast lighting, bold green title “EXTREME CLEAN”',
 ]
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -122,6 +123,25 @@ function IconCopy(props) {
 
 function IconArrowUp(props) {
   return <LucideArrowUp strokeWidth={2.4} {...props} />
+}
+
+/**
+ * SmoothHint — sibling overlay used as a fading placeholder over the
+ * Recreate / Analyze / Edit inputs. Visible while the field is empty;
+ * fades to opacity 0 the moment the user types or pastes anything,
+ * mirroring the prompt-tab animated hint's behaviour. Set `variant` to
+ * `textarea` for top-aligned hints (multi-line composer inputs) or
+ * `url` for the centred pill-shaped URL inputs.
+ */
+function SmoothHint({ visible, variant = 'textarea', children }) {
+  return (
+    <span
+      className={`smooth-hint smooth-hint--${variant} ${visible ? '' : 'is-hidden'}`}
+      aria-hidden
+    >
+      {children}
+    </span>
+  )
 }
 
 /**
@@ -795,17 +815,12 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
                     aria-label="Regenerate thumbnail"
                     title="Regenerate"
                   >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden
-                    >
-                      <path d="M21 12a9 9 0 1 1-3.27-6.95" />
-                      <polyline points="21 4 21 10 15 10" />
+                    {/* Refresh glyph from src/assets/refresh.svg —
+                     * fill-based icon (paths default to currentColor)
+                     * so it tints with the surrounding button colour. */}
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                      <path d="M12,2a10.032,10.032,0,0,1,7.122,3H16a1,1,0,0,0-1,1h0a1,1,0,0,0,1,1h4.143A1.858,1.858,0,0,0,22,5.143V1a1,1,0,0,0-1-1h0a1,1,0,0,0-1,1V3.078A11.981,11.981,0,0,0,.05,10.9a1.007,1.007,0,0,0,1,1.1h0a.982.982,0,0,0,.989-.878A10.014,10.014,0,0,1,12,2Z" />
+                      <path d="M22.951,12a.982.982,0,0,0-.989.878A9.986,9.986,0,0,1,4.878,19H8a1,1,0,0,0,1-1H9a1,1,0,0,0-1-1H3.857A1.856,1.856,0,0,0,2,18.857V23a1,1,0,0,0,1,1H3a1,1,0,0,0,1-1V20.922A11.981,11.981,0,0,0,23.95,13.1a1.007,1.007,0,0,0-1-1.1Z" />
                     </svg>
                   </button>
                 ) : null}
@@ -1137,9 +1152,14 @@ const ChatMessageItem = memo(function ChatMessageItem({
               <LazyImg src={msg.imageUrl} alt="Sent thumbnail" className="thumb-user-sent-img" />
             </div>
           )}
-          <div className="coach-message-bubble">
-            <p>{msg.content}</p>
-          </div>
+          {/* Bubble is skipped entirely when the user sent only an
+           * image (recreate / analyze with no typed prompt). Avoids
+           * an empty pill clinging to the image card. */}
+          {msg.content ? (
+            <div className="coach-message-bubble">
+              <p>{msg.content}</p>
+            </div>
+          ) : null}
         </div>
       ) : (
         <>
@@ -2276,12 +2296,15 @@ export function ThumbnailGenerator({
       setSendErrorMeta(null)
       return
     }
+    // The user's chat bubble shows just the source thumbnail and any
+    // instructions they typed — no hardcoded "Recreate this thumbnail"
+    // prose. The backend still receives `prompt: instructions` (the
+    // recreate API endpoint encodes the operation, not the prompt).
     const userText = instructions
-      ? `Recreate this thumbnail — ${instructions}`
-      : 'Recreate this thumbnail.'
     setSendError('')
     setSendErrorMeta(null)
     setPendingUserMessage(userText)
+    setPendingUserImageUrl(sourceImageUrl)
     setPendingAssistant(true)
     setRecreateDraft('')
     setRecreateSourceImage(null)
@@ -2305,7 +2328,13 @@ export function ThumbnailGenerator({
         const res = await thumbnailsApi.regenerateWithPersona(token, payload)
         const imageUrl = res?.image_url
         if (!imageUrl) throw new Error('No image returned from recreate.')
-        pushLocalAssistantMessage(userText, { content: '', imageUrl, isRecreate: true })
+        pushLocalAssistantMessage(userText, {
+          content: '',
+          imageUrl,
+          userImageUrl: sourceImageUrl,
+          userRequest: instructions,
+          isRecreate: true,
+        })
       } else {
         const results = await Promise.all(
           Array.from({ length: count }, () => thumbnailsApi.regenerateWithPersona(token, payload))
@@ -2317,7 +2346,8 @@ export function ThumbnailGenerator({
         pushLocalAssistantMessage(userText, {
           content: '',
           thumbnails,
-          userRequest: userText,
+          userImageUrl: sourceImageUrl,
+          userRequest: instructions,
           isRecreate: true,
         })
       }
@@ -2330,6 +2360,7 @@ export function ThumbnailGenerator({
       toast.error(message, { code: code || undefined, title: friendlyTitleFor(code) })
     } finally {
       setPendingUserMessage(null)
+      setPendingUserImageUrl(null)
     }
   }
 
@@ -2395,7 +2426,10 @@ export function ThumbnailGenerator({
       return
     }
     const titleTrim = analyzeTitle.trim()
-    const userText = `Analyze this thumbnail${titleTrim ? ` for "${titleTrim}"` : ''}.`
+    // User bubble shows the thumbnail + any title they typed — no
+    // hardcoded "Analyze this thumbnail" prose. The backend still
+    // gets `video_title: titleTrim` so the rating uses it for context.
+    const userText = titleTrim
     setSendError('')
     setSendErrorMeta(null)
     setPendingUserMessage(userText)
@@ -2549,7 +2583,7 @@ export function ThumbnailGenerator({
               />
             ))}
 
-          {pendingUserMessage && (
+          {(pendingUserMessage || pendingUserImageUrl) && (
             <article className="coach-message coach-message--user coach-message--enter">
               <div className="coach-user-message-stack">
                 {pendingUserImageUrl && (
@@ -2562,9 +2596,11 @@ export function ThumbnailGenerator({
                     />
                   </div>
                 )}
-                <div className="coach-message-bubble">
-                  <p>{pendingUserMessage}</p>
-                </div>
+                {pendingUserMessage ? (
+                  <div className="coach-message-bubble">
+                    <p>{pendingUserMessage}</p>
+                  </div>
+                ) : null}
               </div>
             </article>
           )}
@@ -2822,13 +2858,18 @@ export function ThumbnailGenerator({
                     <div className="thumb-source-inline-row">
                       {recreateSourceMode === 'youtube' ? (
                         <div className="thumb-source-url-row">
-                          <input
-                            type="url"
-                            className="thumb-source-input"
-                            placeholder="Drop a YouTube link or image URL"
-                            value={recreateUrlInput}
-                            onChange={(e) => setRecreateUrlInput(e.target.value.slice(0, 280))}
-                          />
+                          <div className="thumb-source-input-wrap">
+                            <input
+                              type="url"
+                              className="thumb-source-input"
+                              placeholder=""
+                              value={recreateUrlInput}
+                              onChange={(e) => setRecreateUrlInput(e.target.value.slice(0, 280))}
+                            />
+                            <SmoothHint visible={!recreateUrlInput} variant="url">
+                              Drop a YouTube link or image URL
+                            </SmoothHint>
+                          </div>
                         </div>
                       ) : (
                         <>
@@ -2854,9 +2895,9 @@ export function ThumbnailGenerator({
                         ref={recreateTextareaRef}
                         value={recreateDraft}
                         onChange={(e) => setRecreateDraft(String(e.target.value).slice(0, 2000))}
-                        placeholder="Anything you want to tweak? (optional)"
+                        placeholder=""
                         rows={1}
-                        className="coach-composer-input thumb-visible-placeholder"
+                        className="coach-composer-input"
                         maxLength={2000}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
@@ -2865,6 +2906,9 @@ export function ThumbnailGenerator({
                           }
                         }}
                       />
+                      <SmoothHint visible={!recreateDraft} variant="textarea">
+                        Anything you want to tweak? (optional)
+                      </SmoothHint>
                     </div>
                     <div className="coach-composer-actions thumb-gen-toolbar">
                       <div className="thumb-gen-toolbar-tools">
@@ -2898,13 +2942,18 @@ export function ThumbnailGenerator({
                     <div className="thumb-source-inline-row">
                       {analyzeSourceMode === 'youtube' ? (
                         <div className="thumb-source-url-row">
-                          <input
-                            type="url"
-                            className="thumb-source-input"
-                            placeholder="Drop a YouTube link or image URL"
-                            value={analyzeUrlInput}
-                            onChange={(e) => setAnalyzeUrlInput(e.target.value.slice(0, 280))}
-                          />
+                          <div className="thumb-source-input-wrap">
+                            <input
+                              type="url"
+                              className="thumb-source-input"
+                              placeholder=""
+                              value={analyzeUrlInput}
+                              onChange={(e) => setAnalyzeUrlInput(e.target.value.slice(0, 280))}
+                            />
+                            <SmoothHint visible={!analyzeUrlInput} variant="url">
+                              Drop a YouTube link or image URL
+                            </SmoothHint>
+                          </div>
                         </div>
                       ) : (
                         <>
@@ -2926,14 +2975,28 @@ export function ThumbnailGenerator({
                       )}
                     </div>
                     <div className="coach-composer-input-wrap thumb-prompt-input-wrap">
-                      <input
-                        type="text"
+                      {/* Same shape as the Recreate textarea so the two
+                       * tabs share one typing-area silhouette. `rows=1`
+                       * + textarea (instead of <input>) lets long titles
+                       * wrap inside the bar instead of scrolling
+                       * horizontally off-screen. */}
+                      <textarea
                         value={analyzeTitle}
                         onChange={(e) => setAnalyzeTitle(e.target.value.slice(0, 200))}
-                        placeholder="Add the video title for sharper analysis (optional)"
-                        className="coach-composer-input thumb-single-line-input thumb-visible-placeholder"
+                        placeholder=""
+                        rows={1}
+                        className="coach-composer-input"
                         maxLength={200}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            handleAnalyzeFooterSubmit(e)
+                          }
+                        }}
                       />
+                      <SmoothHint visible={!analyzeTitle} variant="textarea">
+                        Add the video title for sharper analysis (optional)
+                      </SmoothHint>
                     </div>
                     <div className="thumb-gen-analyze-submit-row">
                       <ThumbSendPill
@@ -2952,17 +3015,22 @@ export function ThumbnailGenerator({
                   <form onSubmit={handleEditSubmit} className="thumb-gen-mode-form">
                     <div className="thumb-source-inline-row">
                       {editSourceMode === 'url' ? (
-                        <input
-                          type="url"
-                          value={editUrlInput}
-                          onChange={(e) => {
-                            setEditUrlInput(e.target.value.slice(0, 800))
-                            setEditDataUrl(null)
-                            setEditFooterError('')
-                          }}
-                          placeholder="Drop a YouTube link or image URL"
-                          className="thumb-source-input"
-                        />
+                        <div className="thumb-source-input-wrap">
+                          <input
+                            type="url"
+                            value={editUrlInput}
+                            onChange={(e) => {
+                              setEditUrlInput(e.target.value.slice(0, 800))
+                              setEditDataUrl(null)
+                              setEditFooterError('')
+                            }}
+                            placeholder=""
+                            className="thumb-source-input"
+                          />
+                          <SmoothHint visible={!editUrlInput} variant="url">
+                            Drop a YouTube link or image URL
+                          </SmoothHint>
+                        </div>
                       ) : (
                         <>
                           <input

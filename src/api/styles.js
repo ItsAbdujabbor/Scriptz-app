@@ -32,7 +32,12 @@ export const stylesApi = {
     return request('GET', `/api/styles/${styleId}`, accessToken)
   },
   create(accessToken, payload) {
-    return request('POST', '/api/styles', accessToken, payload)
+    // Trailing slash matters — FastAPI is mounted at `/api/styles/`
+    // and serves a 307 redirect for `/api/styles`. Browsers preserve
+    // the body across the redirect inconsistently (Safari in particular
+    // can drop the JSON), which surfaces as "Failed to fetch" instead
+    // of a normal 4xx from the API.
+    return request('POST', '/api/styles/', accessToken, payload)
   },
   createFromUpload(accessToken, formData) {
     const url = getApiBaseUrl() + '/api/styles/upload'

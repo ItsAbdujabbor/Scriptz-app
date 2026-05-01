@@ -46,9 +46,7 @@ const AuthenticatedRoutes = lazy(() => import('./AuthenticatedRoutes.jsx'))
 /** 404 — a standalone full-screen surface, rendered without the app
  *  shell so the sidebar / topbar don't appear over a route the user
  *  was never supposed to be on. Lazy because most users never see it. */
-const NotFound = lazy(() =>
-  import('./components/NotFound').then((m) => ({ default: m.NotFound }))
-)
+const NotFound = lazy(() => import('./components/NotFound').then((m) => ({ default: m.NotFound })))
 
 const LoadingFallback = () => (
   <div
@@ -122,19 +120,25 @@ function getView() {
   if (h === 'terms') return 'terms'
   if (h === 'privacy') return 'privacy'
   if (h === 'refund') return 'refund'
-  if (h === 'onboarding') return 'dashboard'
-  if (h === 'optimizing') return 'dashboard'
-  if (h === 'dashboard') return 'dashboard'
+  // Dashboard / Optimize / Pro / Billing screens are temporarily hidden —
+  // the only authenticated app surface right now is the thumbnail
+  // generator. Any legacy hash that used to land on one of those screens
+  // (or onboarding / optimizing / app-youtube) silently redirects to
+  // thumbnails so old bookmarks and deep-links still resolve.
+  if (h === 'onboarding') return 'thumbnails'
+  if (h === 'optimizing') return 'thumbnails'
+  if (h === 'dashboard') return 'thumbnails'
+  if (h === 'optimize') return 'thumbnails'
+  if (h === 'billing') return 'thumbnails'
+  if (h === 'app-youtube') return 'thumbnails'
+  // Pro upgrade screen stays reachable — the "Go Pro" CTA in the sidebar
+  // depends on it.
+  if (h === 'pro') return 'pro'
   if (h === 'thumbnails' || h.startsWith('thumbnails/') || h.startsWith('thumbnails?'))
     return 'thumbnails'
-  if (h === 'optimize') return 'optimize'
-  if (h === 'pro') return 'pro'
-  if (h === 'billing') return 'billing'
   // Settings is now an in-shell route (not a modal/dialog) so it shares
   // the sidebar + main content layout with every other authenticated view.
-  if (h === 'settings' || h.startsWith('settings/') || h.startsWith('settings?'))
-    return 'settings'
-  if (h === 'app-youtube') return 'dashboard'
+  if (h === 'settings' || h.startsWith('settings/') || h.startsWith('settings?')) return 'settings'
   // Empty hash = "no specific route, show the marketing landing page".
   // Anything non-empty that didn't match above = the user typed/clicked
   // a URL we don't have a screen for. Return 'not-found' so the
@@ -151,11 +155,10 @@ function getView() {
 // chunks in the same browser request batch as the shell. Fire-and-forget;
 // errors surface through the Suspense fallback if the network fails.
 const VIEW_CHUNK_PREFETCH = {
-  dashboard: () => import('./app/Dashboard'),
   thumbnails: () => import('./app/Thumbnails'),
-  optimize: () => import('./app/Optimize'),
   pro: () => import('./app/Pro'),
-  billing: () => import('./app/Billing'),
+  // Dashboard / Optimize / Billing prefetches removed — those screens
+  // are hidden right now (see getView() redirects).
 }
 
 function AuthenticatedRouteBoundary({ view, onLogout }) {
@@ -200,8 +203,8 @@ function App() {
           return
         }
         if (token && !hash) {
-          window.location.hash = 'dashboard'
-          setView('dashboard')
+          window.location.hash = 'thumbnails'
+          setView('thumbnails')
         }
       })
   }, [])
@@ -260,8 +263,8 @@ function App() {
     setView('signup')
   }
   const goToDashboardAfterSignup = () => {
-    window.location.hash = 'dashboard'
-    setView('dashboard')
+    window.location.hash = 'thumbnails'
+    setView('thumbnails')
   }
   const goToForgotPassword = () => {
     window.location.hash = 'forgot-password'
@@ -274,8 +277,8 @@ function App() {
       return
     }
     useOnboardingStore.getState().load()
-    window.location.hash = 'dashboard'
-    setView('dashboard')
+    window.location.hash = 'thumbnails'
+    setView('thumbnails')
   }
   const onLogout = async () => {
     // Actually clear the session — tokens, user, cached queries — before
@@ -293,7 +296,7 @@ function App() {
 
   useEffect(() => {
     if (!sessionChecked) return
-    const appViews = ['dashboard', 'thumbnails', 'optimize', 'pro', 'billing']
+    const appViews = ['thumbnails', 'pro', 'settings']
     if (appViews.includes(view) && !accessToken) {
       window.location.hash = 'login'
       setView('login')
@@ -304,8 +307,8 @@ function App() {
     if (!sessionChecked || !accessToken) return
     if (useAuthStore.getState().user?.role === 'banned') return
     if (['login', 'signup', 'forgot-password'].includes(view)) {
-      window.location.hash = 'dashboard'
-      setView('dashboard')
+      window.location.hash = 'thumbnails'
+      setView('thumbnails')
     }
   }, [sessionChecked, accessToken, view])
 
@@ -380,16 +383,10 @@ function App() {
         return <PrivacyPolicy onBack={goBack} />
       case 'refund':
         return <RefundPolicy onBack={goBack} />
-      case 'dashboard':
-        return <AuthenticatedRouteBoundary view="dashboard" onLogout={onLogout} />
       case 'thumbnails':
         return <AuthenticatedRouteBoundary view="thumbnails" onLogout={onLogout} />
-      case 'optimize':
-        return <AuthenticatedRouteBoundary view="optimize" onLogout={onLogout} />
       case 'pro':
         return <AuthenticatedRouteBoundary view="pro" onLogout={onLogout} />
-      case 'billing':
-        return <AuthenticatedRouteBoundary view="billing" onLogout={onLogout} />
       case 'settings':
         return <AuthenticatedRouteBoundary view="settings" onLogout={onLogout} />
       case 'not-found':

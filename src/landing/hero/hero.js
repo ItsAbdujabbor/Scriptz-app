@@ -157,9 +157,18 @@
      *   8.0s  loader is replaced by the finished thumbnail card
      *   12s   reset to empty state, loop again.
      */
-    const tgView = document.getElementById('lin-view-thumbnails')
-    const tgShell = tgView ? tgView.querySelector('.lin-tg-shell') : null
+    // Single-screen mockup now — no view wrapper, just the shell directly
+    // inside `<main class="lin-main">`. The cycle starts immediately on
+    // load and never pauses (there's no other view to switch to).
+    const tgShell = document.querySelector('.lin-tg-shell')
     const tgThread = document.getElementById('lin-tg-thread')
+
+    const tgInput = document.getElementById('lin-tg-input')
+    const tgTyped = document.getElementById('lin-tg-typed')
+    const tgCaret = document.getElementById('lin-tg-caret')
+    const _tgPlaceholder = document.getElementById('lin-tg-placeholder')
+    const tgComposer = document.getElementById('lin-tg-composer')
+    const tgSend = document.getElementById('lin-tg-send')
 
     if (tgShell && tgThread) {
       let cycleTimer = null
@@ -183,6 +192,72 @@
           'lin-tg-shell--generating',
           'lin-tg-shell--done'
         )
+        // Empty-state class flex-centres heading + footer together so
+        // they cluster at the visual centre (matches the production
+        // empty-state layout). Removed below as soon as the user
+        // message lands and the thread takes over.
+        tgShell.classList.add('lin-tg-shell--empty')
+        // Reset the composer back to the placeholder + idle state.
+        if (tgInput) tgInput.classList.remove('is-typing')
+        if (tgTyped) tgTyped.textContent = ''
+        if (tgCaret) tgCaret.hidden = true
+        if (tgComposer) tgComposer.classList.remove('is-focused')
+      }
+
+      // Type `text` into the input one character at a time. Resolves
+      // when the full string has been typed. Cancellable: if the cycle
+      // stops mid-typing, the loop bails on the next tick.
+      function typewriter(text) {
+        return new Promise((resolve) => {
+          if (!tgInput || !tgTyped || !tgCaret) {
+            resolve()
+            return
+          }
+          tgInput.classList.add('is-typing')
+          tgComposer && tgComposer.classList.add('is-focused')
+          tgCaret.hidden = false
+          tgTyped.textContent = ''
+          let i = 0
+          const tick = () => {
+            if (!cycleRunning) {
+              resolve()
+              return
+            }
+            // Vary the delay slightly so it reads like a human, not a
+            // metronome. Spaces + punctuation get a small extra pause.
+            const ch = text.charAt(i)
+            tgTyped.textContent += ch
+            i += 1
+            if (i >= text.length) {
+              resolve()
+              return
+            }
+            const isPunct = /[.,!?:;"]/.test(ch)
+            const isSpace = ch === ' '
+            const base = 22
+            const jitter = Math.random() * 18
+            const extra = isPunct ? 90 : isSpace ? 30 : 0
+            cycleTimer = setTimeout(tick, base + jitter + extra)
+          }
+          tick()
+        })
+      }
+
+      // Visually "send" the typed text — pulse the send pill, then
+      // clear the composer and append the chat bubble.
+      function sendTypedAsBubble(text) {
+        if (tgSend) {
+          tgSend.classList.remove('is-sending')
+          // Force reflow so the animation re-triggers if it just played.
+          void tgSend.offsetWidth
+          tgSend.classList.add('is-sending')
+          setTimeout(() => tgSend && tgSend.classList.remove('is-sending'), 460)
+        }
+        if (tgInput) tgInput.classList.remove('is-typing')
+        if (tgTyped) tgTyped.textContent = ''
+        if (tgCaret) tgCaret.hidden = true
+        if (tgComposer) tgComposer.classList.remove('is-focused')
+        appendUserMessage(text)
       }
 
       function appendUserMessage(text) {
@@ -252,28 +327,45 @@
         try {
           while (cycleRunning) {
             clearGenerated()
-            // Wait, then send the user message.
-            await step('idle', 2400)
+            // 1. Idle — placeholder visible, composer empty.
+            await step('idle', 1500)
             if (!cycleRunning) break
-            tgShell.classList.add('lin-tg-shell--sending')
+
+            // 2. Typing — the prompt is typed character-by-character into
+            // the input. Caret blinks during this phase. The shell stays
+            // in `--empty` state since nothing has been sent yet.
             const prompt = PROMPTS[promptIndex % PROMPTS.length]
             promptIndex += 1
-            appendUserMessage(prompt)
+            await typewriter(prompt)
+            if (!cycleRunning) break
+
+            // 3. Brief pause after the user "finishes typing" so the eye
+            // can read the full prompt before the bubble flies up.
+            await step('typed-hold', 520)
+            if (!cycleRunning) break
+
+            // 4. Send — pulse the send pill, clear the composer, append
+            // the violet chat bubble. Shell switches to `--sending`.
+            tgShell.classList.remove('lin-tg-shell--empty')
+            tgShell.classList.add('lin-tg-shell--sending')
+            sendTypedAsBubble(prompt)
             await step('user-msg', 600)
             if (!cycleRunning) break
-            // Generating — append loader, animate fill.
+
+            // 5. Generating — loader card with growing violet fill.
             tgShell.classList.add('lin-tg-shell--generating')
             appendLoaderCard()
-            const cancelFill = animateFill(5000)
-            await step('generating', 5000)
+            const cancelFill = animateFill(4400)
+            await step('generating', 4400)
             if (cancelFill) cancelFill()
             if (!cycleRunning) break
-            // Done — swap the loader for the finished card.
+
+            // 6. Done — swap loader for finished thumbnail card.
             const loader = tgThread.querySelector('.lin-tg-card--loading')
             if (loader) loader.remove()
             tgShell.classList.add('lin-tg-shell--done')
             appendDoneCard()
-            await step('done-hold', 4000)
+            await step('done-hold', 3800)
             if (!cycleRunning) break
           }
         } finally {
@@ -290,24 +382,13 @@
         clearGenerated()
       }
 
-      function syncToVisibility() {
-        const isActive = tgView.classList.contains('active')
-        if (isActive && !cycleRunning) {
-          runCycle()
-        } else if (!isActive && cycleRunning) {
-          stopCycle()
-        }
-      }
-
-      // Watch for the .active class flip — the sidebar nav handler at
-      // the top of this file toggles it when the user clicks "Thumbnail
-      // Generator" in the mockup sidebar.
-      const obs = new MutationObserver(syncToVisibility)
-      obs.observe(tgView, { attributes: true, attributeFilter: ['class'] })
-
-      // Initial sync — in case Thumbnails happens to be the active view
-      // on load (currently Dashboard is, but this keeps the code honest).
-      syncToVisibility()
+      // Single-screen mockup → no visibility check needed. Just kick off
+      // the cycle and let it loop forever. (`stopCycle` is no longer
+      // wired anywhere; kept as a function in case we add view-switching
+      // back later.) Reference it explicitly so eslint won't flag the
+      // unused warning.
+      void stopCycle
+      runCycle()
     }
   }
 

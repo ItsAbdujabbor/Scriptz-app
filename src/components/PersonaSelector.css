@@ -173,12 +173,28 @@
 /* Floating variant — portaled to <body> and positioned via inline top/left
  * from useFloatingPosition. Switch to fixed and clear the absolute anchor
  * so the inline coordinates take over. z-index bumped well above the
- * composer so it never sits behind the input field. */
+ * composer so it never sits behind the input field.
+ *
+ * Message-bubble offset — the floating hook anchors the popover's LEFT
+ * edge to the trigger's left edge (`top-start`). Push the popover right
+ * by half the 34px glass-circle pill so its left edge sits over the
+ * pill's CENTRE; combined with the tail override below the panel reads
+ * like a chat bubble speaking from the pill. translateX also overrides
+ * the base `translateX(-50%)` left over from the pre-floating layout. */
 .persona-selector-dropdown--floating {
   position: fixed;
   bottom: auto;
   margin-bottom: 0;
   z-index: 2000;
+  transform: translateX(17px);
+}
+
+/* Tail moved to the LEFT of the bubble (chat-message style) — sits a
+ * hair inside the rounded corner so it visually points down at the
+ * pill below, instead of floating in dead-centre of a wide panel. */
+.persona-selector-dropdown--floating::before {
+  left: 14px;
+  transform: rotate(45deg);
 }
 
 .persona-selector-loading,
@@ -194,23 +210,47 @@
   gap: 4px;
 }
 
-/* Footer holding the Create pill. Hairline divider above sets it
- * apart from the option list. */
+/* Footer holding the Create pill. Tapered hairline above — same
+ * recipe as `.sidebar-divider`: opaque 15-85%, fading to transparent
+ * at both ends so the line reads as sharp in the middle and dies
+ * cleanly into the panel padding. Painted via `::before` so the rule
+ * pulls in from each edge instead of running the full footer width. */
 .persona-selector-footer {
+  position: relative;
   margin: 6px -2px 0;
-  padding: 8px 0 2px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 10px 0 2px;
+}
+.persona-selector-footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12px;
+  right: 12px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.12) 15%,
+    rgba(255, 255, 255, 0.12) 85%,
+    transparent 100%
+  );
+  pointer-events: none;
 }
 
+/* Create pill — exact recipe of `.sidebar-new-chat-pill`: accent
+ * gradient body, no border, inset top glaze, diagonal shine sweep
+ * on hover, brightness lift, scale on press. Same animation timing
+ * the sidebar uses so the two pills feel identical. */
 .persona-selector-create {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   width: 100%;
-  height: 32px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  height: 34px;
+  padding: 0 14px;
+  border: none;
   border-radius: 999px;
   background: var(--accent-gradient);
   color: #ffffff;
@@ -219,11 +259,37 @@
   font-weight: 600;
   letter-spacing: 0;
   cursor: pointer;
+  white-space: nowrap;
+  outline: none;
+  overflow: hidden;
   -webkit-tap-highlight-color: transparent;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
   transition:
-    transform 0.14s cubic-bezier(0.33, 1, 0.68, 1),
-    filter 0.18s ease;
+    filter 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.15s ease;
+}
+
+.persona-selector-create > * {
+  position: relative;
+  z-index: 1;
+}
+
+.persona-selector-create::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 100%
+  );
+  transform: translateX(-110%);
+  transition: transform 0.55s ease;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .persona-selector-create svg {
@@ -232,12 +298,36 @@
 }
 
 .persona-selector-create:hover {
-  filter: brightness(1.06);
+  filter: brightness(1.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.persona-selector-create:hover::before {
+  transform: translateX(110%);
 }
 
 .persona-selector-create:active {
-  transform: scale(0.97);
-  transition: transform 0.08s ease;
+  transform: scale(0.95);
+  filter: brightness(0.92);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  transition:
+    transform 0.06s ease,
+    filter 0.06s ease,
+    box-shadow 0.06s ease;
+}
+
+.persona-selector-create:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    var(--accent-focus-ring, 0 0 0 3px rgba(167, 139, 250, 0.32));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .persona-selector-create::before {
+    display: none;
+  }
 }
 
 /* Option language — matches SelectPill `.pill-dd-option` (border-radius,
@@ -278,10 +368,12 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* Selected — pill-shaped accent gradient fill, white text. */
+/* Selected — simple accent-tinted pill with white text. No solid
+ * gradient fill, no thick border — just enough purple to read as
+ * "this is the active choice" without dominating the list. */
 .persona-selector-option.is-selected,
 .persona-selector-option.is-selected:hover {
-  background: var(--accent-gradient);
+  background: rgba(167, 139, 250, 0.14);
   color: #ffffff;
 }
 
@@ -333,6 +425,24 @@
 
 .persona-selector-option.is-selected .persona-selector-pin {
   color: rgba(255, 255, 255, 0.85);
+}
+
+/* Demo badge — small neutral pill on admin-curated personas in the
+ * popover list, mirroring `.pm-card-badge--demo` in the modal. Same
+ * dark surface + white-grey hairline so the two surfaces read as the
+ * same label. */
+.persona-selector-option-badge {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(0, 0, 0, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  line-height: 1.2;
 }
 
 /* Thumbnail toolbar: circular trigger + glass popover. 34px matches

@@ -86,14 +86,83 @@
 
 /* ─ Variants ─────────────────────────────────────────────────────── */
 
+/* Primary — exact recipe of the sidebar's New-chat pill. Accent
+ * gradient body, no border, inset top glaze, diagonal shine sweep
+ * on hover, brightness lift + brighter glaze, scale-on-press with a
+ * depressed inner shadow, accent focus ring. Used by every primary
+ * action across the app (thumbnail send pill, Edit pill, Generate,
+ * settings CTAs, etc.) so they all feel like the same button. */
 .pp--primary {
   background: var(--accent-gradient);
-  box-shadow: var(--shadow-inset-top);
+  /* Strip the base 1px transparent border so the pill silhouette
+   * matches the sidebar New-chat pill exactly — no width offset,
+   * no rendering artefact at the border edge. */
+  border: none;
   color: #fff;
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.pp--primary > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Diagonal shine sweep — hidden until hover, then slides L→R. Same
+ * stops + 0.55 s timing the sidebar New-chat pill uses. */
+.pp--primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 100%
+  );
+  transform: translateX(-110%);
+  transition: transform 0.55s ease;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .pp--primary:not(:disabled):hover {
   filter: brightness(1.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.pp--primary:not(:disabled):hover::before {
+  transform: translateX(110%);
+}
+
+.pp--primary:not(:disabled):active {
+  transform: scale(0.95);
+  filter: brightness(0.92);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  transition:
+    transform 0.06s ease,
+    filter 0.06s ease,
+    box-shadow 0.06s ease;
+}
+
+.pp--primary:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    var(--accent-focus-ring, 0 0 0 3px rgba(167, 139, 250, 0.32));
+}
+
+.pp--primary:disabled::before {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp--primary::before {
+    display: none;
+  }
 }
 
 .pp--ghost {

@@ -13,7 +13,7 @@
  *   - Empty state placeholder
  *   - Persona grid with rename / delete / favourite controls
  */
-import { useRef, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import {
   usePersonasQuery,
   useCreatePersonaFromImagesMutation,
@@ -23,9 +23,11 @@ import {
   useRemovePersonaFavoriteMutation,
 } from '../queries/personas/personaQueries'
 import { usePersonaStore } from '../stores/personaStore'
-import { CostHint } from '../components/CostHint'
+import { useCostOf } from '../queries/billing/creditsQueries'
 import { Dialog } from '../components/ui/Dialog'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 import { InlineSpinner } from '../components/ui'
+import GenerationProgress from '../components/GenerationProgress'
 import { useObjectURL } from '../lib/useObjectURL'
 import { friendlyMessage } from '../lib/aiErrors'
 import './PersonasModal.css'
@@ -40,6 +42,11 @@ const PHOTO_SLOTS = [
   { key: 'left', label: 'Left' },
   { key: 'right', label: 'Right' },
 ]
+
+// Persona names are short labels (a nickname for the face) — 40 chars
+// covers everything reasonable while keeping the card grid tidy. The
+// counter under the input warns the user as they approach the cap.
+const PERSONA_NAME_MAX = 40
 
 /* ── Inline icons ─────────────────────────────────────────────────── */
 
@@ -125,6 +132,24 @@ function IconPencil() {
     >
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  )
+}
+
+function IconCheck() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="5 12 10 17 19 7" />
     </svg>
   )
 }
@@ -227,11 +252,22 @@ function PhotoSlot({ slotKey, label, file, onPick, onClear, fileInputRef }) {
 
 /* ── Buttons ──────────────────────────────────────────────────────── */
 
-/** Primary pill — exact recipe of the sidebar's New-chat pill. Accent
+/** Lightning bolt for the credit chip — same glyph the send pill
+ * uses inside the thumbnail composer. */
+function IconZapFilled({ size = 12 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M13 2 3 14h7l-1 8 11-13h-8l1-7z" />
+    </svg>
+  )
+}
+
+/** Primary pill — exact recipe of the sidebar's New-chat pill: accent
  * gradient body, no border, inset top glaze, diagonal shine sweep on
- * hover, brightness lift, scale on press, slotted icon rotates on
- * hover. The label can be a string or a React node (used to embed the
- * CostHint chip alongside "Create"). */
+ * hover, brightness lift, scale on press.
+ *
+ * Optional `featureKey` mounts a credit chip on the LEFT (⚡ N |
+ * label) — same layout as the send pill in the thumbnail composer. */
 function PrimaryButton({
   type = 'button',
   onClick,
@@ -243,7 +279,14 @@ function PrimaryButton({
   size = 'md',
   fullWidth,
   className = '',
+  featureKey,
+  count = 1,
 }) {
+  // useCostOf is always called (even with a no-op key) to satisfy
+  // rules-of-hooks — `total` only renders when featureKey is set.
+  const { total } = useCostOf(featureKey || 'noop', count)
+  const renderCost = !!featureKey && total > 0 && !busy
+
   const cls = ['pm-pp', size === 'sm' ? 'pm-pp--sm' : '', fullWidth ? 'pm-pp--full' : '', className]
     .filter(Boolean)
     .join(' ')
@@ -255,6 +298,14 @@ function PrimaryButton({
       disabled={disabled || busy}
       aria-busy={busy || undefined}
     >
+      {renderCost && (
+        <span className="pm-pp-cost" aria-hidden>
+          <span className="pm-pp-cost-zap">
+            <IconZapFilled size={12} />
+          </span>
+          <span className="pm-pp-cost-num">{total}</span>
+        </span>
+      )}
       {icon && (
         <span className="pm-pp-icon" aria-hidden>
           {busy ? <InlineSpinner size={size === 'sm' ? 11 : 13} /> : icon}
@@ -283,6 +334,11 @@ export function PersonasModal({ onClose }) {
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  // Delete dialogs — single persona vs bulk-remove. `personaToDelete`
+  // holds the persona pending confirmation; `confirmDeleteAll` is just
+  // a boolean since the bulk action operates on every visible persona.
+  const [personaToDelete, setPersonaToDelete] = useState(null)
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
   const frontRef = useRef(null)
   const leftRef = useRef(null)
   const rightRef = useRef(null)
@@ -292,7 +348,12 @@ export function PersonasModal({ onClose }) {
 
   const items = data?.items ?? []
   const pinnedIds = new Set(data?.pinned_ids ?? [])
-  const filteredItems = items.filter((p) => p.visibility === 'personal')
+  // Admin-curated demo characters first (shown with a "Demo" badge),
+  // then the user's own personals. Demo rows are read-only from the
+  // user app — rename / delete / favourite are hidden on them.
+  const stockItems = items.filter((p) => p.visibility === 'admin' || p.visibility === 'stock')
+  const personalItems = items.filter((p) => p.visibility === 'personal')
+  const filteredItems = [...stockItems, ...personalItems]
 
   const pickFile = useCallback((slot, file) => {
     if (!file?.type?.startsWith('image/')) return
@@ -352,28 +413,34 @@ export function PersonasModal({ onClose }) {
     }
   }
 
-  const handleDelete = async (persona) => {
+  // Single-persona delete is staged through `personaToDelete` so the
+  // ConfirmDialog handles the user-facing confirmation, replacing the
+  // browser-default `window.confirm`.
+  const requestDelete = (persona) => {
     if (persona.visibility !== 'personal') return
-    if (!window.confirm(`Delete "${persona.name}"?`)) return
+    setPersonaToDelete(persona)
+  }
+
+  const confirmSingleDelete = async () => {
+    const p = personaToDelete
+    if (!p) return
+    setPersonaToDelete(null)
     try {
-      await deleteMutation.mutateAsync(persona.id)
-      if (selectedPersonaId === persona.id) setSelectedPersona(null)
+      await deleteMutation.mutateAsync(p.id)
+      if (selectedPersonaId === p.id) setSelectedPersona(null)
     } catch (_) {
       /* swallow */
     }
   }
 
   const handleDeleteAll = async () => {
-    if (!filteredItems.length) return
-    if (
-      !window.confirm(
-        `Delete all ${filteredItems.length} character${filteredItems.length === 1 ? '' : 's'}? This cannot be undone.`
-      )
-    )
-      return
+    if (!personalItems.length) return
+    setConfirmDeleteAll(false)
     setBulkDeleting(true)
     try {
-      for (const p of filteredItems) {
+      // Only personal characters are deletable from the user app —
+      // demo (admin) rows stay regardless.
+      for (const p of personalItems) {
         try {
           await deleteMutation.mutateAsync(p.id)
         } catch (_) {
@@ -400,8 +467,46 @@ export function PersonasModal({ onClose }) {
   const createDisabled =
     createMutation.isPending || !createImages.front || !createImages.left || !createImages.right
 
+  // The empty placeholder + grid only render when the create form is
+  // closed. While the form is open, the dialog is dedicated to that
+  // single task — no existing personas underneath.
   const isEmpty = !isPending && filteredItems.length === 0 && !showCreate
-  const showGrid = !isPending && filteredItems.length > 0
+  const showGrid = !isPending && filteredItems.length > 0 && !showCreate
+
+  // Lazy render: keep `visibleCount` cards in the DOM and grow on
+  // scroll-to-end via IntersectionObserver. Persona cards carry a
+  // base64 face image (heavy to decode), so even mid-sized libraries
+  // benefit from this.
+  const PAGE_SIZE = 24
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const visibleItems = useMemo(
+    () => filteredItems.slice(0, visibleCount),
+    [filteredItems, visibleCount]
+  )
+  const sentinelRef = useRef(null)
+  const scrollRef = useRef(null)
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE)
+  }, [filteredItems.length])
+
+  useEffect(() => {
+    if (!showGrid) return undefined
+    if (visibleCount >= filteredItems.length) return undefined
+    const root = scrollRef.current
+    const target = sentinelRef.current
+    if (!root || !target) return undefined
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisibleCount((n) => Math.min(n + PAGE_SIZE, filteredItems.length))
+        }
+      },
+      { root, rootMargin: '200px 0px', threshold: 0 }
+    )
+    io.observe(target)
+    return () => io.disconnect()
+  }, [showGrid, visibleCount, filteredItems.length])
 
   return (
     <Dialog open onClose={requestClose} size="lg" ariaLabelledBy="personas-modal-title">
@@ -423,213 +528,304 @@ export function PersonasModal({ onClose }) {
           </button>
         </div>
 
-        {/* Create CTA + bulk remove */}
-        {!showCreate && (
-          <div className="pm-actions-row">
-            <PrimaryButton onClick={() => setShowCreate(true)} icon={<IconUser size={14} />}>
-              Create character
-            </PrimaryButton>
-            {showGrid && (
-              <button
-                type="button"
-                className="pm-manage-btn"
-                onClick={handleDeleteAll}
-                disabled={bulkDeleting || deleteMutation.isPending}
-                title="Delete every character you've created"
-              >
-                {bulkDeleting ? (
-                  <>
-                    <InlineSpinner size={12} />
-                    Removing…
-                  </>
-                ) : (
-                  <>
-                    <IconTrash />
-                    Remove all
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Inline create form */}
-        {showCreate && (
-          <form onSubmit={handleCreate} className="pm-create-form">
-            <div className="pm-slots-grid">
-              {PHOTO_SLOTS.map(({ key, label }) => (
-                <PhotoSlot
-                  key={key}
-                  slotKey={key}
-                  label={label}
-                  file={createImages[key]}
-                  onPick={pickFile}
-                  onClear={clearSlot}
-                  fileInputRef={slotRefs[key]}
-                />
-              ))}
-            </div>
-
-            <div className="pm-name-field">
-              <input
-                type="text"
-                className="pm-input pm-name-input"
-                placeholder="Name this character"
-                value={createName}
-                onChange={(e) => setCreateName(e.target.value)}
-                maxLength={120}
-                required
-              />
-            </div>
-
-            {createError && <p className="pm-error-text">{createError}</p>}
-
-            <div className="pm-form-actions">
-              <button
-                type="button"
-                className="pm-btn-ghost"
-                onClick={clearCreateForm}
-                disabled={createMutation.isPending}
-              >
-                Cancel
-              </button>
-              <PrimaryButton
-                type="submit"
-                disabled={createDisabled}
-                busy={createMutation.isPending}
-                busyLabel="Creating…"
-                icon={<IconPlus size={13} />}
-              >
-                <span className="pm-pp-label-with-cost">
-                  Create
-                  <CostHint featureKey="persona_generate" />
-                </span>
+        {/* Scroll body — owns the dialog's only scroll surface so the
+         * scrollbar lives inside the rounded panel frame, not on the
+         * outer chrome. Top + bottom shadow gradients on the parent
+         * `.pm-body` overlay this region for a smooth fade. */}
+        <div className="pm-scroll" ref={scrollRef}>
+          {/* Create CTA + bulk remove */}
+          {!showCreate && (
+            <div className="pm-actions-row">
+              <PrimaryButton onClick={() => setShowCreate(true)} icon={<IconUser size={14} />}>
+                Create character
               </PrimaryButton>
-            </div>
-          </form>
-        )}
-
-        {/* Empty state */}
-        {isEmpty && (
-          <div className="pm-empty">
-            <div className="pm-empty-icon" aria-hidden>
-              <IconUser size={32} />
-            </div>
-            <h3 className="pm-empty-title">No characters yet</h3>
-            <p className="pm-empty-body">Upload 3 photos — front, left, right.</p>
-          </div>
-        )}
-
-        {/* Persona grid */}
-        {showGrid && (
-          <div className="pm-grid">
-            {filteredItems.map((p, idx) => {
-              const isSelected = p.id === selectedPersonaId
-              const isPinned = pinnedIds.has(p.id)
-              const isEditing = editingId === p.id
-              return (
-                <div
-                  key={p.id}
-                  className={`pm-card${isSelected ? ' pm-card--selected' : ''}`}
-                  style={{ animationDelay: `${Math.min(idx * 28, 280)}ms` }}
+              {showGrid && (
+                <button
+                  type="button"
+                  className="pm-manage-btn"
+                  onClick={() => setConfirmDeleteAll(true)}
+                  disabled={bulkDeleting || deleteMutation.isPending}
+                  title="Delete every character you've created"
                 >
-                  {isEditing ? (
-                    <form onSubmit={handleUpdate} className="pm-edit-form">
-                      <input
-                        type="text"
-                        className="pm-input pm-edit-input"
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        maxLength={120}
-                        required
-                        autoFocus
-                      />
-                      <div className="pm-edit-actions">
-                        <button
-                          type="submit"
-                          className="pm-btn-ghost"
-                          disabled={updateMutation.isPending}
-                        >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          className="pm-btn-ghost"
-                          onClick={() => setEditingId(null)}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
+                  {bulkDeleting ? (
+                    <>
+                      <InlineSpinner size={12} />
+                      Removing…
+                    </>
                   ) : (
                     <>
-                      <button
-                        type="button"
-                        className="pm-card-pick"
-                        onClick={() => {
-                          setSelectedPersona(p)
-                          requestClose()
-                        }}
-                        aria-label={`Use ${p.name}`}
-                      >
-                        <div className="pm-card-image">
-                          {p.image_url ? (
-                            <img src={p.image_url} alt={p.name} loading="lazy" />
-                          ) : (
-                            <div className="pm-card-image-placeholder" aria-hidden>
-                              <IconUser size={24} />
-                            </div>
-                          )}
-                          {isSelected && (
-                            <span className="pm-card-badge" aria-hidden>
-                              Active
-                            </span>
-                          )}
-                        </div>
-                        <h4 className="pm-card-name">{p.name}</h4>
-                      </button>
-
-                      <button
-                        type="button"
-                        className={`pm-card-fav${isPinned ? ' pm-card-fav--on' : ''}`}
-                        onClick={(e) => handleFavorite(p, e)}
-                        title={isPinned ? 'Unpin' : 'Pin to top'}
-                        aria-label={isPinned ? 'Unpin' : 'Pin to top'}
-                      >
-                        <IconStar filled={isPinned} />
-                      </button>
-
-                      <div className="pm-card-actions">
-                        <button
-                          type="button"
-                          className="pm-card-action"
-                          onClick={() => {
-                            setEditingId(p.id)
-                            setEditName(p.name)
-                          }}
-                          aria-label={`Rename ${p.name}`}
-                          title="Rename"
-                        >
-                          <IconPencil />
-                        </button>
-                        <button
-                          type="button"
-                          className="pm-card-action pm-card-action--danger"
-                          onClick={() => handleDelete(p)}
-                          aria-label={`Delete ${p.name}`}
-                          title="Delete"
-                        >
-                          <IconTrash />
-                        </button>
-                      </div>
+                      <IconTrash />
+                      Remove all
                     </>
                   )}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Inline create form. The form contents stay rendered while
+           * the mutation is in flight so the card retains its natural
+           * size; a full-card `<GenerationProgress />` (slot mode) sits
+           * on top — same component the thumbnail screen uses — with
+           * the accent gradient growing left-to-right and a real
+           * tabular percentage centred over the fill. */}
+          {showCreate && (
+            <form
+              onSubmit={handleCreate}
+              className={`pm-create-form${createMutation.isPending ? ' pm-create-form--busy' : ''}`}
+              aria-busy={createMutation.isPending || undefined}
+            >
+              <fieldset className="pm-create-fieldset" disabled={createMutation.isPending}>
+                <div className="pm-slots-grid">
+                  {PHOTO_SLOTS.map(({ key, label }) => (
+                    <PhotoSlot
+                      key={key}
+                      slotKey={key}
+                      label={label}
+                      file={createImages[key]}
+                      onPick={pickFile}
+                      onClear={clearSlot}
+                      fileInputRef={slotRefs[key]}
+                    />
+                  ))}
                 </div>
-              )
-            })}
-          </div>
-        )}
+
+                <div className="pm-name-field">
+                  <input
+                    type="text"
+                    className="pm-input pm-name-input"
+                    placeholder="Name this character"
+                    value={createName}
+                    onChange={(e) => setCreateName(e.target.value.slice(0, PERSONA_NAME_MAX))}
+                    maxLength={PERSONA_NAME_MAX}
+                    required
+                  />
+                  <span
+                    className={`pm-name-counter${createName.length >= PERSONA_NAME_MAX - 5 ? ' pm-name-counter--warn' : ''}`}
+                    aria-live="polite"
+                  >
+                    {createName.length} / {PERSONA_NAME_MAX}
+                  </span>
+                </div>
+
+                {createError && <p className="pm-error-text">{createError}</p>}
+
+                <div className="pm-form-actions">
+                  <button
+                    type="button"
+                    className="pm-btn-ghost"
+                    onClick={clearCreateForm}
+                    disabled={createMutation.isPending}
+                  >
+                    Cancel
+                  </button>
+                  <PrimaryButton
+                    type="submit"
+                    disabled={createDisabled}
+                    busy={createMutation.isPending}
+                    busyLabel="Creating…"
+                    featureKey="persona_generate"
+                  >
+                    Create
+                  </PrimaryButton>
+                </div>
+              </fieldset>
+
+              {createMutation.isPending && (
+                <div
+                  className="pm-create-overlay gen-progress-slot"
+                  role="status"
+                  aria-live="polite"
+                  aria-label="Creating character"
+                >
+                  <GenerationProgress estimatedDurationMs={20000} />
+                </div>
+              )}
+            </form>
+          )}
+
+          {/* Empty state */}
+          {isEmpty && (
+            <div className="pm-empty">
+              <div className="pm-empty-icon" aria-hidden>
+                <IconUser size={32} />
+              </div>
+              <h3 className="pm-empty-title">No characters yet</h3>
+              <p className="pm-empty-body">Upload 3 photos — front, left, right.</p>
+            </div>
+          )}
+
+          {/* Persona grid — only rendered when the create form is
+           * closed. Renders the lazy `visibleItems` slice and grows on
+           * scroll via the `.pm-scroll-sentinel` IntersectionObserver
+           * below. */}
+          {showGrid && (
+            <div className="pm-grid">
+              {visibleItems.map((p, idx) => {
+                const isSelected = p.id === selectedPersonaId
+                const isStock = p.visibility === 'admin' || p.visibility === 'stock'
+                const isPinned = pinnedIds.has(p.id)
+                const isEditing = editingId === p.id && !isStock
+                return (
+                  <div
+                    key={p.id}
+                    className={`pm-card${isSelected ? ' pm-card--selected' : ''}${isStock ? ' pm-card--stock' : ''}${isEditing ? ' pm-card--editing' : ''}`}
+                    style={{ animationDelay: `${Math.min(idx * 28, 280)}ms` }}
+                  >
+                    {/* Image + overlays — kept rendered during edit so
+                     * the card's silhouette doesn't collapse. The
+                     * pick / fav / actions controls hide while
+                     * editing so taps on the image don't fight with
+                     * the rename form. Stock (demo) personas hide
+                     * favourite + rename/delete entirely — they're
+                     * read-only from the user app. */}
+                    <div className="pm-card-image">
+                      {p.image_url ? (
+                        <img src={p.image_url} alt={p.name} loading="lazy" />
+                      ) : (
+                        <div className="pm-card-image-placeholder" aria-hidden>
+                          <IconUser size={24} />
+                        </div>
+                      )}
+                      {!isEditing && isSelected ? (
+                        <span className="pm-card-badge" aria-hidden>
+                          Active
+                        </span>
+                      ) : !isEditing && isStock ? (
+                        <span className="pm-card-badge pm-card-badge--demo" aria-hidden>
+                          Demo
+                        </span>
+                      ) : null}
+
+                      {!isEditing && (
+                        <button
+                          type="button"
+                          className="pm-card-pick"
+                          onClick={() => {
+                            setSelectedPersona(p)
+                            requestClose()
+                          }}
+                          aria-label={`Use ${p.name}`}
+                        />
+                      )}
+
+                      {/* Favourite + rename/delete are personal-only —
+                       * demo characters are admin-curated and stay
+                       * read-only from the user app. */}
+                      {!isEditing && !isStock && (
+                        <>
+                          <button
+                            type="button"
+                            className={`pm-card-fav${isPinned ? ' pm-card-fav--on' : ''}`}
+                            onClick={(e) => handleFavorite(p, e)}
+                            title={isPinned ? 'Unpin' : 'Pin to top'}
+                            aria-label={isPinned ? 'Unpin' : 'Pin to top'}
+                          >
+                            <IconStar filled={isPinned} />
+                          </button>
+
+                          <div className="pm-card-actions">
+                            <button
+                              type="button"
+                              className="pm-card-action"
+                              onClick={() => {
+                                setEditingId(p.id)
+                                setEditName(p.name)
+                              }}
+                              aria-label={`Rename ${p.name}`}
+                              title="Rename"
+                            >
+                              <IconPencil />
+                            </button>
+                            <button
+                              type="button"
+                              className="pm-card-action pm-card-action--danger"
+                              onClick={() => requestDelete(p)}
+                              aria-label={`Delete ${p.name}`}
+                              title="Delete"
+                            >
+                              <IconTrash />
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {isEditing ? (
+                      <form onSubmit={handleUpdate} className="pm-card-rename">
+                        <input
+                          type="text"
+                          className="pm-rename-input"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value.slice(0, PERSONA_NAME_MAX))}
+                          maxLength={PERSONA_NAME_MAX}
+                          required
+                          autoFocus
+                          aria-label="New name"
+                        />
+                        <button
+                          type="button"
+                          className="pm-rename-btn pm-rename-btn--cancel"
+                          onClick={() => setEditingId(null)}
+                          disabled={updateMutation.isPending}
+                          aria-label="Cancel rename"
+                          title="Cancel"
+                        >
+                          <IconX size={11} />
+                        </button>
+                        <button
+                          type="submit"
+                          className="pm-rename-btn pm-rename-btn--save"
+                          disabled={updateMutation.isPending || !editName.trim()}
+                          aria-label="Save name"
+                          title="Save"
+                        >
+                          <IconCheck />
+                        </button>
+                      </form>
+                    ) : (
+                      <h4 className="pm-card-name">{p.name}</h4>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Sentinel for IntersectionObserver — when this enters the
+           * viewport of `.pm-scroll`, we grow `visibleCount` by one
+           * page. */}
+          {showGrid && visibleCount < filteredItems.length && (
+            <div ref={sentinelRef} className="pm-scroll-sentinel" aria-hidden />
+          )}
+        </div>
       </div>
+
+      {/* Single-persona delete confirm. The dialog is rendered as a
+       * sibling of the primary modal; both are portalled so the chrome
+       * never overlaps. */}
+      <ConfirmDialog
+        open={!!personaToDelete}
+        title={`Delete "${personaToDelete?.name || ''}"?`}
+        description="This permanently removes the character. Any thumbnail prompts referencing it will fall back to the front image."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        danger
+        onConfirm={confirmSingleDelete}
+        onCancel={() => setPersonaToDelete(null)}
+      />
+
+      {/* Bulk-remove confirm — wipes everything visible in the grid. */}
+      <ConfirmDialog
+        open={confirmDeleteAll}
+        title={`Delete all ${filteredItems.length} character${filteredItems.length === 1 ? '' : 's'}?`}
+        description="This permanently removes every character you've created. Cannot be undone."
+        confirmLabel="Delete all"
+        cancelLabel="Cancel"
+        danger
+        onConfirm={handleDeleteAll}
+        onCancel={() => setConfirmDeleteAll(false)}
+      />
     </Dialog>
   )
 }

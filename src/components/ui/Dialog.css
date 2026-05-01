@@ -45,11 +45,18 @@
  * dropdown: one tinted glass surface, one border, one drop shadow. No
  * radial glows, no layered glass — keeps every dialog in the app
  * visually identical to the Optimize filter menu. */
+/* Panel is a fixed flex column — `overflow: hidden` clips children to
+ * the rounded corners so the inner scroll body's bottom-edge shadow
+ * doesn't bleed out. Each consumer dialog renders a header + a
+ * scrollable body inside; the scrollbar lives on the body, not on
+ * the panel chrome itself, so it sits inside the rounded frame. */
 .ui-dialog-panel {
   position: relative;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-height: 88vh;
-  overflow-y: auto;
+  overflow: hidden;
   background: rgba(22, 22, 28, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px;
@@ -59,29 +66,6 @@
   backdrop-filter: blur(32px) saturate(1.5);
   -webkit-backdrop-filter: blur(32px) saturate(1.5);
   animation: ui-dialog-panel-in 0.32s cubic-bezier(0.32, 0.72, 0, 1) both;
-  /* No padding — each consumer dialog adds its own internal padding via
-   * its own existing classes. Keeps Dialog.css purely about chrome. */
-}
-
-/* Plain scrollbar — matches the SelectPill menu which doesn't style its
- * own scrollbar either. Keep it understated so content, not chrome,
- * carries the visual weight. */
-.ui-dialog-panel::-webkit-scrollbar {
-  width: 10px;
-}
-.ui-dialog-panel::-webkit-scrollbar-track {
-  background: transparent;
-}
-.ui-dialog-panel::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  border: 3px solid transparent;
-  background-clip: padding-box;
-}
-.ui-dialog-panel::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.14);
-  background-clip: padding-box;
-  border: 3px solid transparent;
 }
 
 @keyframes ui-dialog-panel-in {
@@ -110,6 +94,12 @@
 }
 .ui-dialog-panel--xl {
   max-width: 880px;
+}
+/* Wide canvas-driven dialogs (the thumbnail editor). Bigger than `xl`
+ * so the 16:9 stage gets real breathing room, but still capped so the
+ * dialog doesn't run into the viewport edges on a regular laptop. */
+.ui-dialog-panel--wide {
+  max-width: min(1180px, calc(100vw - 32px));
 }
 .ui-dialog-panel--fullscreen {
   max-width: min(1440px, calc(100vw - 3vw));

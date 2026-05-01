@@ -83,10 +83,11 @@
 
 /* The shared `.coach-main-wrap` adds 40px top + 32px bottom gradient
  * overlays at z-index 80 (see `CoachChat.css`). On the thumbnail screen
- * the bottom strip ends up painting ON TOP of the glow plate, leaving a
- * dark band beneath the bright peak. Suppress both strips here so the
- * glow reaches the actual visual bottom of the viewport. */
-.coach-main-wrap:has(.coach-main--thumb)::before,
+ * the bottom strip paints ON TOP of the glow plate, leaving a dark
+ * band beneath the bright peak — suppress only the bottom strip so
+ * the glow reaches the visual bottom. The top strip is kept on (same
+ * shadow header as the Pro / Dashboard pages) for a consistent
+ * depth cue under the topbar. */
 .coach-main-wrap:has(.coach-main--thumb)::after {
   display: none;
 }

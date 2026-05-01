@@ -7,7 +7,7 @@ import { useSidebarStore } from '../stores/sidebarStore'
 import { useShallow } from 'zustand/react/shallow'
 import { emitShellEvent } from '../lib/shellEvents'
 import { useFloatingPosition } from '../lib/useFloatingPosition'
-import { SidebarButton, ConfirmDialog } from '../components/ui'
+import { ConfirmDialog } from '../components/ui'
 import { useCreditsQuery, useSubscriptionQuery } from '../queries/billing/creditsQueries'
 import {
   useModelTierStateQuery,
@@ -20,23 +20,7 @@ import {
   useUpdateThumbnailConversationMutation,
 } from '../queries/thumbnails/thumbnailQueries'
 import logoSrc from '../assets/logo.jpg'
-import { prefetchView } from '../lazyViews'
 
-const IconDashboard = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect x="3" y="3" width="7" height="7" rx="1.5" />
-    <rect x="14" y="3" width="7" height="7" rx="1.5" />
-    <rect x="3" y="14" width="7" height="7" rx="1.5" />
-    <rect x="14" y="14" width="7" height="7" rx="1.5" />
-  </svg>
-)
 const IconPlus = () => (
   <svg
     viewBox="0 0 24 24"
@@ -47,12 +31,6 @@ const IconPlus = () => (
     strokeLinejoin="round"
   >
     <path d="M12 5v14M5 12h14" />
-  </svg>
-)
-const IconChart = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M3 3v18h18" />
-    <path d="m19 9-5 5-4-4-3 3" />
   </svg>
 )
 const IconStyles = () => (
@@ -70,33 +48,11 @@ const IconStyles = () => (
     <circle cx="12" cy="17" r="2.2" />
   </svg>
 )
-const IconBilling = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect x="3" y="6" width="18" height="13" rx="2" />
-    <path d="M3 10h18" />
-    <path d="M7 15h4" />
-  </svg>
-)
 const IconFolder = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
     <path d="M12 11v6" />
     <path d="M9 14h6" />
-  </svg>
-)
-const IconPro = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
-    <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
-    <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
-    <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
   </svg>
 )
 const IconChevronDown = () => (
@@ -310,10 +266,6 @@ const IconLogout = () => (
 
 function goToThumbnailConversation(conversationId = null) {
   window.location.hash = conversationId ? `#thumbnails?id=${conversationId}` : '#thumbnails'
-}
-
-function goToPro() {
-  if (typeof window !== 'undefined') window.location.hash = 'pro'
 }
 
 // One-liner marketing blurb for the per-tier info popover. Kept short
@@ -682,8 +634,6 @@ export function Sidebar({
           { code: 'SRX-3', label: 'Max', locked: true },
         ]
   const currentTier = tierState?.selected || 'SRX-2'
-  // Press feedback for the New Chat liquid-glass pill (mirrors SidebarButton).
-  const [newChatPressing, setNewChatPressing] = useState(false)
 
   // History search + pagination
   const [historySearchOpen, setHistorySearchOpen] = useState(false)
@@ -716,14 +666,25 @@ export function Sidebar({
   const totalCredits = creditsData
     ? Number(creditsData.subscription_credits || 0) + Number(creditsData.permanent_credits || 0)
     : null
-  const creditsLabel = (() => {
-    if (totalCredits == null) return '—'
-    if (totalCredits >= 10_000) {
-      const k = totalCredits / 1000
-      return `${k % 1 === 0 ? k : k.toFixed(1)}K`
-    }
-    return totalCredits.toLocaleString('en-US')
-  })()
+  // Exact credit count — no "1K" abbreviation. The orb shrinks the
+  // font to fit longer numbers; we never round.
+  const creditsLabel = totalCredits == null ? '—' : String(totalCredits)
+  // Plan-cycle quota (for the orb's progress ring). Falls back to the
+  // current balance so users without a paid plan get a full ring
+  // instead of a divide-by-zero.
+  const planCredits = Number(subscription?.plan_credits) || 0
+  const orbDenominator = planCredits > 0 ? planCredits : totalCredits || 1
+  const creditsRatio =
+    totalCredits == null ? 0 : Math.max(0, Math.min(1, Number(totalCredits) / orbDenominator))
+  // SVG circumference: 2π × r (r = 16 here) ≈ 100.53. Using exactly 100
+  // keeps the dashoffset math clean — `100 - ratio*100` yields the
+  // remaining-portion stroke.
+  const ORB_CIRC = 100
+  const ringDashOffset = ORB_CIRC - creditsRatio * ORB_CIRC
+  // Font auto-shrinks for long numbers so even a 6-digit count still
+  // fits inside the 32px expanded / 38px collapsed orb.
+  const credLen = creditsLabel.length
+  const credFontPx = credLen >= 6 ? 7 : credLen === 5 ? 8 : credLen === 4 ? 10 : 12
   // Store actions are stable refs — read once from getState() to avoid extra subscriptions
   const [{ setCollapsed, toggleCollapsed, setMobileOpen, closeMobile }] = useState(() =>
     useSidebarStore.getState()
@@ -747,7 +708,7 @@ export function Sidebar({
     prevCollapsedRef.current = collapsed
 
     if (collapsed && !wasCollapsed) {
-      setRailCollapseSettle(true) // eslint-disable-line react-hooks/set-state-in-effect -- intentional
+      setRailCollapseSettle(true)  
       setRailExpandFade(false)
       const id = window.setTimeout(() => setRailCollapseSettle(false), 420)
       return () => window.clearTimeout(id)
@@ -769,7 +730,8 @@ export function Sidebar({
     if (t.locked) {
       setAccountDialogOpen(false)
       closeMobile()
-      goToPro()
+      // eslint-disable-next-line react-hooks/immutability
+      if (typeof window !== 'undefined') window.location.hash = 'pro'
       return
     }
     setTierMutation.mutate(t.code)
@@ -932,8 +894,6 @@ export function Sidebar({
     }
   }
 
-  const userInitial = (user?.email?.[0] || 'U').toUpperCase()
-
   // Expanded account panel. Lives inline with the collapsed email row — when
   // `accountDialogOpen` is true the row + panel animate open together as one
   // tall glass card. Contains: Account, Characters (user's own persona
@@ -963,20 +923,10 @@ export function Sidebar({
           </span>
           <span className="sidebar-account-item-label">Account</span>
         </button>
-        <button
-          type="button"
-          className="sidebar-account-item"
-          onClick={() => {
-            setAccountDialogOpen(false)
-            closeMobile()
-            if (typeof window !== 'undefined') window.location.hash = 'billing'
-          }}
-        >
-          <span className="sidebar-account-item-icon" aria-hidden>
-            <IconBilling />
-          </span>
-          <span className="sidebar-account-item-label">Billing</span>
-        </button>
+        {/* Billing entry hidden — the Billing screen is gated off right
+         * now (only the thumbnail generator is reachable). The credits
+         * and plan label in the account button below still display the
+         * user's real Pro / Free state for awareness. */}
         <button type="button" className="sidebar-account-item" onClick={handleOpenPersonas}>
           <span className="sidebar-account-item-icon" aria-hidden>
             <IconPersonalization />
@@ -1060,6 +1010,26 @@ export function Sidebar({
 
   return (
     <>
+      {/* Inline SVG defs — the credit-orb's progress arc references
+       * #sidebar-orb-gradient via `stroke="url(#…)"`. Mounted once
+       * with the sidebar; tiny, hidden, no layout impact. */}
+      <svg
+        className="sidebar-svg-defs"
+        aria-hidden
+        focusable="false"
+        width="0"
+        height="0"
+        style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}
+      >
+        <defs>
+          <linearGradient id="sidebar-orb-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#c4b5fd" />
+            <stop offset="55%" stopColor="#8b5cf6" />
+            <stop offset="100%" stopColor="#6366f1" />
+          </linearGradient>
+        </defs>
+      </svg>
+
       <button
         type="button"
         className={`sidebar-open-btn ${mobileOpen ? 'sidebar-open-btn--hidden' : ''}`}
@@ -1138,95 +1108,27 @@ export function Sidebar({
               </div>
             </header>
 
-            {/* Liquid-glass pill: New Chat — pinned to the top of the rail */}
+            {/* New Chat — accent-gradient pill (1:1 visual + size clone
+             * of the former Go-Pro pill). Animations are CSS-only:
+             * shine sweep, icon rotate, scale-down on click. */}
             <button
               type="button"
-              className={`sidebar-new-chat-pill ${collapsed ? 'sidebar-new-chat-pill--collapsed' : ''} ${newChatPressing ? 'is-pressing' : ''}`}
-              onPointerDown={() => {
-                setNewChatPressing(false)
-                requestAnimationFrame(() => setNewChatPressing(true))
-              }}
-              onAnimationEnd={() => setNewChatPressing(false)}
+              className={`sidebar-new-chat-pill ${collapsed ? 'sidebar-new-chat-pill--collapsed' : ''}`}
               onClick={handleNewChat}
               aria-label="New chat"
               title="New chat"
             >
-              <span className="sidebar-new-chat-pill-glow" aria-hidden />
               <span className="sidebar-new-chat-pill-icon" aria-hidden>
                 <IconPlus />
               </span>
               {!collapsed && <span className="sidebar-new-chat-pill-label">New chat</span>}
             </button>
 
-            <nav className="sidebar-nav sidebar-nav--primary" aria-label="Main navigation">
-              <SidebarButton
-                href="#dashboard"
-                icon={<IconDashboard />}
-                label="Dashboard"
-                active={currentScreen === 'dashboard'}
-                collapsed={collapsed}
-                // Hover (or focus) starts the lazy chunk download before the
-                // click lands, so click→render feels instant once the user
-                // commits. Calling prefetchView again after the chunk is
-                // cached is free.
-                onPointerEnter={() => prefetchView('dashboard')}
-                onFocus={() => prefetchView('dashboard')}
-                onClick={(e) => {
-                  e.preventDefault()
-                  closeMobile()
-                  window.location.hash = 'dashboard'
-                }}
-              />
-
-              <SidebarButton
-                href="#optimize"
-                icon={<IconChart />}
-                label="Optimize"
-                active={currentScreen === 'optimize'}
-                collapsed={collapsed}
-                onPointerEnter={() => prefetchView('optimize')}
-                onFocus={() => prefetchView('optimize')}
-                onClick={(e) => {
-                  e.preventDefault()
-                  closeMobile()
-                  window.location.hash = 'optimize'
-                }}
-              />
-
-              {/* Templates — next update
-              <SidebarButton
-                href="#templates"
-                icon={<IconFolder />}
-                label="Templates"
-                active={currentScreen === 'templates'}
-                collapsed={collapsed}
-                onClick={(e) => {
-                  e.preventDefault()
-                  closeMobile()
-                  window.location.hash = 'templates'
-                }}
-              /> */}
-
-              {!hasActivePlan && (
-                <button
-                  type="button"
-                  className={`sidebar-upgrade-pro ${currentScreen === 'pro' ? 'active' : ''} ${collapsed ? 'sidebar-upgrade-pro--collapsed' : ''}`}
-                  onPointerEnter={() => prefetchView('pro')}
-                  onFocus={() => prefetchView('pro')}
-                  onClick={() => {
-                    closeMobile()
-                    window.location.hash = 'pro'
-                  }}
-                  title="Go Pro"
-                  aria-label="Go Pro"
-                >
-                  <span className="sidebar-upgrade-pro-icon" aria-hidden>
-                    <IconPro />
-                  </span>
-                  <span className="sidebar-upgrade-pro-label">Go Pro</span>
-                </button>
-              )}
-            </nav>
+            {/* Sidebar feature buttons are all hidden — the thumbnail
+             * generator is the only screen, and the upgrade CTA now
+             * lives as a top-centre callout on the thumbnail screen
+             * itself (see <PlanCallout /> in ThumbnailGenerator.jsx),
+             * not in the sidebar. */}
           </div>
 
           <div className="sidebar-rail-card sidebar-rail-card--bottom">
@@ -1420,54 +1322,42 @@ export function Sidebar({
                 aria-expanded={accountDialogOpen}
                 title={collapsed && user?.email ? user.email : 'Account menu'}
               >
-                <span className="sidebar-account-avatar">{userInitial}</span>
+                {/* Credit orb — circular progress ring around the
+                 * exact credit count. Replaces the avatar + separate
+                 * pill. The track is a faint white circle; the
+                 * accent arc fills proportional to remaining credits
+                 * (stroke shrinks as credits are spent). When the
+                 * sidebar is collapsed this is the only thing
+                 * rendered, so it carries identity + status alone. */}
+                <span
+                  className="sidebar-account-orb"
+                  aria-label={`${totalCredits ?? '—'} credits`}
+                  title={`${totalCredits ?? '—'} credits`}
+                >
+                  <svg className="sidebar-account-orb-ring" viewBox="0 0 36 36" aria-hidden>
+                    <circle className="sidebar-account-orb-track" cx="18" cy="18" r="16" />
+                    <circle
+                      className="sidebar-account-orb-fill"
+                      cx="18"
+                      cy="18"
+                      r="16"
+                      strokeDasharray={ORB_CIRC}
+                      strokeDashoffset={ringDashOffset}
+                    />
+                  </svg>
+                  <span className="sidebar-account-orb-num" style={{ fontSize: `${credFontPx}px` }}>
+                    {creditsLabel}
+                  </span>
+                </span>
                 <span className="sidebar-account-info">
                   <span className="sidebar-account-email">{user?.email || 'User'}</span>
-                  <span className="sidebar-account-subline">
-                    <span
-                      className={`sidebar-account-plan ${hasActivePlan ? 'sidebar-account-plan--active' : ''} ${subscription?.is_trial ? 'sidebar-account-plan--trial' : ''}`}
-                    >
-                      {planLabel}
-                    </span>
-                    {/* Rendered as role="button" <span> rather than a real
-                     * <button> because it lives inside another <button>
-                     * (the account menu) and HTML forbids nested buttons.
-                     * Keyboard + pointer handlers keep it accessible. */}
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      className="sidebar-account-credits"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setAccountDialogOpen(false)
-                        closeMobile()
-                        if (typeof window !== 'undefined') window.location.hash = 'billing'
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setAccountDialogOpen(false)
-                          closeMobile()
-                          if (typeof window !== 'undefined') window.location.hash = 'billing'
-                        }
-                      }}
-                      aria-label={`${totalCredits ?? '—'} credits — go to billing`}
-                      title="Go to billing"
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.4"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                      >
-                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                      </svg>
-                      <span className="sidebar-account-credits-num">{creditsLabel}</span>
-                    </span>
+                  {/* Credit count lives only inside .sidebar-account-orb
+                   * above — no duplicate caption here. The plan label
+                   * stays so users still see their tier/trial state. */}
+                  <span
+                    className={`sidebar-account-plan ${hasActivePlan ? 'sidebar-account-plan--active' : ''} ${subscription?.is_trial ? 'sidebar-account-plan--trial' : ''}`}
+                  >
+                    {planLabel}
                   </span>
                 </span>
                 <span className="sidebar-account-chevron" aria-hidden>
