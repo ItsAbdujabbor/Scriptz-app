@@ -1039,6 +1039,20 @@ const ThumbnailGenFill = memo(function ThumbnailGenFill({
     pctRef.current = pct
   }, [pct])
 
+  // Live backend progress wins when available — driven by the SSE job
+  // stream (`/api/thumbnails/chat-jobs/...` events) → updates
+  // `useThumbnailJobStatusStore` → here. Ranges 0..1 in the store; the
+  // bar animates smoothly toward whatever the worker last reported.
+  // Falls back to the estimated curve when the worker hasn't started
+  // emitting progress yet (queued / very fresh submission).
+  const livePct = useThumbnailJobStatusStore((s) => {
+    const p = s.status?.progress
+    if (typeof p !== 'number' || !Number.isFinite(p)) return null
+    // Backend may emit 0..1 OR 0..100 depending on worker; normalize.
+    const normalized = p > 1 ? p / 100 : p
+    return Math.max(0, Math.min(0.99, normalized))
+  })
+
   useEffect(() => {
     doneRef.current = false
     /* eslint-disable react-hooks/set-state-in-effect */
@@ -1055,12 +1069,17 @@ const ThumbnailGenFill = memo(function ThumbnailGenFill({
       // feel the same speed across the app.
       const k = 2.55
       const v = ((1 - Math.exp(-k * t)) / (1 - Math.exp(-k))) * 0.92
-      setPct(Math.round(Math.min(0.92, v) * 100))
+      // If the backend has reported real progress, snap the floor to
+      // that number so we never visually rewind below truth, then keep
+      // the smooth curve animating forward from whichever is higher.
+      const curveValue = Math.min(0.92, v)
+      const target = livePct != null ? Math.max(curveValue, livePct) : curveValue
+      setPct(Math.round(target * 100))
       rafRef.current = requestAnimationFrame(tick)
     }
     rafRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafRef.current)
-  }, [estimatedDurationMs])
+  }, [estimatedDurationMs, livePct])
 
   // On `done` flip, smoothly animate from the current pct → 100 over
   // ~280 ms (easeOut), instead of snapping in a single frame. The
