@@ -43,7 +43,7 @@ function scheduleReconnect() {
   if (_disposed || !_currentToken) return
   const exp = Math.min(
     MAX_RECONNECT_DELAY_MS,
-    BASE_RECONNECT_DELAY_MS * 2 ** Math.min(8, _reconnectAttempt),
+    BASE_RECONNECT_DELAY_MS * 2 ** Math.min(8, _reconnectAttempt)
   )
   const jitter = Math.random() * (BASE_RECONNECT_DELAY_MS / 2)
   const delay = exp + jitter
@@ -85,9 +85,7 @@ function handleTerminalEvent(payload, isSuccess) {
       success: isSuccess,
       message:
         payload.status_message ||
-        (isSuccess
-          ? 'Your thumbnail is ready.'
-          : "Your thumbnail couldn't be generated."),
+        (isSuccess ? 'Your thumbnail is ready.' : "Your thumbnail couldn't be generated."),
     })
   }
 }
@@ -97,14 +95,14 @@ function openStream(token) {
   // has its own auto-reconnect on transient network errors, but we want
   // tight control so token-rotation, logout, etc. cleanly tear down.
   if (_eventSource) {
-    try { _eventSource.close() } catch {}
+    try {
+      _eventSource.close()
+    } catch {}
     _eventSource = null
   }
 
   const url =
-    getApiBaseUrl() +
-    '/api/thumbnails/jobs/stream?access_token=' +
-    encodeURIComponent(token)
+    getApiBaseUrl() + '/api/thumbnails/jobs/stream?access_token=' + encodeURIComponent(token)
 
   let es
   try {
@@ -112,7 +110,7 @@ function openStream(token) {
   } catch (err) {
     // Browser doesn't support EventSource — fall back to polling
     // (which is always on). Don't retry; SSE will never work here.
-    // eslint-disable-next-line no-console
+     
     console.warn('[jobEventStream] EventSource not available:', err)
     return
   }
@@ -126,23 +124,33 @@ function openStream(token) {
   })
 
   // The runner publishes `job.queued`, `job.running`, `job.retry`,
-  // `job.done`, `job.failed`. Wire each to the store; the terminal
-  // ones additionally trigger the browser-notification path.
-  ;['job.queued', 'job.running', 'job.retry'].forEach((evt) => {
-    es.addEventListener(evt, (e) => {
-      try {
-        handleStatusEvent(JSON.parse(e.data))
-      } catch {
-        /* ignore malformed payload */
-      }
-    })
-  })
+  // `job.done`, `job.failed`, AND in-flight `job.progress` /
+  // `job.status_message` (pushed by JobContext.set_progress /
+  // .set_status_message during long-running handlers — used to drive
+  // the live progress bar without 1.5s poll lag). Wire each to the
+  // store; the terminal ones additionally trigger the browser-
+  // notification path.
+  ;['job.queued', 'job.running', 'job.retry', 'job.progress', 'job.status_message'].forEach(
+    (evt) => {
+      es.addEventListener(evt, (e) => {
+        try {
+          handleStatusEvent(JSON.parse(e.data))
+        } catch {
+          /* ignore malformed payload */
+        }
+      })
+    }
+  )
 
   es.addEventListener('job.done', (e) => {
-    try { handleTerminalEvent(JSON.parse(e.data), true) } catch {}
+    try {
+      handleTerminalEvent(JSON.parse(e.data), true)
+    } catch {}
   })
   es.addEventListener('job.failed', (e) => {
-    try { handleTerminalEvent(JSON.parse(e.data), false) } catch {}
+    try {
+      handleTerminalEvent(JSON.parse(e.data), false)
+    } catch {}
   })
 
   es.onerror = () => {
@@ -150,7 +158,9 @@ function openStream(token) {
     // backoff and no awareness of token expiry. We force-close and
     // reschedule with backoff so a 401 (expired token) doesn't burn
     // CPU in a tight reconnect loop.
-    try { es.close() } catch {}
+    try {
+      es.close()
+    } catch {}
     if (_eventSource === es) {
       _eventSource = null
       scheduleReconnect()
@@ -179,7 +189,9 @@ export function disconnectJobEventStream() {
   _currentToken = null
   clearReconnect()
   if (_eventSource) {
-    try { _eventSource.close() } catch {}
+    try {
+      _eventSource.close()
+    } catch {}
     _eventSource = null
   }
 }
