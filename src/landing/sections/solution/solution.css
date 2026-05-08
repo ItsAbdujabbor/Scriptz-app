@@ -9,17 +9,17 @@
 
 /* ── Variables ── */
 :root {
-  --sol-bg:       #0b0b0c;
-  --sol-card-bg:  #111114;
-  --sol-border:   rgba(255, 255, 255, 0.07);
-  --sol-t1:       #f1f1f3;
-  --sol-t2:       #9191a4;
-  --sol-t3:       #606070;
-  --sol-indigo:   #6366f1;
-  --sol-green:    #10b981;
-  --sol-blue:     #38bdf8;
-  --sol-radius:   18px;
-  --sol-font:     'Poppins', system-ui, sans-serif;
+  --sol-bg: #0b0b0c;
+  --sol-card-bg: #111114;
+  --sol-border: rgba(255, 255, 255, 0.07);
+  --sol-t1: #f1f1f3;
+  --sol-t2: #9191a4;
+  --sol-t3: #606070;
+  --sol-indigo: #6366f1;
+  --sol-green: #10b981;
+  --sol-blue: #38bdf8;
+  --sol-radius: 18px;
+  --sol-font: 'Poppins', system-ui, sans-serif;
 }
 
 /* ════════════════════════
@@ -40,9 +40,9 @@
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(circle at 20% 10%,  rgba(99,102,241,0.05) 0%, transparent 55%),
-    radial-gradient(circle at 80% 50%,  rgba(16,185,129,0.04) 0%, transparent 50%),
-    radial-gradient(circle at 50% 90%,  rgba(56,189,248,0.04) 0%, transparent 50%);
+    radial-gradient(circle at 20% 10%, rgba(99, 102, 241, 0.05) 0%, transparent 55%),
+    radial-gradient(circle at 80% 50%, rgba(16, 185, 129, 0.04) 0%, transparent 50%),
+    radial-gradient(circle at 50% 90%, rgba(56, 189, 248, 0.04) 0%, transparent 50%);
   pointer-events: none;
 }
 
@@ -65,7 +65,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--sol-border);
   border-radius: 9999px;
   padding: 0.35rem 1rem;
@@ -87,8 +87,15 @@
 }
 
 @keyframes solPulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%       { opacity: 0.5; transform: scale(0.85); }
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.85);
+  }
 }
 
 .sol-h2 {
@@ -138,21 +145,21 @@
   letter-spacing: 0.1em;
   padding: 0.3rem 0.65rem;
   border-radius: 6px;
-  background: rgba(99,102,241,0.12);
-  border: 1px solid rgba(99,102,241,0.25);
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.25);
   color: var(--sol-indigo);
   font-variant-numeric: tabular-nums;
 }
 
 .sol-blk-num--green {
-  background: rgba(16,185,129,0.11);
-  border-color: rgba(16,185,129,0.25);
+  background: rgba(16, 185, 129, 0.11);
+  border-color: rgba(16, 185, 129, 0.25);
   color: var(--sol-green);
 }
 
 .sol-blk-num--blue {
-  background: rgba(56,189,248,0.11);
-  border-color: rgba(56,189,248,0.25);
+  background: rgba(56, 189, 248, 0.11);
+  border-color: rgba(56, 189, 248, 0.25);
   color: var(--sol-blue);
 }
 
@@ -204,7 +211,13 @@
 /* Horizontal divider */
 .sol-divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--sol-border) 20%, var(--sol-border) 80%, transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--sol-border) 20%,
+    var(--sol-border) 80%,
+    transparent
+  );
   margin: 0 0 4.5rem;
 }
 
@@ -233,16 +246,17 @@
   background: var(--sol-card-bg);
   border: 1px solid var(--sol-border);
   overflow: hidden;
-  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1),
-              border-color 0.3s,
-              box-shadow 0.3s;
+  transition:
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.3s,
+    box-shadow 0.3s;
   cursor: default;
 }
 
 .sol-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(255,255,255,0.13);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+  border-color: rgba(255, 255, 255, 0.13);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
 }
 
 /* ── Image wrap ── */
@@ -258,7 +272,7 @@
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 0.5s cubic-bezier(0.4,0,0.2,1);
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sol-card:hover .sol-card-img {
@@ -275,27 +289,27 @@
 .sol-overlay-indigo {
   background: linear-gradient(
     155deg,
-    rgba(99,102,241,0.40) 0%,
-    rgba(0,0,0,0.18) 60%,
-    rgba(17,17,20,0.70) 100%
+    rgba(99, 102, 241, 0.4) 0%,
+    rgba(0, 0, 0, 0.18) 60%,
+    rgba(17, 17, 20, 0.7) 100%
   );
 }
 
 .sol-overlay-green {
   background: linear-gradient(
     155deg,
-    rgba(16,185,129,0.38) 0%,
-    rgba(0,0,0,0.15) 60%,
-    rgba(17,17,20,0.70) 100%
+    rgba(16, 185, 129, 0.38) 0%,
+    rgba(0, 0, 0, 0.15) 60%,
+    rgba(17, 17, 20, 0.7) 100%
   );
 }
 
 .sol-overlay-blue {
   background: linear-gradient(
     155deg,
-    rgba(56,189,248,0.35) 0%,
-    rgba(0,0,0,0.15) 60%,
-    rgba(17,17,20,0.70) 100%
+    rgba(56, 189, 248, 0.35) 0%,
+    rgba(0, 0, 0, 0.15) 60%,
+    rgba(17, 17, 20, 0.7) 100%
   );
 }
 
@@ -316,20 +330,20 @@
 }
 
 .sol-card-step.sol-step-indigo {
-  background: rgba(99,102,241,0.22);
-  border: 1px solid rgba(99,102,241,0.45);
+  background: rgba(99, 102, 241, 0.22);
+  border: 1px solid rgba(99, 102, 241, 0.45);
   color: #c7c9ff;
 }
 
 .sol-card-step.sol-step-blue {
-  background: rgba(56,189,248,0.18);
-  border: 1px solid rgba(56,189,248,0.4);
+  background: rgba(56, 189, 248, 0.18);
+  border: 1px solid rgba(56, 189, 248, 0.4);
   color: #bae6fd;
 }
 
 .sol-card-badge.sol-badge-green {
-  background: rgba(16,185,129,0.22);
-  border: 1px solid rgba(16,185,129,0.45);
+  background: rgba(16, 185, 129, 0.22);
+  border: 1px solid rgba(16, 185, 129, 0.45);
   color: #6ee7b7;
 }
 
@@ -361,20 +375,20 @@
 }
 
 .sol-icon-indigo {
-  background: rgba(99,102,241,0.12);
-  border: 1px solid rgba(99,102,241,0.22);
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.22);
   color: var(--sol-indigo);
 }
 
 .sol-icon-green {
-  background: rgba(16,185,129,0.11);
-  border: 1px solid rgba(16,185,129,0.22);
+  background: rgba(16, 185, 129, 0.11);
+  border: 1px solid rgba(16, 185, 129, 0.22);
   color: var(--sol-green);
 }
 
 .sol-icon-blue {
-  background: rgba(56,189,248,0.11);
-  border: 1px solid rgba(56,189,248,0.22);
+  background: rgba(56, 189, 248, 0.11);
+  border: 1px solid rgba(56, 189, 248, 0.22);
   color: var(--sol-blue);
 }
 
@@ -398,15 +412,21 @@
 .sol-card::before {
   content: '';
   position: absolute;
-  top: 0; left: 0; right: 0;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 2px;
   opacity: 0;
   transition: opacity 0.3s;
   pointer-events: none;
 }
 
-.sol-card-grid-3 .sol-card { position: relative; }
-.sol-card-grid-4 .sol-card { position: relative; }
+.sol-card-grid-3 .sol-card {
+  position: relative;
+}
+.sol-card-grid-4 .sol-card {
+  position: relative;
+}
 
 .sol-card-grid-3 .sol-card::before {
   background: linear-gradient(90deg, var(--sol-indigo), transparent 70%);
@@ -420,7 +440,9 @@
   background: linear-gradient(90deg, var(--sol-blue), transparent 70%);
 }
 
-.sol-card:hover::before { opacity: 1; }
+.sol-card:hover::before {
+  opacity: 1;
+}
 
 /* ════════════════════════
    CTA BLOCK
@@ -434,10 +456,18 @@
 .sol-cta::before {
   content: '';
   position: absolute;
-  top: 0; left: 50%; transform: translateX(-50%);
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: min(600px, 90%);
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--sol-border) 30%, var(--sol-border) 70%, transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--sol-border) 30%,
+    var(--sol-border) 70%,
+    transparent
+  );
 }
 
 .sol-cta-eyebrow {
@@ -470,13 +500,20 @@
   font-weight: 700;
   letter-spacing: -0.01em;
   text-decoration: none;
-  transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
-  box-shadow: 0 0 0 1px rgba(99,102,241,0.5), 0 4px 20px rgba(99,102,241,0.28);
+  transition:
+    background 0.2s,
+    box-shadow 0.2s,
+    transform 0.2s;
+  box-shadow:
+    0 0 0 1px rgba(99, 102, 241, 0.5),
+    0 4px 20px rgba(99, 102, 241, 0.28);
 }
 
 .sol-cta-btn:hover {
   background: #818cf8;
-  box-shadow: 0 0 0 1px rgba(129,140,248,0.6), 0 6px 30px rgba(99,102,241,0.38);
+  box-shadow:
+    0 0 0 1px rgba(129, 140, 248, 0.6),
+    0 6px 30px rgba(99, 102, 241, 0.38);
   transform: translateY(-2px);
 }
 
@@ -487,14 +524,706 @@
   letter-spacing: 0.02em;
 }
 
+/* ════════════════════════════════════════════
+   TILE GRID — Block 1 (full-image cards w/
+   text overlaid; alternating top/bottom)
+════════════════════════════════════════════ */
+.sol-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.sol-tile {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 5;
+  border-radius: var(--sol-radius);
+  overflow: hidden;
+  isolation: isolate;
+  background: #08080b;
+  border: 1px solid var(--sol-border);
+  transition:
+    transform 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.3s,
+    box-shadow 0.3s;
+}
+
+.sol-tile:hover {
+  transform: translateY(-6px);
+  border-color: rgba(99, 102, 241, 0.38);
+  box-shadow:
+    0 22px 60px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(99, 102, 241, 0.18),
+    0 0 60px rgba(99, 102, 241, 0.18);
+}
+
+.sol-tile-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  z-index: 0;
+  filter: saturate(1.05);
+  transition:
+    transform 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+    filter 0.4s;
+}
+
+.sol-tile:hover .sol-tile-img {
+  transform: scale(1.07);
+  filter: saturate(1.15);
+}
+
+/* Shade — heaviest where the text sits, fades toward image */
+.sol-tile-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.sol-tile-shade--top {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(7, 7, 12, 0.92) 0%,
+      rgba(7, 7, 12, 0.74) 18%,
+      rgba(7, 7, 12, 0.4) 38%,
+      rgba(7, 7, 12, 0.05) 62%,
+      rgba(7, 7, 12, 0) 78%,
+      rgba(7, 7, 12, 0.45) 100%
+    ),
+    linear-gradient(165deg, rgba(99, 102, 241, 0.18) 0%, transparent 55%);
+}
+
+.sol-tile-shade--bottom {
+  background:
+    linear-gradient(
+      0deg,
+      rgba(7, 7, 12, 0.94) 0%,
+      rgba(7, 7, 12, 0.76) 18%,
+      rgba(7, 7, 12, 0.42) 38%,
+      rgba(7, 7, 12, 0.05) 62%,
+      rgba(7, 7, 12, 0) 78%,
+      rgba(7, 7, 12, 0.4) 100%
+    ),
+    linear-gradient(195deg, rgba(99, 102, 241, 0.18) 0%, transparent 55%);
+}
+
+/* Content slot */
+.sol-tile-content {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 1.65rem 1.7rem;
+}
+
+.sol-tile-content--top {
+  top: 0;
+}
+.sol-tile-content--bottom {
+  bottom: 0;
+}
+
+/* Step pill */
+.sol-tile-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.32rem 0.7rem;
+  border-radius: 9999px;
+  background: rgba(99, 102, 241, 0.22);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  color: #c7c9ff;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.sol-tile-step::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--sol-indigo);
+  box-shadow: 0 0 6px var(--sol-indigo);
+}
+
+.sol-tile-title {
+  font-size: clamp(1.15rem, 1.45vw, 1.45rem);
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin: 0;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
+}
+
+.sol-tile-text {
+  font-size: 0.9rem;
+  color: rgba(241, 241, 243, 0.85);
+  line-height: 1.6;
+  margin: 0;
+  max-width: 36ch;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+}
+
+/* Hover accent line */
+.sol-tile::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--sol-indigo), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.sol-tile:hover::before {
+  opacity: 1;
+}
+
+/* Stagger reveal */
+.sol-tile-grid .sol-reveal:nth-child(2) {
+  transition-delay: 0.08s;
+}
+.sol-tile-grid .sol-reveal:nth-child(3) {
+  transition-delay: 0.16s;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .sol-tile-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  /* When 3 tiles wrap to 2 cols, the third sits alone — let it breathe wide */
+  .sol-tile-grid .sol-tile:nth-child(3) {
+    grid-column: span 2;
+    aspect-ratio: 16 / 7;
+  }
+  .sol-tile-grid .sol-tile:nth-child(3) .sol-tile-content {
+    max-width: 60%;
+  }
+}
+
+@media (max-width: 720px) {
+  .sol-tile-grid {
+    grid-template-columns: 1fr;
+    gap: 1.1rem;
+  }
+  .sol-tile {
+    aspect-ratio: 16 / 11;
+  }
+  .sol-tile-grid .sol-tile:nth-child(3) {
+    grid-column: auto;
+    aspect-ratio: 16 / 11;
+  }
+  .sol-tile-grid .sol-tile:nth-child(3) .sol-tile-content {
+    max-width: 100%;
+  }
+  .sol-tile-content {
+    padding: 1.35rem 1.4rem;
+  }
+}
+
+/* ════════════════════════════════════════════
+   BENTO GRID — Block 2 (asymmetric showcase
+   1 hero + 2 stacked + 1 wide banner)
+════════════════════════════════════════════ */
+.sol-bento {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  grid-template-rows: 285px 285px 300px;
+  gap: 1.25rem;
+}
+
+.sol-bento-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--sol-radius);
+  background: var(--sol-card-bg);
+  border: 1px solid var(--sol-border);
+  isolation: isolate;
+  transition:
+    transform 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.3s,
+    box-shadow 0.3s;
+}
+
+.sol-bento-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(16, 185, 129, 0.35);
+  box-shadow:
+    0 22px 60px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(16, 185, 129, 0.18),
+    0 0 60px rgba(16, 185, 129, 0.16);
+}
+
+.sol-bento-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  z-index: 0;
+  filter: saturate(1.05);
+  transition:
+    transform 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+    filter 0.4s;
+}
+
+.sol-bento-card:hover .sol-bento-img {
+  transform: scale(1.06);
+  filter: saturate(1.18);
+}
+
+/* Hover top accent line */
+.sol-bento-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--sol-green), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.sol-bento-card:hover::before {
+  opacity: 1;
+}
+
+/* ── Shade gradients ── */
+.sol-bento-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.sol-bento-shade--bottom {
+  background:
+    linear-gradient(
+      0deg,
+      rgba(7, 7, 12, 0.94) 0%,
+      rgba(7, 7, 12, 0.76) 18%,
+      rgba(7, 7, 12, 0.42) 38%,
+      rgba(7, 7, 12, 0.05) 62%,
+      rgba(7, 7, 12, 0) 78%,
+      rgba(7, 7, 12, 0.4) 100%
+    ),
+    linear-gradient(195deg, rgba(16, 185, 129, 0.18) 0%, transparent 55%);
+}
+
+.sol-bento-shade--top {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(7, 7, 12, 0.92) 0%,
+      rgba(7, 7, 12, 0.74) 18%,
+      rgba(7, 7, 12, 0.4) 38%,
+      rgba(7, 7, 12, 0.05) 62%,
+      rgba(7, 7, 12, 0) 78%,
+      rgba(7, 7, 12, 0.45) 100%
+    ),
+    linear-gradient(165deg, rgba(16, 185, 129, 0.18) 0%, transparent 55%);
+}
+
+.sol-bento-shade--right {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(7, 7, 12, 0.85) 0%,
+      rgba(7, 7, 12, 0.65) 28%,
+      rgba(7, 7, 12, 0.3) 55%,
+      rgba(7, 7, 12, 0) 85%,
+      rgba(7, 7, 12, 0) 100%
+    ),
+    linear-gradient(0deg, rgba(7, 7, 12, 0.3) 0%, transparent 50%);
+}
+
+/* ── Content slot ── */
+.sol-bento-content {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 1.7rem 1.75rem;
+}
+
+.sol-bento-content--bottom {
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+.sol-bento-content--top {
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+.sol-bento-content--left {
+  top: 50%;
+  left: 0;
+  bottom: auto;
+  transform: translateY(-50%);
+  max-width: 56%;
+  padding: 1.75rem 2rem 1.75rem 2.25rem;
+}
+
+.sol-bento-title {
+  font-size: clamp(1.2rem, 1.5vw, 1.55rem);
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin: 0;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
+}
+
+.sol-bento-text {
+  font-size: 0.9rem;
+  color: rgba(241, 241, 243, 0.85);
+  line-height: 1.6;
+  margin: 0;
+  max-width: 50ch;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+}
+
+/* ── HERO — Region Editor ── */
+.sol-bento-region {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+
+.sol-bento-region .sol-bento-title {
+  font-size: clamp(1.5rem, 2vw, 2rem);
+}
+
+.sol-bento-pin {
+  position: absolute;
+  top: 1.4rem;
+  left: 1.4rem;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.85rem;
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.22);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  color: #6ee7b7;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.sol-bento-pin-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sol-green);
+  box-shadow: 0 0 8px var(--sol-green);
+  animation: solPinPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes solPinPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.6);
+  }
+}
+
+/* Decorative paint-stroke sweep on hero */
+.sol-bento-paint {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    120deg,
+    transparent 30%,
+    rgba(16, 185, 129, 0.18) 45%,
+    rgba(110, 231, 183, 0.32) 50%,
+    rgba(16, 185, 129, 0.18) 55%,
+    transparent 70%
+  );
+  background-size: 250% 100%;
+  background-position: 100% 0;
+  mix-blend-mode: screen;
+  animation: solPaintSweep 7s ease-in-out infinite;
+  opacity: 0;
+}
+
+@keyframes solPaintSweep {
+  0% {
+    background-position: 100% 0;
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.55;
+  }
+  60% {
+    background-position: 0% 0;
+    opacity: 0;
+  }
+  100% {
+    background-position: 0% 0;
+    opacity: 0;
+  }
+}
+
+/* ── Top-right small ── */
+.sol-bento-character {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+/* ── Mid-right small ── */
+.sol-bento-titles {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+/* ── Wide banner — Analyzer ── */
+.sol-bento-analyzer {
+  grid-column: 1 / -1;
+  grid-row: 3;
+}
+
+.sol-bento-analyzer .sol-bento-title {
+  font-size: clamp(1.4rem, 1.8vw, 1.8rem);
+}
+
+/* Score meter — static, always rendered at 87% */
+.sol-bento-meter {
+  position: absolute;
+  right: 6%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 140px;
+  height: 140px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  pointer-events: none;
+}
+
+/* Soft circular backdrop so the meter never floats in pure black */
+.sol-bento-meter::before {
+  content: '';
+  position: absolute;
+  inset: -8%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at center,
+    rgba(16, 185, 129, 0.1) 0%,
+    rgba(7, 7, 12, 0.55) 55%,
+    rgba(7, 7, 12, 0) 78%
+  );
+  pointer-events: none;
+  z-index: -1;
+}
+
+.sol-bento-meter-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+
+.sol-bento-meter-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 6;
+}
+
+/* Circumference = 2 * pi * 34 ≈ 213.6
+   Static 87% fill -> dashoffset = 213.6 * 0.13 ≈ 27.77 */
+.sol-bento-meter-bar {
+  fill: none;
+  stroke: var(--sol-green);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-dasharray: 213.6;
+  stroke-dashoffset: 27.77;
+  filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.65));
+}
+
+.sol-bento-meter-num {
+  position: relative;
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6);
+  font-variant-numeric: tabular-nums;
+}
+
+.sol-bento-meter-label {
+  position: relative;
+  margin-top: 0.4rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(110, 231, 183, 0.85);
+}
+
+/* ── Directional reveals (Block 2) — fail-open ──
+   Previously these set opacity:0 by default and relied on the
+   IntersectionObserver in solution.js to add .sol-visible. If the
+   observer never fired (bfcache restore, layout shift, fast scroll,
+   etc.) the bento cards stayed invisible. Now they default to their
+   final visible state — JS can still toggle .sol-visible for any
+   future reveal effect, but the cards are guaranteed to render. */
+.sol-reveal-left,
+.sol-reveal-right,
+.sol-reveal-up,
+.sol-reveal-left.sol-visible,
+.sol-reveal-right.sol-visible,
+.sol-reveal-up.sol-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Stagger right-column cards */
+.sol-bento .sol-bento-titles {
+  transition-delay: 0.12s;
+}
+.sol-bento .sol-bento-analyzer {
+  transition-delay: 0.08s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sol-reveal-left,
+  .sol-reveal-right,
+  .sol-reveal-up {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .sol-bento-paint,
+  .sol-bento-pin-dot {
+    animation: none !important;
+  }
+  .sol-bento-meter-bar {
+    stroke-dashoffset: 27.77 !important;
+  }
+}
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .sol-bento {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 260px 260px 280px;
+  }
+  .sol-bento-content--left {
+    max-width: 64%;
+    padding: 1.5rem 1.6rem;
+  }
+  .sol-bento-meter {
+    width: 116px;
+    height: 116px;
+    right: 4%;
+  }
+  .sol-bento-meter-num {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .sol-bento {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    gap: 1.1rem;
+  }
+  .sol-bento-region,
+  .sol-bento-character,
+  .sol-bento-titles,
+  .sol-bento-analyzer {
+    grid-column: auto;
+    grid-row: auto;
+    min-height: 240px;
+  }
+  .sol-bento-region {
+    min-height: 360px;
+  }
+  .sol-bento-analyzer {
+    min-height: 320px;
+  }
+
+  .sol-bento-content {
+    padding: 1.4rem 1.4rem;
+  }
+  .sol-bento-content--left {
+    position: absolute;
+    top: auto;
+    bottom: 0;
+    transform: none;
+    max-width: 70%;
+    padding: 1.4rem 1.4rem;
+  }
+  .sol-bento-meter {
+    width: 100px;
+    height: 100px;
+    right: 4%;
+    top: 36%;
+  }
+  .sol-bento-meter-num {
+    font-size: 1.7rem;
+  }
+  .sol-bento-meter-label {
+    font-size: 0.55rem;
+  }
+}
+
 /* ════════════════════════
    SCROLL REVEAL
 ════════════════════════ */
 .sol-reveal {
-  opacity: 0;
-  transform: translateY(28px);
-  transition: opacity 0.55s cubic-bezier(0.4,0,0.2,1),
-              transform 0.55s cubic-bezier(0.4,0,0.2,1);
+  /* Default visible — see faq-reveal note. Section content shows
+   * even if the JS that flips `.sol-visible` never runs. */
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.55s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sol-reveal.sol-visible {
@@ -504,12 +1233,18 @@
 
 /* Stagger cards in grids */
 .sol-card-grid-3 .sol-reveal:nth-child(2),
-.sol-card-grid-4 .sol-reveal:nth-child(2) { transition-delay: 0.08s; }
+.sol-card-grid-4 .sol-reveal:nth-child(2) {
+  transition-delay: 0.08s;
+}
 
 .sol-card-grid-3 .sol-reveal:nth-child(3),
-.sol-card-grid-4 .sol-reveal:nth-child(3) { transition-delay: 0.16s; }
+.sol-card-grid-4 .sol-reveal:nth-child(3) {
+  transition-delay: 0.16s;
+}
 
-.sol-card-grid-4 .sol-reveal:nth-child(4) { transition-delay: 0.24s; }
+.sol-card-grid-4 .sol-reveal:nth-child(4) {
+  transition-delay: 0.24s;
+}
 
 /* ════════════════════════
    RESPONSIVE

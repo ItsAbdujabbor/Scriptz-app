@@ -20,7 +20,10 @@
   --lred: #e55656;
   --lfont: var(--font, 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
   --lr: 8px;
-  --lrlg: 12px;
+  /* Bumped from 12px → 24px so the preview frame's corners match the
+   * stage's new 24px bottom curve (one unified rounded silhouette
+   * instead of frame edges floating awkwardly inside the stage). */
+  --lrlg: 24px;
 
   position: relative;
   min-height: 100vh;
@@ -67,11 +70,13 @@
   z-index: 1;
   width: 100%;
   max-width: 1100px;
-  /* 5.5rem top = clears the ~52px fixed header with comfortable breathing room */
-  padding: 5.5rem 4vw 0;
+  /* 4.5rem top still clears the ~52px fixed header; trimmed from 5.5rem
+   * as part of the "tighter hero stack" pass so the preview frame
+   * sits closer to the copy. */
+  padding: 4.5rem 4vw 0;
   margin: 0 auto;
   text-align: center;
-  animation: linFadeUp 0.85s cubic-bezier(0.16, 1, 0.3, 1) both;
+  /* Entrance animation removed — hero is fully static (no fade-in motion). */
 }
 
 /* Badge-style pill eyebrow */
@@ -88,7 +93,7 @@
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: rgba(165, 180, 252, 0.9);
-  margin-bottom: 2rem;
+  margin-bottom: 1.25rem;
   transition:
     background 0.2s,
     border-color 0.2s;
@@ -125,1889 +130,15 @@
 }
 
 .lin-sub {
-  margin: 1.6rem auto 0;
+  /* Tighter top gap (1rem from 1.6rem) and a wider max-width so the
+   * shorter one-line subhead doesn't wrap on mid-sized screens. */
+  margin: 1rem auto 0;
   font-size: clamp(0.95rem, 1.35vw, 1.1rem);
-  line-height: 1.8;
+  line-height: 1.5;
   color: #9ca3af;
-  max-width: 680px;
+  max-width: 760px;
   font-weight: 400;
   letter-spacing: 0.005em;
-}
-
-/* ─────────────────────────────────────
-   DASHBOARD WRAPPER
-───────────────────────────────────── */
-.lin-db-section {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  padding: 4rem 0 0;
-  animation: linFadeUp 1s 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-/* ── Stage: full-width gradient platform — rounded bottom corners only ── */
-.lin-db-stage {
-  position: relative;
-  width: 100%;
-  /* Gradient starts transparent, becomes a soft white wash toward the bottom.
-     Covers the lower ~70% of the dashboard frame height. */
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    transparent 30%,
-    rgba(255, 255, 255, 0.022) 52%,
-    rgba(255, 255, 255, 0.072) 74%,
-    rgba(255, 255, 255, 0.11) 88%,
-    rgba(255, 255, 255, 0.13) 100%
-  );
-  /* Rounded only on the bottom two corners */
-  border-radius: 0 0 40px 40px;
-  padding: 0 2.5rem 6rem;
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
-}
-
-/* Underglow behind dashboard */
-.lin-db-underglow {
-  position: absolute;
-  bottom: 60px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 72%;
-  height: 100px;
-  background: radial-gradient(ellipse, rgba(94, 106, 210, 0.22) 0%, transparent 70%);
-  filter: blur(32px);
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* Top edge accent */
-.lin-db-edge {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(94, 106, 210, 0.45) 25%,
-    rgba(180, 160, 255, 0.8) 50%,
-    rgba(94, 106, 210, 0.45) 75%,
-    transparent 100%
-  );
-  border-radius: var(--lrlg) var(--lrlg) 0 0;
-  z-index: 3;
-  pointer-events: none;
-}
-
-/* Bottom fade for depth */
-.lin-db-fade {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 80px;
-  background: linear-gradient(to top, rgba(5, 5, 6, 0.92), transparent);
-  z-index: 5;
-  pointer-events: none;
-  border-radius: 0 0 var(--lrlg) var(--lrlg);
-}
-
-/* Browser chrome frame — centered with max-width, black-dark */
-.lin-db-frame {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
-  border-radius: var(--lrlg);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: var(--lp1);
-  overflow: hidden;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.015),
-    0 48px 96px rgba(0, 0, 0, 0.9),
-    0 24px 48px rgba(0, 0, 0, 0.6);
-  isolation: isolate;
-}
-
-/* Title bar */
-.lin-titlebar {
-  height: 38px;
-  background: #070708;
-  border-bottom: 1px solid var(--lb1);
-  display: flex;
-  align-items: center;
-  padding: 0 14px;
-  gap: 7px;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 2;
-}
-.lin-tl {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-}
-.lin-tl-r {
-  background: #ff5f57;
-}
-.lin-tl-y {
-  background: #febc2e;
-}
-.lin-tl-g {
-  background: #28c840;
-}
-.lin-urlbar {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-}
-.lin-urlpill {
-  padding: 2px 14px;
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid var(--lb1);
-  border-radius: 5px;
-  font-size: 0.68rem;
-  color: var(--lt3);
-  letter-spacing: 0.01em;
-}
-
-/* ─────────────────────────────────────
-   3-COLUMN LAYOUT
-───────────────────────────────────── */
-.lin-db-body {
-  /* Single-column now — sidebar was stripped per spec. The mockup
-   * shows only the Thumbnail Generator screen, full-bleed inside the
-   * frame. */
-  display: block;
-  height: 660px;
-}
-
-/* ══════════ SIDEBAR ══════════ */
-.lin-sidebar {
-  border-right: 1px solid var(--lb1);
-  display: flex;
-  flex-direction: column;
-  background: #050506;
-  overflow: hidden;
-  font-size: 0.8rem;
-}
-/* ── Sidebar — mirror of `.app-sidebar` from src/app/Sidebar.css ──
- *
- * Matches the production sidebar's three vertical sections:
- *   .lin-sb-top   header (brand row + new-chat pill)
- *   .lin-sb-body  flex-1 scroll body (nav items + history)
- *   .lin-sb-foot  account pill at bottom
- *
- * Visual tokens are pulled from the production stylesheet so the
- * landing mockup reads as a 1:1 preview.
- * ─────────────────────────────────────────────────────────────── */
-.lin-sb-top {
-  padding: 12px 10px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.lin-sb-brand {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 4px 6px;
-}
-
-.lin-sb-logo {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  flex-shrink: 0;
-  overflow: hidden;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.lin-sb-logo svg {
-  width: 100%;
-  height: 100%;
-}
-
-.lin-sb-brandname {
-  font-size: 0.86rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: #fff;
-  flex: 1;
-}
-
-.lin-sb-toggle {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(229, 229, 231, 0.55);
-  background: transparent;
-}
-
-.lin-sb-toggle svg {
-  width: 14px;
-  height: 14px;
-}
-
-/* "New chat" pill — liquid-glass style of production */
-.lin-sb-newchat {
-  position: relative;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)), #16161a;
-  color: #f2f2f5;
-  font-family: inherit;
-  font-size: 0.78rem;
-  font-weight: 500;
-  letter-spacing: -0.005em;
-  cursor: pointer;
-  box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
-    0 6px 16px rgba(0, 0, 0, 0.4);
-  overflow: hidden;
-}
-
-.lin-sb-newchat-glow {
-  position: absolute;
-  top: -40%;
-  left: -10%;
-  right: -10%;
-  height: 80%;
-  background: radial-gradient(
-    ellipse at 50% 100%,
-    rgba(167, 139, 250, 0.3) 0%,
-    rgba(167, 139, 250, 0) 60%
-  );
-  pointer-events: none;
-}
-
-.lin-sb-newchat-icon {
-  width: 16px;
-  height: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(229, 229, 231, 0.78);
-}
-
-.lin-sb-newchat-icon svg {
-  width: 100%;
-  height: 100%;
-}
-
-.lin-sb-newchat-label {
-  flex: 1;
-}
-
-/* ── Body: nav items + history list ── */
-.lin-sb-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 4px 8px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  scrollbar-width: none;
-}
-.lin-sb-body::-webkit-scrollbar {
-  display: none;
-}
-
-.lin-ni {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 7px 10px;
-  border-radius: 7px;
-  cursor: pointer;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: rgba(229, 229, 231, 0.65);
-  transition:
-    background 0.15s,
-    color 0.15s;
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-.lin-ni:hover {
-  background: rgba(255, 255, 255, 0.04);
-  color: #fff;
-}
-
-.lin-ni.active {
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
-}
-
-.lin-ni--noop {
-  /* Optimize tab — purely visual, no click target effect (handler in
-   * hero.js skips items without `data-lin-view`). */
-}
-
-.lin-ni-ico {
-  width: 16px;
-  height: 16px;
-  opacity: 0.6;
-  flex-shrink: 0;
-}
-
-.lin-ni.active .lin-ni-ico {
-  opacity: 0.95;
-}
-
-/* ── HISTORY section ── */
-.lin-sb-section {
-  margin-top: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.lin-sb-section-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 12px 6px;
-}
-
-.lin-sb-section-lbl {
-  font-size: 0.6rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(229, 229, 231, 0.4);
-}
-
-.lin-sb-section-search {
-  width: 18px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(229, 229, 231, 0.45);
-  cursor: pointer;
-  border-radius: 4px;
-}
-
-.lin-sb-section-search:hover {
-  color: #fff;
-}
-
-.lin-sb-section-search svg {
-  width: 13px;
-  height: 13px;
-}
-
-.lin-sb-hist {
-  display: flex;
-  flex-direction: column;
-}
-
-.lin-sb-hist-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.74rem;
-  font-weight: 450;
-  color: rgba(229, 229, 231, 0.62);
-  transition:
-    background 0.15s,
-    color 0.15s;
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-.lin-sb-hist-row:hover {
-  background: rgba(255, 255, 255, 0.04);
-  color: #fff;
-}
-
-.lin-sb-hist-icon {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  color: rgba(229, 229, 231, 0.4);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.lin-sb-hist-icon svg {
-  width: 100%;
-  height: 100%;
-}
-
-.lin-sb-hist-title {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ── Account pill at the bottom ── */
-.lin-sb-foot {
-  padding: 8px 8px 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.lin-sb-account {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 7px 9px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(22, 22, 26, 0.65);
-  color: #fff;
-  font-family: inherit;
-  cursor: pointer;
-  text-align: left;
-  transition:
-    background 0.15s,
-    border-color 0.15s;
-}
-
-.lin-sb-account:hover {
-  background: rgba(28, 28, 34, 0.85);
-  border-color: rgba(255, 255, 255, 0.09);
-}
-
-.lin-sb-avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
-  flex-shrink: 0;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.55rem;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 0.02em;
-}
-
-.lin-sb-account-text {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.lin-sb-account-email {
-  font-size: 0.7rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.92);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  letter-spacing: -0.005em;
-}
-
-.lin-sb-account-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.lin-sb-account-credits {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: rgba(167, 139, 250, 0.14);
-  border: 1px solid rgba(167, 139, 250, 0.22);
-  color: #c4b5fd;
-  font-size: 0.6rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.lin-sb-account-chev {
-  width: 14px;
-  height: 14px;
-  color: rgba(229, 229, 231, 0.45);
-  flex-shrink: 0;
-}
-
-/* ══════════ MAIN ══════════ */
-.lin-main {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: #0e0e12;
-  height: 100%;
-}
-
-.lin-main-hdr {
-  padding: 12px 18px;
-  border-bottom: 1px solid var(--lb1);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-  background: #070708;
-}
-.lin-main-ttl {
-  font-size: 0.84rem;
-  font-weight: 600;
-  color: var(--lt1);
-}
-.lin-main-ctx {
-  font-size: 0.72rem;
-  color: var(--lt3);
-}
-.lin-toolbar {
-  margin-left: auto;
-  display: flex;
-  gap: 3px;
-}
-.lin-tbtn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  font-size: 0.7rem;
-  color: var(--lt3);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 9999px;
-  cursor: pointer;
-  transition: all 0.13s;
-  font-family: var(--lfont);
-  white-space: nowrap;
-}
-.lin-tbtn:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: var(--lb1);
-  color: var(--lt2);
-}
-
-.lin-main-body {
-  flex: 1;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.06) transparent;
-}
-.lin-main-body::-webkit-scrollbar {
-  width: 4px;
-}
-.lin-main-body::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 99px;
-}
-
-/* Views */
-.lin-view {
-  display: none;
-  height: 100%;
-  flex-direction: column;
-}
-.lin-view.active {
-  display: flex;
-}
-
-/* Empty state */
-.lin-view-empty {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.76rem;
-  color: var(--lt3);
-  text-align: center;
-  padding: 40px;
-  line-height: 1.6;
-}
-
-/* ──────────────────────────────────────────────────────────────────
- * Thumbnail Generator mockup — visual copy of the live screen.
- *
- * Layout:
- *   .lin-tg-shell      relative container, holds dot grid + thread + composer
- *   .lin-tg-dotbed     centred dot pattern, very subtle
- *   .lin-tg-thread     scrollable conversation column
- *   .lin-tg-empty      first-paint heading + kicker pill (centred)
- *   .lin-tg-glow       deep-purple bottom plate behind the input bar
- *   .lin-tg-footer     mode tabs + composer pill, anchored to bottom
- *
- * The animation cycle (driven by hero.js) toggles classes on .lin-tg-shell:
- *   lin-tg-shell--sending     → user message slides in
- *   lin-tg-shell--generating  → loader card appears + progress fill animates
- *   lin-tg-shell--done        → finished thumbnail card with score pill
- * ────────────────────────────────────────────────────────────────── */
-.lin-tg-shell {
-  position: relative;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: #0e0e12;
-  overflow: hidden;
-  isolation: isolate;
-}
-
-.lin-tg-dotbed {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image: radial-gradient(
-    circle at center,
-    rgba(167, 139, 250, 0.18) 0,
-    rgba(167, 139, 250, 0.18) 0.7px,
-    transparent 1.2px
-  );
-  background-size: 14px 14px;
-  -webkit-mask-image: radial-gradient(
-    ellipse 60% 80% at center,
-    rgba(0, 0, 0, 1) 0%,
-    rgba(0, 0, 0, 0.55) 60%,
-    rgba(0, 0, 0, 0) 100%
-  );
-  mask-image: radial-gradient(
-    ellipse 60% 80% at center,
-    rgba(0, 0, 0, 1) 0%,
-    rgba(0, 0, 0, 0.55) 60%,
-    rgba(0, 0, 0, 0) 100%
-  );
-}
-
-.lin-tg-thread {
-  position: relative;
-  z-index: 2;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  padding: 18px 22px 0;
-  gap: 10px;
-  overflow: hidden;
-}
-
-/* Empty state — shell flex-centers thread + footer together so the
- * heading + tabs + composer read as one grouped block, exactly like
- * production. The thread shrinks to content height. */
-.lin-tg-shell--empty {
-  justify-content: center;
-}
-
-.lin-tg-shell--empty .lin-tg-thread {
-  flex: 0 0 auto;
-  padding: 0 22px 0;
-}
-
-/* Once the cycle moves past empty-state the thread takes the full
- * height and the user / loader / done card stacks toward the bottom —
- * a regular chat layout. */
-.lin-tg-shell--sending .lin-tg-thread,
-.lin-tg-shell--generating .lin-tg-thread,
-.lin-tg-shell--done .lin-tg-thread {
-  justify-content: flex-end;
-  padding-bottom: 12px;
-}
-
-/* Empty state heading + kicker pill */
-.lin-tg-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  text-align: center;
-  transition:
-    opacity 0.32s ease,
-    transform 0.32s ease;
-}
-
-.lin-tg-shell--sending .lin-tg-empty,
-.lin-tg-shell--generating .lin-tg-empty,
-.lin-tg-shell--done .lin-tg-empty {
-  opacity: 0;
-  transform: translateY(-8px);
-  pointer-events: none;
-  position: absolute;
-  visibility: hidden;
-}
-
-.lin-tg-kicker {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  font-size: 0.55rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(229, 229, 231, 0.72);
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.lin-tg-heading {
-  font-size: 1.12rem;
-  font-weight: 700;
-  letter-spacing: -0.015em;
-  color: #f5f5f7;
-  margin: 0;
-  line-height: 1.2;
-}
-
-/* User chat bubble — right-aligned, violet, mirrors live `.coach-message--user` */
-.lin-tg-user-msg {
-  align-self: flex-end;
-  max-width: 78%;
-  padding: 7px 12px;
-  border-radius: 14px 14px 4px 14px;
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
-  color: #fff;
-  font-size: 0.7rem;
-  line-height: 1.4;
-  box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.18),
-    0 6px 16px rgba(124, 58, 237, 0.32);
-  opacity: 0;
-  transform: translateY(6px);
-  animation: linTgFadeUp 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-/* Assistant card wrapper — locks 16:9, identical between loader + finished states */
-.lin-tg-card {
-  align-self: flex-start;
-  width: min(310px, 78%);
-  aspect-ratio: 16 / 9;
-  border-radius: 12px 12px 12px 3px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: #18181c;
-  padding: 3px;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.42);
-  opacity: 0;
-  transform: translateY(8px);
-  animation: linTgFadeUp 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-/* Generating loader: full-card violet fill that grows L→R + percentage */
-.lin-tg-card__stage {
-  position: absolute;
-  inset: 3px;
-  border-radius: 9px;
-  overflow: hidden;
-  background: #0c0c12;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.lin-tg-fill {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 0%;
-  background: linear-gradient(90deg, #4c1d95 0%, #6d28d9 35%, #7c3aed 70%, #8b5cf6 100%);
-  transition: width 0.18s linear;
-}
-
-.lin-tg-fill::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.18) 50%,
-    transparent 100%
-  );
-  transform: translateX(-60%);
-  animation: linTgSheen 2.2s linear infinite;
-}
-
-.lin-tg-pct {
-  position: relative;
-  z-index: 1;
-  font-size: 1.4rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: #fff;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Finished thumbnail — fake image (gradient) + score pill + action bar */
-.lin-tg-card--done .lin-tg-card__img {
-  position: absolute;
-  inset: 3px;
-  border-radius: 9px;
-  background:
-    radial-gradient(circle at 30% 35%, rgba(255, 240, 200, 0.55) 0%, transparent 40%),
-    radial-gradient(circle at 75% 60%, rgba(124, 58, 237, 0.65) 0%, transparent 50%),
-    linear-gradient(135deg, #1e1b4b 0%, #312e81 35%, #4c1d95 75%, #7c3aed 100%);
-}
-
-.lin-tg-card__score {
-  position: absolute;
-  top: 7px;
-  left: 7px;
-  z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 19px;
-  padding: 0 8px 0 6px;
-  border-radius: 999px;
-  background: rgba(13, 13, 18, 0.88);
-  border: 1px solid rgba(52, 211, 153, 0.32);
-  color: #fff;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;
-  box-shadow: 0 0 14px rgba(52, 211, 153, 0.18);
-}
-
-.lin-tg-card__score::before {
-  content: '';
-  width: 5px;
-  height: 5px;
-  border-radius: 999px;
-  background: #34d399;
-  box-shadow: 0 0 6px rgba(52, 211, 153, 0.55);
-}
-
-.lin-tg-card__actions {
-  position: absolute;
-  bottom: 7px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 4px;
-  border-radius: 999px;
-  background: rgba(13, 13, 18, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-.lin-tg-card__actions span {
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.lin-tg-card__actions svg {
-  width: 9px;
-  height: 9px;
-}
-
-/* Bottom violet glow plate — same hue + shape as the live screen */
-.lin-tg-glow {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: min(420px, 90%);
-  height: 110px;
-  z-index: 1;
-  pointer-events: none;
-  background: radial-gradient(
-    ellipse 60% 150% at 50% 150%,
-    rgba(237, 230, 255, 1) 5%,
-    rgba(196, 181, 253, 0.95) 35%,
-    rgba(149, 110, 248, 0.78) 45%,
-    rgba(124, 58, 237, 0.5) 60%,
-    rgba(91, 33, 182, 0.22) 80%,
-    rgba(76, 29, 149, 0) 90%
-  );
-  filter: blur(6px);
-}
-
-/* Composer + tabs.
- *
- * Default (filled state): pinned to the bottom of the shell, padding
- * lifts it off the violet glow plate slightly.
- *
- * Empty state: lifted into the centred cluster (heading + tabs +
- * composer group together at the visual centre, just like the live
- * production screen). The `--empty` class is added by hero.js when
- * the cycle is in its idle/empty phase. */
-.lin-tg-footer {
-  position: relative;
-  z-index: 4;
-  padding: 0 16px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: stretch;
-}
-
-.lin-tg-shell--empty .lin-tg-footer {
-  padding-bottom: 0;
-}
-
-/* ── Mode tabs ──────────────────────────────────────────────── */
-.lin-tg-tabs {
-  display: flex;
-  gap: 6px;
-  align-self: center;
-  background: transparent;
-  padding: 0;
-}
-
-.lin-tg-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 11px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: rgba(24, 24, 28, 0.72);
-  color: rgba(229, 229, 231, 0.72);
-  font-size: 0.65rem;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease;
-}
-
-.lin-tg-tab:hover {
-  background: rgba(34, 34, 40, 0.85);
-  color: #fff;
-}
-
-.lin-tg-tab.active {
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
-  border-color: rgba(196, 181, 253, 0.5);
-  color: #fff;
-  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.42);
-}
-
-.lin-tg-tab svg {
-  flex-shrink: 0;
-  width: 12px;
-  height: 12px;
-}
-
-/* ── Composer (input bar) ───────────────────────────────────── */
-.lin-tg-composer {
-  position: relative;
-  background: #181820;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 22px;
-  /* Tighter, more even padding — matches the production composer
-   * (`0.7rem 0.85rem`) so the input + tools row sit closer to the
-   * bar's edges instead of looking cramped on one side and loose on
-   * the other. */
-  padding: 12px 14px 10px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  transition: border-color 0.2s ease;
-}
-
-.lin-tg-composer.is-focused {
-  border-color: rgba(196, 181, 253, 0.28);
-}
-
-.lin-tg-input {
-  position: relative;
-  min-height: 20px;
-  font-size: 0.74rem;
-  line-height: 1.5;
-  color: #f8fafc;
-  /* Wrap long prompts naturally so the typewriter caret stays
-   * visible at the end of the typed text. word-break stops a single
-   * very long token from overflowing horizontally. */
-  white-space: normal;
-  word-break: break-word;
-  overflow: hidden;
-}
-
-/* Placeholder + the typed text live at the same baseline. We toggle
- * between them via the `.is-typing` modifier on `.lin-tg-input`. */
-.lin-tg-placeholder {
-  color: rgba(229, 229, 231, 0.42);
-  transition: opacity 0.2s ease;
-}
-
-.lin-tg-input.is-typing .lin-tg-placeholder {
-  display: none;
-}
-
-.lin-tg-typed {
-  color: #f8fafc;
-}
-
-/* Caret — solid 1px bar that blinks. Sits inline so it appears
- * exactly after the typed text (or in place of the placeholder
- * during the brief idle moment before typing starts). */
-.lin-tg-caret {
-  display: inline-block;
-  width: 1px;
-  height: 0.95em;
-  margin-left: 1px;
-  background: rgba(196, 181, 253, 0.85);
-  vertical-align: text-bottom;
-  animation: linTgCaret 1s steps(2) infinite;
-}
-
-@keyframes linTgCaret {
-  0%,
-  49% {
-    opacity: 1;
-  }
-  50%,
-  100% {
-    opacity: 0;
-  }
-}
-
-/* ── Tools row ──────────────────────────────────────────────── */
-.lin-tg-tools {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.lin-tg-tool {
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(229, 229, 231, 0.72);
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.lin-tg-tool svg {
-  width: 12px;
-  height: 12px;
-}
-
-.lin-tg-tool--num {
-  width: auto;
-  padding: 0 9px;
-  font-size: 0.62rem;
-  font-weight: 600;
-  color: rgba(229, 229, 231, 0.85);
-}
-
-.lin-tg-spacer {
-  flex: 1;
-}
-
-/* Send pill — pulses on every "send" tick of the cycle. */
-.lin-tg-send {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 11px 5px 9px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
-  color: #fff;
-  font-size: 0.66rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.42);
-  transition: transform 0.16s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.lin-tg-send.is-sending {
-  animation: linTgSendPulse 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes linTgSendPulse {
-  0% {
-    transform: scale(1);
-    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.42);
-  }
-  35% {
-    transform: scale(1.08);
-    box-shadow: 0 8px 22px rgba(167, 139, 250, 0.7);
-  }
-  100% {
-    transform: scale(1);
-    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.42);
-  }
-}
-
-.lin-tg-send svg {
-  flex-shrink: 0;
-  width: 12px;
-  height: 12px;
-}
-
-/* ── Animations ─────────────────────────────────────────────────── */
-@keyframes linTgFadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes linTgSheen {
-  0% {
-    transform: translateX(-60%);
-  }
-  100% {
-    transform: translateX(160%);
-  }
-}
-
-/* ──────────────────────────────────────────────────────────────────
- * Dashboard view mockup — copy of the production Dashboard hero.
- *
- * Layout:
- *   .lin-db-page              padded column, scroll-safe
- *   .lin-db-page-hdr          greeting block
- *   .lin-db-stats             3-up KPI grid (Subs / Views / Avg)
- *   .lin-db-milestones        two arc-charts side-by-side + per-tier list
- *
- * Visual tokens mirror Dashboard.css: same radii, same surface card
- * colour, same growth-pill green/red, same milestone arc style.
- * ────────────────────────────────────────────────────────────────── */
-.lin-db-page {
-  flex: 1;
-  min-height: 0;
-  padding: 26px 32px 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  overflow-y: auto;
-  background: #0e0e12;
-  box-sizing: border-box;
-}
-
-.lin-db-page-hdr {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.lin-db-greeting {
-  font-size: 1.45rem;
-  font-weight: 700;
-  letter-spacing: -0.022em;
-  line-height: 1.2;
-  color: #fff;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.lin-db-greeting-soft {
-  color: rgba(255, 255, 255, 0.6);
-  font-weight: 500;
-}
-
-.lin-db-greeting-name {
-  color: #fff;
-}
-
-/* ── KPI cards ───────────────────────────────────────────────── */
-.lin-db-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.lin-db-stat {
-  position: relative;
-  background: #18181c;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 14px;
-  padding: 12px 14px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.lin-db-stat-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.lin-db-stat-icon {
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(229, 229, 231, 0.78);
-}
-
-.lin-db-stat-growth {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 7px;
-  border-radius: 999px;
-  font-size: 0.62rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: rgba(229, 229, 231, 0.4);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.lin-db-stat-growth--down {
-  color: #f87171;
-  background: rgba(248, 113, 113, 0.1);
-  border-color: rgba(248, 113, 113, 0.18);
-}
-
-.lin-db-stat-growth--up {
-  color: #34d399;
-  background: rgba(52, 211, 153, 0.1);
-  border-color: rgba(52, 211, 153, 0.22);
-}
-
-.lin-db-stat-value {
-  font-size: 1.7rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  line-height: 1.05;
-  color: #fff;
-  font-variant-numeric: tabular-nums;
-  margin-top: 4px;
-}
-
-.lin-db-stat-label {
-  font-size: 0.72rem;
-  color: rgba(229, 229, 231, 0.55);
-  letter-spacing: -0.01em;
-  font-weight: 500;
-}
-
-/* ── Milestones card ─────────────────────────────────────────── */
-.lin-db-milestones {
-  background: #18181c;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 16px;
-  padding: 22px 22px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.lin-db-mil-pair {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 28px;
-}
-
-.lin-db-mil-col {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-width: 0;
-}
-
-/* Half-circle arc with the running total + denominator overlaid */
-.lin-db-arc {
-  position: relative;
-  align-self: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-top: 4px;
-}
-
-.lin-db-arc svg {
-  display: block;
-}
-
-.lin-db-arc-num {
-  position: absolute;
-  top: 38px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  color: #fff;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-}
-
-.lin-db-arc-cur {
-  font-size: 1.6rem;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.lin-db-arc-cap {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: rgba(229, 229, 231, 0.5);
-}
-
-.lin-db-arc-cap-lbl {
-  margin-top: 4px;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: rgba(229, 229, 231, 0.85);
-}
-
-/* Per-tier milestone list */
-.lin-db-mil-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.lin-db-mil-row {
-  display: grid;
-  grid-template-columns: 8px 1fr 90px 24px;
-  align-items: center;
-  gap: 10px;
-  padding: 4px 4px;
-  border-radius: 6px;
-}
-
-.lin-db-mil-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
-  justify-self: center;
-}
-
-.lin-db-mil-dot--violet {
-  background: #7c3aed;
-  box-shadow: 0 0 6px rgba(124, 58, 237, 0.55);
-}
-
-.lin-db-mil-dot--indigo {
-  background: #6366f1;
-  box-shadow: 0 0 6px rgba(99, 102, 241, 0.55);
-}
-
-.lin-db-mil-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  min-width: 0;
-}
-
-.lin-db-mil-text strong {
-  font-size: 0.82rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: #fff;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.2;
-}
-
-.lin-db-mil-text span {
-  font-size: 0.7rem;
-  font-weight: 400;
-  color: rgba(229, 229, 231, 0.45);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.lin-db-mil-bar {
-  height: 3px;
-  width: 100%;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
-  overflow: hidden;
-}
-
-.lin-db-mil-bar-fill {
-  height: 100%;
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 999px;
-}
-
-.lin-db-mil-pct {
-  font-size: 0.72rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: rgba(229, 229, 231, 0.7);
-  text-align: right;
-}
-
-.lin-db-mil-pct--mute {
-  color: rgba(229, 229, 231, 0.25);
-}
-
-.lin-db-mil-check {
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: rgba(52, 211, 153, 0.16);
-  border: 1px solid rgba(52, 211, 153, 0.32);
-  color: #34d399;
-  font-size: 0.6rem;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  justify-self: center;
-}
-
-.lin-db-mil-foot {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 6px;
-  padding: 8px 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 0.74rem;
-  color: rgba(229, 229, 231, 0.55);
-  cursor: pointer;
-  align-self: center;
-}
-
-.lin-db-mil-foot:hover {
-  color: #fff;
-}
-
-/* Projects list */
-.lin-proj-list {
-  padding: 14px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-}
-.lin-proj-row {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 11px 13px;
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid var(--lb1);
-  border-radius: var(--lr);
-  cursor: pointer;
-  transition:
-    background 0.13s,
-    border-color 0.13s;
-}
-.lin-proj-row:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: var(--lb2);
-}
-.lin-proj-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.lin-proj-name {
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--lt1);
-}
-.lin-proj-meta {
-  margin-left: auto;
-  font-size: 0.68rem;
-  color: var(--lt3);
-}
-
-/* Issue groups */
-.lin-grp {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-}
-.lin-grp-hdr {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 7px 18px;
-  cursor: pointer;
-  background: #060608;
-  transition: background 0.13s;
-  -webkit-user-select: none;
-  user-select: none;
-}
-.lin-grp-hdr:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-.lin-grp-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.lin-grp-name {
-  font-size: 0.74rem;
-  font-weight: 600;
-  color: var(--lt2);
-}
-.lin-grp-cnt {
-  font-size: 0.63rem;
-  color: var(--lt3);
-  background: rgba(255, 255, 255, 0.06);
-  padding: 1px 6px;
-  border-radius: 99px;
-}
-.lin-grp-chev {
-  margin-left: auto;
-  color: var(--lt3);
-  transition: transform 0.2s;
-  flex-shrink: 0;
-}
-.lin-collapsed .lin-grp-chev {
-  transform: rotate(-90deg);
-}
-.lin-grp-body {
-  overflow: hidden;
-}
-.lin-collapsed .lin-grp-body {
-  display: none;
-}
-
-/* Issue rows */
-.lin-iss {
-  display: grid;
-  grid-template-columns: 16px 58px 1fr auto 22px;
-  align-items: center;
-  gap: 10px;
-  padding: 5px 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.028);
-  cursor: pointer;
-  transition: background 0.11s;
-}
-.lin-iss:hover {
-  background: rgba(255, 255, 255, 0.035);
-}
-.lin-iss-done {
-  opacity: 0.44;
-}
-
-.lin-pri {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-}
-.lin-pri-urg {
-  color: var(--lred);
-}
-.lin-pri-hi {
-  color: var(--lamb);
-}
-.lin-pri-med {
-  color: rgba(232, 160, 58, 0.62);
-}
-.lin-pri-lo {
-  color: var(--lt3);
-}
-.lin-pri-no {
-  color: var(--lt4);
-}
-
-.lin-iss-id {
-  font-size: 0.68rem;
-  color: var(--lt3);
-  font-weight: 500;
-  white-space: nowrap;
-  letter-spacing: 0.01em;
-}
-.lin-iss-ttl {
-  font-size: 0.77rem;
-  color: var(--lt1);
-  font-weight: 400;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.lin-iss-st {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.68rem;
-  color: var(--lt3);
-  white-space: nowrap;
-}
-.lin-iss-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.lin-dot-prog {
-  background: var(--lamb);
-  box-shadow: 0 0 5px rgba(232, 160, 58, 0.55);
-}
-.lin-dot-todo {
-  border: 1.5px solid rgba(255, 255, 255, 0.28);
-}
-.lin-dot-done {
-  background: var(--lgrn);
-  box-shadow: 0 0 5px rgba(38, 194, 129, 0.5);
-}
-.lin-dot-back {
-  border: 1.5px solid rgba(255, 255, 255, 0.13);
-}
-
-.lin-iss-av {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  font-size: 0.48rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  flex-shrink: 0;
-}
-
-/* ══════════ RIGHT PANEL ══════════ */
-.lin-right {
-  border-left: 1px solid var(--lb1);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: #050506;
-}
-.lin-right-hdr {
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--lb1);
-  font-size: 0.79rem;
-  font-weight: 600;
-  color: var(--lt1);
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  flex-shrink: 0;
-}
-.lin-right-hdr svg {
-  color: var(--lt3);
-}
-
-.lin-rtabs {
-  display: flex;
-  border-bottom: 1px solid var(--lb1);
-  flex-shrink: 0;
-}
-.lin-rtab {
-  flex: 1;
-  padding: 7px;
-  font-size: 0.7rem;
-  font-weight: 500;
-  color: var(--lt3);
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: transparent;
-  font-family: var(--lfont);
-  transition: all 0.14s;
-}
-.lin-rtab.active {
-  color: var(--lt1);
-  border-bottom-color: var(--lt1);
-}
-.lin-rtab:hover:not(.active) {
-  color: var(--lt2);
-}
-
-/* Activity feed */
-.lin-act-feed {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px 14px;
-  display: none;
-  flex-direction: column;
-  gap: 13px;
-  scrollbar-width: none;
-}
-.lin-act-feed::-webkit-scrollbar {
-  display: none;
-}
-.lin-act-feed.active {
-  display: flex;
-}
-
-.lin-act-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-}
-.lin-act-av {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.53rem;
-  font-weight: 700;
-  color: #fff;
-  margin-top: 1px;
-}
-.lin-act-body {
-  flex: 1;
-  min-width: 0;
-}
-.lin-act-txt {
-  font-size: 0.72rem;
-  color: var(--lt2);
-  line-height: 1.5;
-}
-.lin-act-txt strong {
-  color: var(--lt1);
-  font-weight: 600;
-}
-.lin-act-ref {
-  color: rgba(94, 106, 210, 0.85);
-  font-weight: 500;
-}
-.lin-act-ts {
-  font-size: 0.6rem;
-  color: var(--lt3);
-  margin-top: 2px;
-}
-
-/* AI feed */
-.lin-ai-feed {
-  flex: 1;
-  overflow-y: auto;
-  padding: 11px 14px;
-  display: none;
-  flex-direction: column;
-  gap: 11px;
-  scrollbar-width: none;
-}
-.lin-ai-feed::-webkit-scrollbar {
-  display: none;
-}
-.lin-ai-feed.active {
-  display: flex;
-}
-
-.lin-ai-row {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.lin-ai-who {
-  font-size: 0.63rem;
-  font-weight: 600;
-  color: var(--lt3);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-.lin-ai-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-}
-.lin-ai-bubble {
-  padding: 8px 10px;
-  border-radius: 8px;
-  font-size: 0.73rem;
-  line-height: 1.55;
-}
-.lin-ai-row.ai .lin-ai-bubble {
-  background: rgba(94, 106, 210, 0.1);
-  border: 1px solid rgba(94, 106, 210, 0.15);
-  color: var(--lt2);
-}
-.lin-ai-row.user .lin-ai-bubble {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--lb1);
-  color: var(--lt2);
-}
-.lin-ai-row.ai .lin-ai-dot {
-  background: #a78bfa;
-}
-.lin-ai-row.user .lin-ai-dot {
-  background: var(--lacc);
-}
-
-/* AI input row */
-.lin-ai-inp-row {
-  padding: 9px 12px;
-  border-top: 1px solid var(--lb1);
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0;
-}
-.lin-ai-inp {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--lb1);
-  border-radius: 9999px;
-  padding: 6px 12px;
-  font-size: 0.72rem;
-  color: var(--lt1);
-  font-family: var(--lfont);
-  outline: none;
-  transition: border-color 0.14s;
-}
-.lin-ai-inp::placeholder {
-  color: var(--lt4);
-}
-.lin-ai-inp:focus {
-  border-color: rgba(94, 106, 210, 0.4);
-}
-.lin-ai-send {
-  width: 27px;
-  height: 27px;
-  background: rgba(94, 106, 210, 0.16);
-  border: 1px solid rgba(94, 106, 210, 0.24);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: #a5b4fc;
-  flex-shrink: 0;
-  transition: background 0.14s;
-}
-.lin-ai-send:hover {
-  background: rgba(94, 106, 210, 0.28);
 }
 
 /* ─────────────────────────────────────
@@ -2037,30 +168,7 @@
   }
 }
 .lin-eyebrow-line {
-  animation: linPulse 2.8s ease-in-out infinite;
-}
-
-/* Fade-in for issue rows on first paint */
-.lin-iss {
-  animation: linFadeUp 0.4s ease both;
-}
-.lin-iss:nth-child(1) {
-  animation-delay: 0.45s;
-}
-.lin-iss:nth-child(2) {
-  animation-delay: 0.52s;
-}
-.lin-iss:nth-child(3) {
-  animation-delay: 0.59s;
-}
-.lin-iss:nth-child(4) {
-  animation-delay: 0.66s;
-}
-.lin-iss:nth-child(5) {
-  animation-delay: 0.73s;
-}
-.lin-iss:nth-child(6) {
-  animation-delay: 0.8s;
+  /* Pulse removed — hero stays fully static (no glowing dot). */
 }
 
 /* ─────────────────────────────────────
@@ -2079,65 +187,802 @@
     font-size: 1.12rem;
     max-width: 780px;
   }
-  .lin-db-body {
-    height: 740px;
-  }
-}
-
-@media (max-width: 1120px) {
-  .lin-db-body {
-    grid-template-columns: 184px 1fr;
-  }
-  .lin-right {
-    display: none;
-  }
 }
 
 @media (max-width: 800px) {
   .lin-copy {
-    padding-top: 4.5rem;
-  }
-  .lin-db-section {
-    padding: 3.5rem 1.25rem 0;
-  }
-  .lin-db-body {
-    grid-template-columns: 1fr;
-  }
-  .lin-sidebar {
-    display: none;
+    padding-top: 4rem;
   }
 }
 
-/* Mobile — show ~60% of dashboard, rest naturally cropped off-screen */
 @media (max-width: 640px) {
   .lin-hero {
     overflow-x: hidden;
   }
   .lin-copy {
-    padding: 4.5rem 1.5rem 0;
+    padding: 4rem 1rem 0;
   }
   .lin-h1 {
-    font-size: 2.5rem;
+    font-size: 1.85rem;
+    letter-spacing: -0.035em;
+    line-height: 1.08;
   }
-  .lin-db-section {
-    padding: 3rem 0 0;
+}
+
+@media (max-width: 480px) {
+  .lin-copy {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
   }
-  .lin-db-stage {
-    padding-left: 1rem;
-    padding-right: 0;
-    border-radius: 0 0 24px 24px;
-    overflow: hidden;
-  }
-  .lin-db-frame {
-    min-width: 160%;
+  .lin-h1 {
+    font-size: 1.55rem;
+    letter-spacing: -0.04em;
   }
 }
 
 @media (max-width: 400px) {
-  .lin-h1 {
-    font-size: 2.1rem;
+  .lin-copy {
+    padding: 3.5rem 0.5rem 0;
   }
-  .lin-db-frame {
-    min-width: 185%;
+  .lin-h1 {
+    font-size: 1.4rem;
+    letter-spacing: -0.04em;
+  }
+  .lin-sub {
+    font-size: 0.88rem;
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   HERO — appealing rewrite (bottom fade removed, more top padding,
+   no button hover-lift, refined glass + tighter polish).
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* Extra breathing room above the copy block (per design feedback). */
+.lin-copy {
+  padding-top: 6.25rem;
+}
+
+/* ─────────────────────────────────────
+   STAGE — bottom anchor of the 100vh hero. Fades cleanly into the
+   page bg at the bottom (no violet tint there). The rounded corners
+   stay; the inner edge highlight + the slim top stroke do the visual
+   lifting instead of a gradient color.
+───────────────────────────────────── */
+.lin-stage {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  margin-top: auto;
+  min-height: 480px;
+  padding: 4rem 0 4rem;
+  /* Bigger bottom curve so the rounded shape reads clearly against the
+   * page bg below. Top corners stay 0 — the mask-image below makes the
+   * top of the stage fade in instead of using a hard edge. */
+  border-radius: 0 0 44px 44px;
+  overflow: hidden;
+  /* Entrance animation removed — hero is fully static. */
+  /* Bell-curve gradient: fully transparent at top + bottom, violet
+   * concentrated in the middle. Combined with the mask-image fade
+   * below, the stage materializes from the page bg with no sharp seam.
+   * No more inset 1px line at the top edge. */
+  background: radial-gradient(
+    ellipse 130% 80% at 50% 50%,
+    rgba(124, 58, 237, 0.16) 0%,
+    rgba(94, 106, 210, 0.08) 32%,
+    rgba(94, 106, 210, 0.025) 60%,
+    transparent 85%
+  );
+  /* Mask the top 110px so the stage edge feathers into the page bg.
+   * `to top` runs from the bottom (opaque) to the top (transparent),
+   * which is what we want — the top of the stage fades out. */
+  mask-image: linear-gradient(
+    to top,
+    #000 0,
+    #000 calc(100% - 110px),
+    rgba(0, 0, 0, 0.4) calc(100% - 50px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to top,
+    #000 0,
+    #000 calc(100% - 110px),
+    rgba(0, 0, 0, 0.4) calc(100% - 50px),
+    transparent 100%
+  );
+}
+
+.lin-stage-glow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1100px, 88%);
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    rgba(124, 58, 237, 0.14) 0%,
+    rgba(94, 106, 210, 0.04) 45%,
+    transparent 75%
+  );
+  filter: blur(64px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─────────────────────────────────────
+   MARQUEES — two looping thumbnail tracks rendered as the stage
+   background. Centered vertically inside the stage.
+───────────────────────────────────── */
+.lin-marquees {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* Tight inter-row gap — the two tracks read as one unified grid. */
+  gap: 0.55rem;
+  /* Marquees themselves don't intercept pointer events (so the prompt
+   * gets clicks), but the individual .lin-thumb children opt back in
+   * for their hover effect. */
+  pointer-events: none;
+}
+
+/* Soft dark wash over the marquees so thumbnails read as a textured
+ * backdrop, not the focal point. The bottom edge fades to fully match
+ * the page bg (no violet tint anymore). */
+.lin-marquees::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  /* Very light wash — keeps thumbnails crisp and full-color while just
+     softening the contrast against the prompt overlay. Heavier wash was
+     making the carousel look transparent / faded out. */
+  background: linear-gradient(
+    to bottom,
+    rgba(8, 6, 18, 0.18) 0%,
+    rgba(8, 6, 18, 0.06) 40%,
+    rgba(8, 6, 18, 0.06) 60%,
+    rgba(8, 6, 18, 0.18) 100%
+  );
+}
+
+.lin-marquee {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  /* Tiny vertical breathing room so the per-thumb hover lift doesn't
+   * get clipped by the next row's edge. */
+  padding: 4px 0;
+  /* Soft horizontal fade applied to each row directly — both top and
+   * bottom rows now dissolve cleanly into the page bg at the screen
+   * edges, no hard "container" cut. The side fade strips below are now
+   * decorative shadows only on top of this clean mask. */
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(0, 0, 0, 1) 8%,
+    rgba(0, 0, 0, 1) 92%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(0, 0, 0, 1) 8%,
+    rgba(0, 0, 0, 1) 92%,
+    transparent 100%
+  );
+}
+
+.lin-marquee-track {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: max-content;
+  animation: linMarquee 46s linear infinite;
+  will-change: transform;
+}
+
+.lin-marquee--reverse .lin-marquee-track {
+  animation-direction: reverse;
+  animation-duration: 52s;
+}
+
+/* Offset row 2 horizontally so the two rows don't tile in lockstep —
+ * the staggered start gives the carousel a more "alive" feel instead
+ * of two parallel strips. */
+.lin-marquee--reverse {
+  margin-left: -3rem;
+}
+
+/* 16:9 frame. Border removed (was 1px white at low alpha — read as a
+ * visible "card" outline at the row's fade edges). Now the thumb is
+ * just an image with a subtle drop shadow; the row reads as a
+ * continuous strip of clips instead of a row of bordered containers. */
+.lin-thumb {
+  position: relative;
+  flex: 0 0 auto;
+  width: 280px;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0a0a0c;
+  border: 0;
+  /* Marquees parent has pointer-events: none — opt in here so each
+   * thumb can still receive hover. */
+  pointer-events: auto;
+  box-shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.55);
+  transition:
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.35s ease;
+}
+
+/* Per-thumb hover lift — the marquee keeps scrolling, but the thumb
+ * the cursor lands on rises slightly and gets a soft violet glow. */
+.lin-thumb:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow:
+    0 14px 32px -10px rgba(0, 0, 0, 0.7),
+    0 6px 18px -6px rgba(124, 58, 237, 0.4);
+}
+.lin-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  object-position: center 38%;
+}
+.lin-thumb::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.06) 0%,
+    transparent 30%,
+    transparent 70%,
+    rgba(0, 0, 0, 0.35) 100%
+  );
+  pointer-events: none;
+}
+
+/* Side fade masks blend marquee edges into the stage. */
+.lin-marquee-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 90px;
+  pointer-events: none;
+  z-index: 3;
+}
+/* Soft accent shadows that meet the per-row mask fade — no hard wall,
+   the rows already dissolve to transparent via the row's mask-image. */
+.lin-marquee-fade--l {
+  left: 0;
+  background: linear-gradient(to right, rgba(8, 6, 18, 0.7) 0%, rgba(8, 6, 18, 0) 100%);
+}
+.lin-marquee-fade--r {
+  right: 0;
+  background: linear-gradient(to left, rgba(8, 6, 18, 0.7) 0%, rgba(8, 6, 18, 0) 100%);
+}
+
+@keyframes linMarquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lin-marquee-track {
+    animation: none !important;
+  }
+}
+
+/* ─────────────────────────────────────
+   PROMPT — large translucent input overlay sitting on top of the
+   marquees. Refined: deeper glass, cleaner border, more comfortable
+   padding, polished typography.
+───────────────────────────────────── */
+/* Liquid-glass prompt body — heavy frost, layered sheen, rim light.
+ *
+ * The body itself is mostly transparent so the marquee thumbnails
+ * behind take a strong backdrop-filter pass: heavy blur + saturate
+ * + brightness boost makes them read as a soft, color-rich frost
+ * (like looking through a real piece of fogged glass), not a flat
+ * dark panel. Three stacked background layers give the surface its
+ * own sheen on top of the frost: a radial top-light bloom (the
+ * "lensed" highlight where light catches the curve), a top-to-bottom
+ * luminance gradient, and a faint dark base to keep text readable. */
+.lin-prompt {
+  position: relative;
+  z-index: 5;
+  width: min(880px, calc(100% - 3rem));
+  margin: 0 auto;
+  padding: 1.75rem 1.75rem 3rem;
+  border-radius: 26px;
+  background:
+    /* Top-center radial bloom — the "rim of light" you see on a
+     * curved glass bead in product renders. */
+    radial-gradient(
+      ellipse 70% 55% at 50% -10%,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.03) 40%,
+      transparent 70%
+    ),
+    /* Top-light → bottom-dark sheen */
+    linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.02) 45%,
+        rgba(0, 0, 0, 0.07) 100%
+      ),
+    /* Lower opacity than before — the heavy blur does most of the
+     * legibility work, so the body can be almost-clear. */
+    rgba(10, 8, 24, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  /* Maximum frost — push the blur radius high enough that the
+   * thumbnails behind dissolve completely. Saturate dialed back
+   * slightly because at this blur radius the remaining color noise
+   * was reading as a faint cast. */
+  backdrop-filter: blur(160px) saturate(180%) brightness(1.05) contrast(1.03);
+  -webkit-backdrop-filter: blur(160px) saturate(180%) brightness(1.05) contrast(1.03);
+  /* Outer glow removed (per design feedback) — only inner edge
+   * highlights remain. The box now sits flush on the page without
+   * a violet halo bleeding into the surrounding stage. */
+  box-shadow:
+    /* Inner top highlight — bright crescent where light catches
+     * the rim. */
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    /* Soft inner double-edge ring for "real glass" thickness */ inset 0 0 0 1px
+      rgba(255, 255, 255, 0.06),
+    /* Faint side highlights — picks up where light grazes the edge */ inset 1px 0 0
+      rgba(255, 255, 255, 0.04),
+    inset -1px 0 0 rgba(255, 255, 255, 0.04),
+    /* Bottom shade so the box has weight */ inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    /* Outer drop — anchors the prompt above the marquee carousel so
+     * it reads as a floating glass card, not a flat overlay. */
+    0 18px 40px -16px rgba(0, 0, 0, 0.6),
+    0 8px 22px -10px rgba(124, 58, 237, 0.32);
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.35s ease,
+    background 0.3s ease;
+}
+
+/* Decorative top-center seam — deep-purple violet glow that breaks
+ * the border, fades to transparent at both edges. Sits ABOVE the
+ * inner top highlight so it reads as a luminous accent. */
+.lin-prompt::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 62%;
+  height: 1.5px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(124, 58, 237, 0) 8%,
+    rgba(139, 92, 246, 0.6) 28%,
+    rgba(167, 139, 250, 0.98) 50%,
+    rgba(139, 92, 246, 0.6) 72%,
+    rgba(124, 58, 237, 0) 92%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 6px rgba(167, 139, 250, 0.6),
+    0 0 14px rgba(139, 92, 246, 0.4),
+    0 0 22px rgba(124, 58, 237, 0.22);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.lin-prompt:focus-within {
+  border-color: rgba(255, 255, 255, 0.4);
+  background:
+    radial-gradient(
+      ellipse 70% 55% at 50% -10%,
+      rgba(255, 255, 255, 0.13) 0%,
+      rgba(255, 255, 255, 0.04) 40%,
+      transparent 70%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.03) 45%,
+      rgba(0, 0, 0, 0.06) 100%
+    ),
+    rgba(12, 9, 28, 0.28);
+  /* Focus is signaled via the brighter border + inner highlights only
+   * — no outer halo. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.44),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 1px 0 0 rgba(255, 255, 255, 0.05),
+    inset -1px 0 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* Wrapper so the typewriter ghost overlay can sit on top of the
+ * textarea at the same baseline. */
+.lin-prompt-input-wrap {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.lin-prompt-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 7rem;
+  max-height: 12rem;
+  margin: 0;
+  padding: 4px 0;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  resize: none;
+  box-sizing: border-box;
+  font-family: var(--lfont);
+  font-size: 1.02rem;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #f8fafc;
+  letter-spacing: 0.005em;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  /* Position above the ghost so the caret sits on top when focused */
+  position: relative;
+  z-index: 1;
+}
+.lin-prompt-input::placeholder {
+  /* Native placeholder is hidden — the ghost overlay handles the
+   * typewriter cycle. Keep transparent so even the empty string isn't
+   * styled differently across browsers. */
+  color: transparent;
+}
+.lin-prompt-input::-webkit-scrollbar {
+  width: 6px;
+}
+.lin-prompt-input::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+}
+
+/* Rotating hint — same fade/slide treatment the production
+ * ThumbnailGenerator composer uses (see .coach-composer-placeholder /
+ * .coach-composer-placeholder-text in src/app/Chat.css). Each cycle:
+ * exit (fade out + translateY -8px, 350ms) → enter (start at +8px,
+ * fully transparent, 0ms) → visible (fade up, 380ms). Driven by
+ * `useAnimatedHint` in Hero.jsx. */
+.lin-prompt-hint {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  color: rgba(229, 229, 231, 0.55);
+  font-family: var(--lfont);
+  font-size: 1.02rem;
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  padding: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  /* Slow ease so the hint glides into existence (e.g. user clears
+   * the field) rather than snapping back. */
+  transition:
+    opacity 0.45s cubic-bezier(0.33, 1, 0.68, 1),
+    visibility 0s linear 0s;
+  z-index: 0;
+}
+
+/* Slow fade-out as the user types — the hint dissolves rather than
+ * disappearing instantly. `visibility` flips at the end so the hidden
+ * span doesn't intercept hit-testing during the transition. */
+.lin-prompt-hint.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.5s cubic-bezier(0.33, 1, 0.68, 1),
+    visibility 0s linear 0.5s;
+}
+
+.lin-prompt-hint-text {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 0.38s cubic-bezier(0.33, 1, 0.68, 1),
+    transform 0.38s cubic-bezier(0.33, 1, 0.68, 1);
+  /* Truncate gracefully if a hint string ever overflows the prompt */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.lin-prompt-hint-text.is-exiting {
+  opacity: 0;
+  transform: translateY(-8px);
+  transition-duration: 0.35s;
+}
+.lin-prompt-hint-text.is-entering {
+  opacity: 0;
+  transform: translateY(8px);
+  transition-duration: 0s;
+}
+
+/* React route uses LiquidMetalButton inside .lin-prompt-cta — see
+ * src/landing/components/Hero.jsx. The static landing/index.html still
+ * uses .lin-prompt-send (kept below for that path).
+ *
+ * `width: 280px` plus `max-width: calc(100% - 2rem)` lets the button
+ * stay a comfortable 280px on desktop but scale down on narrow mobile
+ * so it never overflows the prompt. The LiquidMetalButton receives
+ * `width="100%"` and fills this wrapper. */
+.lin-prompt-cta {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translate(-50%, 50%);
+  z-index: 6;
+  width: 280px;
+  max-width: calc(100% - 2rem);
+}
+
+/* Generate pill — floats half-overlapping the prompt's bottom edge.
+ *
+ * IMPORTANT: hover does NOT shift the button up. Only color, brightness,
+ * border, and shadow change on hover (per design feedback). */
+.lin-prompt-send {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translate(-50%, 50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 28px 13px 24px;
+  border: 1px solid rgba(196, 181, 253, 0.32);
+  border-radius: 999px;
+  font-family: var(--lfont);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+  cursor: pointer;
+  color: #ffffff;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 55%, #6d28d9 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 10px 24px -8px rgba(124, 58, 237, 0.42),
+    0 4px 10px -3px rgba(0, 0, 0, 0.4);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.25s ease,
+    filter 0.2s ease;
+}
+.lin-prompt-send:hover {
+  border-color: rgba(196, 181, 253, 0.55);
+  background: linear-gradient(135deg, #9b6bf8 0%, #8344ed 55%, #7330d9 100%);
+  filter: brightness(1.05);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 14px 32px -8px rgba(124, 58, 237, 0.55),
+    0 6px 14px -3px rgba(0, 0, 0, 0.45);
+  /* Note: transform deliberately unchanged so the button stays put */
+}
+.lin-prompt-send:active {
+  filter: brightness(0.97);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 6px 14px -6px rgba(124, 58, 237, 0.42),
+    0 2px 6px -2px rgba(0, 0, 0, 0.45);
+}
+.lin-prompt-send svg {
+  width: 15px;
+  height: 15px;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* ─────────────────────────────────────
+   RESPONSIVE
+───────────────────────────────────── */
+@media (max-width: 1024px) {
+  .lin-marquee-track {
+    gap: 0.55rem;
+    animation-duration: 42s;
+  }
+  .lin-marquee--reverse .lin-marquee-track {
+    animation-duration: 48s;
+  }
+  .lin-thumb {
+    width: 240px;
+  }
+}
+
+@media (max-width: 800px) {
+  .lin-hero {
+    /* Full-screen hero on mobile — copy at top, stage anchored at bottom
+     * (stage has margin-top: auto). Reads as a single fixed-size landing
+     * area instead of a long section the page has to scroll through.
+     * vh first as fallback, dvh wins where supported (handles mobile
+     * URL-bar showing/hiding without jumpy reflows). */
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  .lin-copy {
+    /* Header is now 40 px tall floating at top: 10 px (= 50 px bottom).
+       Push the copy block down to ~22% from the top so eyebrow + h1 +
+       sub cluster around the optical center, just above the prompt. */
+    padding-top: min(22vh, 11rem);
+    padding-bottom: 0.75rem;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+  .lin-h1 {
+    font-size: clamp(2.05rem, 9vw, 2.8rem);
+    letter-spacing: -0.04em;
+    line-height: 1.06;
+  }
+  .lin-sub {
+    font-size: 1.02rem;
+    margin-top: 0.7rem; /* tighter — was 1rem */
+    max-width: 34ch;
+    line-height: 1.5;
+  }
+  .lin-eyebrow {
+    margin-bottom: 0.85rem; /* tighter — was 1.1rem */
+    font-size: 0.7rem;
+    padding: 4px 13px 4px 11px;
+  }
+  .lin-stage {
+    /* Fill remaining hero height. Flat bottom joins the next section.
+       justify-content: flex-start pins the prompt to the TOP of the
+       stage (just below the hero copy) so it overlaps the upper marquee
+       row — thumbnails read as the backdrop behind the input, not as
+       siblings stacked above and below it. */
+    flex: 1;
+    min-height: 360px;
+    margin-top: 0.25rem;
+    padding: 0.75rem 0 1rem;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+  .lin-marquees {
+    /* Both rows clustered at the bottom of the stage as a tight pair —
+       carousel reads as a coherent strip the prompt floats above. */
+    justify-content: flex-end;
+    gap: 0.6rem;
+    padding-bottom: 0.5rem;
+  }
+  .lin-marquee-track {
+    gap: 0.55rem;
+    animation-duration: 38s;
+  }
+  .lin-marquee--reverse .lin-marquee-track {
+    animation-duration: 44s;
+  }
+  .lin-marquee--reverse {
+    margin-left: -2rem;
+  }
+  .lin-thumb {
+    /* Bigger cards on mobile so the carousel reads as substantial,
+       not tiny background ornaments. */
+    width: 240px;
+  }
+  .lin-marquee-fade {
+    width: 80px;
+  }
+  .lin-prompt {
+    padding: 0.9rem 1rem 2rem; /* tighter — was 1.05/1.1/2.3 */
+    border-radius: 18px;
+  }
+  .lin-prompt-input,
+  .lin-prompt-ghost {
+    min-height: 3rem; /* tighter — was 3.6rem */
+    font-size: 0.95rem;
+  }
+  .lin-prompt-cta {
+    width: 252px;
+  }
+  .lin-prompt-send {
+    padding: 11px 22px 11px 18px;
+    font-size: 0.86rem;
+    gap: 7px;
+  }
+  .lin-prompt-send svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@media (max-width: 560px) {
+  .lin-copy {
+    padding-top: min(20vh, 10rem);
+    padding-bottom: 0.5rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .lin-h1 {
+    /* Bumped up — old 1.7rem ceiling looked tiny for a hero headline on
+       375 px phones. clamp guarantees "Impossible to Ignore." still fits
+       on one line down to 360 px. */
+    font-size: clamp(1.75rem, 8.2vw, 2.3rem);
+    letter-spacing: -0.04em;
+    line-height: 1.06;
+  }
+  .lin-sub {
+    font-size: 1rem;
+    margin-top: 0.85rem;
+    line-height: 1.5;
+  }
+  .lin-eyebrow {
+    margin-bottom: 0.95rem;
+    font-size: 0.68rem;
+    padding: 4px 12px 4px 10px;
+  }
+  .lin-stage {
+    /* Inherits flex/justify-center from the 800 px block — the prompt
+       and marquees stay packed in the vertical center of the stage. */
+    min-height: 360px;
+    margin-top: 0.4rem;
+    padding: 1.25rem 0 1.25rem;
+    border-radius: 0;
+  }
+  .lin-prompt {
+    width: calc(100% - 1rem);
+    padding: 0.95rem 1rem 2rem;
+    border-radius: 18px;
+  }
+  .lin-prompt-input,
+  .lin-prompt-ghost {
+    min-height: 3.2rem;
+    font-size: 0.95rem;
+  }
+  .lin-prompt-cta {
+    width: 232px;
+  }
+  .lin-prompt-send {
+    padding: 10px 18px 10px 14px;
+    font-size: 0.82rem;
+  }
+  .lin-thumb {
+    /* Bigger cards — 170 → 220 so the carousel reads as content, not
+       tiny postage stamps. */
+    width: 220px;
+  }
+  .lin-marquees {
+    gap: 0.5rem;
+  }
+  .lin-marquee-track {
+    gap: 0.4rem;
+    animation-duration: 34s;
+  }
+  .lin-marquee--reverse .lin-marquee-track {
+    animation-duration: 40s;
+  }
+  .lin-marquee--reverse {
+    margin-left: -1.5rem;
+  }
+  .lin-marquee-fade {
+    width: 50px;
   }
 }

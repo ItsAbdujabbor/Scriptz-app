@@ -549,7 +549,7 @@
 
 .pri-limits-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 0.4rem;
 }
 
@@ -709,8 +709,9 @@
    SCROLL REVEAL
 ═══════════════════════ */
 .pri-reveal {
-  opacity: 0;
-  transform: translateY(28px);
+  /* Default visible — see faq-reveal note. */
+  opacity: 1;
+  transform: none;
   transition:
     opacity 0.55s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
@@ -731,9 +732,16 @@
 /* ═══════════════════════
    RESPONSIVE
 ═══════════════════════ */
+
+/* Tablet — 2-column grid; the third card spans both columns and centers
+ * underneath at a comfortable reading width. */
 @media (max-width: 1024px) {
   .pri-cards {
     grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
   }
   .pri-cards .pri-card:nth-child(3) {
     grid-column: 1 / -1;
@@ -741,33 +749,93 @@
     margin: 0 auto;
     width: 100%;
   }
+  .pri-card {
+    padding: 1.6rem;
+  }
 }
 
+/* Mobile — single column, centered with a max-width so the card doesn't
+ * stretch edge-to-edge on phablets. */
 @media (max-width: 640px) {
   .pri-section {
-    padding: 5rem 0;
+    padding: 4.5rem 0;
   }
   .pri-inner {
     padding: 0 5vw;
   }
+  .pri-header {
+    margin-bottom: 2.75rem;
+  }
   .pri-h2 {
-    font-size: 2.1rem;
+    font-size: clamp(1.9rem, 7vw, 2.4rem);
+  }
+  .pri-lead {
+    font-size: 0.92rem;
+    margin-bottom: 2rem;
   }
   .pri-cards {
     grid-template-columns: 1fr;
+    max-width: 460px;
+    gap: 1rem;
   }
   .pri-cards .pri-card:nth-child(3) {
     max-width: 100%;
     grid-column: auto;
+    margin: 0;
   }
   .pri-card {
-    padding: 1.5rem;
+    padding: 1.4rem 1.25rem;
+  }
+  .pri-top {
+    margin-bottom: 1.15rem;
   }
   .pri-cur {
     font-size: 2.3rem;
   }
-  .pri-limits-grid {
-    grid-template-columns: 1fr 1fr;
+  .pri-feats {
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  .pri-feat {
+    font-size: 0.83rem;
+  }
+}
+
+/* Small phones — tighten typography + paddings so the layout still
+ * breathes on 360-380px screens. */
+@media (max-width: 420px) {
+  .pri-section {
+    padding: 4rem 0;
+  }
+  .pri-h2 {
+    font-size: 1.85rem;
+  }
+  .pri-card {
+    padding: 1.25rem 1.1rem;
+  }
+  .pri-plan-name {
+    font-size: 1.05rem;
+  }
+  .pri-pop-badge {
+    font-size: 0.6rem;
+    padding: 0.2rem 0.6rem;
+    letter-spacing: 0.06em;
+  }
+  .pri-cur {
+    font-size: 2.05rem;
+  }
+  .pri-toggle-btn {
+    padding: 0.4rem 0.95rem;
+    font-size: 0.82rem;
+  }
+  .pri-feat {
+    font-size: 0.8rem;
+    gap: 0.5rem;
+  }
+  .chk,
+  .crs {
+    width: 14px;
+    height: 14px;
   }
 }
 

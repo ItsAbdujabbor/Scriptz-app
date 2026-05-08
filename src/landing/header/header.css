@@ -1,5 +1,5 @@
 /**
- * Scriptz AI — Landing header
+ * Clixa AI — Landing header
  * Overrides base styles.css with higher-specificity / load-order wins.
  * All classes are prefixed header-* to avoid collisions.
  */
@@ -54,8 +54,11 @@
   padding: 0 2.5rem;
 }
 
-/* ─── Logo ─────────────────────────────────────────────────────────────────── */
+/* ─── Logo (mark + wordmark) ───────────────────────────────────────────────── */
 .header .header-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: -0.04em;
@@ -65,7 +68,19 @@
   transition: opacity 0.2s ease;
 }
 .header .header-logo:hover {
-  opacity: 0.75;
+  opacity: 0.85;
+}
+.header .header-logo-mark {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #0e0e12;
+  display: block;
+}
+.header .header-logo-text {
+  line-height: 1;
 }
 
 /* ─── Desktop nav ──────────────────────────────────────────────────────────── */
@@ -194,7 +209,7 @@
   transform: translateX(110%);
 }
 
-/* ─── Hamburger button ─────────────────────────────────────────────────────── */
+/* ─── Menu button — 3-line hamburger, transforms to X on open ────────────── */
 .header .header-burger {
   display: none;
   flex-direction: column;
@@ -203,33 +218,41 @@
   gap: 5px;
   width: 40px;
   height: 40px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease;
+  transition: background 0.2s ease;
 }
 .header .header-burger:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.18);
-}
-.header .header-burger span {
-  display: block;
-  width: 18px;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.85);
-  border-radius: 2px;
-  transform-origin: center;
-  transition:
-    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.3s ease;
+  background: rgba(255, 255, 255, 0.08);
 }
 
-/* Hamburger → X */
+.header .header-burger span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.92);
+  transform-origin: center;
+  transition:
+    transform 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.25s ease,
+    background 0.2s ease;
+}
+.header .header-burger:hover span {
+  background: #fff;
+}
+
+/* Open — classic X transform, gentle violet tint on the button */
+.header .header-burger.open {
+  background: rgba(139, 92, 246, 0.16);
+}
+.header .header-burger.open span {
+  background: #e9d5ff;
+}
 .header .header-burger.open span:nth-child(1) {
   transform: translateY(7px) rotate(45deg);
 }
@@ -241,116 +264,6 @@
   transform: translateY(-7px) rotate(-45deg);
 }
 
-/* ─── Mobile menu panel ────────────────────────────────────────────────────── */
-.header .header-mobile {
-  position: fixed;
-  top: 64px;
-  left: 0;
-  right: 0;
-  background: rgba(9, 9, 11, 0.97);
-  backdrop-filter: blur(28px) saturate(160%);
-  -webkit-backdrop-filter: blur(28px) saturate(160%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 1.25rem 1.5rem 2rem;
-  transform: translateY(-8px);
-  opacity: 0;
-  pointer-events: none;
-  visibility: hidden;
-  transition:
-    transform 0.32s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.28s ease,
-    visibility 0s linear 0.32s;
-  z-index: 199;
-}
-.header .header-mobile.open {
-  transform: translateY(0);
-  opacity: 1;
-  pointer-events: auto;
-  visibility: visible;
-  transition:
-    transform 0.32s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.28s ease,
-    visibility 0s linear 0s;
-}
-
-.header .header-mobile-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  margin-bottom: 1.5rem;
-}
-.header .header-mobile-link {
-  display: flex;
-  align-items: center;
-  font-size: 1rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.7) !important;
-  padding: 0.75rem 0.75rem;
-  border-radius: 10px;
-  text-decoration: none;
-  transition:
-    color 0.2s ease,
-    background 0.2s ease;
-}
-.header .header-mobile-link:hover {
-  color: #fff !important;
-  background: rgba(255, 255, 255, 0.07);
-}
-.header .header-mobile-link.active {
-  color: #e9d5ff !important;
-  background: rgba(139, 92, 246, 0.18);
-  border: 1px solid rgba(139, 92, 246, 0.2);
-}
-
-.header .header-mobile-cta {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
-}
-.header .header-mobile-login {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.75rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.72) !important;
-  background: rgba(255, 255, 255, 0.07) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: 10px !important;
-  text-decoration: none;
-  transition:
-    color 0.2s ease,
-    background 0.2s ease;
-}
-.header .header-mobile-login:hover {
-  color: #fff !important;
-  background: rgba(255, 255, 255, 0.12) !important;
-}
-.header .header-mobile-trial {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.8rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #fff !important;
-  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 55%, #5b21b6 100%) !important;
-  border: none !important;
-  border-radius: 10px !important;
-  text-decoration: none;
-  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.38);
-  transition:
-    filter 0.2s ease,
-    box-shadow 0.2s ease;
-}
-.header .header-mobile-trial:hover {
-  filter: brightness(1.08);
-  box-shadow: 0 6px 26px rgba(124, 58, 237, 0.52);
-}
-
 /* ─── Responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .header .header-inner {
@@ -359,25 +272,436 @@
 }
 
 @media (max-width: 768px) {
-  /* Hide desktop nav and CTAs */
+  /* ── Floating glass pill on mobile ──────────────────────────────────────
+     The header detaches from the page edges and becomes a self-contained
+     capsule: 12 px inset on every side, fully rounded, glass blur + soft
+     violet ring. Reads as a piece of UI floating over the hero, not as a
+     full-width bar tied to the top of the viewport. */
+  .header {
+    /* Floating glass pill — slimmer + sits closer to screen edges */
+    top: 10px;
+    left: 8px;
+    right: 8px;
+    background:
+      radial-gradient(80% 100% at 50% 0%, rgba(167, 139, 250, 0.1), transparent 60%),
+      rgba(13, 11, 24, 0.78) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 9999px;
+    backdrop-filter: blur(20px) saturate(170%);
+    -webkit-backdrop-filter: blur(20px) saturate(170%);
+    box-shadow:
+      0 8px 22px rgba(0, 0, 0, 0.4),
+      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  }
+  .header.scrolled {
+    background:
+      radial-gradient(80% 100% at 50% 0%, rgba(167, 139, 250, 0.12), transparent 60%),
+      rgba(10, 8, 20, 0.86) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow:
+      0 12px 30px rgba(0, 0, 0, 0.5),
+      0 0 0 1px rgba(167, 139, 250, 0.12) inset;
+  }
+
+  /* Hide desktop primary nav (lives in the mobile menu dialog) and login */
   .header .header-nav,
-  .header .header-actions {
+  .header .header-login {
     display: none;
   }
 
-  /* Show hamburger */
+  /* Keep CTA visible — only Start Free Trial. margin-left: auto pushes
+     it next to the burger on the right (with desktop nav hidden, the
+     three flex items would otherwise distribute via space-between and
+     park the trial button in the visual middle of the pill). */
+  .header .header-actions {
+    display: flex;
+    gap: 0;
+    margin-left: auto;
+  }
+
+  /* Trial pill — mirrors .sidebar-new-chat-pill from src/app/Sidebar.css:
+     no border, just the gradient + inset top highlight + shine sweep on
+     hover. Clean, matches the in-app CTA chrome. */
+  .header .header-trial {
+    height: 32px;
+    padding: 0 1rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    border: none !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+  .header .header-trial:hover {
+    filter: brightness(1.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    transform: none;
+  }
+  .header .header-trial:active {
+    transform: scale(0.97);
+    filter: brightness(0.97);
+  }
+
+  /* Logo — circle avatar matched to the 32 px button height. */
+  .header .header-logo {
+    font-size: 0.95rem;
+    gap: 0.5rem;
+    line-height: 32px;
+  }
+  .header .header-logo-mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+  }
+
+  /* Burger — glass-pill twin of the trial button (same height, same
+     pill radius, but a ghost fill instead of a colored gradient). */
   .header .header-burger {
     display: flex;
+    width: 32px;
+    height: 32px;
+    gap: 4px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+  .header .header-burger:hover,
+  .header .header-burger:active {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.18) !important;
+  }
+  .header .header-burger span {
+    width: 14px;
+    height: 1.6px;
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 1px;
+  }
+  .header .header-burger.open {
+    background: rgba(167, 139, 250, 0.22) !important;
+    border-color: rgba(167, 139, 250, 0.4) !important;
+  }
+  .header .header-burger.open span {
+    background: #e9d5ff;
   }
 
+  /* Pair gap — small breathing room between trial pill and burger */
+  .header .header-actions {
+    gap: 0.35rem;
+  }
+
+  /* Inner row — minimal padding so the logo + button-pair hug the
+     edges of the floating capsule. min-height override needed because
+     styles.css sets a base `.header-inner { min-height: 48px }`. */
   .header .header-inner {
-    padding: 0 1.25rem;
-    height: 60px;
-    gap: 0;
+    padding: 0 0.25rem 0 0.4rem;
+    height: 40px;
+    min-height: 40px;
+    gap: 0.3rem;
   }
+}
 
-  /* Adjust mobile panel top to match height */
-  .header .header-mobile {
-    top: 60px;
+/* Extra-tight viewports — shave a touch more so nothing wraps */
+@media (max-width: 360px) {
+  .header .header-trial {
+    padding: 0.36rem 0.7rem;
+    font-size: 0.72rem;
+  }
+  .header .header-logo-text {
+    display: none;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   HM — Mobile menu dialog (React Portal mounted to document.body)
+   Centered popover, compact, all content centered.
+═══════════════════════════════════════════════════════════════════════════ */
+.hm-overlay {
+  position: fixed;
+  inset: 0;
+  /* Above the header bar (200) so the dialog floats over everything */
+  z-index: 250;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity 0.2s ease,
+    visibility 0s linear 0.2s;
+}
+
+.hm-overlay.hm-open {
+  pointer-events: auto;
+  visibility: visible;
+  opacity: 1;
+  transition:
+    opacity 0.2s ease,
+    visibility 0s linear 0s;
+}
+
+/* Tappable dim layer behind the dialog */
+.hm-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(4, 3, 10, 0.7);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Centered compact dialog */
+.hm-panel {
+  position: relative;
+  width: min(300px, 100%);
+  max-height: calc(100dvh - 3rem);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  /* Vertical paddings only — horizontal lives on each child so dividers
+     can span edge-to-edge of the panel for sharp full-bleed edges. */
+  padding: 1.1rem 0 1rem;
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(167, 139, 250, 0.16), transparent 60%),
+    rgba(13, 11, 24, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    0 0 50px rgba(124, 58, 237, 0.18);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  overflow: hidden;
+  transform: scale(0.94);
+  opacity: 0;
+  transition:
+    transform 0.28s cubic-bezier(0.34, 1.36, 0.64, 1),
+    opacity 0.22s ease;
+}
+
+.hm-overlay.hm-open .hm-panel {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* Hide on tablet+ — the desktop nav handles those viewports */
+@media (min-width: 769px) {
+  .hm-overlay {
+    display: none;
+  }
+}
+
+/* Brand header — sits above the first sharp divider */
+.hm-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0 1.1rem 0.85rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.hm-brand-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #0e0e12;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.hm-brand-text {
+  line-height: 1;
+}
+
+/* Nav — compact rows between two full-bleed sharp dividers */
+.hm-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.hm-nav a {
+  display: block;
+  text-align: center;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: rgba(255, 255, 255, 0.78);
+  text-decoration: none;
+  border-radius: 8px;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.hm-nav a:hover,
+.hm-nav a:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  outline: none;
+}
+
+.hm-nav-label {
+  display: inline;
+}
+
+.hm-nav-arrow {
+  display: none;
+}
+
+/* CTA stack — primary trial pill + secondary text link below */
+.hm-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 1.1rem 0;
+}
+
+/* Primary CTA — mirrors .sidebar-new-chat-pill chrome (gradient + inset
+   top highlight + shine sweep + brightness/scale feedback). */
+.hm-trial {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  height: 38px;
+  padding: 0 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #fff;
+  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 55%, #5b21b6 100%);
+  border: none;
+  border-radius: 9999px;
+  text-decoration: none;
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition:
+    filter 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.15s ease;
+}
+
+/* Diagonal shine sweep — slides across on hover (mirrors newchat). */
+.hm-trial::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 100%
+  );
+  transform: translateX(-110%);
+  transition: transform 0.55s ease;
+  pointer-events: none;
+}
+
+.hm-trial:hover,
+.hm-trial:focus-visible {
+  filter: brightness(1.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  outline: none;
+}
+.hm-trial:hover::before {
+  transform: translateX(110%);
+}
+.hm-trial:active {
+  transform: scale(0.97);
+  filter: brightness(0.97);
+}
+
+.hm-trial-icon {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #f5f3ff;
+}
+
+/* Trial label sits above the shine sweep */
+.hm-trial > span:not(.hm-trial-icon),
+.hm-trial > svg {
+  position: relative;
+  z-index: 1;
+}
+
+/* Secondary — subtle text link */
+.hm-login {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.76rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: rgba(255, 255, 255, 0.55);
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  transition: color 0.2s ease;
+}
+
+.hm-login:hover,
+.hm-login:focus-visible {
+  color: #fff;
+  outline: none;
+}
+
+.hm-login-em {
+  color: #c7d2fe;
+  font-weight: 600;
+  margin-left: 0.15rem;
+}
+
+/* Tight phones — keep dialog comfortable down to 320px */
+@media (max-width: 360px) {
+  .hm-panel {
+    width: min(280px, 100%);
+    border-radius: 16px;
+  }
+  .hm-brand {
+    padding: 0 1rem 0.75rem;
+    font-size: 0.85rem;
+  }
+  .hm-nav a {
+    padding: 0.55rem 0.75rem;
+    font-size: 0.88rem;
+  }
+  .hm-cta {
+    padding: 0.8rem 1rem 0;
+  }
+  .hm-trial {
+    height: 36px;
+    font-size: 0.82rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-panel {
+    transition: none !important;
+    transform: none !important;
+    opacity: 1 !important;
   }
 }

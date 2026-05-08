@@ -25,13 +25,20 @@ import { Footer } from './components/Footer'
 import { DemoModal } from './components/DemoModal'
 import { rafThrottle } from '../lib/rafThrottle'
 
+const SECTION_NAV = {
+  solution: 'nav-features',
+  results: 'nav-results',
+  'social-proof': 'nav-reviews',
+  pricing: 'nav-pricing',
+  faq: 'nav-faq',
+}
+
 export function LandingPage() {
   useEffect(() => {
-    const prefersReducedMotion =
-      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
     const headerEl = document.getElementById('header')
-    function updateHeaderScroll() {
+
+    /* ── 1. Header glass on scroll ─────────────────────────────────────── */
+    const updateHeaderScroll = () => {
       if (!headerEl) return
       const isScrolled = window.scrollY > 60
       headerEl.classList.toggle('scrolled', isScrolled)
@@ -40,82 +47,37 @@ export function LandingPage() {
     const throttledHeaderScroll = rafThrottle(updateHeaderScroll)
     window.addEventListener('scroll', throttledHeaderScroll, { passive: true })
     updateHeaderScroll()
-    if (headerEl) {
-      headerEl.classList.add('header-ready')
-    }
+    headerEl?.classList.add('header-ready')
 
-    const heroContent = document.getElementById('hero-content')
-    if (heroContent && !prefersReducedMotion) {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          heroContent.classList.add('hero-visible')
-        }, 80)
-      })
-    } else if (heroContent) {
-      heroContent.classList.add('hero-visible')
-    }
-
-    // Make any generic .reveal elements visible immediately to avoid scroll-time work
-    document.querySelectorAll('.reveal').forEach((el) => {
-      el.classList.add('revealed')
-    })
-
+    /* ── 2. Demo modal open/close (data-attribute driven) ──────────────── */
     const demoModal = document.getElementById('demo-modal')
     const openDemoButtons = document.querySelectorAll('[data-open-demo]')
     const closeDemoButtons = document.querySelectorAll('[data-close-demo]')
 
-    function openDemo(e) {
+    const openDemo = (e) => {
       if (e) e.preventDefault()
-      if (demoModal) {
-        demoModal.setAttribute('aria-hidden', 'false')
-        document.body.style.overflow = 'hidden'
-      }
+      if (!demoModal) return
+      demoModal.setAttribute('aria-hidden', 'false')
+      document.body.style.overflow = 'hidden'
     }
-    function closeDemo() {
-      if (demoModal) {
-        demoModal.setAttribute('aria-hidden', 'true')
-        document.body.style.overflow = ''
-      }
+    const closeDemo = () => {
+      if (!demoModal) return
+      demoModal.setAttribute('aria-hidden', 'true')
+      document.body.style.overflow = ''
     }
 
     openDemoButtons.forEach((btn) => btn.addEventListener('click', openDemo))
     closeDemoButtons.forEach((btn) => btn.addEventListener('click', closeDemo))
-    if (demoModal) {
-      demoModal.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeDemo()
-      })
+    const onDemoEscape = (e) => {
+      if (e.key === 'Escape') closeDemo()
     }
+    demoModal?.addEventListener('keydown', onDemoEscape)
 
-    // "Another 10 of 10" scroll reveal
-    // Instantly mark "Another 10 of 10" elements as visible (no scroll observers for smoother scrolling)
-    document.querySelectorAll('.a10-reveal').forEach((el) => {
-      el.classList.add('a10-visible')
-    })
-
-    // Solution section scroll reveal
-    // Solution section — make all reveal elements visible immediately
-    document.querySelectorAll('.sol-reveal').forEach((el) => {
-      el.classList.add('sol-visible')
-    })
-
-    // Results section scroll reveal
-    document.querySelectorAll('.res-reveal').forEach((el) => {
-      el.classList.add('res-visible')
-    })
-
-    // Social proof section scroll reveal
-    document.querySelectorAll('.sp-reveal').forEach((el) => {
-      el.classList.add('sp-visible')
-    })
-
-    // Pricing section: scroll reveal + billing toggle
-    document.querySelectorAll('.pri-reveal').forEach((el) => {
-      el.classList.add('pri-visible')
-    })
-
+    /* ── 3. Pricing billing toggle (monthly ↔ annual) ──────────────────── */
     const pricingSection = document.getElementById('pricing')
+    const priBtns = pricingSection?.querySelectorAll('.pri-toggle-btn') ?? []
+    const priClickHandlers = []
     if (pricingSection) {
-      const priBtns = pricingSection.querySelectorAll('.pri-toggle-btn')
       const priSaveMsg = pricingSection.querySelector('.pri-annual-msg')
       const priCurEls = pricingSection.querySelectorAll('.pri-cur')
       const priOldEls = pricingSection.querySelectorAll('.pri-old')
@@ -124,17 +86,14 @@ export function LandingPage() {
 
       const applyPricingMode = (mode) => {
         const annual = mode === 'annual'
-        priBtns.forEach((btn) => {
+        priBtns.forEach((btn) =>
           btn.classList.toggle('pri-toggle-active', btn.dataset.period === mode)
-        })
-        if (priSaveMsg) {
-          priSaveMsg.classList.toggle('pri-show', annual)
-        }
+        )
+        priSaveMsg?.classList.toggle('pri-show', annual)
         priCurEls.forEach((el) => {
-          const span = el
-          const monthly = span.getAttribute('data-monthly')
-          const annualPrice = span.getAttribute('data-annual')
-          span.textContent = annual ? annualPrice : monthly
+          const monthly = el.getAttribute('data-monthly')
+          const annualPrice = el.getAttribute('data-annual')
+          el.textContent = annual ? annualPrice : monthly
         })
         priOldEls.forEach((el) => el.classList.toggle('pri-hidden', !annual))
         priBilledEls.forEach((el) => el.classList.toggle('pri-hidden', !annual))
@@ -142,153 +101,81 @@ export function LandingPage() {
       }
 
       priBtns.forEach((btn) => {
-        btn.addEventListener('click', () => applyPricingMode(btn.dataset.period || 'monthly'))
+        const handler = () => applyPricingMode(btn.dataset.period || 'monthly')
+        btn.addEventListener('click', handler)
+        priClickHandlers.push({ btn, handler })
       })
     }
 
-    // FAQ section: reveal + accordion
-    document.querySelectorAll('.faq-reveal').forEach((el) => {
-      el.classList.add('faq-visible')
-    })
-
-    const faqItems = document.querySelectorAll('.faq-item')
-    faqItems.forEach((item) => {
-      const btn = item.querySelector('.faq-q')
-      const panel = item.querySelector('.faq-a')
-      if (!btn || !panel) return
-
-      btn.addEventListener('click', () => {
-        const isOpen = item.classList.contains('faq-open')
-
-        faqItems.forEach((i) => {
-          i.classList.remove('faq-open')
-          const p = i.querySelector('.faq-a')
-          if (p) p.style.maxHeight = null
-          const b = i.querySelector('.faq-q')
-          if (b) b.setAttribute('aria-expanded', 'false')
-        })
-
-        if (!isOpen) {
-          item.classList.add('faq-open')
-          panel.style.maxHeight = panel.scrollHeight + 'px'
-          btn.setAttribute('aria-expanded', 'true')
-        }
-      })
-    })
-
-    // Final CTA reveal
-    document.querySelectorAll('.fcta-reveal').forEach((el) => {
-      el.classList.add('fcta-visible')
-    })
-
-    // Header nav active state: highlight link for section in view
-    const SECTION_NAV = {
-      solution: 'nav-features',
-      results: 'nav-how',
-      pricing: 'nav-pricing',
-      'social-proof': 'nav-reviews',
-      faq: 'nav-faq',
-    }
+    /* ── 4. Header nav active-state observer ───────────────────────────── */
     const sectionIds = Object.keys(SECTION_NAV)
     const sectionEls = sectionIds.map((id) => document.getElementById(id)).filter(Boolean)
 
-    function clearHeaderActive() {
-      headerEl?.querySelectorAll('.header-nav-link, .header-mobile-link').forEach((l) => {
-        l.classList.remove('active')
-      })
-    }
-    function setHeaderActive(sectionId) {
-      clearHeaderActive()
+    const setHeaderActive = (sectionId) => {
+      headerEl
+        ?.querySelectorAll('.header-nav-link.active')
+        .forEach((l) => l.classList.remove('active'))
       const navId = SECTION_NAV[sectionId]
       if (!navId) return
-      const desktopLink = document.getElementById(navId)
-      if (desktopLink) desktopLink.classList.add('active')
-      const mobileMenu = document.getElementById('header-mobile')
-      const mobileLink = mobileMenu?.querySelector(`[data-section="${sectionId}"]`)
-      if (mobileLink) mobileLink.classList.add('active')
+      document.getElementById(navId)?.classList.add('active')
     }
 
     let navObserver = null
     if (sectionEls.length && typeof IntersectionObserver !== 'undefined') {
+      // Track which sections are currently in the observation band, resolve
+      // the active one as the topmost in DOM order — avoids races when fast
+      // scrolling fires multiple intersect callbacks at once.
+      const visibleIds = new Set()
       navObserver = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {
-            if (entry.isIntersecting) setHeaderActive(entry.target.id)
+            if (entry.isIntersecting) visibleIds.add(entry.target.id)
+            else visibleIds.delete(entry.target.id)
           })
+          if (visibleIds.size === 0) return
+          for (const id of sectionIds) {
+            if (visibleIds.has(id)) {
+              setHeaderActive(id)
+              break
+            }
+          }
         },
         { rootMargin: '-12% 0px -58% 0px', threshold: 0 }
       )
       sectionEls.forEach((el) => navObserver.observe(el))
     }
 
-    function handleNavClick(e) {
+    /* ── 5. Smooth-scroll for header desktop nav links ─────────────────── */
+    const handleNavClick = (e) => {
       const href = e.currentTarget.getAttribute('href')
       if (!href || href.charAt(0) !== '#' || href === '#login' || href === '#register') return
-      const targetId = href.slice(1)
-      const target = document.getElementById(targetId)
+      const target = document.getElementById(href.slice(1))
       if (!target) return
       e.preventDefault()
-      const headerHeight = headerEl?.getBoundingClientRect().height ?? 64
-      const top = target.getBoundingClientRect().top + window.scrollY - headerHeight - 16
+      const offset = (headerEl?.getBoundingClientRect().height ?? 64) + 16
+      const top = target.getBoundingClientRect().top + window.scrollY - offset
       window.scrollTo({ top, behavior: 'smooth' })
-      const mobileMenuEl = document.getElementById('header-mobile')
-      const burgerEl = document.getElementById('header-burger')
-      if (burgerEl?.classList.contains('open') && mobileMenuEl) {
-        burgerEl.classList.remove('open')
-        mobileMenuEl.classList.remove('open')
-        mobileMenuEl.setAttribute('aria-hidden', 'true')
-        document.body.style.overflow = ''
-      }
     }
-
-    const navLinks = headerEl?.querySelectorAll('.header-nav-link, .header-mobile-link') ?? []
+    const navLinks = headerEl?.querySelectorAll('.header-nav-link') ?? []
     navLinks.forEach((link) => link.addEventListener('click', handleNavClick))
 
-    // Hamburger toggle (header HTML has no script)
-    const burger = document.getElementById('header-burger')
-    const mobileMenu = document.getElementById('header-mobile')
-    function closeMobile() {
-      burger?.classList.remove('open')
-      mobileMenu?.classList.remove('open')
-      mobileMenu?.setAttribute('aria-hidden', 'true')
-      document.body.style.overflow = ''
-    }
-    function handleBurgerClick() {
-      const open = burger?.classList.contains('open')
-      if (open) closeMobile()
-      else {
-        burger?.classList.add('open')
-        mobileMenu?.classList.add('open')
-        mobileMenu?.setAttribute('aria-hidden', 'false')
-        document.body.style.overflow = 'hidden'
-      }
-    }
-    burger?.addEventListener('click', handleBurgerClick)
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') closeMobile()
-    }
-    document.addEventListener('keydown', handleEscape)
-
+    /* ── Cleanup ───────────────────────────────────────────────────────── */
     return () => {
-      if (navObserver) navObserver.disconnect()
-      navLinks.forEach((link) => link.removeEventListener('click', handleNavClick))
-      burger?.removeEventListener('click', handleBurgerClick)
-      document.removeEventListener('keydown', handleEscape)
-      throttledHeaderScroll.cancel()
       window.removeEventListener('scroll', throttledHeaderScroll)
+      throttledHeaderScroll.cancel()
       openDemoButtons.forEach((btn) => btn.removeEventListener('click', openDemo))
       closeDemoButtons.forEach((btn) => btn.removeEventListener('click', closeDemo))
+      demoModal?.removeEventListener('keydown', onDemoEscape)
+      priClickHandlers.forEach(({ btn, handler }) => btn.removeEventListener('click', handler))
+      navObserver?.disconnect()
+      navLinks.forEach((link) => link.removeEventListener('click', handleNavClick))
     }
   }, [])
 
   return (
     <>
-      <div id="landing-header">
-        <Header />
-      </div>
-      <div id="landing-demo-modal">
-        <DemoModal />
-      </div>
+      <Header />
+      <DemoModal />
       <main id="main-content">
         <Hero />
         <AnotherTen />

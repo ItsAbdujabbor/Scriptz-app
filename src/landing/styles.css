@@ -36,6 +36,9 @@
 }
 html {
   scroll-behavior: smooth;
+  /* Firefox — slim transparent track + soft white thumb */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
 }
 body {
   font-family: var(--font);
@@ -48,6 +51,37 @@ body {
   overflow-x: hidden;
   margin: 0;
   padding: 0;
+}
+
+/* ─── Custom transparent scrollbar (WebKit) ─────────────────────────────────
+   Slim, glassy thumb that fades into the page bg. No track, no arrows. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  /* Inset border carves the thumb away from the viewport edge so it
+     reads as a floating bar, not a flush rail. */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:active {
+  background: rgba(167, 139, 250, 0.35);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 a {
@@ -104,17 +138,10 @@ button {
   background: transparent;
 }
 
-/* Sections kept in markup but hidden (unverified testimonials / metrics) */
-#main-content #another-10,
-#main-content #results,
-#main-content #social-proof {
-  display: none !important;
-}
-
-/* Nav links to hidden sections — keep anchors in DOM for future use */
-.landing-nav-hidden {
-  display: none !important;
-}
+/* All landing sections render. The three sections below were
+ * previously hidden (`display: none`) while their copy was being
+ * vetted; they're back on now so every nav link in the header
+ * actually lands on a visible target. */
 
 /* Coming soon — non-interactive CTAs (landing teaser) */
 .landing-soon-pill {
@@ -872,17 +899,19 @@ body.theme-light .header {
   display: none !important;
 }
 
-/* ===== Reveal animation ===== */
-.reveal {
-  opacity: 0;
-  transform: translateY(24px);
-  transition:
-    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-}
+/* ===== Reveal animation — fail-open =====
+   Was: opacity:0 + transform:translateY(24px), waiting for JS to add
+   `.revealed`. If the effect never ran (bfcache, SSR, JS error, or just
+   a timing race) the element stayed invisible. Now defaults to its
+   final visible state; transitions are kept so an explicit `.revealed`
+   toggle still animates if a caller wants it. */
+.reveal,
 .reveal.revealed {
   opacity: 1;
   transform: translateY(0);
+  transition:
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ===== YouTube connection ===== */
