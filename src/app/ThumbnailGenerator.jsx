@@ -271,10 +271,7 @@ function codeToFriendlyMessage(code, backendMsg) {
         'in a moment. Nothing was charged.'
       )
     case 'HIGH_DEMAND':
-      return (
-        "We're at capacity right now — please try again in a minute. " +
-        'Nothing was charged.'
-      )
+      return "We're at capacity right now — please try again in a minute. " + 'Nothing was charged.'
     case 'PROVIDER_QUOTA_EXCEEDED':
       return (
         "We've hit a usage limit on our side and we're working on it. " +
@@ -291,13 +288,9 @@ function codeToFriendlyMessage(code, backendMsg) {
         'using a different reference image. Nothing was charged.'
       )
     case 'PROVIDER_UNAVAILABLE':
-      return (
-        'Sorry — our image provider hiccupped. Nothing was charged. Want to try again?'
-      )
+      return 'Sorry — our image provider hiccupped. Nothing was charged. Want to try again?'
     case 'INSUFFICIENT_CREDITS':
-      return (
-        "You don't have enough credits for this. Top up or upgrade your plan."
-      )
+      return "You don't have enough credits for this. Top up or upgrade your plan."
     case 'NO_ACTIVE_SUBSCRIPTION':
       return backendMsg // billing flow handles this via other UI paths
     default:
@@ -1204,9 +1197,7 @@ const TitlesLoader = memo(function TitlesLoader({ count = 4 }) {
             style={{ animationDelay: `${i * 70}ms` }}
             aria-hidden
           >
-            <span className="thumb-title-card__index thumb-title-card__index--skel">
-              {i + 1}
-            </span>
+            <span className="thumb-title-card__index thumb-title-card__index--skel">{i + 1}</span>
             <span className="thumb-title-card__body">
               <span className="thumb-title-card__title-skel" />
               <span className="thumb-title-card__reason-skel" />
@@ -1365,11 +1356,31 @@ function TitleIdeasBlock({ titles, onUseTitle }) {
                   title={copied ? 'Copied' : 'Copy title'}
                 >
                   {copied ? (
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="14"
+                      height="14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   ) : (
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="14"
+                      height="14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
                       <rect x="9" y="9" width="13" height="13" rx="2" />
                       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                     </svg>
@@ -2074,9 +2085,16 @@ export function ThumbnailGenerator({
     !isHistoryLoading && renderedMessages.length === 0 && !pendingUserMessage && !pendingAssistant
   const layoutCentered = isEmptyScreen || isHistoryLoading
 
+  // Auto-scroll on new messages or when a job kicks off / lands. Tab
+  // changes (`thumbMode`) deliberately don't trigger a scroll: the
+  // message list is conversation history and shouldn't move when the
+  // user is just toggling the composer's mode chip. The composer's
+  // height changes are absorbed by the ResizeObserver below that
+  // updates `--coach-composer-stack-px`, so the bottom of the list
+  // remains visible even as the toolbar grows/shrinks.
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [messages.length, pendingUserMessage, pendingAssistant, thumbMode])
+  }, [messages.length, pendingUserMessage, pendingAssistant])
 
   const openThumbLightbox = useCallback((url, title) => {
     if (!url) return
@@ -3784,9 +3802,10 @@ function ThumbnailGenSlowHint({ estimatedDurationMs }) {
   }
 
   if (stage === 0) return null
-  const message = stage === 1
-    ? 'Taking a little longer than usual — hang tight while the provider catches up.'
-    : "High demand right now — your thumbnail is queued. We'll have it ready shortly."
+  const message =
+    stage === 1
+      ? 'Taking a little longer than usual — hang tight while the provider catches up.'
+      : "High demand right now — your thumbnail is queued. We'll have it ready shortly."
   return (
     <div className="thumb-gen-loader__slow-hint" role="status" aria-live="polite">
       {message}

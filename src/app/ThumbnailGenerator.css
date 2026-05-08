@@ -4856,3 +4856,220 @@
   font-size: clamp(1.6rem, 3.5vw, 2.2rem);
   margin-bottom: 0;
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+ * MOBILE LAYOUT (≤ 640 px)
+ *
+ * Two related fixes live here:
+ *   1. Top tab row (Prompt / Recreate / Analyze / Title / Edit, plus
+ *      the Link/Upload sub-tabs that appear for some modes). The
+ *      desktop chips are too tall and too wide for a 360-px viewport
+ *      and cause the second pill group to wrap to a new line in a
+ *      cramped way. Below they shrink to 28 px height with reduced
+ *      padding so all 5 mode chips + the source sub-tabs fit cleanly.
+ *
+ *   2. Composer toolbar (attach image / persona / style / batch).
+ *      On desktop, selecting any of attach/persona/style expands its
+ *      circle into a 140 px pill with the asset name. On mobile that
+ *      pushes the send button off-screen. Mobile keeps every selected
+ *      control as a 36 px circle with the chosen asset's thumbnail
+ *      filling the disc; the × close moves to a small overlay badge
+ *      anchored to the top-right corner of the circle.
+ * ────────────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  /* — Top tab row: shrink chips, tighten gap, allow wrap if needed — */
+  #coach-panel-thumbnails .thumb-gen-tab-row {
+    width: 100%;
+    gap: 0.35rem;
+    margin-bottom: 0.4rem;
+    padding: 0 0.3rem;
+    flex-wrap: wrap;
+  }
+  #coach-panel-thumbnails .thumb-gen-pill-tab-group {
+    gap: 0.3rem;
+  }
+  /* Re-target both copies of the pill rule (one in ThumbPillTabs.css, one
+   * inlined into this file's earlier block) by selecting the class itself.
+   * Inside the @media block the cascade order resolves naturally. */
+  #coach-panel-thumbnails .thumb-gen-pill-tab {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 0.74rem;
+    gap: 0.35rem;
+  }
+  #coach-panel-thumbnails .thumb-gen-pill-tab svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* — Composer toolbar: lock attach pills to 36 px circles — */
+  #coach-panel-thumbnails .thumb-gen-toolbar {
+    gap: 0.35rem;
+  }
+  #coach-panel-thumbnails .thumb-gen-toolbar-tools {
+    gap: 6px;
+  }
+
+  /* Override the desktop-only "expand to 140 px pill" for all three
+   * attach controls. Width clamps to a 36-px circle, the asset name is
+   * hidden, and the inner thumbnail fills the disc. */
+  #coach-panel-thumbnails .thumb-gen-toolbar-tools .thumb-attach-pill,
+  #coach-panel-thumbnails
+    .thumb-gen-toolbar-tools
+    .persona-selector--glass-circle:has(.persona-selector-trigger--has-selection),
+  #coach-panel-thumbnails
+    .thumb-gen-toolbar-tools
+    .style-selector--glass-circle:has(.style-selector-trigger--has-selection) {
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    overflow: visible; /* let the × badge bleed past the disc edge */
+    /* Skip the desktop expand-in keyframe — that animation tweens
+     * 32 → 140 px and would briefly stretch the row before snapping
+     * back via these overrides. A quiet fade-in is plenty. */
+    animation: thumb-attach-pill-mobile-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* The closing animation also needs to skip the 140 → 32 width tween
+   * because we never grew to 140 in the first place. Same gentle fade. */
+  #coach-panel-thumbnails .thumb-gen-toolbar-tools .thumb-attach-pill--closing,
+  #coach-panel-thumbnails
+    .thumb-gen-toolbar-tools
+    .persona-selector--closing.persona-selector--glass-circle:has(
+      .persona-selector-trigger--has-selection
+    ),
+  #coach-panel-thumbnails
+    .thumb-gen-toolbar-tools
+    .style-selector--closing.style-selector--glass-circle:has(
+      .style-selector-trigger--has-selection
+    ) {
+    animation: thumb-attach-pill-mobile-out 0.18s cubic-bezier(0.32, 0, 0.67, 0) both;
+  }
+
+  /* Hide the asset name spans — only the thumbnail and × stay visible. */
+  #coach-panel-thumbnails .thumb-gen-toolbar-tools .thumb-attach-pill__name,
+  #coach-panel-thumbnails
+    .thumb-gen-toolbar-tools
+    .persona-selector-trigger--has-selection
+    .persona-selector-pill-name,
+  #coach-panel-thumbnails
+    .thumb-gen-toolbar-tools
+    .style-selector-trigger--has-selection
+    .style-selector-pill-name {
+    display: none;
+  }
+
+  /* The image thumbnail inside the attach pill (a regular <img>, not the
+   * persona/style trigger-img wrapper) needs to fill the circular disc. */
+  #coach-panel-thumbnails .thumb-gen-toolbar-tools .thumb-attach-pill__thumb {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: none;
+  }
+
+  /* Persona / style trigger inside the wrapper-pill: it owns the inner
+   * frame on desktop (32 × 32 thumbnail beside the name). On mobile we
+   * make the trigger fill the parent circle so the persona image
+   * occupies the entire disc. */
+  #coach-panel-thumbnails .thumb-gen-toolbar-tools .persona-selector-trigger--has-selection,
+  #coach-panel-thumbnails .thumb-gen-toolbar-tools .style-selector-trigger--has-selection {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    gap: 0;
+  }
+  #coach-panel-thumbnails
+    .thumb-gen-toolbar-tools
+    .persona-selector-trigger--has-selection
+    .persona-selector-trigger-img,
+  #coach-panel-thumbnails
+    .thumb-gen-toolbar-tools
+    .style-selector-trigger--has-selection
+    .style-selector-trigger-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+  }
+
+  /* The × close badge: pull it out of the in-flow shared-pill layout
+   * and pin it to the top-right corner of the disc. Slightly outside
+   * the silhouette (top/right negative offsets) so it's tappable
+   * without crowding the thumbnail. */
+  #coach-panel-thumbnails .thumb-gen-toolbar-tools .thumb-attach-pill {
+    position: relative;
+  }
+  #coach-panel-thumbnails .thumb-gen-toolbar-tools .thumb-attach-pill__close,
+  #coach-panel-thumbnails
+    .thumb-gen-toolbar-tools
+    .persona-selector--glass-circle:has(.persona-selector-trigger--has-selection)
+    .persona-selector-reset,
+  #coach-panel-thumbnails
+    .thumb-gen-toolbar-tools
+    .style-selector--glass-circle:has(.style-selector-trigger--has-selection)
+    .style-selector-reset {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(12, 10, 22, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    z-index: 3;
+    pointer-events: auto;
+  }
+  #coach-panel-thumbnails .thumb-gen-toolbar-tools .thumb-attach-pill__close svg,
+  #coach-panel-thumbnails
+    .thumb-gen-toolbar-tools
+    .persona-selector--glass-circle:has(.persona-selector-trigger--has-selection)
+    .persona-selector-reset
+    svg,
+  #coach-panel-thumbnails
+    .thumb-gen-toolbar-tools
+    .style-selector--glass-circle:has(.style-selector-trigger--has-selection)
+    .style-selector-reset
+    svg {
+    width: 9px;
+    height: 9px;
+  }
+  #coach-panel-thumbnails .thumb-gen-toolbar-tools .thumb-attach-pill__close:hover,
+  #coach-panel-thumbnails
+    .thumb-gen-toolbar-tools
+    .persona-selector--glass-circle:has(.persona-selector-trigger--has-selection)
+    .persona-selector-reset:hover,
+  #coach-panel-thumbnails
+    .thumb-gen-toolbar-tools
+    .style-selector--glass-circle:has(.style-selector-trigger--has-selection)
+    .style-selector-reset:hover {
+    background: rgba(239, 68, 68, 0.95);
+    border-color: rgba(248, 113, 113, 0.95);
+  }
+}
+
+@keyframes thumb-attach-pill-mobile-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes thumb-attach-pill-mobile-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
