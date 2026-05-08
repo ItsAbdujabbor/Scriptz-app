@@ -13,7 +13,6 @@ import { useCreditsQuery, useSubscriptionQuery } from '../queries/billing/credit
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 import { onOpenCreditsModal } from '../lib/creditsModalBus'
 import { CreditPacksModal } from './CreditPacksModal'
-import { Skeleton } from './ui'
 import './HeaderCreditsBadge.css'
 
 function IconZap() {
@@ -40,7 +39,7 @@ function formatCount(n) {
 }
 
 export function HeaderCreditsBadge({ onClick }) {
-  const { data: credits, isLoading } = useCreditsQuery()
+  const { data: credits } = useCreditsQuery()
   const { data: subscription } = useSubscriptionQuery()
   const { isSubscribed } = usePlanEntitlements()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -54,14 +53,6 @@ export function HeaderCreditsBadge({ onClick }) {
     return Number(credits.subscription_credits || 0) + Number(credits.permanent_credits || 0)
   }, [credits])
 
-  const planCredits = subscription?.plan_credits || 0
-  const usedPct = useMemo(() => {
-    if (!planCredits || total == null) return null
-    const used = planCredits - total
-    if (used <= 0) return 0
-    return Math.min(100, Math.round((used / planCredits) * 100))
-  }, [planCredits, total])
-
   // Hide for unsubscribed users — they see nothing credit-related until
   // they start a trial or subscribe. Placed AFTER hooks to satisfy Rules of Hooks.
   if (!isSubscribed) return null
@@ -69,6 +60,7 @@ export function HeaderCreditsBadge({ onClick }) {
   const isLow = total != null && total > 0 && total < 100
   const isEmpty = total === 0
   const isTrial = subscription?.is_trial
+  const planCredits = subscription?.plan_credits || 0
 
   const handleClick = (e) => {
     if (onClick) return onClick(e)
@@ -100,16 +92,7 @@ export function HeaderCreditsBadge({ onClick }) {
         <span className="header-credits-badge-icon" aria-hidden>
           <IconZap />
         </span>
-        {isLoading && total == null ? (
-          <Skeleton width={32} height={12} radius={6} />
-        ) : (
-          <span className="header-credits-badge-count">{formatCount(total)}</span>
-        )}
-        {usedPct != null && usedPct > 0 && (
-          <span className="header-credits-badge-bar" aria-hidden>
-            <span className="header-credits-badge-bar-fill" style={{ width: `${usedPct}%` }} />
-          </span>
-        )}
+        <span className="header-credits-badge-count">{formatCount(total)}</span>
         {isTrial && <span className="header-credits-badge-tag">trial</span>}
       </button>
 

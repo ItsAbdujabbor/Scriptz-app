@@ -11,7 +11,7 @@ import {
   seedSubscriptionFromCache,
 } from './lib/query/prefetchSubscription'
 import { AppShellLoading } from './components/AppShellLoading'
-import { CenterLoader } from './components/CenterLoader'
+import { Splash } from './components/Splash'
 import { useOnboardingStore } from './stores/onboardingStore'
 
 const THEME_KEY = 'clixa_theme'
@@ -357,11 +357,11 @@ function App() {
     )
   }
 
-  // Returning from Google with `?code=…` — show the loader (not
-  // the landing) until the backend code-exchange finishes. Without this
-  // gate the landing page flashes for ~300ms before we redirect away.
+  // Returning from Google with `?code=…` — branded splash until the
+  // backend code-exchange finishes. Without this gate the landing page
+  // flashes for ~300ms before we redirect away.
   if (oauthCallbackPending) {
-    return <CenterLoader label="Signing you in…" />
+    return <Splash label="Signing you in…" />
   }
 
   // 'pro' is intentionally NOT in this list — it renders as its own
@@ -370,8 +370,12 @@ function App() {
   // bounces unauthed users to login if they navigate directly to #pro.
   const appViews = ['dashboard', 'thumbnails', 'optimize', 'billing']
   const needsSessionBeforeRender = appViews.includes(view)
+  // Branded splash on first authenticated entry — held while session
+  // hydrates AND the subscription / history prefetches kick off in the
+  // background. Once `sessionChecked` flips, the splash component fades
+  // out (with a small minimum duration so it doesn't strobe).
   if (needsSessionBeforeRender && !sessionChecked) {
-    return <AppShellLoading view={view} onLogout={onLogout} />
+    return <Splash label="Setting up your workspace" />
   }
   if (appViews.includes(view) && !accessToken) {
     return null
