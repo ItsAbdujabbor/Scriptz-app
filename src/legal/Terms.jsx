@@ -31,12 +31,12 @@ export function Terms({ onBack }) {
 
         <header className="legal-header">
           <h1 className="legal-title">Terms of Service</h1>
-          <p className="legal-updated">Last updated: April 2026</p>
+          <p className="legal-updated">Last updated: May 2026</p>
         </header>
 
         <div className="legal-content">
           <p>
-            Welcome to Scriptz AI (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;). By accessing
+            Welcome to Clixa AI (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;). By accessing
             or using our website, applications, and services (collectively, the
             &quot;Service&quot;), you agree to be bound by these Terms of Service
             (&quot;Terms&quot;). If you do not agree to these Terms, do not use the Service.
@@ -44,7 +44,7 @@ export function Terms({ onBack }) {
 
           <h2>1. Acceptance of Terms</h2>
           <p>
-            By creating an account, signing in, or otherwise using Scriptz AI, you confirm that you
+            By creating an account, signing in, or otherwise using Clixa AI, you confirm that you
             have read, understood, and agree to these Terms and our Privacy Policy. You must be at
             least 18 years of age (or the age of majority in your jurisdiction) to use the Service.
             If you are using the Service on behalf of an organization, you represent that you have
@@ -53,7 +53,7 @@ export function Terms({ onBack }) {
 
           <h2>2. Description of Service</h2>
           <p>
-            Scriptz AI provides AI-powered tools for YouTube creators, including but not limited to
+            Clixa AI provides AI-powered tools for YouTube creators, including but not limited to
             script generation, thumbnail creation, and growth insights. We reserve the right to
             modify, suspend, or discontinue any part of the Service at any time, with or without
             notice. We will not be liable to you or any third party for any such change.
@@ -76,7 +76,7 @@ export function Terms({ onBack }) {
             <li>Use the Service in any way that violates applicable laws or regulations</li>
             <li>
               Infringe or misappropriate the intellectual property, publicity, likeness, or other
-              rights of Scriptz AI or any third party
+              rights of Clixa AI or any third party
             </li>
             <li>Transmit malware, spam, or any harmful or illegal content</li>
             <li>
@@ -124,7 +124,7 @@ export function Terms({ onBack }) {
           </ul>
           <p>
             You are solely responsible for the content you upload and the outputs you generate from
-            it. Scriptz AI is not a service for impersonation, deepfakes, or creating the appearance
+            it. Clixa AI is not a service for impersonation, deepfakes, or creating the appearance
             that a real person said or did something they did not.
           </p>
 
@@ -158,7 +158,7 @@ export function Terms({ onBack }) {
           <h2>5. Intellectual Property</h2>
           <p>
             The Service, including its design, features, and content (excluding user-generated
-            content), is owned by Scriptz AI or our licensors and is protected by copyright,
+            content), is owned by Clixa AI or our licensors and is protected by copyright,
             trademark, and other laws. You retain ownership of content you create using the Service.
             By using the Service, you grant us a limited, non-exclusive, royalty-free license to
             use, process, and display your content solely to provide and improve the Service and as
@@ -183,7 +183,7 @@ export function Terms({ onBack }) {
             (sales tax, VAT, GST, etc.) on our behalf and issues invoices and receipts in our name.
             By completing a purchase you also agree to Paddle's checkout terms. We do not store your
             full card details; only a customer reference and transaction status are shared with
-            Scriptz AI.
+            Clixa AI.
           </p>
           <p>
             We may change our pricing with reasonable notice; continued use after a price change
@@ -203,7 +203,7 @@ export function Terms({ onBack }) {
 
           <h2>8. Limitation of Liability</h2>
           <p>
-            To the maximum extent permitted by law, Scriptz AI and its affiliates, officers, and
+            To the maximum extent permitted by law, Clixa AI and its affiliates, officers, and
             employees shall not be liable for any indirect, incidental, special, consequential, or
             punitive damages, or any loss of profits, data, or goodwill, arising from your use of
             the Service. Our total liability for any claims related to the Service shall not exceed
@@ -213,7 +213,7 @@ export function Terms({ onBack }) {
 
           <h2>9. Indemnification</h2>
           <p>
-            You agree to indemnify and hold harmless Scriptz AI and its affiliates from any claims,
+            You agree to indemnify and hold harmless Clixa AI and its affiliates from any claims,
             damages, losses, or expenses (including reasonable attorneys&apos; fees) arising from
             your use of the Service, your violation of these Terms, or your violation of any
             third-party rights.
@@ -238,17 +238,17 @@ export function Terms({ onBack }) {
 
           <h2>12. General</h2>
           <p>
-            These Terms constitute the entire agreement between you and Scriptz AI regarding the
+            These Terms constitute the entire agreement between you and Clixa AI regarding the
             Service. If any provision is found unenforceable, the remaining provisions will remain
             in effect. Our failure to enforce any right does not waive that right. These Terms are
-            governed by the laws of the jurisdiction in which Scriptz AI operates, without regard to
+            governed by the laws of the jurisdiction in which Clixa AI operates, without regard to
             conflict of law principles.
           </p>
 
           <h2>13. Contact</h2>
           <p>
-            For questions about these Terms of Service, please contact us at the contact information
-            provided in the footer of our website or in our Privacy Policy.
+            For questions about these Terms of Service, please contact us at{' '}
+            <a href="mailto:support@clixa.app">support@clixa.app</a>.
           </p>
         </div>
       </div>

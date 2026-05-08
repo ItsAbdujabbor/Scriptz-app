@@ -16,6 +16,8 @@ import { getAccessTokenOrNull } from '../../lib/query/authToken'
 import { queryFreshness } from '../../lib/query/queryConfig'
 import { queryKeys } from '../../lib/query/queryKeys'
 import { resultOrNullOnAuthFailure } from '../../lib/query/safeApi'
+import { cacheSubscription } from '../../lib/query/subscriptionCache'
+import { useSubscriptionActivationStore } from '../../stores/subscriptionActivationStore'
 
 export function useCreditsQuery(options = {}) {
   return useQuery({
@@ -43,15 +45,36 @@ export function useFeatureCostsQuery() {
 }
 
 export function useSubscriptionQuery() {
+  // Subscription state gates Pro features and must stay closely aligned with
+  // the credit balance (a grant/revoke moves both together). Two polling
+  // modes:
+  //   * baseline (15s) — admin-side plan changes land within ~15s without a
+  //     page reload, dropping to ~focus latency when the tab is foregrounded.
+  //   * burst (1s) — kicked on by `subscriptionActivationStore.start()`
+  //     after a checkout completes. Combined with the optimistic
+  //     setQueryData in CheckoutScreen + the immediate /sync call in
+  //     the activation store, the UI flips to Pro within ~1 s of Paddle
+  //     saying "paid" — no visible wait for the webhook.
+  // The server caches this response per-user (2-min TTL) and the
+  // grant/revoke/webhook paths bust that cache, so polling here is cheap.
+  const isActivating = useSubscriptionActivationStore((s) => s.isPending)
   return useQuery({
     queryKey: queryKeys.billing.subscription,
     queryFn: async () => {
       const token = await getAccessTokenOrNull()
       if (!token) return null
-      return resultOrNullOnAuthFailure(getSubscription(token))
+      const result = await resultOrNullOnAuthFailure(getSubscription(token))
+      // Persist every successful fetch to localStorage so the next
+      // page reload skips the "Free → Pro" flash. Mid-session
+      // upgrades (e.g. user just activated) flow through here too,
+      // keeping the cache aligned with the live state.
+      if (result) cacheSubscription(result)
+      return result
     },
-    staleTime: queryFreshness.medium,
+    staleTime: queryFreshness.short,
     gcTime: queryFreshness.long,
+    refetchOnWindowFocus: true,
+    refetchInterval: isActivating ? 1_000 : 15_000,
   })
 }
 
@@ -61,6 +84,33 @@ export function useSubscriptionQuery() {
  */
 export function invalidateCredits(queryClient) {
   queryClient.invalidateQueries({ queryKey: queryKeys.billing.credits })
+}
+
+/**
+ * Atomic billing-state refresh. Invalidates EVERY billing-related query
+ * in one call so when a payment / cancellation / plan-change / skip-trial
+ * lands, every UI surface (sidebar tier, credits badge, paywall callouts,
+ * billing panel, recent invoices) refetches together — no surface left
+ * showing stale state.
+ *
+ * Use this from:
+ *   * Paddle.js `checkout.completed` event handler
+ *   * Skip-trial mutation onSuccess
+ *   * Cancel-subscription mutation onSuccess
+ *   * Change-plan mutation onSuccess
+ *   * `<ActivationListener>` when status flips inactive → active
+ *   * Webhook-driven sync endpoint completion
+ *
+ * Strictly an `invalidateQueries` fan-out — does NOT touch React Query's
+ * cached values directly. The localStorage subscription cache is updated
+ * by the regular query refetches that follow (see `creditsQueries.js`
+ * line ~70 for the persist-on-fetch hook).
+ */
+export function refreshBillingState(queryClient) {
+  if (!queryClient) return
+  queryClient.invalidateQueries({ queryKey: queryKeys.billing.subscription })
+  queryClient.invalidateQueries({ queryKey: queryKeys.billing.credits })
+  queryClient.invalidateQueries({ queryKey: queryKeys.billing.ledger })
 }
 
 /**

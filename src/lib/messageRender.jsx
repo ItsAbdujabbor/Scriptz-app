@@ -1,9 +1,8 @@
 /**
- * Shared message rendering utilities used by CoachChat, ScriptGenerator,
- * and ThumbnailGenerator so all three screens render assistant messages
- * identically (markdown paragraphs, lists, tables, code blocks, inline
- * bold/italic/code). Extracted verbatim from CoachChat.jsx so Coach's
- * behavior is unchanged.
+ * Shared message rendering utilities used by ThumbnailGenerator (and
+ * any future chat screens) so assistant messages render identically:
+ * markdown paragraphs, lists, tables, code blocks, inline
+ * bold/italic/code.
  */
 
 export function normalizeMessageText(text) {

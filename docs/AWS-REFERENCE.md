@@ -1,11 +1,11 @@
-# Scriptz — AWS reference
+# Clixa — AWS reference
 
 Single place for **resource names, ARNs, and deploy hints** used by this project.  
 **Last verified:** 2026-03-26. Update this file when infrastructure changes.
 
-The **canonical copy** is kept in **Scriptz-Api** (`docs/AWS-REFERENCE.md` on `develop`); keep this file in sync when you change AWS resources.
+The **canonical copy** is kept in **Clixa-Api** (`docs/AWS-REFERENCE.md` on `develop`); keep this file in sync when you change AWS resources.
 
-Secrets (database URLs, API keys, Supabase keys, etc.) belong in the API repo’s `infra/terraform/terraform.tfvars` (gitignored) or AWS Secrets Manager — **do not** paste them here.
+Secrets (database URLs, API keys, Cognito client secrets, etc.) belong in the API repo's `infra/terraform/terraform.tfvars` (gitignored) or AWS Secrets Manager — **do not** paste them here.
 
 ---
 
@@ -83,7 +83,7 @@ Subject alternative names should include `scriptz.app` and `api.scriptz.app` (co
 
 ---
 
-## Terraform (Scriptz-Api repo, `infra/terraform/`)
+## Terraform (Clixa-Api repo, `infra/terraform/`)
 
 Non-secret values are mirrored from `terraform.tfvars` / `terraform.tfvars.example`:
 
@@ -128,4 +128,4 @@ aws ecs update-service --cluster scriptz-cluster --service scriptz-api --force-n
 ## Related repositories
 
 - **Frontend:** this repo — Vite React app deployed to `scriptz-app-frontend` + CloudFront.
-- **Backend:** **Scriptz-Api** — FastAPI image in `scriptz-api` ECR, run by ECS service `scriptz-api`.
+- **Backend:** **Clixa-Api** — FastAPI image in `scriptz-api` ECR, run by ECS service `scriptz-api`.

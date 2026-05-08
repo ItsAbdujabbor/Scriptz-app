@@ -39,6 +39,38 @@
   margin-bottom: 1.25rem;
 }
 
+.bp-card-header--with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.bp-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.bp-refresh-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.bp-refresh-btn:active {
+  transform: scale(0.97);
+}
+
 .bp-section-title {
   margin: 0;
   font-size: 1.05rem;
@@ -235,6 +267,67 @@
   gap: 0.4rem;
 }
 
+/* Filled accent button — used for the "Skip trial — pay now" CTA. */
+.bp-btn--primary {
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+  border-color: transparent;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 6px 18px -6px rgba(124, 58, 237, 0.55);
+}
+.bp-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+/* ── Trial banner (only shown while subscription is trialing) ───── */
+
+.bp-card--trial {
+  background:
+    radial-gradient(120% 200% at 0% 0%, rgba(124, 58, 237, 0.18) 0%, transparent 60%),
+    var(--bp-card);
+  border: 1px solid rgba(167, 139, 250, 0.32);
+}
+.bp-trial-row {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+.bp-trial-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.bp-trial-text > strong {
+  color: var(--bp-text);
+  font-size: 0.98rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.bp-trial-text > span {
+  color: var(--bp-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.bp-trial-error {
+  margin: 0.85rem 0 0;
+  color: #fecaca;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+@media (max-width: 540px) {
+  .bp-trial-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  .bp-trial-row .bp-btn {
+    width: 100%;
+  }
+}
+
 /* ── Payment / address tiles ────────────────────────────────────── */
 
 .bp-grid-2 {
@@ -264,20 +357,25 @@
   gap: 0.7rem;
 }
 .bp-tile-icon {
-  width: 36px;
-  height: 28px;
+  width: 44px;
+  height: 36px;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--bp-border);
-  color: var(--bp-text-muted);
+  border-radius: 9px;
+  /* Soft mint-green chip — same accent the credit-pill in the editor
+   * uses for "available / good standing" state. Picks the
+   * payment-method tile out of the row without competing with the
+   * brand-violet plan accent above. */
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  color: #34d399;
 }
 .bp-tile-icon svg {
-  width: 18px;
-  height: 14px;
+  width: 22px;
+  height: 18px;
+  stroke-width: 1.8;
 }
 
 .bp-tile-text {

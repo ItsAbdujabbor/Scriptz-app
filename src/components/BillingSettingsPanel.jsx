@@ -31,9 +31,9 @@ import { useAuthStore } from '../stores/authStore'
 import {
   useCreditsQuery,
   useSubscriptionQuery,
-  invalidateCredits,
+  refreshBillingState,
 } from '../queries/billing/creditsQueries'
-import { cancelSubscription, getLedger } from '../api/billing'
+import { cancelSubscription, getLedger, skipTrial } from '../api/billing'
 import { queryKeys } from '../lib/query/queryKeys'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { resultOrNullOnAuthFailure } from '../lib/query/safeApi'
@@ -124,7 +124,7 @@ const INVOICE_LABELS = {
 
 function useLedgerQuery(active) {
   return useQuery({
-    queryKey: ['billing', 'ledger', 'recent'],
+    queryKey: queryKeys.billing.ledger,
     enabled: !!active,
     queryFn: async () => {
       const token = await getAccessTokenOrNull()
@@ -194,7 +194,11 @@ function CancelConfirm({ open, busy, error, periodEnd, onCancel, onConfirm }) {
 
 /* ───────────────────── main component ──────────────────────────── */
 
-export function BillingSettingsPanel({ active }) {
+export function BillingSettingsPanel({ active, onClose }) {
+  const goToPlans = () => {
+    onClose?.()
+    if (typeof window !== 'undefined') window.location.hash = 'pro'
+  }
   const queryClient = useQueryClient()
   const { getValidAccessToken } = useAuthStore()
   const { data: subscription } = useSubscriptionQuery()
@@ -203,6 +207,7 @@ export function BillingSettingsPanel({ active }) {
 
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [cancelError, setCancelError] = useState(null)
+  const [skipTrialError, setSkipTrialError] = useState(null)
 
   const cancelMutation = useMutation({
     mutationFn: async () => {
@@ -212,10 +217,30 @@ export function BillingSettingsPanel({ active }) {
     },
     onSuccess: () => {
       setConfirmOpen(false)
-      queryClient.invalidateQueries({ queryKey: queryKeys.billing.subscription })
-      invalidateCredits(queryClient)
+      // Cancellation flips cancel_at_period_end + (eventually) status —
+      // refresh every billing surface so sidebar tier badge, billing
+      // panel, paywall callouts, and recent-invoices list converge.
+      refreshBillingState(queryClient)
     },
     onError: (err) => setCancelError(friendlyMessage(err) || 'Could not cancel. Try again.'),
+  })
+
+  const skipTrialMutation = useMutation({
+    mutationFn: async () => {
+      const token = await getValidAccessToken()
+      if (!token) throw new Error('Not authenticated')
+      return skipTrial(token)
+    },
+    onSuccess: () => {
+      setSkipTrialError(null)
+      // Skip-trial bills immediately + grants full plan credits via the
+      // webhook. Refresh everything so the trial banner disappears, the
+      // credits badge bumps to the full plan amount, and the new invoice
+      // shows up in Recent Invoices.
+      refreshBillingState(queryClient)
+    },
+    onError: (err) =>
+      setSkipTrialError(friendlyMessage(err) || 'Could not end trial. Try again.'),
   })
 
   const isSubscribed =
@@ -280,9 +305,7 @@ export function BillingSettingsPanel({ active }) {
             <button
               type="button"
               className="bp-btn bp-btn--outline"
-              onClick={() => {
-                window.location.hash = 'pro'
-              }}
+              onClick={goToPlans}
             >
               See plans
             </button>
@@ -322,12 +345,75 @@ export function BillingSettingsPanel({ active }) {
   const ba = subscription.billing_address || {}
   const baLines = [ba.line1, ba.line2, ba.city, ba.state, ba.country].filter(Boolean)
 
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.billing.subscription })
+    queryClient.invalidateQueries({ queryKey: queryKeys.billing.credits })
+  }
+
+  // Optimistic dismiss: hide the banner the moment the skip-trial
+  // mutation resolves successfully, without waiting for the React
+  // Query refetch + 2s polling cycle to surface `is_trial=false`.
+  // If the mutation later errors out, `isSuccess` is false and we
+  // re-show the banner. This trades a few ms of UI inconsistency
+  // (banner gone, query data still says trial) for instant feedback —
+  // the next refetch reconciles within 1-2s.
+  const isTrial = !!subscription.is_trial && !skipTrialMutation.isSuccess
+
   return (
     <div className="bp-root">
+      {/* ─────────── Trial banner (only while trialing) ─────────── */}
+      {isTrial ? (
+        <section className="bp-card bp-card--trial">
+          <div className="bp-trial-row">
+            <div className="bp-trial-text">
+              <strong>You're on a free trial of {planName}</strong>
+              <span>
+                Skip the trial to unlock the full plan now — your card is charged today and
+                all your monthly credits are added to your balance instantly.
+              </span>
+            </div>
+            <button
+              type="button"
+              className="bp-btn bp-btn--primary"
+              onClick={() => skipTrialMutation.mutate()}
+              disabled={skipTrialMutation.isPending}
+            >
+              {skipTrialMutation.isPending ? (
+                <>
+                  <InlineSpinner /> Processing…
+                </>
+              ) : (
+                'Skip trial — pay now'
+              )}
+            </button>
+          </div>
+          {skipTrialError ? (
+            <p className="bp-trial-error" role="alert">
+              {skipTrialError}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
       {/* ─────────── Subscription Details ─────────── */}
       <section className="bp-card">
-        <div className="bp-card-header">
+        <div className="bp-card-header bp-card-header--with-action">
           <h2 className="bp-section-title">Subscription Details</h2>
+          <button
+            type="button"
+            className="bp-refresh-btn"
+            onClick={handleRefresh}
+            title="Refresh from server"
+            aria-label="Refresh subscription"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M23 4v6h-6" />
+              <path d="M1 20v-6h6" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10" />
+              <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14" />
+            </svg>
+            <span>Refresh</span>
+          </button>
         </div>
 
         {/* Plan + Manage button */}

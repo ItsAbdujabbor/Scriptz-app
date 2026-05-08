@@ -2,6 +2,8 @@ import './AppShellLayout.css'
 import { useSidebarStore } from '../stores/sidebarStore'
 import { CelebrationOverlay } from './CelebrationOverlay'
 import { HeaderCreditsBadge } from './HeaderCreditsBadge' // kept as an optional override; no longer mounted by default
+import ActivationListener from './ActivationListener'
+import { PaymentProcessingBanner } from './PaymentProcessingBanner'
 
 /**
  * Single authenticated layout: left `Sidebar` + main column.
@@ -46,6 +48,15 @@ export function AppShellLayout({
       {/* Global celebration overlay — listens for `app:celebrate` events and
           shows a centered message + confetti for subscriptions, top-ups, etc. */}
       <CelebrationOverlay />
+      {/* Watches subscription state for inactive→active transitions and
+          fires the celebration once. Also bridges `app:checkout-completed`
+          into the activation burst-poll mode so Pro lights up the moment
+          the webhook lands. */}
+      <ActivationListener />
+      {/* Slim banner that surfaces when the 60-s burst times out without
+          an active subscription showing up — fail-loud feedback for
+          delayed webhooks (Paddle outage, our queue backlog, etc.). */}
+      <PaymentProcessingBanner />
       {/* `<ToastStack />` lives at the AuthenticatedRoutes level so it's
           mounted on every authenticated page, including ones (like the
           thumbnail screen) that don't wrap themselves in AppShellLayout. */}

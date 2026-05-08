@@ -190,6 +190,36 @@
   margin-left: 2px;
 }
 
+/* Muted variant — used inside the thumbnail editor's busy overlay, where
+ * the default bar's white-centre gradient + travelling shimmer reads as
+ * too glowy against a darkened thumbnail. Flatter purple fill, no
+ * shimmer sweep, slightly thinner bar. The percentage stays at the
+ * same baseline so users get the same visual language across the app. */
+.gen-progress--muted {
+  padding: 0.55rem 0.7rem;
+  gap: 0.7rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.09);
+}
+.gen-progress--muted .gen-progress__bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.gen-progress--muted .gen-progress__fill {
+  background: linear-gradient(
+    90deg,
+    rgba(167, 139, 250, 0.78) 0%,
+    rgba(196, 181, 253, 0.92) 100%
+  );
+}
+.gen-progress--muted .gen-progress__shimmer {
+  display: none;
+}
+.gen-progress--muted .gen-progress__pct {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.78);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .gen-progress__fill {
     transition: transform 120ms linear;

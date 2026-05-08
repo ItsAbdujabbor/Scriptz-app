@@ -1,51 +1,30 @@
 import { useState } from 'react'
+import { Dialog } from '../components/ui/Dialog'
+import { ShieldIcon, MailIcon } from './_icons'
 import './auth.css'
 
-const ShieldIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    width="64"
-    height="64"
-    stroke="currentColor"
-    strokeWidth="1.5"
-  >
-    <path
-      d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path d="M12 8v4M12 16h.01" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-)
-
-const MailIcon = () => (
-  <svg
-    viewBox="0 0 20 20"
-    fill="none"
-    width="16"
-    height="16"
-    stroke="currentColor"
-    strokeWidth="1.5"
-  >
-    <path d="M3 6l7 5 7-5" />
-    <rect x="2" y="4" width="16" height="12" rx="2" />
-  </svg>
-)
-
+/**
+ * Banned-account dialog. Rendered as a non-dismissible Dialog (the
+ * user shouldn't be able to escape it with Esc/backdrop click — the
+ * only way out is signing out via the explicit button). All other
+ * auth dialogs allow backdrop close.
+ */
 export function BannedScreen({ email, banDate, reason, onLogout }) {
   const [copied, setCopied] = useState(false)
+  const supportEmail = 'support@clixa.app'
 
-  const supportEmail = 'support@scriptz.app'
-
-  const handleCopyEmail = () => {
-    navigator.clipboard?.writeText(supportEmail)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const handleCopyEmail = async () => {
+    try {
+      await navigator.clipboard?.writeText(supportEmail)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      /* clipboard API unavailable — silent fail; the address is visible */
+    }
   }
 
   const formatDate = (dateStr) => {
-    if (!dateStr) return 'N/A'
+    if (!dateStr) return null
     try {
       return new Date(dateStr).toLocaleDateString('en-US', {
         year: 'numeric',
@@ -57,65 +36,73 @@ export function BannedScreen({ email, banDate, reason, onLogout }) {
     }
   }
 
+  const niceDate = formatDate(banDate)
+  const hasMeta = email || niceDate || reason
+
   return (
-    <div className="auth-screen">
-      <div className="auth-aura" aria-hidden="true" />
-
-      <div className="banned-container">
-        <div className="banned-icon">
-          <ShieldIcon />
+    <Dialog
+      open
+      onClose={() => {}}
+      size="md"
+      closeOnBackdrop={false}
+      closeOnEscape={false}
+      ariaLabelledBy="auth-banned-title"
+    >
+      <div className="auth-content">
+        <div className="auth-card-head">
+          <div className="ax-icon-badge is-danger" aria-hidden="true">
+            <ShieldIcon />
+          </div>
+          <h1 id="auth-banned-title" className="auth-title">Account suspended</h1>
+          <p className="auth-subtitle">
+            Your Clixa AI account has been suspended due to a violation of our Terms of Service.
+            If you believe this is a mistake, our support team will review your appeal.
+          </p>
         </div>
 
-        <h1 className="banned-title">Account Banned</h1>
-
-        <p className="banned-description">
-          Your Scriptz AI account has been suspended. This action was taken due to a violation of
-          our terms of service.
-        </p>
-
-        <div className="banned-details">
-          {email && (
-            <div className="banned-detail">
-              <span className="banned-detail-label">Email</span>
-              <span className="banned-detail-value">{email}</span>
-            </div>
-          )}
-
-          {banDate && (
-            <div className="banned-detail">
-              <span className="banned-detail-label">Banned On</span>
-              <span className="banned-detail-value">{formatDate(banDate)}</span>
-            </div>
-          )}
-
-          {reason && (
-            <div className="banned-detail">
-              <span className="banned-detail-label">Reason</span>
-              <span className="banned-detail-value">{reason}</span>
-            </div>
-          )}
-        </div>
+        {hasMeta && (
+          <div className="banned-meta">
+            {email && (
+              <div className="banned-meta-row">
+                <span className="banned-meta-label">Email</span>
+                <span className="banned-meta-value">{email}</span>
+              </div>
+            )}
+            {niceDate && (
+              <div className="banned-meta-row">
+                <span className="banned-meta-label">Suspended on</span>
+                <span className="banned-meta-value">{niceDate}</span>
+              </div>
+            )}
+            {reason && (
+              <div className="banned-meta-row">
+                <span className="banned-meta-label">Reason</span>
+                <span className="banned-meta-value">{reason}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="banned-support">
-          <h3>Contact Support</h3>
-          <p>
-            If you believe this is a mistake or would like to appeal this decision, please contact
-            our support team.
+          <h3 className="banned-support-title">Appeal this decision</h3>
+          <p className="banned-support-text">
+            Email our support team and we&apos;ll review your case within 24–48 hours.
           </p>
-
-          <button className="banned-email-btn" onClick={handleCopyEmail} type="button">
+          <button type="button" className="banned-email-btn" onClick={handleCopyEmail}>
             <MailIcon />
             <span>{supportEmail}</span>
-            <span className="banned-copy-hint">{copied ? 'Copied!' : 'Click to copy'}</span>
+            <span className={`banned-copy-hint ${copied ? 'is-copied' : ''}`}>
+              {copied ? 'Copied' : 'Copy'}
+            </span>
           </button>
         </div>
 
-        <button className="banned-logout-btn" onClick={onLogout} type="button">
-          Sign Out
+        <button type="button" className="ax-btn ax-btn-secondary" onClick={() => onLogout?.()}>
+          Sign out
         </button>
 
-        <p className="banned-footer">We review all appeals. Response time: 24-48 hours</p>
+        <p className="banned-footer">All appeals are reviewed manually.</p>
       </div>
-    </div>
+    </Dialog>
   )
 }

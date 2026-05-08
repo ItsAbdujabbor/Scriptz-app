@@ -2,167 +2,178 @@ import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
 import { getPlans, startCheckout, changePlan } from '../api/billing'
-import { openPaddleCheckout } from '../lib/paddle'
-import { useSubscriptionQuery, invalidateCredits } from '../queries/billing/creditsQueries'
+import { preloadPaddle } from '../lib/paddle'
+import { useSubscriptionQuery, refreshBillingState } from '../queries/billing/creditsQueries'
 import { queryKeys } from '../lib/query/queryKeys'
 import { celebrate } from '../lib/celebrate'
 import { friendlyMessage } from '../lib/aiErrors'
-import '../landing/sections/pricing/pricing.css'
+import { ThumbPillTabs } from '../components/ThumbPillTabs'
+import { useSubscriptionActivationStore } from '../stores/subscriptionActivationStore'
 
-// Canonical credits per plan. Thumbnails shown are marketing figures:
-//   • Starter:  1,000 cr → 50 thumbnails/month
-//   • Creator:  3,000 cr → 150 thumbnails/month
-//   • Ultimate: 9,000 cr → 450 thumbnails/month
-// Yearly credits = monthly × 12 × 1.15 (~15% bonus).
-const CREATOR_TIERS = [
-  {
-    credits: 3000,
-    thumbs: 150,
-    seos: 1000,
-    price: '$39.99',
-    annual: '$27.99',
-    yearlyCredits: 41400,
-  },
-]
+/* ─── Plan catalog (mirrors backend; kept in sync with billing.py) ───
+ * Marketing copy + numbers live here. Real Paddle price ids are pulled
+ * at runtime via getPlans() and resolved per `tier + cycle`. */
+const STARTER = {
+  tier: 'starter',
+  name: 'Starter',
+  monthly: '$19.99',
+  annual: '$13.99',
+  monthlyCredits: 1000,
+  annualCredits: 13800,
+  thumbsMonthly: 50,
+  thumbsAnnual: 600,
+  tagline: 'For solo creators getting started.',
+}
 
-const ULTIMATE_TIERS = [
-  {
-    credits: 9000,
-    thumbs: 450,
-    seos: 2500,
-    price: '$79.99',
-    annual: '$55.99',
-    yearlyCredits: 124200,
-  },
-]
+const CREATOR = {
+  tier: 'creator',
+  name: 'Creator',
+  monthly: '$39.99',
+  annual: '$27.99',
+  monthlyCredits: 3000,
+  annualCredits: 41400,
+  thumbsMonthly: 150,
+  thumbsAnnual: 1800,
+  tagline: 'For active creators shipping weekly.',
+}
 
-function formatCredits(n) {
+const ULTIMATE = {
+  tier: 'ultimate',
+  name: 'Ultimate',
+  monthly: '$79.99',
+  annual: '$55.99',
+  monthlyCredits: 9000,
+  annualCredits: 124200,
+  thumbsMonthly: 450,
+  thumbsAnnual: 5400,
+  tagline: 'For studios and high-volume creators.',
+}
+
+const PLANS = [STARTER, CREATOR, ULTIMATE]
+
+function fmtCredits(n) {
   if (n >= 1000) return (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + 'K'
   return String(n)
 }
-function formatNumber(n) {
+
+function fmtNum(n) {
   return Number(n || 0).toLocaleString('en-US')
 }
 
-const STARTER_CREDITS = 1000
-const STARTER_YEARLY_CREDITS = 13800
-const STARTER_THUMBS = 50
-const STARTER_SEOS = 375
+/* Feature catalog — every plan card renders all of these rows. The
+ * `tiers` array marks which plans unlock each feature; rows for tiers
+ * a plan doesn't have render with a cross instead of a check. Keeping
+ * one shared list (rather than per-tier arrays) means the visual order
+ * matches across cards, so users can scan top-to-bottom to compare. */
+const FEATURE_CATALOG = [
+  { text: 'Prompt-to-Thumbnail', tiers: ['starter', 'creator', 'ultimate'] },
+  { text: 'Recreate', tiers: ['starter', 'creator', 'ultimate'] },
+  { text: 'Edit', tiers: ['starter', 'creator', 'ultimate'] },
+  { text: 'Titles', tiers: ['starter', 'creator', 'ultimate'] },
+  { text: 'Clixa Score™', tiers: ['starter', 'creator', 'ultimate'] },
+  { text: 'One-Click Fix™', tiers: ['starter', 'creator', 'ultimate'] },
+  { text: 'Works in Any Language', tiers: ['starter', 'creator', 'ultimate'] },
+  { text: 'All Generations Remain Private', tiers: ['starter', 'creator', 'ultimate'] },
+  { text: 'Personas', tiers: ['starter', 'creator', 'ultimate'] },
+  { text: 'Styles', tiers: ['starter', 'creator', 'ultimate'] },
+  { text: 'Priority Support', tiers: ['creator', 'ultimate'], strong: true },
+  { text: 'Early Access to New Features', tiers: ['ultimate'], strong: true },
+]
 
-const PLAN_SPECS = {
-  starter: {
-    channels: 2,
-    priority: false,
-  },
-  creator: {
-    channels: 4,
-    priority: false,
-  },
-  ultimate: {
-    channels: 10,
-    priority: true,
-  },
-}
-
-const FEATURE_INFO = {
-  credits: 'Monthly credit allowance you spend on thumbnails, SEO, ideas and every AI feature.',
-  channels: 'Connect multiple YouTube channels and switch between them inside one account.',
-  models:
-    'Pick Pro (gpt-image-1 medium, 20 credits) or Max (gpt-image-1 high, 45 credits) for every thumbnail. Every paid plan unlocks both.',
-  thumb: 'Generate on-brand YouTube thumbnails from a short prompt or a reference image.',
-  edit: 'Edit any generated thumbnail — paint a mask, describe the change, and regenerate.',
-  seo: 'Improve titles, descriptions and tags to rank higher in YouTube search.',
-  titleScore: 'Score existing titles and brainstorm new high-click ideas in seconds.',
-  thumbAnalyze: 'Score existing thumbnails for clarity, emotion and click-through potential.',
-  dashboard: 'Channel health snapshot with growth, best posting times and performance insights.',
-  priority: 'Jump the support queue with faster responses from our team.',
-}
-
-function buildFeatures({ tier, credits, yearlyCredits, annual }) {
-  const spec = PLAN_SPECS[tier]
-  const creditText = annual
-    ? `${formatCredits(yearlyCredits)} credits per year (~15% bonus)`
-    : `${formatCredits(credits)} credits per month`
-  // Ordering rule: always-on features first, tier-exclusive ones last, so X
-  // rows naturally cluster at the bottom AND the order stays identical across
-  // all plans.
+function buildFeatures(plan, annual) {
+  const credits = annual
+    ? `${fmtCredits(plan.annualCredits)} credits per year`
+    : `${fmtCredits(plan.monthlyCredits)} credits per month`
   return [
-    { key: 'credits', on: true, text: creditText, info: FEATURE_INFO.credits },
-    {
-      key: 'channels',
-      on: true,
-      text: `${spec.channels} YouTube channels`,
-      info: FEATURE_INFO.channels,
-    },
-    {
-      key: 'models',
-      on: true,
-      text: 'Access to both AI models (Pro & Max)',
-      info: FEATURE_INFO.models,
-    },
-    { key: 'thumb', on: true, text: 'AI Thumbnail Generator', info: FEATURE_INFO.thumb },
-    { key: 'edit', on: true, text: 'Thumbnail Edit & Inpaint', info: FEATURE_INFO.edit },
-    { key: 'seo', on: true, text: 'Video SEO Optimizer', info: FEATURE_INFO.seo },
-    { key: 'titleScore', on: true, text: 'Title Scoring & Ideas', info: FEATURE_INFO.titleScore },
-    { key: 'thumbAnalyze', on: true, text: 'Thumbnail Analyzer', info: FEATURE_INFO.thumbAnalyze },
-    { key: 'dashboard', on: true, text: 'Dashboard Analytics', info: FEATURE_INFO.dashboard },
-    { key: 'priority', on: spec.priority, text: 'Priority Support', info: FEATURE_INFO.priority },
+    { text: credits, strong: true, included: true },
+    { text: 'Both AI models — Pro & Max', included: true },
+    ...FEATURE_CATALOG.map((f) => ({
+      text: f.text,
+      strong: f.strong,
+      included: f.tiers.includes(plan.tier),
+    })),
   ]
 }
 
-function InfoIcon() {
+/* ── Icons ────────────────────────────────────────────────────────── */
+function CheckIcon() {
   return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="16" x2="12" y2="12" />
-      <line x1="12" y1="8" x2="12.01" y2="8" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
     </svg>
   )
 }
 
-function FeatureRow({ feat, openInfoId, setOpenInfoId, rowId }) {
-  const open = openInfoId === rowId
+function CrossIcon() {
   return (
-    <li className={`pri-feat ${feat.on ? 'on' : 'off'}`}>
-      <span className={feat.on ? 'chk' : 'crs'} />
-      <span className="pri-feat-text">{feat.text}</span>
-      <button
-        type="button"
-        className="pri-feat-info"
-        aria-label={`About ${feat.text}`}
-        aria-expanded={open}
-        onClick={(e) => {
-          e.stopPropagation()
-          setOpenInfoId(open ? null : rowId)
-        }}
-      >
-        <InfoIcon />
-      </button>
-      {open ? (
-        <div className="pri-feat-tip" role="tooltip">
-          {feat.info}
-        </div>
-      ) : null}
-    </li>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
   )
 }
+
+function ShieldIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l8 4v6c0 4.5-3.5 7.5-8 8-4.5-.5-8-3.5-8-8V7l8-4z" />
+    </svg>
+  )
+}
+
+function BoltIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13 3L4 14h7l-1 7 9-11h-7l1-7z" />
+    </svg>
+  )
+}
+
+function CycleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12a9 9 0 0115-6.7L21 8M21 12a9 9 0 01-15 6.7L3 16" />
+      <path d="M21 3v5h-5M3 21v-5h5" />
+    </svg>
+  )
+}
+
+function GiftIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="8" width="18" height="13" rx="2" />
+      <path d="M3 12h18M12 8v13M8 8a2.5 2.5 0 010-5c2 0 4 5 4 5M16 8a2.5 2.5 0 000-5c-2 0-4 5-4 5" />
+    </svg>
+  )
+}
+
+const PERKS = [
+  {
+    icon: <CycleIcon />,
+    title: 'Cancel anytime',
+    text: 'No contracts, no lock-ins. Switch plans or cancel from settings in one click.',
+  },
+  {
+    icon: <BoltIcon />,
+    title: 'Pro + Max models',
+    text: 'Every paid plan unlocks both AI models — pick speed or maximum quality per render.',
+  },
+  {
+    icon: <ShieldIcon />,
+    title: 'Secure billing',
+    text: 'All payments processed by Paddle, an EU-licensed merchant of record. PCI-compliant.',
+  },
+  {
+    icon: <GiftIcon />,
+    title: '15% bonus yearly',
+    text: 'Pay annually and get 15% extra credits on top — same price-per-month, more renders.',
+  },
+]
 
 export function ProPricingContent({ onStartTrial }) {
   const [annual, setAnnual] = useState(false)
   const [plans, setPlans] = useState(null)
-  const [checkoutLoading, setCheckoutLoading] = useState(null) // slug or null
+  const [checkoutLoading, setCheckoutLoading] = useState(null)
   const [checkoutError, setCheckoutError] = useState(null)
-
   const queryClient = useQueryClient()
   const { user, getValidAccessToken } = useAuthStore()
   const { data: subscription } = useSubscriptionQuery()
@@ -178,77 +189,33 @@ export function ProPricingContent({ onStartTrial }) {
       .catch(() => {
         if (alive) setPlans(null)
       })
+    // Warm Paddle.js while the user is reading the pricing page so the
+    // checkout iframe paints almost instantly when they click a plan.
+    preloadPaddle()
     return () => {
       alive = false
     }
   }, [])
 
-  // Post-Paddle-checkout return → trigger celebration once, then clean URL.
+  // Post-Paddle-checkout return → kick the activation watcher and clean
+  // the URL. The actual "You're Pro!" celebration fires from
+  // `<ActivationListener>` once the subscription truly flips to active —
+  // that way the celebration is honest (it lands when Pro actually unlocks,
+  // not before the webhook has even reached the backend).
   useEffect(() => {
     if (typeof window === 'undefined') return
     const hash = window.location.hash || ''
     if (!hash.includes('checkout=success')) return
-    // Refresh sub + credits and celebrate.
-    queryClient.invalidateQueries({ queryKey: queryKeys.billing.subscription })
-    invalidateCredits(queryClient)
-    celebrate({
-      emoji: '🎉',
-      title: 'Thanks — you’re in!',
-      subtitle: 'Your subscription is active. Credits are landing in your account right now.',
-      variant: 'thanks',
-    })
-    // Strip the ?checkout=success query from the hash so it doesn't re-fire on reload.
+    refreshBillingState(queryClient)
+    // Cover the deep-link case where the user lands on this URL without
+    // going through CheckoutScreen (e.g. clicked a Paddle email link).
+    window.dispatchEvent(new CustomEvent('app:checkout-completed'))
     const cleanHash = hash.replace(/[?&]checkout=success/g, '')
     const newHash = cleanHash.endsWith('?') ? cleanHash.slice(0, -1) : cleanHash
     if (newHash !== hash) {
       window.history.replaceState(null, '', newHash || '#pro')
     }
   }, [queryClient])
-
-  const creator = CREATOR_TIERS[0]
-  const ultimate = ULTIMATE_TIERS[0]
-
-  // Only one info popover open at a time across all plan cards.
-  const [openInfoId, setOpenInfoId] = useState(null)
-  useEffect(() => {
-    if (!openInfoId) return
-    const onDown = (e) => {
-      if (e.target.closest('.pri-feat')) return
-      setOpenInfoId(null)
-    }
-    const onKey = (e) => {
-      if (e.key === 'Escape') setOpenInfoId(null)
-    }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [openInfoId])
-
-  const starterPrice = annual ? '$13.99' : '$19.99'
-  const creatorPrice = annual ? creator.annual : creator.price
-  const ultimatePrice = annual ? ultimate.annual : ultimate.price
-
-  const PLAN_NAMES = { starter: 'Starter', creator: 'Creator', ultimate: 'Ultimate' }
-
-  const ctaLabelFor = (tier) => {
-    if (checkoutLoading === tier) return 'Opening checkout…'
-    const isCurrent =
-      activeTier === tier && ((annual && isAnnualActive) || (!annual && !isAnnualActive))
-    if (isCurrent) return 'Current plan'
-    if (activeTier === tier) return annual ? 'Switch to yearly' : 'Switch to monthly'
-    if (activeTier) {
-      const rank = { starter: 0, creator: 1, ultimate: 2 }
-      const dir = (rank[tier] ?? 0) > (rank[activeTier] ?? 0) ? 'Upgrade to' : 'Switch to'
-      return `${dir} ${PLAN_NAMES[tier]}`
-    }
-    return 'Start free trial'
-  }
-
-  const isCurrentTier = (tier) =>
-    activeTier === tier && ((annual && isAnnualActive) || (!annual && !isAnnualActive))
 
   const findPriceId = (slug) => {
     if (!plans?.plans) return null
@@ -259,317 +226,270 @@ export function ProPricingContent({ onStartTrial }) {
   const hasActiveSub =
     !!subscription && ['active', 'trialing', 'past_due'].includes(subscription.status)
 
-  const handleCta = async (tier, { skipTrial = false } = {}) => {
+  const isCurrentTier = (tier) =>
+    activeTier === tier && ((annual && isAnnualActive) || (!annual && !isAnnualActive))
+
+  const ctaLabelFor = (plan) => {
+    if (checkoutLoading === plan.tier) return 'Loading…'
+    if (isCurrentTier(plan.tier)) return 'Current plan'
+    if (!user) return 'Start free trial'
+    if (hasActiveSub) {
+      const rank = { starter: 0, creator: 1, ultimate: 2 }
+      const isUpgrade = (rank[plan.tier] ?? 0) > (rank[activeTier] ?? 0)
+      return isUpgrade ? `Upgrade to ${plan.name}` : `Switch to ${plan.name}`
+    }
+    return `Choose ${plan.name}`
+  }
+
+  const handleCta = async (plan) => {
     setCheckoutError(null)
-    // Unauthenticated users → existing trial / register flow
     if (!user) {
       onStartTrial?.()
       return
     }
-    // Map tier + billing cycle → plan slug from the backend catalog
-    const slug = (() => {
-      if (tier === 'starter') return annual ? 'starter_annual' : 'starter_monthly'
-      if (tier === 'creator') return annual ? 'creator_annual' : 'creator_monthly'
-      if (tier === 'ultimate') return annual ? 'ultimate_annual' : 'ultimate_monthly'
-      return null
-    })()
-    if (!slug) return
+    if (isCurrentTier(plan.tier)) return
+
+    const slug = `${plan.tier}_${annual ? 'annual' : 'monthly'}`
     const priceId = findPriceId(slug)
     if (!priceId || priceId.startsWith('pri_placeholder_')) {
       setCheckoutError('Billing is not yet enabled. Please contact support.')
       return
     }
-    setCheckoutLoading(tier)
+
+    setCheckoutLoading(plan.tier)
     try {
       const token = await getValidAccessToken()
-
       if (hasActiveSub) {
-        // ── User already subscribed → upgrade/downgrade via /change-plan
-        // Decide timing: upgrades apply immediately, downgrades wait until
-        // next period so we don't refund active credits.
         const rank = { starter: 0, creator: 1, ultimate: 2 }
-        const isUpgrade = (rank[tier] ?? 0) > (rank[activeTier] ?? 0)
+        const isUpgrade = (rank[plan.tier] ?? 0) > (rank[activeTier] ?? 0)
         const timing = isUpgrade ? 'immediate' : 'next_period'
         await changePlan(token, { planSlug: slug, timing })
-        queryClient.invalidateQueries({ queryKey: queryKeys.billing.subscription })
-        invalidateCredits(queryClient)
-        setCheckoutError(null)
-        // 🎉 celebrate the transition
-        const planDisplay =
-          { starter: 'Starter', creator: 'Creator', ultimate: 'Ultimate' }[tier] || tier
+        refreshBillingState(queryClient)
         celebrate(
           isUpgrade
             ? {
-                emoji: tier === 'ultimate' ? '👑' : '🚀',
-                title: `Welcome to ${planDisplay}!`,
+                emoji: plan.tier === 'ultimate' ? '👑' : '🚀',
+                title: `Welcome to ${plan.name}!`,
                 subtitle: 'Your new plan is active and credits have been refreshed.',
                 variant: 'celebrate',
               }
             : {
                 emoji: '✅',
-                title: `Scheduled: ${planDisplay}`,
-                subtitle: 'Your plan will switch at the end of the current billing period.',
+                title: `Scheduled: ${plan.name}`,
+                subtitle:
+                  'Your plan will switch at the end of the current billing period.',
                 variant: 'success',
                 confetti: false,
               }
         )
         return
       }
-
-      // No active sub → classic first-time checkout through Paddle.js.
-      // `skipTrial: true` tells the backend to zero out the trial period so
-      // the user is charged immediately.
       const resp = await startCheckout(token, {
         priceId,
-        skipTrial,
+        skipTrial: false,
         successUrl: window.location.origin + '/#pro?checkout=success',
         cancelUrl: window.location.origin + '/#pro?checkout=canceled',
       })
-      await openPaddleCheckout({
-        transactionId: resp?.transaction_id,
-        checkoutUrl: resp?.checkout_url,
-        clientToken: resp?.client_token,
-      })
+      // Hand the transaction off to the Stripe-style checkout page. The
+      // price shown on the pricing card is per-month even for annual
+      // plans, so multiply by 12 to get the actual amount Paddle will
+      // charge today — that's what we surface in the order summary.
+      const priceDisplay = annual ? plan.annual : plan.monthly
+      const perMonthAmount = parseFloat(String(priceDisplay).replace(/[^0-9.]/g, ''))
+      const totalDueAmount = annual && Number.isFinite(perMonthAmount)
+        ? perMonthAmount * 12
+        : perMonthAmount
+      const totalDueDisplay = Number.isFinite(totalDueAmount)
+        ? `$${totalDueAmount.toFixed(2)}`
+        : priceDisplay
+      // Record everything the post-payment optimistic update needs so
+      // the sidebar tier + credit balance flip the instant Paddle says
+      // "paid", instead of waiting for the webhook → 2 s polling cycle.
+      // CheckoutScreen reads this on `checkout.completed`.
+      const expectedCredits = annual
+        ? Number(plan.annualCredits || 0)
+        : Number(plan.monthlyCredits || 0)
+      sessionStorage.setItem(
+        'clixa_checkout_session',
+        JSON.stringify({
+          type: 'subscription',
+          transactionId: resp?.transaction_id,
+          clientToken: resp?.client_token,
+          checkoutUrl: resp?.checkout_url,
+          planName: plan.name,
+          planSlug: slug,
+          tier: plan.tier,
+          expectedCredits,
+          priceDisplay,
+          totalDueDisplay,
+          cycle: annual ? 'annual' : 'monthly',
+          cycleLabel: annual ? 'per month, billed annually' : 'per month',
+        })
+      )
+      window.location.hash = 'checkout'
     } catch (e) {
-      // Shared mapper handles every backend error envelope shape and
-      // produces a user-facing message with retry hints when the
-      // upstream is rate-limited / unavailable.
-      setCheckoutError(friendlyMessage(e) || 'Could not complete the request. Please try again.')
+      setCheckoutError(
+        friendlyMessage(e) || 'Could not complete the request. Please try again.'
+      )
     } finally {
       setCheckoutLoading(null)
     }
   }
 
   return (
-    <section className="pri-section pro-plan-section" id="pricing" aria-labelledby="pri-heading">
-      <div className="pri-inner">
-        <div className="pri-header pri-reveal pri-visible">
-          <h2 className="pri-h2" id="pri-heading">
-            Choose your
-            <br />
-            <span className="pri-h2-accent">plan</span>
-          </h2>
-          <p className="pri-lead">
-            Credit-based pricing — use credits for any feature. Cancel anytime.
+    <>
+      {/* Hero */}
+      <section className="pro-hero">
+        <span className="pro-eyebrow">Pricing</span>
+        <h1 className="pro-hero-title">Choose your perfect plan</h1>
+        <p className="pro-hero-sub">
+          Credit-based pricing for every AI feature. Upgrade, downgrade, or cancel
+          whenever — it's that simple.
+        </p>
+
+        <ActivatingProStrip hasActiveSub={hasActiveSub} />
+
+        {checkoutError ? (
+          <p role="alert" className="pro-checkout-error">
+            {checkoutError}
           </p>
+        ) : null}
 
-          {checkoutError ? (
-            <p role="alert" className="pro-checkout-error">
-              {checkoutError}
-            </p>
-          ) : null}
-
-          <div className="pro-billing-toggle">
-            <button
-              type="button"
-              className={`pro-billing-btn ${!annual ? 'pro-billing-btn--active' : ''}`}
-              onClick={() => setAnnual(false)}
-            >
-              Monthly
-            </button>
-            <button
-              type="button"
-              className={`pro-billing-btn ${annual ? 'pro-billing-btn--active' : ''}`}
-              onClick={() => setAnnual(true)}
-            >
-              Annually
-              <span className="pro-billing-save">Save 30%</span>
-            </button>
-          </div>
+        <div className="pro-billing">
+          <ThumbPillTabs
+            ariaLabel="Billing cycle"
+            value={annual ? 'annual' : 'monthly'}
+            onChange={(v) => setAnnual(v === 'annual')}
+            options={[
+              { value: 'monthly', label: 'Monthly' },
+              { value: 'annual', label: 'Annually' },
+            ]}
+          />
         </div>
+        <p className="pro-billing-save" aria-hidden="true">
+          <span className="pro-billing-save-pct">Save 30%</span>
+          <span>when billed annually</span>
+        </p>
+      </section>
 
-        <div className="pri-cards">
-          {/* ── STARTER ── */}
-          <div className="pri-card pri-card--starter pri-reveal pri-visible">
-            <div className="pri-top">
-              <div className="pri-name-row">
-                <span className="pri-plan-name">Starter</span>
+      {/* Cards */}
+      <section className="pro-cards" aria-label="Pricing plans">
+        {PLANS.map((plan) => {
+          const featured = plan.tier === 'creator'
+          const price = annual ? plan.annual : plan.monthly
+          const thumbs = annual ? plan.thumbsAnnual : plan.thumbsMonthly
+          const current = isCurrentTier(plan.tier)
+          const loading = checkoutLoading === plan.tier
+          const feats = buildFeatures(plan, annual)
+
+          return (
+            <div
+              key={plan.tier}
+              className={`pro-card${featured ? ' pro-card--featured' : ''}`}
+            >
+              {featured ? (
+                <span className="pro-card-badge">Most popular</span>
+              ) : null}
+
+              <p className="pro-card-name">{plan.name}</p>
+
+              <div className="pro-card-price">
+                <span className="pro-card-amount">{price}</span>
+                <span className="pro-card-period">/mo</span>
               </div>
-              <div className="pri-price">
-                <div className="pri-price-nums">
-                  <span className="pri-cur">{starterPrice}</span>
-                  <span className="pri-mo">/mo</span>
-                </div>
-                <p className="pri-billed-mo">{annual ? 'Billed annually' : 'Billed monthly'}</p>
-              </div>
-              <p className="pri-desc">
-                Up to{' '}
-                <strong>
-                  {formatNumber(annual ? STARTER_THUMBS * 12 : STARTER_THUMBS)} thumbnails
-                </strong>{' '}
+              <p className="pro-card-billed">
+                {annual ? 'Billed annually' : 'Billed monthly'}
+              </p>
+
+              <p className="pro-card-tagline">
+                {plan.tagline} Up to <strong>{fmtNum(thumbs)} thumbnails</strong>{' '}
                 {annual ? 'per year' : 'per month'}.
               </p>
-            </div>
 
-            <div className="pri-btn-wrap">
               <button
                 type="button"
-                className={`pro-cta ${isCurrentTier('starter') ? 'pro-cta--current' : ''}`}
-                onClick={() => handleCta('starter')}
-                disabled={checkoutLoading === 'starter' || isCurrentTier('starter')}
+                className={`pro-card-cta${current ? ' pro-card-cta--current' : ''}`}
+                onClick={() => handleCta(plan)}
+                /* Disable EVERY plan CTA while ANY checkout is in flight.
+                 * Previously only the current-tier button was disabled, so
+                 * a rapid double-click on different tiers (or the same one
+                 * within ~100 ms) could fire two transactions before
+                 * setCheckoutLoading rebroadcast — leading to two pending
+                 * Paddle transactions on the user's account. */
+                disabled={current || loading || checkoutLoading !== null}
+                aria-disabled={current || loading || checkoutLoading !== null}
               >
-                {ctaLabelFor('starter')}
+                {loading ? <span className="pro-card-cta-spinner" /> : null}
+                {ctaLabelFor(plan)}
               </button>
-              {!hasActiveSub && (
-                <button
-                  type="button"
-                  className="pro-cta-skip"
-                  onClick={() => handleCta('starter', { skipTrial: true })}
-                  disabled={checkoutLoading === 'starter'}
-                >
-                  Skip trial & pay now
-                </button>
-              )}
-            </div>
 
-            <div className="pro-feats-card">
-              <ul className="pri-feats pro-feats">
-                {buildFeatures({
-                  tier: 'starter',
-                  credits: STARTER_CREDITS,
-                  yearlyCredits: STARTER_YEARLY_CREDITS,
-                  annual,
-                }).map((f) => (
-                  <FeatureRow
-                    key={f.key}
-                    feat={f}
-                    rowId={`starter:${f.key}`}
-                    openInfoId={openInfoId}
-                    setOpenInfoId={setOpenInfoId}
-                  />
-                ))}
+              <ul className="pro-card-feats">
+                {feats.map((f, i) => {
+                  const isOff = f.included === false
+                  return (
+                    <li
+                      key={i}
+                      className={`pro-card-feat${isOff ? ' pro-card-feat--off' : ''}`}
+                    >
+                      <span className="pro-card-feat-check" aria-hidden="true">
+                        {isOff ? <CrossIcon /> : <CheckIcon />}
+                      </span>
+                      <span className="pro-card-feat-text">
+                        {f.strong ? <strong>{f.text}</strong> : f.text}
+                      </span>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
-          </div>
+          )
+        })}
+      </section>
 
-          {/* ── CREATOR ── */}
-          <div className="pri-card pri-card--pop pri-card--creator pri-reveal pri-visible">
-            <div className="pri-top">
-              <div className="pri-name-row">
-                <span className="pri-plan-name">Creator</span>
-                <span className="pri-pop-badge">Most Popular</span>
-              </div>
-              <div className="pri-price">
-                <div className="pri-price-nums">
-                  <span className="pri-cur">{creatorPrice}</span>
-                  <span className="pri-mo">/mo</span>
-                </div>
-                <p className="pri-billed-mo">{annual ? 'Billed annually' : 'Billed monthly'}</p>
-              </div>
-              <p className="pri-desc">
-                Up to{' '}
-                <strong>
-                  {formatNumber(annual ? creator.thumbs * 12 : creator.thumbs)} thumbnails
-                </strong>{' '}
-                {annual ? 'per year' : 'per month'}.
-              </p>
-            </div>
-
-            <div className="pri-btn-wrap">
-              <button
-                type="button"
-                className={`pro-cta pro-cta--primary ${isCurrentTier('creator') ? 'pro-cta--current' : ''}`}
-                onClick={() => handleCta('creator')}
-                disabled={checkoutLoading === 'creator' || isCurrentTier('creator')}
-              >
-                {ctaLabelFor('creator')}
-              </button>
-              {!hasActiveSub && (
-                <button
-                  type="button"
-                  className="pro-cta-skip"
-                  onClick={() => handleCta('creator', { skipTrial: true })}
-                  disabled={checkoutLoading === 'creator'}
-                >
-                  Skip trial & pay now
-                </button>
-              )}
-            </div>
-
-            <div className="pro-feats-card">
-              <ul className="pri-feats pro-feats">
-                {buildFeatures({
-                  tier: 'creator',
-                  credits: creator.credits,
-                  yearlyCredits: creator.yearlyCredits,
-                  annual,
-                }).map((f) => (
-                  <FeatureRow
-                    key={f.key}
-                    feat={f}
-                    rowId={`creator:${f.key}`}
-                    openInfoId={openInfoId}
-                    setOpenInfoId={setOpenInfoId}
-                  />
-                ))}
-              </ul>
+      {/* Perks row */}
+      <section className="pro-perks" aria-label="Plan benefits">
+        {PERKS.map((p, i) => (
+          <div key={i} className="pro-perk">
+            <span className="pro-perk-icon" aria-hidden="true">
+              {p.icon}
+            </span>
+            <div className="pro-perk-body">
+              <span className="pro-perk-title">{p.title}</span>
+              <span className="pro-perk-text">{p.text}</span>
             </div>
           </div>
+        ))}
+      </section>
 
-          {/* ── ULTIMATE ── */}
-          <div className="pri-card pri-card--ultimate pri-reveal pri-visible">
-            <div className="pri-top">
-              <div className="pri-name-row">
-                <span className="pri-plan-name">Ultimate</span>
-              </div>
-              <div className="pri-price">
-                <div className="pri-price-nums">
-                  <span className="pri-cur">{ultimatePrice}</span>
-                  <span className="pri-mo">/mo</span>
-                </div>
-                <p className="pri-billed-mo">{annual ? 'Billed annually' : 'Billed monthly'}</p>
-              </div>
-              <p className="pri-desc">
-                Up to{' '}
-                <strong>
-                  {formatNumber(annual ? ultimate.thumbs * 12 : ultimate.thumbs)} thumbnails
-                </strong>{' '}
-                {annual ? 'per year' : 'per month'}.
-              </p>
-            </div>
+      {/* FAQ moved to the canonical landing FAQ at /#faq — keeping a single
+          source of truth so credit/refund/trial copy never goes out of sync
+          with the legal pages. */}
 
-            <div className="pri-btn-wrap">
-              <button
-                type="button"
-                className={`pro-cta ${isCurrentTier('ultimate') ? 'pro-cta--current' : ''}`}
-                onClick={() => handleCta('ultimate')}
-                disabled={checkoutLoading === 'ultimate' || isCurrentTier('ultimate')}
-              >
-                {ctaLabelFor('ultimate')}
-              </button>
-              {!hasActiveSub && (
-                <button
-                  type="button"
-                  className="pro-cta-skip"
-                  onClick={() => handleCta('ultimate', { skipTrial: true })}
-                  disabled={checkoutLoading === 'ultimate'}
-                >
-                  Skip trial & pay now
-                </button>
-              )}
-            </div>
+      {/* Footer hint */}
+      <p className="pro-footer">
+        Have a question we didn't cover?{' '}
+        <a href="mailto:support@clixa.app">support@clixa.app</a>
+      </p>
+    </>
+  )
+}
 
-            <div className="pro-feats-card">
-              <ul className="pri-feats pro-feats">
-                {buildFeatures({
-                  tier: 'ultimate',
-                  credits: ultimate.credits,
-                  yearlyCredits: ultimate.yearlyCredits,
-                  annual,
-                }).map((f) => (
-                  <FeatureRow
-                    key={f.key}
-                    feat={f}
-                    rowId={`ultimate:${f.key}`}
-                    openInfoId={openInfoId}
-                    setOpenInfoId={setOpenInfoId}
-                  />
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+/**
+ * Inline strip shown only while we're waiting for Paddle's webhook to land
+ * after a successful checkout. Hides itself the moment the subscription
+ * actually goes active (driven by `<ActivationListener>` flipping the
+ * activation store off, plus the live subscription query). Sets honest
+ * expectations during the seconds-long gap between Paddle confirm and the
+ * backend grant — instead of showing an "everything's done!" toast next
+ * to a UI that still says Free.
+ */
+function ActivatingProStrip({ hasActiveSub }) {
+  const isActivating = useSubscriptionActivationStore((s) => s.isPending)
+  if (!isActivating || hasActiveSub) return null
+  return (
+    <div className="pro-activating" role="status" aria-live="polite">
+      <span className="pro-activating-spinner" aria-hidden="true" />
+      <span>Finalizing your payment — Pro will unlock in a few seconds…</span>
+    </div>
   )
 }

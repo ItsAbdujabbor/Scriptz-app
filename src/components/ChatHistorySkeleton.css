@@ -1,67 +1,43 @@
-/* Chat history skeleton — message-bubble shapes that line up with the
- * real .coach-message layout so the swap to real content lands in
- * place rather than reflowing. Uses the shared `.sk-shim` keyframe. */
+/* Chat-thread loading state.
+ *
+ * Replaces the old bubble-shimmer skeleton with a single soft ring
+ * centered in the thread area. Goal: feel like the page is "settling
+ * in" for half a second rather than "here are fake messages, please
+ * stand by".
+ *
+ * The container fills the chat thread height so the loader sits where
+ * the first message would appear. A short fade-in keeps the entrance
+ * gentle; `--leaving` opacity-fades on the way out.
+ */
 
-.chat-skel {
+.chat-loader {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 8px 0 24px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  /* Match the chat thread max-width so we sit centered above the composer. */
   width: 100%;
   max-width: 760px;
   margin: 0 auto;
-  transition: opacity 120ms ease-out;
+  /* Fill most of the visible thread space so the spinner reads as
+   * intentional, not floating in the corner. */
+  min-height: 280px;
+  padding: 32px 0;
+  opacity: 0;
+  animation: chat-loader-fade-in 240ms ease-out 80ms forwards;
+  transition: opacity 180ms ease-out;
 }
 
-.chat-skel--leaving {
+.chat-loader--leaving {
   opacity: 0;
   pointer-events: none;
 }
 
-.chat-skel__row {
-  display: flex;
-  width: 100%;
-  opacity: 0;
-  animation: chat-skel-row-in 320ms cubic-bezier(0.25, 1, 0.5, 1) forwards;
-}
-
-.chat-skel__row--user {
-  justify-content: flex-end;
-}
-
-.chat-skel__row--assistant {
-  justify-content: flex-start;
-}
-
-.chat-skel__bubble {
-  /* Match coach-message-bubble corner radius family — soft pill. */
-  border-radius: 18px;
-  min-height: 22px;
-}
-
-.chat-skel__assistant-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: min(560px, 80%);
-}
-
-.chat-skel__thumb-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
-
-.chat-skel__thumb {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border-radius: 12px;
-}
-
-@keyframes chat-skel-row-in {
+@keyframes chat-loader-fade-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(2px);
   }
   to {
     opacity: 1;
@@ -69,12 +45,40 @@
   }
 }
 
+/* Soft ring spinner. 28px feels right at the center of the thread —
+ * big enough to read as "loading", small enough to not dominate. The
+ * track is barely visible; the violet arc is the only motion. */
+.chat-loader__ring {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.08);
+  border-top-color: #a78bfa;
+  animation: chat-loader-spin 0.85s linear infinite;
+  /* Subtle glow pairs with the rest of the violet brand chrome. */
+  box-shadow: 0 0 18px rgba(167, 139, 250, 0.18);
+}
+
+@keyframes chat-loader-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.chat-loader__label {
+  margin: 0;
+  color: rgba(229, 231, 235, 0.62);
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .chat-skel__row {
+  .chat-loader {
     animation: none;
     opacity: 1;
   }
-  .chat-skel {
-    transition: none;
+  .chat-loader__ring {
+    animation-duration: 1.8s;
   }
 }

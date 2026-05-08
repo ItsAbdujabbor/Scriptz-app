@@ -65,7 +65,7 @@ export const authApi = {
       accessToken
     )
   },
-  /** Permanently delete account. Password optional for Supabase-linked accounts (session proves identity). */
+  /** Permanently delete account. Password optional for Cognito-linked accounts (session proves identity). */
   deleteAccount(password, accessToken) {
     const body = {}
     if (password != null && String(password).trim() !== '') {

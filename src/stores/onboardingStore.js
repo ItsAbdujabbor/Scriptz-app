@@ -3,11 +3,22 @@ import { userApi } from '../api/user'
 import { profileApi } from '../api/profile'
 import { youtubeApi } from '../api/youtube'
 
-const STORAGE_KEY = 'scriptz_onboarding'
+const STORAGE_KEY = 'clixa_onboarding'
+const LEGACY_STORAGE_KEY = 'scriptz_onboarding'
 
 function loadStored() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    // One-shot migration from the legacy "scriptz_*" brand key so existing
+    // users keep their onboarding profile after the rebrand.
+    let raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) {
+      const legacy = localStorage.getItem(LEGACY_STORAGE_KEY)
+      if (legacy) {
+        localStorage.setItem(STORAGE_KEY, legacy)
+        raw = legacy
+      }
+      localStorage.removeItem(LEGACY_STORAGE_KEY)
+    }
     return raw ? JSON.parse(raw) : null
   } catch {
     return null

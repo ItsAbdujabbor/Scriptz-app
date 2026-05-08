@@ -1,5 +1,5 @@
 /**
- * Scriptz AI — command center: scores and roadmap from real channel audit + ideas.
+ * Clixa AI — command center: scores and roadmap from real channel audit + ideas.
  * Estimates are channel-health proxies until a script/thumbnail payload is scored server-side.
  */
 

@@ -1,5 +1,5 @@
 /*
- * Scriptz AI — Sidebar
+ * Clixa AI — Sidebar
  * Clean, polished redesign: better spacing, direct active states,
  * smooth animations, refined history items, proper mobile behavior.
  */
@@ -687,7 +687,7 @@
 }
 
 .sidebar-nav--history::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
 }
 
 .sidebar-nav--history::-webkit-scrollbar-track {
@@ -695,8 +695,16 @@
 }
 
 .sidebar-nav--history::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.22);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 999px;
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.16s ease;
+}
+
+.sidebar-nav--history::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
+  background-clip: padding-box;
 }
 
 /* Section labels */
@@ -1462,13 +1470,19 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 0.25rem 0.3rem 0.8rem;
+  /* Right padding pushes the rows away from the scrollbar gutter so
+   * the menu button never hugs the scroll thumb. `scrollbar-gutter:
+   * stable` reserves the gutter even when there's nothing to scroll
+   * yet, so the row layout doesn't shift the moment the list grows
+   * past the viewport. */
+  padding: 0.25rem 0.55rem 0.8rem 0.3rem;
+  scrollbar-gutter: stable;
   flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
   overscroll-behavior: contain;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
@@ -1522,8 +1536,12 @@
   transform: scale(0.985);
 }
 
+/* Slim, near-transparent scrollbar that sits in the reserved gutter
+ * (see `scrollbar-gutter` above) so it never overlaps the row's menu
+ * button. Default state is barely visible; brightens on hover over
+ * the whole list and again when the cursor sits on the thumb itself. */
 .sidebar-history-list::-webkit-scrollbar {
-  width: 4px;
+  width: 8px;
 }
 
 .sidebar-history-list::-webkit-scrollbar-track {
@@ -1531,8 +1549,21 @@
 }
 
 .sidebar-history-list::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.2);
+  background: transparent;
   border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.18s ease;
+}
+
+.sidebar-history-list:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  background-clip: padding-box;
+}
+
+.sidebar-history-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
+  background-clip: padding-box;
 }
 
 /* Empty state */
@@ -1623,18 +1654,20 @@
   box-shadow: var(--accent-focus-ring);
 }
 
-/* ----- Selected: single purple wash across the whole pill ----- */
+/* ----- Selected: subtle dark-neutral wash, no colour. Reads as
+ *  "this row is the current one" through contrast (slightly darker
+ *  surface + brighter title) rather than a violet tint. Matches the
+ *  neutral selection style the rest of the app uses on list rows. */
 .sidebar-history-row.is-active {
-  background: linear-gradient(180deg, rgba(139, 92, 246, 0.32) 0%, rgba(124, 58, 237, 0.28) 100%);
+  background: rgba(255, 255, 255, 0.08);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.12),
-    inset 0 0 0 1px rgba(167, 139, 250, 0.28);
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
   color: #ffffff;
 }
 
 .sidebar-history-row.is-active:hover {
-  background: linear-gradient(180deg, rgba(139, 92, 246, 0.38) 0%, rgba(124, 58, 237, 0.34) 100%);
+  background: rgba(255, 255, 255, 0.11);
 }
 
 /* ----- Icon ----- */
@@ -1741,10 +1774,10 @@
 }
 
 /* ----- 3-dot menu inside the same pill -----
- * This is a <span role=button> not a <button>, so it doesn't
- * render its own background. It brightens its icon on hover and
- * shrinks slightly on press — that's the whole interaction. No
- * rectangle, no chip, no second surface. */
+ * Circular ghost button — invisible until the row is hovered or
+ * selected. Tints to a soft white-grey wash on its own hover so it
+ * reads as a real interactive target without painting a competing
+ * rectangle next to the row pill. */
 .sidebar-history-row__menu {
   flex-shrink: 0;
   width: 24px;
@@ -1752,7 +1785,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 7px;
+  border-radius: 50%;
   cursor: pointer;
   color: rgba(156, 163, 175, 0.75);
   opacity: 0;
@@ -1760,7 +1793,7 @@
     opacity 140ms ease,
     color 140ms ease,
     background 140ms ease,
-    transform 120ms ease;
+    transform 120ms cubic-bezier(0.33, 1, 0.68, 1);
 }
 .sidebar-history-row__menu svg {
   width: 13px;
@@ -1795,75 +1828,137 @@
   box-shadow: var(--accent-focus-ring);
 }
 
-/* ----- Editing variant: replaces title with an input + save/cancel. --- */
+/* ----- Editing variant: replaces title with a pill input + circular
+ *  save / cancel buttons. The row sheds its hover-tint while editing
+ *  so the input and buttons read as the only interactive elements. --- */
 .sidebar-history-row--editing {
   cursor: default;
   padding: 0 0.35rem;
 }
+.sidebar-history-row--editing,
 .sidebar-history-row--editing:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: transparent;
+  box-shadow: none;
 }
 .sidebar-history-row--editing:active {
   transform: none;
 }
 
-/* Rename form */
 .sidebar-history-edit-form {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.4rem;
   width: 100%;
-  padding: 0.2rem 0.35rem;
+  padding: 0;
 }
 
+/* Pill-shaped input — fully rounded, neutral white-grey hairline at
+ * rest, brand-violet rim on focus. Slightly tinted dark surface so it
+ * reads as a real interactive field on top of the sidebar. */
 .sidebar-history-title-input {
   flex: 1;
   min-width: 0;
-  height: 28px;
-  padding: 0 0.55rem;
-  font-size: 0.775rem;
+  height: 30px;
+  padding: 0 12px;
+  font-size: 0.78rem;
   font-family: inherit;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(139, 92, 246, 0.35);
-  border-radius: 6px;
+  font-weight: 500;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
   outline: none;
-  transition: border-color var(--sidebar-transition);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition:
+    background 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-history-title-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.sidebar-history-title-input:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .sidebar-history-title-input:focus {
-  border-color: rgba(139, 92, 246, 0.6);
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(167, 139, 250, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 3px rgba(124, 58, 237, 0.18);
 }
 
+/* Save / cancel — perfect circles. Save uses the accent gradient so
+ * it reads as the primary action; cancel is a neutral ghost circle. */
 .sidebar-history-edit-action {
   flex-shrink: 0;
-  width: 26px;
-  height: 26px;
-  display: flex;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--text-muted);
   padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(229, 231, 235, 0.75);
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transition:
-    background var(--sidebar-transition),
-    color var(--sidebar-transition),
-    border-color var(--sidebar-transition);
+    background 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.12s cubic-bezier(0.33, 1, 0.68, 1),
+    box-shadow 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sidebar-history-edit-action:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.1);
-  color: var(--text);
-  border-color: rgba(255, 255, 255, 0.13);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.sidebar-history-edit-action:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.sidebar-history-edit-action:focus-visible {
+  outline: none;
+  border-color: rgba(167, 139, 250, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 3px rgba(124, 58, 237, 0.2);
 }
 
 .sidebar-history-edit-action:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.sidebar-history-edit-action--save {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: var(
+    --accent-gradient,
+    linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)
+  );
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 4px 12px rgba(124, 58, 237, 0.32);
+}
+
+.sidebar-history-edit-action--save:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.55);
+  filter: brightness(1.08);
+  background: var(
+    --accent-gradient,
+    linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)
+  );
+  color: #ffffff;
 }
 
 .sidebar-history-edit-action svg {
@@ -1991,6 +2086,41 @@
   letter-spacing: -0.02em;
   color: #fafafa;
   line-height: 1;
+}
+
+/* Account avatar — accent-gradient circle with the user's first
+ * initial. Replaces the credit-progress orb that used to live here.
+ * 32 × 32 to match the orb's footprint so the row layout is
+ * unchanged when expanded. */
+.sidebar-account-avatar {
+  position: relative;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(
+    --accent-gradient,
+    linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)
+  );
+  color: #ffffff;
+}
+
+.sidebar-account-avatar-letter {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.sidebar-account-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .sidebar-account-info {

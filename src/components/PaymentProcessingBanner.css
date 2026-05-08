@@ -1,0 +1,89 @@
+/**
+ * PaymentProcessingBanner — only visible after a 60-s activation burst
+ * timeout. Slim amber bar pinned to the top of the app shell.
+ */
+
+.payment-processing-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.55rem 1rem;
+  background: linear-gradient(
+    180deg,
+    rgba(251, 191, 36, 0.18) 0%,
+    rgba(251, 191, 36, 0.08) 100%
+  );
+  border-bottom: 1px solid rgba(251, 191, 36, 0.32);
+  color: #fde68a;
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: -0.005em;
+  text-align: center;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  animation: paymentProcessingBannerIn 0.32s cubic-bezier(0.22, 1, 0.36, 1)
+    forwards;
+}
+
+.payment-processing-banner__dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #fbbf24;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.65);
+  animation: paymentProcessingBannerPulse 1.6s ease-in-out infinite;
+}
+
+.payment-processing-banner__text {
+  min-width: 0;
+}
+
+.payment-processing-banner__link {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 600;
+}
+.payment-processing-banner__link:hover {
+  color: #fef3c7;
+}
+
+@keyframes paymentProcessingBannerIn {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes paymentProcessingBannerPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.32);
+    opacity: 0.7;
+  }
+}
+
+@media (max-width: 640px) {
+  .payment-processing-banner {
+    font-size: 0.78rem;
+    padding: 0.5rem 0.85rem;
+    line-height: 1.3;
+  }
+}

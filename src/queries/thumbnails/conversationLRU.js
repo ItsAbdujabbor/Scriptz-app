@@ -22,7 +22,23 @@
 
 import { queryKeys } from '../../lib/query/queryKeys'
 
-const STORAGE_KEY = 'scriptz-thumb-conv-lru-v1'
+const STORAGE_KEY = 'clixa-thumb-conv-lru-v1'
+const LEGACY_STORAGE_KEY = 'scriptz-thumb-conv-lru-v1'
+
+// One-shot migration from the legacy "scriptz-*" key. Runs at module load
+// so the LRU's persisted ID list survives the rebrand and the user's
+// recent conversations stay in cache after first reload.
+try {
+  if (typeof localStorage !== 'undefined') {
+    if (!localStorage.getItem(STORAGE_KEY)) {
+      const legacy = localStorage.getItem(LEGACY_STORAGE_KEY)
+      if (legacy) localStorage.setItem(STORAGE_KEY, legacy)
+    }
+    localStorage.removeItem(LEGACY_STORAGE_KEY)
+  }
+} catch {
+  /* storage may be unavailable — silent fail */
+}
 const DEFAULT_CAP = 50
 
 let order = [] // Front = most recently used

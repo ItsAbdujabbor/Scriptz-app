@@ -1,7 +1,12 @@
-const STORAGE_KEY = 'scriptz-milestone-visit-v1'
+const STORAGE_KEY = 'clixa-milestone-visit-v1'
+const LEGACY_STORAGE_KEY = 'scriptz-milestone-visit-v1'
 
 function keyForChannel(channelId) {
   return `${STORAGE_KEY}:${channelId}`
+}
+
+function legacyKeyForChannel(channelId) {
+  return `${LEGACY_STORAGE_KEY}:${channelId}`
 }
 
 /**
@@ -10,7 +15,16 @@ function keyForChannel(channelId) {
 export function readMilestoneVisitSnapshot(channelId) {
   if (!channelId || typeof localStorage === 'undefined') return null
   try {
-    const raw = localStorage.getItem(keyForChannel(channelId))
+    // One-shot migration from the legacy "scriptz-*" key for this channel.
+    let raw = localStorage.getItem(keyForChannel(channelId))
+    if (!raw) {
+      const legacy = localStorage.getItem(legacyKeyForChannel(channelId))
+      if (legacy) {
+        localStorage.setItem(keyForChannel(channelId), legacy)
+        raw = legacy
+      }
+      localStorage.removeItem(legacyKeyForChannel(channelId))
+    }
     if (!raw) return null
     const o = JSON.parse(raw)
     const subs = Number(o?.subs)

@@ -1,5 +1,5 @@
 /**
- * User profile and channel API — Scriptz API.
+ * User profile and channel API — Clixa API.
  * GET/PUT /api/profile, GET/PUT /api/profile/channel/{channel_id}
  */
 

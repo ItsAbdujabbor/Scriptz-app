@@ -20,7 +20,8 @@
  *     ignored rather than crashing a render.
  */
 
-const STORAGE_PREFIX = 'scriptz:videoScoreCache:v1'
+const STORAGE_PREFIX = 'clixa:videoScoreCache:v1'
+const LEGACY_STORAGE_PREFIX = 'scriptz:videoScoreCache:v1'
 const MAX_ENTRIES = 200
 const ANON = '__anon__'
 
@@ -31,6 +32,29 @@ let pendingWrite = false
 
 function storageKey(userId) {
   return `${STORAGE_PREFIX}:${userId || ANON}`
+}
+
+function legacyStorageKey(userId) {
+  return `${LEGACY_STORAGE_PREFIX}:${userId || ANON}`
+}
+
+// One-shot per-user migration: when we first read for a given userId, copy
+// the legacy "scriptz:*" slot into the new key if the new one is empty,
+// then drop the legacy slot. Saves an expensive full re-score after the
+// rebrand on the first dashboard render.
+function migrateLegacySlot(userId) {
+  if (typeof localStorage === 'undefined') return
+  try {
+    const next = storageKey(userId)
+    const legacy = legacyStorageKey(userId)
+    if (!localStorage.getItem(next)) {
+      const v = localStorage.getItem(legacy)
+      if (v) localStorage.setItem(next, v)
+    }
+    localStorage.removeItem(legacy)
+  } catch {
+    /* quota / private mode — let the cache miss through */
+  }
 }
 
 function isPlainObject(x) {
@@ -48,6 +72,8 @@ function isValidEntry(entry) {
 
 function loadMirror(userId) {
   if (mirrorOwner === userId && memoryMirror) return memoryMirror
+  // Migrate any legacy "scriptz:*" slot for this user before reading.
+  migrateLegacySlot(userId)
   let map = {}
   if (typeof localStorage !== 'undefined') {
     try {

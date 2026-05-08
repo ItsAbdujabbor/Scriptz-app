@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import './ThumbPillTabs.css'
 
 /**
  * ThumbPillTabs — minimal group of pill-shaped tab buttons.

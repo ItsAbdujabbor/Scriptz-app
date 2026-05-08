@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repo identity
 
-`Scriptz-app` is the **end-user React 19 + Vite SPA** for Scriptz — a credit-billed AI tool for YouTube creators (thumbnail generation, video optimization, A/B testing, billing). Two sibling repos make up the full product:
+`Clixa-app` is the **end-user React 19 + Vite SPA** for Clixa — a credit-billed AI tool for YouTube creators (thumbnail generation, video optimization, A/B testing, billing). Two sibling repos make up the full product:
 
-- `../Scriptz-Api` — FastAPI backend (`/api/**`)
-- `../Scriptz-Admin` — separate admin React app (`/api/admin/**`)
+- `../Clixa-Api` — FastAPI backend (`/api/**`)
+- `../Clixa-Admin` — separate admin React app (`/api/admin/**`)
 
 This repo only consumes `/api/**` (not `/api/admin/**`). The Vite dev server proxies `/api` to `http://127.0.0.1:8000`, so the API must be running locally.
 
@@ -35,19 +35,25 @@ Path alias `@/*` resolves to `src/*` (see [jsconfig.json](jsconfig.json) and [vi
 
 Copy `.env.example` to `.env`. Three things actually matter for development:
 
-| Var                                            | Why                                                                                                                        |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `VITE_API_BASE_URL`                            | Leave **blank** in dev → uses Vite proxy → no CORS. Set to `https://api.scriptz.app` for prod builds.                      |
-| `VITE_USE_LOCAL_API_AUTH`                      | Default `true` in dev (`import.meta.env.DEV`). Auth via FastAPI `/api/auth/*`. Set `false` to use Supabase browser client. |
-| `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | Only needed when `VITE_USE_LOCAL_API_AUTH=false`.                                                                          |
+| Var                                                                  | Why                                                                                                                        |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `VITE_API_BASE_URL`                                                  | Leave **blank** in dev → uses Vite proxy → no CORS. Set to `https://api.clixa.ai` for prod builds.                      |
+| `VITE_COGNITO_REGION` / `VITE_COGNITO_USER_POOL_ID` / `VITE_COGNITO_CLIENT_ID` / `VITE_COGNITO_DOMAIN` | All four are required for sign-in. Hosted UI callback URLs in the AWS App Client must include this origin. |
 
 Paddle (`VITE_PADDLE_*`) and Brevo (`VITE_BREVO_*`) are optional unless touching billing or the landing-page waitlist.
 
 ## Architecture — the load-bearing decisions
 
-### Auth has two modes that must keep working
+### Auth: Cognito Hosted UI, federation-only (Google + Apple)
 
-[src/lib/authMode.js](src/lib/authMode.js) decides at runtime between **local API auth** (FastAPI JWT, refresh tokens in `localStorage` under `scriptz_api_auth`) and **Supabase browser auth** (PKCE flow, `@supabase/supabase-js` manages session). Both paths flow through `useAuthStore` ([src/stores/authStore.js](src/stores/authStore.js)) — every method has an `if (isLocalApiAuthMode())` branch and a Supabase branch. Don't add new auth code without handling both. The token mint/refresh logic also lives here (`getValidAccessToken`, `_startApiRefreshTimer`, `_startProactiveRefresh`).
+Sign-in always goes through AWS Cognito. The flow:
+
+1. User clicks "Continue with Google/Apple" → [src/lib/cognitoClient.js](src/lib/cognitoClient.js)`buildAuthorizeUrl(provider)` generates a PKCE verifier + state, stashes them in `sessionStorage`, and redirects to `https://<domain>/oauth2/authorize?identity_provider=Google|SignInWithApple&...`.
+2. Cognito Hosted UI bounces through the IdP and returns to the SPA with `?code=...&state=...`.
+3. On boot, [src/stores/authStore.js](src/stores/authStore.js)`loadSession()` calls `consumeOAuthCallback()` which exchanges the code at `/oauth2/token` (PKCE), saves the tokens to `localStorage` under `clixa_cognito_tokens`, and decodes the ID token for UI.
+4. The fetch wrapper sends the **ID token** (not the access token) as `Authorization: Bearer …` — the backend verifies it via the User Pool's JWKS and provisions the user lazily.
+
+Token refresh runs reactively (on 401-near-expiry inside `getValidAccessToken`) and proactively (a 60s interval that pre-refreshes 2 min before expiry). Logout clears local tokens then redirects to `https://<domain>/logout?...` so the Cognito session itself is killed.
 
 When the user changes (different `id` from last session), [src/lib/sessionReset.js](src/lib/sessionReset.js) wipes React Query caches via `resetClientCachesForUserChange()`. That's why `setAppQueryClient(queryClient)` is called once in [src/main.jsx](src/main.jsx).
 
@@ -120,8 +126,8 @@ Deferred from the phase-5 polish pass because each carries pixel-shift or intera
 
 - **Prettier**: no semicolons, single quotes, trailing commas `es5`, `printWidth: 100`, `arrowParens: always` ([.prettierrc](.prettierrc)).
 - **ESLint** ([eslint.config.js](eslint.config.js)): `eqeqeq: 'smart'`, `no-var`, `prefer-const`, `no-console` (warn — `warn`/`error` allowed). `no-unused-vars` ignores names matching `^[A-Z_]` (so `_unused` and `Constant` are fine).
-- **Vendor chunking** ([vite.config.js](vite.config.js)): React, React Query, Supabase, and Zustand are split into named chunks. Don't add per-route lazy splits without checking bundle output — many routes are already lazy via `lazy()` in `App.jsx`/`AuthenticatedRoutes.jsx`.
-- **CSS** is hand-written, scoped via component-prefixed class names. Theme tokens live in [src/ios-theme.css](src/ios-theme.css); base layout in [src/index.css](src/index.css). The light/dark theme is toggled by a `theme-light` class on `<body>` (key: `scriptz_theme` in localStorage).
+- **Vendor chunking** ([vite.config.js](vite.config.js)): React, React Query, and Zustand are split into named chunks. Don't add per-route lazy splits without checking bundle output — many routes are already lazy via `lazy()` in `App.jsx`/`AuthenticatedRoutes.jsx`.
+- **CSS** is hand-written, scoped via component-prefixed class names. Theme tokens live in [src/ios-theme.css](src/ios-theme.css); base layout in [src/index.css](src/index.css). The light/dark theme is toggled by a `theme-light` class on `<body>` (key: `clixa_theme` in localStorage).
 
 ## Working with billing-gated features
 
@@ -131,7 +137,7 @@ Any AI feature that consumes credits flows through:
 2. Backend checks active subscription and deducts credits atomically. On no-sub → 402 `NO_ACTIVE_SUBSCRIPTION` (paywall interceptor fires); on no-credits → 402 `INSUFFICIENT_CREDITS` (handle in component — open `CreditPacksModal` via [src/lib/creditsModalBus.js](src/lib/creditsModalBus.js)).
 3. On success, the mutation's `onSuccess`/`onError` calls `invalidateCredits(queryClient)`.
 
-Feature keys and per-tier costs are defined backend-side in `Scriptz-Api/app/services/billing_config_service.py`. Read the live values via `useFeatureCostsQuery()` — never hardcode credit costs in the UI.
+Feature keys and per-tier costs are defined backend-side in `Clixa-Api/app/services/billing_config_service.py`. Read the live values via `useFeatureCostsQuery()` — never hardcode credit costs in the UI.
 
 ## Reference docs in this repo
 
@@ -144,6 +150,6 @@ Feature keys and per-tier costs are defined backend-side in `Scriptz-Api/app/ser
 
 There are very few unit tests checked in. Verifying a change usually means:
 
-1. Make sure `Scriptz-Api` is running on `:8000` (its `./run.sh` or `uvicorn main:app --reload`).
+1. Make sure `Clixa-Api` is running on `:8000` (its `./run.sh` or `uvicorn main:app --reload`).
 2. `npm run dev` and exercise the flow in a browser.
 3. Type-check / test suites cannot prove a UI feature works — say so explicitly when you can't browser-test.

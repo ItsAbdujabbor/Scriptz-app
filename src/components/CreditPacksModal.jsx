@@ -13,7 +13,8 @@ import { useQueryClient } from '@tanstack/react-query'
 
 import { Dialog } from './ui'
 import { useAuthStore } from '../stores/authStore'
-import { useCreditsQuery, invalidateCredits } from '../queries/billing/creditsQueries'
+import { useCreditsQuery, refreshBillingState } from '../queries/billing/creditsQueries'
+import { queryKeys } from '../lib/query/queryKeys'
 import { getPlans, startCheckout } from '../api/billing'
 import { openPaddleCheckout } from '../lib/paddle'
 import { celebrate } from '../lib/celebrate'
@@ -107,9 +108,29 @@ export function CreditPacksModal({ open, onClose }) {
         checkoutUrl: resp?.checkout_url,
         clientToken: resp?.client_token,
       })
-      invalidateCredits(queryClient)
-      // Optimistic celebration — the webhook will land credits within a few
-      // seconds. We close the modal so the celebration is unobstructed.
+      // Optimistic credit-balance bump — the user just paid, the
+      // webhook will land within ~2-5s and the actual fetch will
+      // overwrite this anyway. Bumping the cache here means the
+      // sidebar credits badge updates IMMEDIATELY on close instead
+      // of waiting for the webhook + 30s poll. If the webhook diverges
+      // (e.g. stuck pending), the next refetch reconciles to truth.
+      const expectedCredits = Number(pack?.credits || 0)
+      if (expectedCredits > 0) {
+        queryClient.setQueryData(queryKeys.billing.credits, (current) => {
+          if (!current || typeof current !== 'object') return current
+          const permanent = Number(current.permanent_credits || 0) + expectedCredits
+          const total =
+            Number(current.subscription_credits || 0) + permanent
+          return { ...current, permanent_credits: permanent, total }
+        })
+      }
+      // Then full fan-out invalidate so the actual fetch hits the
+      // server within ~150ms — overwrites the optimistic bump with
+      // the true post-webhook balance.
+      refreshBillingState(queryClient)
+      // Close + celebrate. The webhook lands within seconds; the
+      // optimistic bump above means the sidebar badge already shows
+      // the new total when the celebration toast appears.
       onClose?.()
       celebrate({
         emoji: '⚡',

@@ -60,6 +60,15 @@ export function cancelSubscription(accessToken) {
 }
 
 /**
+ * End the user's free trial early. Bills immediately via Paddle and the
+ * webhook then flips status `trialing → active`, granting the full plan
+ * credits (vs. the 100-credit trial amount).
+ */
+export function skipTrial(accessToken) {
+  return request('POST', '/api/billing/skip-trial', accessToken)
+}
+
+/**
  * Upgrade or downgrade the user's active subscription to a different plan.
  * Pass either a plan_slug (e.g. "creator_annual") or a Paddle price_id.
  * timing: "immediate" (default — prorate now) or "next_period".
@@ -70,4 +79,23 @@ export function changePlan(accessToken, { planSlug, priceId, timing = 'immediate
     price_id: priceId,
     timing,
   })
+}
+
+/**
+ * Force the backend to reconcile the user's subscription state DIRECTLY
+ * from Paddle (skipping the webhook). The backend's `/api/billing/sync`
+ * endpoint pulls current state from `PaddleClient.list_subscriptions_for_customer`
+ * and upserts the local `subscriptions` row.
+ *
+ * Frontend backstop: called when the 60-s activation burst times out
+ * with the subscription still in an inactive state. Webhooks are usually
+ * sub-second but Paddle outages or our own queue backlogs can blow past
+ * 60s — at that point the user has paid and is sitting on stale UI.
+ * `/sync` closes that gap.
+ *
+ * Returns the freshly-reconciled SubscriptionOut (same shape as
+ * `getSubscription`).
+ */
+export function syncSubscription(accessToken) {
+  return request('POST', '/api/billing/sync', accessToken)
 }

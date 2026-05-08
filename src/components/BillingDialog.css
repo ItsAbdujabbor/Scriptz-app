@@ -1,0 +1,175 @@
+/* Billing dialog — chrome on top of the shared <Dialog> shell.
+ *
+ * Same panel surface as Personas / Styles / Edit / Credit packs:
+ * `#1c1c24` solid base + 4 % top-light gradient + 1 px white-grey
+ * hairline + drop shadow. The actual billing content (plan card,
+ * invoices) is rendered by `<BillingSettingsPanel>` inside the body
+ * section — this stylesheet owns only the dialog frame, header, and
+ * scrollable body. */
+
+.billing-dialog {
+  background: #1c1c24;
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0) 40%
+  );
+  color: #f5f5f7;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 18px 48px rgba(0, 0, 0, 0.55);
+  font-family:
+    'Poppins',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Header ─────────────────────────────────────────────────────── */
+
+.billing-dialog__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.4rem 1.6rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.billing-dialog__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.billing-dialog__icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(167, 139, 250, 0.16);
+  color: #c4b5fd;
+}
+
+.billing-dialog__title {
+  margin: 0 0 0.18rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.billing-dialog__sub {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(229, 231, 235, 0.6);
+}
+
+.billing-dialog__close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(229, 231, 235, 0.85);
+  cursor: pointer;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease,
+    border-color 0.16s ease,
+    transform 0.12s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.billing-dialog__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.billing-dialog__close:active {
+  transform: scale(0.92);
+}
+
+/* ─── Body — scrollable inside the panel so the header stays put ─── */
+
+.billing-dialog__body {
+  padding: 1.25rem 1.6rem 1.5rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.billing-dialog__body::-webkit-scrollbar {
+  width: 8px;
+}
+.billing-dialog__body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.billing-dialog__body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.billing-dialog__body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+  background-clip: padding-box;
+}
+
+/* The legacy BillingSettingsPanel was designed to sit on the
+ * Dashboard's wide page chrome. Inside this dialog we want its inner
+ * cards to stretch to the full body width and drop the legacy
+ * 1180-px clamp. */
+.billing-dialog__body .bp-root {
+  max-width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ─── Mobile tightening ──────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .billing-dialog__head {
+    padding: 1.1rem 1.1rem 0.85rem;
+  }
+  .billing-dialog__title-row {
+    gap: 0.65rem;
+  }
+  .billing-dialog__icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+  .billing-dialog__title {
+    font-size: 1.05rem;
+  }
+  .billing-dialog__sub {
+    font-size: 0.78rem;
+  }
+  .billing-dialog__body {
+    padding: 1rem 1.1rem 1.2rem;
+  }
+}
+
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  .billing-dialog__close {
+    transition: none;
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "name": "scriptz-app-react",
+  "name": "clixa-app-react",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -27,7 +27,7 @@
     ]
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.100.1",
+    "@paper-design/shaders": "^0.0.76",
     "@tanstack/react-query": "^5.91.0",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.7.0",

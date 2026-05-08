@@ -7,7 +7,9 @@ import { useSidebarStore } from '../stores/sidebarStore'
 import { useShallow } from 'zustand/react/shallow'
 import { emitShellEvent } from '../lib/shellEvents'
 import { useFloatingPosition } from '../lib/useFloatingPosition'
+import { openBillingDialog } from '../lib/billingDialogBus'
 import { ConfirmDialog } from '../components/ui'
+import AccountAvatar from '../components/AccountAvatar'
 import { useCreditsQuery, useSubscriptionQuery } from '../queries/billing/creditsQueries'
 import {
   useModelTierStateQuery,
@@ -19,7 +21,7 @@ import {
   useDeleteThumbnailConversationMutation,
   useUpdateThumbnailConversationMutation,
 } from '../queries/thumbnails/thumbnailQueries'
-import logoSrc from '../assets/logo.jpg'
+import logoSrc from '../assets/clixalogo.jpg'
 
 const IconPlus = () => (
   <svg
@@ -271,8 +273,8 @@ function goToThumbnailConversation(conversationId = null) {
 // One-liner marketing blurb for the per-tier info popover. Kept short
 // (credit cost is shown next to the active-tier tag in the account panel).
 const MODEL_INFO = {
-  'SRX-2': 'gpt-image-1 · medium quality. Fast and crisp — 20 credits per thumbnail.',
-  'SRX-3': 'gpt-image-1 · high quality. Hero-grade clarity — 45 credits per thumbnail.',
+  'SRX-2': 'Medium quality. Fast and crisp — 20 credits per thumbnail.',
+  'SRX-3': 'High quality. Hero-grade clarity — 45 credits per thumbnail.',
 }
 const MODEL_TAG = { 'SRX-2': 'Pro', 'SRX-3': 'Max' }
 // Display order in the account panel — Max on top, Pro below.
@@ -488,7 +490,7 @@ const HistoryItem = memo(function HistoryItem({
           />
           <button
             type="submit"
-            className="sidebar-history-edit-action"
+            className="sidebar-history-edit-action sidebar-history-edit-action--save"
             aria-label="Save title"
             disabled={updateMutation.isPending || !editingTitle.trim()}
           >
@@ -496,7 +498,7 @@ const HistoryItem = memo(function HistoryItem({
           </button>
           <button
             type="button"
-            className="sidebar-history-edit-action"
+            className="sidebar-history-edit-action sidebar-history-edit-action--cancel"
             aria-label="Cancel editing"
             onClick={cancelRenamingConversation}
           >
@@ -923,10 +925,20 @@ export function Sidebar({
           </span>
           <span className="sidebar-account-item-label">Account</span>
         </button>
-        {/* Billing entry hidden — the Billing screen is gated off right
-         * now (only the thumbnail generator is reachable). The credits
-         * and plan label in the account button below still display the
-         * user's real Pro / Free state for awareness. */}
+        <button
+          type="button"
+          className="sidebar-account-item"
+          onClick={() => {
+            setAccountDialogOpen(false)
+            closeMobile()
+            openBillingDialog()
+          }}
+        >
+          <span className="sidebar-account-item-icon" aria-hidden>
+            <IconUsage />
+          </span>
+          <span className="sidebar-account-item-label">Billing</span>
+        </button>
         <button type="button" className="sidebar-account-item" onClick={handleOpenPersonas}>
           <span className="sidebar-account-item-icon" aria-hidden>
             <IconPersonalization />
@@ -1082,9 +1094,9 @@ export function Sidebar({
                     e.preventDefault()
                     closeMobile()
                   }}
-                  aria-label="Scriptz AI Home"
+                  aria-label="Clixa AI Home"
                 >
-                  Scriptz AI
+                  Clixa AI
                 </a>
                 <button
                   type="button"
@@ -1322,38 +1334,20 @@ export function Sidebar({
                 aria-expanded={accountDialogOpen}
                 title={collapsed && user?.email ? user.email : 'Account menu'}
               >
-                {/* Credit orb — circular progress ring around the
-                 * exact credit count. Replaces the avatar + separate
-                 * pill. The track is a faint white circle; the
-                 * accent arc fills proportional to remaining credits
-                 * (stroke shrinks as credits are spent). When the
-                 * sidebar is collapsed this is the only thing
-                 * rendered, so it carries identity + status alone. */}
+                {/* Avatar — accent-gradient circle with the user's
+                 * initial. Credits used to live here as a progress
+                 * orb; that's now in the top-right of the thumbnail
+                 * screen via `<HeaderCreditsBadge />` so the sidebar
+                 * stays focused on identity + plan. */}
                 <span
-                  className="sidebar-account-orb"
-                  aria-label={`${totalCredits ?? '—'} credits`}
-                  title={`${totalCredits ?? '—'} credits`}
+                  className="sidebar-account-avatar"
+                  aria-label={user?.email || 'Account'}
+                  title={user?.email || 'Account'}
                 >
-                  <svg className="sidebar-account-orb-ring" viewBox="0 0 36 36" aria-hidden>
-                    <circle className="sidebar-account-orb-track" cx="18" cy="18" r="16" />
-                    <circle
-                      className="sidebar-account-orb-fill"
-                      cx="18"
-                      cy="18"
-                      r="16"
-                      strokeDasharray={ORB_CIRC}
-                      strokeDashoffset={ringDashOffset}
-                    />
-                  </svg>
-                  <span className="sidebar-account-orb-num" style={{ fontSize: `${credFontPx}px` }}>
-                    {creditsLabel}
-                  </span>
+                  <AccountAvatar email={user?.email} />
                 </span>
                 <span className="sidebar-account-info">
                   <span className="sidebar-account-email">{user?.email || 'User'}</span>
-                  {/* Credit count lives only inside .sidebar-account-orb
-                   * above — no duplicate caption here. The plan label
-                   * stays so users still see their tier/trial state. */}
                   <span
                     className={`sidebar-account-plan ${hasActivePlan ? 'sidebar-account-plan--active' : ''} ${subscription?.is_trial ? 'sidebar-account-plan--trial' : ''}`}
                   >

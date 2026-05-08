@@ -2,16 +2,65 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/jpeg" href="/clixalogo.jpg" />
+    <link rel="apple-touch-icon" href="/clixalogo.jpg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Scriptz AI — YouTube Packaging &amp; Growth</title>
+    <title>Clixa AI — YouTube Packaging &amp; Growth</title>
+
+    <!-- Redirect bare legal-page paths to their hash routes BEFORE React
+         boots. Lets clixa.app/refund work the same as clixa.app/#refund
+         without converting the SPA to history-mode routing. Runs once,
+         synchronous, so users never see a flash of the wrong screen. -->
+    <script>
+      (function () {
+        try {
+          var p = (window.location.pathname || '').replace(/\/+$/, '').toLowerCase();
+          if (p === '/refund' || p === '/terms' || p === '/privacy') {
+            window.location.replace('/#' + p.slice(1) + (window.location.search || ''));
+          }
+        } catch (_) {}
+      })();
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- font-display=optional: browser uses the system fallback for the
+         first ~100 ms; if Poppins hasn't arrived by then, the swap is
+         skipped entirely. Eliminates the FOUT-style reflow where every
+         heading/body line jumped a few pixels mid-paint as Poppins
+         finished loading. The app shell uses system fonts anyway —
+         Poppins is only needed by the marketing landing page. -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&display=optional"
       rel="stylesheet"
     />
+
+    <!-- Inline baseline so the document has stable typography + dark
+         canvas BEFORE the Vite CSS bundle resolves. Without this the
+         browser paints with default serif on white for ~50–200 ms,
+         then everything (font, color, padding) snaps when CSS arrives.
+         Mirrors the values set in src/index.css + ios-theme.css so the
+         hand-off is invisible. -->
+    <style>
+      html, body {
+        margin: 0;
+        font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', system-ui, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+        background: #0a0a0c;
+        color: #ffffff;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        overflow-x: hidden;
+      }
+      #root { min-height: 100vh; }
+    </style>
+
+    <!-- Paddle Checkout: warm the connection so the iframe paints faster
+         once the user reaches /#checkout. Sandbox + production hosts both
+         listed so it works in either env. -->
+    <link rel="preconnect" href="https://cdn.paddle.com" crossorigin />
+    <link rel="preconnect" href="https://sandbox-buy.paddle.com" crossorigin />
+    <link rel="preconnect" href="https://buy.paddle.com" crossorigin />
+    <link rel="dns-prefetch" href="https://checkout-service.paddle.com" />
   </head>
   <body>
     <div id="root"></div>

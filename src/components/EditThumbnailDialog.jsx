@@ -646,13 +646,15 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
   // pointermove so we don't burn React re-renders at ~60 fps.
   const cursorPreviewRef = useRef(null)
   const [cursorVisible, setCursorVisible] = useState(false)
-  // Marching-ants marquee — a data URL of the painted region's
-  // outline. Computed at the end of every stroke (and after undo /
-  // redo / clear) by walking the alpha channel of the mask canvas
-  // and marking pixels that sit on a transparent → opaque boundary.
-  // Rendered as the `mask-image` of an animated striped div so the
-  // stripes only show along the painted regions' perimeters.
-  const [marqueeUrl, setMarqueeUrl] = useState(null)
+  // Marching-ants marquee — an SVG path-d string traced from the
+  // painted region's outline. Computed at the end of every stroke
+  // (and after undo / redo / clear) by Moore-neighbor contour
+  // tracing on the alpha-thresholded mask. The path is rendered
+  // as an <svg> overlay whose <path>'s `stroke-dashoffset` is
+  // animated, so dashes truly march CW around the perimeter the
+  // way Photoshop's marquee does — not just a diagonal stripe
+  // sliding behind a static outline mask.
+  const [marqueePath, setMarqueePath] = useState(null) // { d, w, h } | null
   // Stage aspect-ratio — derived from the source thumbnail so the
   // editor adapts to landscape (16:9), portrait (9:16), and square
   // (1:1) thumbnails without cropping. Default 16:9 for the brief
@@ -702,6 +704,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     editTextareaRef.current?.focus()
   }, [])
 
+
   // Load the image + size the canvas to its natural dimensions, with a
   // 1920-px-wide minimum so thumbnails that ship at low resolution
   // still get a high-density paint surface. The canvas is then scaled
@@ -743,7 +746,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
         setUndoDepth(0)
         setRedoDepth(0)
         setHasDrawn(false)
-        setMarqueeUrl(null)
+        setMarqueePath(null)
       })
       .catch(() => {
         /* image failed — drawing will no-op, edit still works as full-mask */
@@ -922,22 +925,27 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
   // width controls the visible thickness of the marquee. Down-samples
   // first when the canvas is huge so the walk is sub-50ms even on
   // big paint surfaces. */
+  // Trace the alpha-thresholded mask into closed SVG contours via
+  // Moore-neighbor boundary following. Each connected component's
+  // outer perimeter becomes one `M…L…Z` sub-path concatenated into
+  // one `<path>`. The downstream <svg> renders this with an animated
+  // `stroke-dashoffset` so the dashes truly travel around each
+  // perimeter — no fixed-angle stripe-mask trickery.
   const rebuildMarquee = useCallback(() => {
     const src = maskCanvasRef.current
-    if (!src) {
-      setMarqueeUrl(null)
+    if (!src || !hasDrawn) {
+      setMarqueePath(null)
       return
     }
-    if (!hasDrawn) {
-      setMarqueeUrl(null)
-      return
-    }
-    // Down-sample by `step` so the edge walk stays cheap on big
-    // canvases. Strokes are rounded so the marquee tolerates a 2x
-    // density loss without looking jagged.
-    const STEP = 2
-    const sw = Math.max(1, Math.floor(src.width / STEP))
-    const sh = Math.max(1, Math.floor(src.height / STEP))
+
+    // Down-sample by `STEP` so the trace stays cheap on huge paint
+    // surfaces. STEP grows with canvas width so 4K paint surfaces
+    // don't pay a 4× walk; the strokes are rounded so the slight
+    // density loss isn't visible at the resulting render size.
+    const STEP = src.width >= 2400 ? 4 : 3
+    const sw = Math.max(2, Math.floor(src.width / STEP))
+    const sh = Math.max(2, Math.floor(src.height / STEP))
+
     const tmp = document.createElement('canvas')
     tmp.width = sw
     tmp.height = sh
@@ -945,45 +953,83 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     tctx.imageSmoothingEnabled = true
     tctx.drawImage(src, 0, 0, sw, sh)
     const data = tctx.getImageData(0, 0, sw, sh).data
-    const out = document.createElement('canvas')
-    out.width = sw
-    out.height = sh
-    const octx = out.getContext('2d')
-    const dst = octx.createImageData(sw, sh)
-    const T = MASK_THRESHOLD
-    const RING = 1 // half-thickness in down-sampled px (so 3 px total)
-    let edgeCount = 0
+    const px32 = new Uint32Array(data.buffer)
+
+    // Binary inside-mask (1 = painted pixel, 0 = transparent).
+    // Read alpha via the high byte of each uint32 (little-endian RGBA).
+    const inside = new Uint8Array(sw * sh)
+    const T = MASK_THRESHOLD << 24
+    for (let i = 0; i < sw * sh; i++) {
+      inside[i] = (px32[i] & 0xff000000) > T ? 1 : 0
+    }
+
+    // 8-direction neighbour offsets, indexed clockwise from East.
+    //   0=E  1=SE  2=S  3=SW  4=W  5=NW  6=N  7=NE
+    const DX = [1, 1, 0, -1, -1, -1, 0, 1]
+    const DY = [0, 1, 1, 1, 0, -1, -1, -1]
+
+    const visited = new Uint8Array(sw * sh)
+    const parts = []
+
     for (let y = 0; y < sh; y++) {
       for (let x = 0; x < sw; x++) {
-        const i = (y * sw + x) * 4
-        const a = data[i + 3]
-        if (a <= T) continue
-        const left = x > 0 ? data[i - 4 + 3] : 0
-        const right = x < sw - 1 ? data[i + 4 + 3] : 0
-        const up = y > 0 ? data[i - sw * 4 + 3] : 0
-        const down = y < sh - 1 ? data[i + sw * 4 + 3] : 0
-        if (left > T && right > T && up > T && down > T) continue
-        edgeCount++
-        for (let dy = -RING; dy <= RING; dy++) {
-          for (let dx = -RING; dx <= RING; dx++) {
-            const nx = x + dx
-            const ny = y + dy
+        const i = y * sw + x
+        if (!inside[i] || visited[i]) continue
+        // We only start tracing from an outer-boundary pixel: the
+        // leftmost foreground pixel of an unvisited component (its
+        // west neighbour is outside or off-grid). Other foreground
+        // pixels — interior cells, or inner-hole boundaries — are
+        // marked visited and skipped: holes inside a stroke don't
+        // get their own marquee, which matches Photoshop's "select
+        // outer contour" behaviour for a freshly painted region.
+        if (x > 0 && inside[i - 1]) {
+          visited[i] = 1
+          continue
+        }
+
+        const startX = x
+        const startY = y
+        let cx = x
+        let cy = y
+        let backDir = 4 // we entered from W
+        const segs = [`M${cx} ${cy}`]
+        const maxSteps = sw * sh * 4
+        let steps = 0
+        while (steps++ < maxSteps) {
+          visited[cy * sw + cx] = 1
+          // Scan 8 neighbours clockwise starting just past the back
+          // direction (so we walk the perimeter consistently CW).
+          let foundNext = false
+          for (let k = 1; k <= 8; k++) {
+            const d = (backDir + k) & 7
+            const nx = cx + DX[d]
+            const ny = cy + DY[d]
             if (nx < 0 || nx >= sw || ny < 0 || ny >= sh) continue
-            const j = (ny * sw + nx) * 4
-            dst.data[j] = 255
-            dst.data[j + 1] = 255
-            dst.data[j + 2] = 255
-            dst.data[j + 3] = 255
+            if (!inside[ny * sw + nx]) continue
+            cx = nx
+            cy = ny
+            backDir = (d + 4) & 7
+            foundNext = true
+            break
           }
+          if (!foundNext) break
+          if (cx === startX && cy === startY) break
+          segs.push(`L${cx} ${cy}`)
+        }
+        // 8-step minimum filters out single-pixel paint specks that
+        // would render as a meaningless dot of dashes.
+        if (steps > 8) {
+          segs.push('Z')
+          parts.push(segs.join(' '))
         }
       }
     }
-    if (edgeCount === 0) {
-      setMarqueeUrl(null)
+
+    if (parts.length === 0) {
+      setMarqueePath(null)
       return
     }
-    octx.putImageData(dst, 0, 0)
-    setMarqueeUrl(out.toDataURL('image/png'))
+    setMarqueePath({ d: parts.join(' '), w: sw, h: sh })
   }, [hasDrawn])
 
   // Push a Promise<Blob> onto the undo stack. Accepts either a ready
@@ -1162,7 +1208,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     if (snap) pushUndoPromise(imageDataToBlobPromise(snap))
     setHasDrawn(false)
-    setMarqueeUrl(null)
+    setMarqueePath(null)
   }, [snapshotCanvas, pushUndoPromise, imageDataToBlobPromise])
 
   /* ── Mask export ──────────────────────────────────────────────── */
@@ -1304,13 +1350,12 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
           from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        /* Marching-ants — slides the diagonal stripe pattern by one
-         * full repeat (17px) so the dashes appear to crawl along the
-         * outline mask. 0.9s loop is brisk enough to read as motion
-         * without feeling jittery. */
-        @keyframes etd-marching-ants {
-          from { background-position: 0 0; }
-          to   { background-position: 17px 17px; }
+        /* Marching-ants — true Photoshop-style: dashes travel along
+         * the perimeter of each contour by animating stroke-dashoffset.
+         * The 9.5-unit shift equals one dash + one gap (6 + 3.5) so
+         * the loop is visually seamless. */
+        @keyframes etd-march {
+          to { stroke-dashoffset: -9.5; }
         }
       `}</style>
 
@@ -1464,8 +1509,12 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
               // Painted strokes are full-opacity on the canvas; CSS opacity
               // makes the overlay look transparent. This means painting over
               // the same spot twice doesn't accumulate darker — it stays one
-              // uniform transparent layer.
-              opacity: MASK_CSS_OPACITY,
+              // uniform transparent layer. In face-swap mode the strokes
+              // are irrelevant (the swap doesn't read the mask), so we
+              // hide them with opacity 0 — the canvas stays mounted so the
+              // pixel buffer survives the mode flip and reappears when the
+              // user switches back to Edit.
+              opacity: mode === 'edit' ? MASK_CSS_OPACITY : 0,
               // Hide the native crosshair while in brush/eraser mode so
               // only the custom circle preview is visible. Rect tool still
               // uses crosshair so the corner-anchored drag is unambiguous.
@@ -1475,7 +1524,9 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
                   ? 'none'
                   : 'crosshair',
               touchAction: 'none',
-              pointerEvents: busy ? 'none' : 'auto',
+              // Block painting in face-swap mode — pointer events would
+              // hit the (invisible) canvas otherwise.
+              pointerEvents: busy || mode !== 'edit' ? 'none' : 'auto',
             }}
           />
           {/* Overlay: sibling canvas that renders the rect-tool preview
@@ -1491,7 +1542,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
               inset: 0,
               width: '100%',
               height: '100%',
-              opacity: MASK_CSS_OPACITY,
+              opacity: mode === 'edit' ? MASK_CSS_OPACITY : 0,
               pointerEvents: 'none',
             }}
           />
@@ -1503,27 +1554,54 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
            * Hidden during an active stroke so the live brush isn't
            * cluttered, and only mounts once we have an outline mask
            * to clip against. */}
-          {marqueeUrl && !drawingRef.current && (
-            <div
+          {marqueePath && !drawingRef.current && mode === 'edit' && (
+            <svg
               aria-hidden
+              viewBox={`0 0 ${marqueePath.w} ${marqueePath.h}`}
+              preserveAspectRatio="none"
               style={{
                 position: 'absolute',
                 inset: 0,
+                width: '100%',
+                height: '100%',
                 pointerEvents: 'none',
-                backgroundImage:
-                  'repeating-linear-gradient(45deg, rgba(255,255,255,0.95) 0 6px, rgba(0,0,0,0.85) 6px 12px)',
-                backgroundSize: '17px 17px',
-                WebkitMaskImage: `url(${marqueeUrl})`,
-                maskImage: `url(${marqueeUrl})`,
-                WebkitMaskSize: '100% 100%',
-                maskSize: '100% 100%',
-                WebkitMaskRepeat: 'no-repeat',
-                maskRepeat: 'no-repeat',
-                animation: 'etd-marching-ants 0.9s linear infinite',
-                mixBlendMode: 'normal',
+                overflow: 'visible',
                 zIndex: 3,
               }}
-            />
+            >
+              {/* Dark backing — drawn first, full-period not dashed,
+               * so the white marching dashes always have legible
+               * contrast against bright photos. `non-scaling-stroke`
+               * keeps stroke widths in CSS pixels regardless of the
+               * viewBox's downsampled grid scale. */}
+              <path
+                d={marqueePath.d}
+                fill="none"
+                stroke="rgba(0, 0, 0, 0.55)"
+                strokeWidth="2.4"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
+              />
+              {/* White marching dashes — `stroke-dasharray` defines
+               * the dash/gap pattern in viewBox units (≈1 grid cell
+               * each), and `stroke-dashoffset` is animated through
+               * one full period so the dashes crawl CW around every
+               * traced contour in lockstep. */}
+              <path
+                d={marqueePath.d}
+                fill="none"
+                stroke="rgba(255, 255, 255, 0.96)"
+                strokeWidth="1.4"
+                strokeLinejoin="round"
+                strokeLinecap="butt"
+                strokeDasharray="6 3.5"
+                vectorEffect="non-scaling-stroke"
+                style={{
+                  animation: 'etd-march 0.7s linear infinite',
+                }}
+              />
+            </svg>
           )}
 
           {/* Brush cursor preview — circle that follows the pointer
@@ -1534,7 +1612,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
            * brightness of background. Position is updated imperatively
            * by `moveCursorPreview`; React only re-renders when tool /
            * brushSize / colour / visibility change. */}
-          {(tool === 'brush' || tool === 'eraser') && !busy && (
+          {(tool === 'brush' || tool === 'eraser') && !busy && mode === 'edit' && (
             <div
               ref={cursorPreviewRef}
               aria-hidden
@@ -1544,13 +1622,22 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
                 left: 0,
                 width: brushSize,
                 height: brushSize,
+                // box-sizing: border-box keeps the white border INSIDE the
+                // brushSize box, and the contrast ring is `inset` so it
+                // doesn't extend past the perimeter either. Net result:
+                // the visible circle's outer diameter = brushSize, exactly
+                // matching the disc the brush will paint at this position.
+                boxSizing: 'border-box',
                 borderRadius: '50%',
-                background: tool === 'eraser' ? 'transparent' : hexToRgba(color, 0.45),
+                background: tool === 'eraser' ? 'transparent' : hexToRgba(color, 0.35),
                 border: '1.5px solid rgba(255, 255, 255, 0.92)',
-                boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.32)',
+                boxShadow: 'inset 0 0 0 1px rgba(0, 0, 0, 0.55)',
                 pointerEvents: 'none',
                 opacity: cursorVisible ? 1 : 0,
-                transition: 'opacity 0.12s ease, width 0.12s ease, height 0.12s ease',
+                // Only opacity is transitioned — width/height must change
+                // synchronously with brushSize so the indicator never
+                // disagrees with the on-canvas stroke during the swap.
+                transition: 'opacity 0.12s ease',
                 willChange: 'transform',
                 zIndex: 2,
               }}
@@ -1566,17 +1653,48 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
                 alignItems: 'center',
                 justifyContent: 'center',
                 padding: '0 1.5rem',
-                background: 'rgba(8, 6, 14, 0.72)',
-                backdropFilter: 'blur(6px)',
-                WebkitBackdropFilter: 'blur(6px)',
+                background: 'rgba(8, 6, 14, 0.74)',
+                backdropFilter: 'blur(8px) saturate(120%)',
+                WebkitBackdropFilter: 'blur(8px) saturate(120%)',
+                zIndex: 4,
               }}
             >
-              {/* Same shared loader as the main thumbnail-generation flow.
-               * Edit / face-swap takes a touch longer than a single
-               * generate (mask round-trip + variant batching), so estimate
-               * 30 s for one variant and +6 s per extra variant. */}
-              <div style={{ width: '100%', maxWidth: 420 }}>
-                <GenerationProgress estimatedDurationMs={30000 + Math.max(0, batch - 1) * 6000} />
+              {/* Editor-specific loading state — uses the muted variant
+               * of the shared progress component (no shimmer sheen, flat
+               * purple fill) plus a one-line status label so the user
+               * always knows which operation is in flight. The bar is
+               * narrower than the dialog body so it doesn't dominate
+               * the preview. Estimate: 30 s for one variant + 6 s per
+               * extra variant on a batch run. */}
+              <div
+                style={{
+                  width: '100%',
+                  maxWidth: 360,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'stretch',
+                  gap: 12,
+                }}
+              >
+                <span
+                  style={{
+                    alignSelf: 'center',
+                    fontSize: 12.5,
+                    fontWeight: 500,
+                    letterSpacing: '0.01em',
+                    color: 'rgba(255, 255, 255, 0.8)',
+                  }}
+                >
+                  {mode === 'faceswap'
+                    ? 'Swapping face…'
+                    : hasDrawn
+                      ? 'Editing painted region…'
+                      : 'Editing thumbnail…'}
+                </span>
+                <GenerationProgress
+                  estimatedDurationMs={30000 + Math.max(0, batch - 1) * 6000}
+                  className="gen-progress--muted"
+                />
               </div>
             </div>
           )}
@@ -1928,26 +2046,25 @@ function FaceSwapPanel({ busy, disabled, onGenerate, unitCost, totalCost }) {
   const { selectedPersona, setSelectedPersona, clearSelectedPersona } = usePersonaStore()
   const { data, isPending } = usePersonasQuery()
   const [open, setOpen] = useState(false)
-  const wrapRef = useRef(null)
-
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
-    }
-    document.addEventListener('pointerdown', onDown, true)
-    return () => document.removeEventListener('pointerdown', onDown, true)
-  }, [open])
 
   const items = data?.items ?? []
   const cost = unitCost ? totalCost : null
+
+  // Locked pill geometry — same height in empty / selected states so
+  // the panel doesn't shift when the user picks (or clears) a character.
+  // 32-px avatar fits cleanly inside a 48-px tall capsule with 8 px of
+  // vertical breathing room either side. Padding stays the same in
+  // both states so the right-edge chevron / clear-X land on the same
+  // pixel column regardless of selection.
+  const PILL_HEIGHT = 48
+  const AVATAR = 32
 
   return (
     <div
       style={{
         alignSelf: 'center',
         width: '100%',
-        maxWidth: 540,
+        maxWidth: 460,
         display: 'flex',
         flexDirection: 'column',
         gap: 10,
@@ -1957,21 +2074,26 @@ function FaceSwapPanel({ busy, disabled, onGenerate, unitCost, totalCost }) {
       {/* Pill picker. The two visual states (empty vs selected)
        * share the same silhouette: full-width capsule, white-grey
        * hairline, soft inset highlight. Selected state lifts the
-       * border into a subtle violet to match the active mode tab. */}
-      <div ref={wrapRef} style={{ position: 'relative' }}>
+       * border into a subtle violet to match the active mode tab.
+       * Tapping the pill opens a centered, fixed-size dialog (below)
+       * — no popover/dropdown, so the trigger doesn't need a wrapping
+       * positioning context. */}
+      <div>
         <button
           type="button"
-          onClick={() => !busy && setOpen((o) => !o)}
+          onClick={() => !busy && setOpen(true)}
           disabled={busy}
-          aria-haspopup="listbox"
+          aria-haspopup="dialog"
           aria-expanded={open}
           aria-label={selectedPersona ? `Character: ${selectedPersona.name}` : 'Pick a character'}
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 12,
+            gap: 10,
             width: '100%',
-            padding: selectedPersona ? '8px 12px 8px 8px' : '12px 16px',
+            height: PILL_HEIGHT,
+            padding: '0 14px 0 8px',
+            boxSizing: 'border-box',
             border: `1px solid ${
               open
                 ? 'rgba(167, 139, 250, 0.65)'
@@ -2000,8 +2122,8 @@ function FaceSwapPanel({ busy, disabled, onGenerate, unitCost, totalCost }) {
             <>
               <span
                 style={{
-                  width: 36,
-                  height: 36,
+                  width: AVATAR,
+                  height: AVATAR,
                   borderRadius: '50%',
                   overflow: 'hidden',
                   flexShrink: 0,
@@ -2040,8 +2162,8 @@ function FaceSwapPanel({ busy, disabled, onGenerate, unitCost, totalCost }) {
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  width: 28,
-                  height: 28,
+                  width: 26,
+                  height: 26,
                   borderRadius: '50%',
                   background: 'rgba(0, 0, 0, 0.35)',
                   color: 'rgba(255, 255, 255, 0.85)',
@@ -2054,7 +2176,27 @@ function FaceSwapPanel({ busy, disabled, onGenerate, unitCost, totalCost }) {
             </>
           ) : (
             <>
-              <span style={{ flex: 1, textAlign: 'center', color: 'rgba(255, 255, 255, 0.6)' }}>
+              {/* Same 32-px placeholder slot as the avatar so the
+               * empty / selected states share an identical layout
+               * grid — no chevron / label re-flow on selection. */}
+              <span
+                aria-hidden
+                style={{
+                  width: AVATAR,
+                  height: AVATAR,
+                  borderRadius: '50%',
+                  flexShrink: 0,
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px dashed rgba(255, 255, 255, 0.16)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'rgba(255, 255, 255, 0.55)',
+                }}
+              >
+                <IconFaceSwap size={14} />
+              </span>
+              <span style={{ flex: 1, textAlign: 'left', color: 'rgba(255, 255, 255, 0.65)' }}>
                 Pick a character
               </span>
               <span
@@ -2063,6 +2205,7 @@ function FaceSwapPanel({ busy, disabled, onGenerate, unitCost, totalCost }) {
                   transform: open ? 'rotate(180deg)' : 'none',
                   transition: 'transform 0.2s',
                   color: 'rgba(255, 255, 255, 0.55)',
+                  flexShrink: 0,
                 }}
               >
                 <IconChevron size={14} />
@@ -2071,147 +2214,19 @@ function FaceSwapPanel({ busy, disabled, onGenerate, unitCost, totalCost }) {
           )}
         </button>
 
-        {open && (
-          <div
-            role="listbox"
-            style={{
-              position: 'absolute',
-              // Pops UPWARD above the pill — speech-bubble style. The
-              // generator's pill-tab popovers all open this way too.
-              bottom: 'calc(100% + 6px)',
-              left: 0,
-              right: 0,
-              maxHeight: 280,
-              overflowY: 'auto',
-              padding: 6,
-              // Solid panel surface (no backdrop-filter) — same recipe
-              // as the editor's input bar so the popover reads as the
-              // same dialog family, not a translucent dropdown.
-              background: '#1c1c24',
-              backgroundImage:
-                'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 40%, rgba(255,255,255,0.01) 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              borderRadius: 18,
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 14px 36px rgba(0, 0, 0, 0.6)',
-              transformOrigin: 'bottom center',
-              animation: 'etd-fade-in 0.18s cubic-bezier(0.32, 0.72, 0, 1) both',
-              zIndex: 5,
-            }}
-          >
-            {isPending && (
-              <div
-                style={{
-                  padding: 12,
-                  fontSize: 12,
-                  color: 'rgba(255, 255, 255, 0.55)',
-                  textAlign: 'center',
-                }}
-              >
-                Loading characters…
-              </div>
-            )}
-            {!isPending && items.length === 0 && (
-              <div
-                style={{
-                  padding: 12,
-                  fontSize: 12,
-                  color: 'rgba(255, 255, 255, 0.55)',
-                  textAlign: 'center',
-                }}
-              >
-                No characters yet — create one from the Characters menu.
-              </div>
-            )}
-            {items.map((p) => {
-              const active = selectedPersona?.id === p.id
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  role="option"
-                  aria-selected={active}
-                  onClick={() => {
-                    setSelectedPersona(p)
-                    setOpen(false)
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    width: '100%',
-                    padding: '8px 10px',
-                    border: 'none',
-                    borderRadius: 10,
-                    background: active ? 'rgba(167, 139, 250, 0.16)' : 'transparent',
-                    color: active ? '#ffffff' : 'rgba(229, 231, 235, 0.85)',
-                    fontFamily: 'inherit',
-                    fontSize: 13,
-                    fontWeight: 500,
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    transition: 'background 0.15s ease, color 0.15s ease',
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: '50%',
-                      overflow: 'hidden',
-                      flexShrink: 0,
-                      background: 'rgba(0, 0, 0, 0.35)',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
-                    }}
-                  >
-                    {p.image_url && (
-                      <img
-                        src={p.image_url}
-                        alt=""
-                        loading="lazy"
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                          display: 'block',
-                        }}
-                      />
-                    )}
-                  </span>
-                  <span
-                    style={{
-                      flex: 1,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {p.name}
-                  </span>
-                  {(p.visibility === 'admin' || p.visibility === 'stock') && (
-                    <span
-                      style={{
-                        flexShrink: 0,
-                        padding: '2px 7px',
-                        borderRadius: 999,
-                        fontSize: 9,
-                        fontWeight: 600,
-                        letterSpacing: '0.04em',
-                        textTransform: 'uppercase',
-                        color: 'rgba(255, 255, 255, 0.92)',
-                        background: 'rgba(0, 0, 0, 0.62)',
-                        boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.16)',
-                      }}
-                      aria-hidden
-                    >
-                      Demo
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        )}
       </div>
+
+      <CharacterPickerDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        items={items}
+        isPending={isPending}
+        selectedId={selectedPersona?.id}
+        onSelect={(p) => {
+          setSelectedPersona(p)
+          setOpen(false)
+        }}
+      />
 
       {/* Generate — full-width primary pill. PrimaryPill at size=md
        * here (not sm) because this is the only CTA on the screen. */}
@@ -2259,6 +2274,250 @@ function FaceSwapPanel({ busy, disabled, onGenerate, unitCost, totalCost }) {
         ariaLabel="Run face swap"
       />
     </div>
+  )
+}
+
+/**
+ * CharacterPickerDialog — centered, fixed-size dialog that lists every
+ * character the user can swap onto the thumbnail.
+ *
+ *   ┌──────────────────────────────────────┐
+ *   │  Pick a character              [×]   │  ← header
+ *   ├──────────────────────────────────────┤
+ *   │  ┌──┐ ┌──┐ ┌──┐                      │
+ *   │  │..│ │..│ │..│  ← responsive grid   │
+ *   │  └──┘ └──┘ └──┘                      │
+ *   └──────────────────────────────────────┘
+ *
+ * Sits on top of the editor dialog (the parent <Dialog> uses the same
+ * portal + max z-index so this one stacks above it). The panel is
+ * width-capped at 480px and height-capped at min(560px, 88vh) so the
+ * footprint is identical regardless of how many characters there are
+ * — the grid scrolls inside. On mobile the panel goes full-width
+ * minus the overlay's 12px gutter and adopts a 2-column grid.
+ */
+function CharacterPickerDialog({ open, onClose, items, isPending, selectedId, onSelect }) {
+  // Escape closes ONLY the picker, not the parent editor underneath.
+  // We register on the capture phase and call stopImmediatePropagation
+  // so the parent <Dialog> + the editor's manual keydown listener (both
+  // attached on document, in the bubble phase) never run for this key
+  // event. Without this, hitting Escape inside the picker would unmount
+  // the whole editor in one keystroke.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return
+      e.stopImmediatePropagation()
+      e.preventDefault()
+      onClose?.()
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [open, onClose])
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      size="sm"
+      ariaLabel="Pick a character"
+      className="etd-char-picker"
+      closeOnEscape={false}
+    >
+      <style>{`
+        /* Doubled-class specificity so we beat .ui-dialog-panel--sm's
+         * 400px max-width without resorting to !important. */
+        .etd-char-picker.etd-char-picker {
+          /* Fixed footprint so the dialog never grows or shrinks based
+           * on the number of characters. The grid below scrolls inside. */
+          width: 100%;
+          max-width: 480px;
+          height: min(560px, calc(100dvh - 48px));
+        }
+        .etd-char-picker__head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 16px 18px 12px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          flex: 0 0 auto;
+        }
+        .etd-char-picker__title {
+          margin: 0;
+          font-size: 15px;
+          font-weight: 600;
+          color: #fff;
+          letter-spacing: 0.005em;
+        }
+        .etd-char-picker__close {
+          width: 32px;
+          height: 32px;
+          padding: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 0.5px solid rgba(255, 255, 255, 0.18);
+          border-radius: 999px;
+          background: rgba(12, 10, 22, 0.5);
+          color: rgba(255, 255, 255, 0.85);
+          cursor: pointer;
+          font-family: inherit;
+        }
+        .etd-char-picker__body {
+          flex: 1 1 auto;
+          min-height: 0;
+          overflow-y: auto;
+          padding: 14px;
+          -webkit-overflow-scrolling: touch;
+        }
+        .etd-char-picker__empty {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 100%;
+          padding: 20px;
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.55);
+          text-align: center;
+        }
+        .etd-char-picker__grid {
+          display: grid;
+          /* Auto-fills as many ~120px tiles as the body width allows;
+           * desktop tends to land on 3 columns, mobile on 2. */
+          grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+          gap: 10px;
+        }
+        .etd-char-picker__tile {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 8px;
+          padding: 8px 8px 10px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.04);
+          color: rgba(229, 231, 235, 0.92);
+          font-family: inherit;
+          font-size: 12.5px;
+          font-weight: 500;
+          text-align: center;
+          cursor: pointer;
+          transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s cubic-bezier(0.33, 1, 0.68, 1);
+        }
+        .etd-char-picker__tile:hover {
+          background: rgba(255, 255, 255, 0.07);
+          border-color: rgba(255, 255, 255, 0.16);
+        }
+        .etd-char-picker__tile:active {
+          transform: scale(0.98);
+        }
+        .etd-char-picker__tile[aria-selected='true'] {
+          background: linear-gradient(180deg, rgba(139, 92, 246, 0.22) 0%, rgba(139, 92, 246, 0.08) 100%);
+          border-color: rgba(167, 139, 250, 0.6);
+          color: #fff;
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 22px rgba(124, 58, 237, 0.22);
+        }
+        .etd-char-picker__avatar {
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          border-radius: 10px;
+          overflow: hidden;
+          background: rgba(0, 0, 0, 0.35);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .etd-char-picker__avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+        .etd-char-picker__name {
+          width: 100%;
+          line-height: 1.3;
+          /* Two-line clamp so long names don't break the tile height. */
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          word-break: break-word;
+        }
+        .etd-char-picker__badge {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          padding: 2px 7px;
+          border-radius: 999px;
+          font-size: 9px;
+          font-weight: 600;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.92);
+          background: rgba(0, 0, 0, 0.62);
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+        }
+        @media (max-width: 480px) {
+          .etd-char-picker__head { padding: 14px 14px 10px; }
+          .etd-char-picker__body { padding: 12px; }
+          .etd-char-picker__grid {
+            /* Two columns on phones — the auto-fill above lands at 2
+             * naturally, but the explicit rule guarantees it across
+             * the narrowest devices. */
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+          }
+        }
+      `}</style>
+
+      <div className="etd-char-picker__head">
+        <h2 className="etd-char-picker__title">Pick a character</h2>
+        <button
+          type="button"
+          className="etd-char-picker__close"
+          onClick={onClose}
+          aria-label="Close character picker"
+        >
+          <IconX size={14} />
+        </button>
+      </div>
+
+      <div className="etd-char-picker__body" role="listbox" aria-label="Characters">
+        {isPending ? (
+          <div className="etd-char-picker__empty">Loading characters…</div>
+        ) : items.length === 0 ? (
+          <div className="etd-char-picker__empty">
+            No characters yet — create one from the Characters menu.
+          </div>
+        ) : (
+          <div className="etd-char-picker__grid">
+            {items.map((p) => {
+              const active = selectedId === p.id
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  className="etd-char-picker__tile"
+                  onClick={() => onSelect(p)}
+                >
+                  <span className="etd-char-picker__avatar">
+                    {p.image_url && <img src={p.image_url} alt="" loading="lazy" />}
+                  </span>
+                  <span className="etd-char-picker__name">{p.name}</span>
+                  {(p.visibility === 'admin' || p.visibility === 'stock') && (
+                    <span className="etd-char-picker__badge" aria-hidden>
+                      Demo
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </Dialog>
   )
 }
 

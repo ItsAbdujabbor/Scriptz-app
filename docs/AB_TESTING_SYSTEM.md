@@ -1,4 +1,4 @@
-# 🧪 Scriptz AI — A/B Testing System
+# 🧪 Clixa AI — A/B Testing System
 
 > **Status:** Phase 2 shipped (multi-variant + automatic rotation + auto-apply winner + predictive lift + windowed metrics + TTL cache + background worker).
 > **Last updated:** April 13, 2026.
@@ -193,7 +193,7 @@ estimated minutes watched.
 └────────────────────────────────────────────────────────────────────┐ │
                             │                                       │ │
         ┌───────────────────▼───────┐      ┌────────────────────────▼─┐
-        │   Postgres (Supabase)     │      │   YouTube Data API v3    │
+        │   Postgres (Amazon RDS)   │      │   YouTube Data API v3    │
         │   ab_tests                │      │   YouTube Analytics v2   │
         │   ab_test_variations      │      │   (yt-analytics.readonly)│
         │   ab_test_snapshots       │      └──────────────────────────┘
@@ -287,8 +287,8 @@ in `ABTestResultsResponse`: `variations`, `comparison`, `trend`, `windowed`,
 
 For every `running` test:
 
-1. Resolve YouTube connection by `User.supabase_user_id` (Postgres stores
-   `youtube_connections.user_id` as the Supabase UUID, not the local int).
+1. Resolve YouTube connection by `User.cognito_sub` (Postgres stores
+   `youtube_connections.user_id` as the Cognito sub, not the local int).
 2. **Rotate if due** (`rotate_if_due`): when `mode='automatic'` and the
    rotation interval has elapsed, advance to the next slug round-robin and
    call `_apply_variant` (push title via `videos.update`, push thumbnail via
@@ -383,8 +383,8 @@ the thumbnails are uploaded by the user).
 
 Where the cost **does** appear: if the test runs for months with 5 variants
 rotating frequently, snapshot row count grows (~3,600 / month / test). Even
-at 1,000 active tests, that's 3.6 M rows / month — well under a single
-Supabase Pro instance's headroom.
+at 1,000 active tests, that's 3.6 M rows / month — well within an RDS
+db.t4g.small's headroom.
 
 ---
 

@@ -1,0 +1,266 @@
+/**
+ * Direct OAuth client — Google, PKCE.
+ *
+ * Flow:
+ *   1. buildAuthorizeUrl(provider) generates a PKCE verifier + state, stashes
+ *      them in sessionStorage, and returns Google's authorize URL.
+ *   2. The browser is redirected; the user authenticates at Google.
+ *   3. Google redirects back to the SPA at `?code=...&state=...`.
+ *   4. consumeOAuthCallback() POSTs the code to the backend
+ *      `/api/auth/oauth/google` endpoint. The backend does the token
+ *      exchange (it has the client secret) and returns our internal JWTs.
+ *   5. Caller stores the returned `{access_token, refresh_token, user, expires_in}`.
+ *
+ * No SDK; no Cognito; no AWS deployment dependency.
+ */
+
+import { getApiBaseUrl } from './env.js'
+
+const env = typeof import.meta !== 'undefined' ? import.meta.env : {}
+const GOOGLE_CLIENT_ID = (env.VITE_GOOGLE_CLIENT_ID || '').trim()
+
+const TOKENS_STORAGE_KEY = 'clixa_session'
+const PKCE_VERIFIER_KEY = 'clixa_oauth_pkce'
+const OAUTH_STATE_KEY = 'clixa_oauth_state'
+const OAUTH_PROVIDER_KEY = 'clixa_oauth_provider'
+
+// One-shot migration of the v1 brand keys ("scriptz_*"). Runs once at module
+// load: if the new key is empty but a legacy key exists, copy the value over
+// then delete the old one so already-signed-in users don't get bumped to login.
+const LEGACY_TOKENS_KEY = 'scriptz_session'
+const LEGACY_PKCE_KEY = 'scriptz_oauth_pkce'
+const LEGACY_STATE_KEY = 'scriptz_oauth_state'
+const LEGACY_PROVIDER_KEY = 'scriptz_oauth_provider'
+try {
+  if (typeof localStorage !== 'undefined') {
+    if (!localStorage.getItem(TOKENS_STORAGE_KEY)) {
+      const legacy = localStorage.getItem(LEGACY_TOKENS_KEY)
+      if (legacy) localStorage.setItem(TOKENS_STORAGE_KEY, legacy)
+    }
+    localStorage.removeItem(LEGACY_TOKENS_KEY)
+  }
+  if (typeof sessionStorage !== 'undefined') {
+    for (const [next, legacy] of [
+      [PKCE_VERIFIER_KEY, LEGACY_PKCE_KEY],
+      [OAUTH_STATE_KEY, LEGACY_STATE_KEY],
+      [OAUTH_PROVIDER_KEY, LEGACY_PROVIDER_KEY],
+    ]) {
+      if (!sessionStorage.getItem(next)) {
+        const v = sessionStorage.getItem(legacy)
+        if (v) sessionStorage.setItem(next, v)
+      }
+      sessionStorage.removeItem(legacy)
+    }
+  }
+} catch {
+  /* storage may be unavailable — silent fail */
+}
+
+const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
+const GOOGLE_SCOPES = 'openid email profile'
+
+export const SESSION_STORAGE_KEY = TOKENS_STORAGE_KEY
+
+export function isGoogleConfigured() {
+  return Boolean(GOOGLE_CLIENT_ID)
+}
+
+function redirectUri() {
+  if (typeof window === 'undefined') return ''
+  // Trailing slash matters: must exactly match what's registered in the
+  // IdP's redirect-URI list. Vite dev serves at http://localhost:5173/.
+  return `${window.location.origin}${window.location.pathname}`
+}
+
+function base64UrlEncode(bytes) {
+  let s = ''
+  for (const b of bytes) s += String.fromCharCode(b)
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+async function generatePkce() {
+  const random = new Uint8Array(32)
+  crypto.getRandomValues(random)
+  const verifier = base64UrlEncode(random)
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
+  const challenge = base64UrlEncode(new Uint8Array(digest))
+  return { verifier, challenge }
+}
+
+function newState() {
+  const random = new Uint8Array(16)
+  crypto.getRandomValues(random)
+  return base64UrlEncode(random)
+}
+
+/**
+ * Build Google's authorize URL. Stashes PKCE + state + provider tag in
+ * sessionStorage so the redirect-back handler knows which backend
+ * endpoint to call.
+ */
+export async function buildAuthorizeUrl(provider) {
+  if (provider !== 'google') {
+    throw new Error(`Unknown OAuth provider: ${provider}`)
+  }
+  if (!GOOGLE_CLIENT_ID) {
+    throw new Error('Google OAuth is not configured. Set VITE_GOOGLE_CLIENT_ID.')
+  }
+
+  const { verifier, challenge } = await generatePkce()
+  const state = newState()
+  sessionStorage.setItem(PKCE_VERIFIER_KEY, verifier)
+  sessionStorage.setItem(OAUTH_STATE_KEY, state)
+  sessionStorage.setItem(OAUTH_PROVIDER_KEY, provider)
+
+  const params = new URLSearchParams({
+    response_type: 'code',
+    redirect_uri: redirectUri(),
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
+    state,
+    client_id: GOOGLE_CLIENT_ID,
+    scope: GOOGLE_SCOPES,
+    // Pin the access type so refreshes work without re-prompting (Google
+    // only issues refresh_token when access_type=offline). Only relevant
+    // if the BACKEND wanted refresh tokens — we don't, but harmless.
+    access_type: 'online',
+    prompt: 'select_account',
+  })
+  return `${GOOGLE_AUTH_URL}?${params.toString()}`
+}
+
+/**
+ * If the current URL is an OAuth callback, exchange the code at the
+ * matching backend endpoint and return `{access_token, refresh_token, user, expires_in}`.
+ * Returns null when this isn't a callback. Throws on any failure.
+ */
+export async function consumeOAuthCallback() {
+  if (typeof window === 'undefined') return null
+  const url = new URL(window.location.href)
+  const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
+  const errorParam = url.searchParams.get('error')
+
+  if (errorParam) {
+    cleanupCallbackUrl(url)
+    throw new Error(url.searchParams.get('error_description') || errorParam)
+  }
+  if (!code) return null
+
+  const expectedState = sessionStorage.getItem(OAUTH_STATE_KEY)
+  if (!expectedState || expectedState !== state) {
+    cleanupCallbackUrl(url)
+    throw new Error('OAuth state mismatch — restart sign-in.')
+  }
+  const verifier = sessionStorage.getItem(PKCE_VERIFIER_KEY)
+  const provider = sessionStorage.getItem(OAUTH_PROVIDER_KEY)
+  if (!verifier || !provider) {
+    cleanupCallbackUrl(url)
+    throw new Error('Missing PKCE verifier — restart sign-in.')
+  }
+
+  const session = await exchangeWithBackend(provider, code, verifier)
+
+  sessionStorage.removeItem(PKCE_VERIFIER_KEY)
+  sessionStorage.removeItem(OAUTH_STATE_KEY)
+  sessionStorage.removeItem(OAUTH_PROVIDER_KEY)
+  cleanupCallbackUrl(url)
+
+  saveSession(session)
+  return session
+}
+
+function cleanupCallbackUrl(url) {
+  // OAuth callback debris from Google. Wipe everything we know is theirs —
+  // `iss` (identity issuer claim), `hd` (hosted domain), and the rest —
+  // so the URL bar reads cleanly after sign-in.
+  [
+    'code',
+    'state',
+    'error',
+    'error_description',
+    'scope',
+    'authuser',
+    'prompt',
+    'session_state',
+    'iss',
+    'hd',
+  ].forEach((k) => url.searchParams.delete(k))
+  const clean =
+    url.pathname + (url.searchParams.toString() ? `?${url.searchParams}` : '') + url.hash
+  window.history.replaceState({}, '', clean)
+}
+
+async function exchangeWithBackend(provider, code, verifier) {
+  const r = await fetch(`${getApiBaseUrl()}/api/auth/oauth/${provider}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      code,
+      code_verifier: verifier,
+      redirect_uri: redirectUri(),
+    }),
+  })
+  const data = await r.json().catch(() => ({}))
+  if (!r.ok) {
+    throw new Error(data?.error?.message || data?.detail || `Sign-in failed (${r.status})`)
+  }
+  // Backend returns: { access_token, refresh_token, expires_in, token_type, user }
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresAt: Date.now() + (Number(data.expires_in) || 900) * 1000,
+    user: data.user || null,
+  }
+}
+
+export function loadSession() {
+  try {
+    const raw = localStorage.getItem(TOKENS_STORAGE_KEY)
+    if (!raw) return null
+    const o = JSON.parse(raw)
+    if (!o?.accessToken) return null
+    return o
+  } catch {
+    return null
+  }
+}
+
+export function saveSession(session) {
+  if (!session) {
+    localStorage.removeItem(TOKENS_STORAGE_KEY)
+    return
+  }
+  localStorage.setItem(TOKENS_STORAGE_KEY, JSON.stringify(session))
+}
+
+export function clearSession() {
+  localStorage.removeItem(TOKENS_STORAGE_KEY)
+  sessionStorage.removeItem(PKCE_VERIFIER_KEY)
+  sessionStorage.removeItem(OAUTH_STATE_KEY)
+  sessionStorage.removeItem(OAUTH_PROVIDER_KEY)
+}
+
+/**
+ * Refresh the access token using the stored refresh token.
+ * Returns the new session or null on failure.
+ */
+export async function refreshSession(refreshToken) {
+  if (!refreshToken) return null
+  const r = await fetch(`${getApiBaseUrl()}/api/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  })
+  if (!r.ok) return null
+  const data = await r.json().catch(() => ({}))
+  if (!data.access_token) return null
+  const next = {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token || refreshToken,
+    expiresAt: Date.now() + (Number(data.expires_in) || 900) * 1000,
+    user: data.user || null,
+  }
+  saveSession(next)
+  return next
+}

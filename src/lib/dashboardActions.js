@@ -4,10 +4,8 @@
  */
 
 import {
-  coachPrefill,
   getAreaPrefill,
   optimizePrefill,
-  scriptPrefill,
   thumbPrefill,
 } from './dashboardActionPayload'
 
@@ -29,8 +27,8 @@ export function getAreaAction(areaName) {
   }
   if (a.includes('consistency')) {
     return {
-      label: 'Plan a video this week',
-      hash: 'coach?topic=upload%20schedule',
+      label: 'Open Thumbnail Generator',
+      hash: 'thumbnails',
     }
   }
   if (a.includes('seo')) {
@@ -41,13 +39,13 @@ export function getAreaAction(areaName) {
   }
   if (a.includes('retention')) {
     return {
-      label: 'Ask AI Coach',
-      hash: 'coach?topic=retention%20hook',
+      label: 'Open Thumbnail Generator',
+      hash: 'thumbnails',
     }
   }
   return {
-    label: 'Open AI Coach',
-    hash: 'coach',
+    label: 'Open Thumbnail Generator',
+    hash: 'thumbnails',
   }
 }
 
@@ -80,7 +78,7 @@ export function getAuditAreaGuidance(name, score, label) {
     return {
       diagnosis: 'Upload rhythm is weak — viewers do not know when to expect you.',
       action: 'Lock one upload slot this week and repeat it.',
-      href: 'coach?topic=posting%20schedule',
+      href: 'thumbnails',
       tone: 'warn',
     }
   }
@@ -104,7 +102,7 @@ export function getAuditAreaGuidance(name, score, label) {
     return {
       diagnosis: 'Viewers may be dropping early or not engaging enough.',
       action: 'Front-load payoff in the first 30 seconds.',
-      href: 'coach/scripts?focus=hook',
+      href: 'thumbnails',
       tone: 'warn',
     }
   }
@@ -142,13 +140,13 @@ export function computeNextBestAction({ audit, growth, snapshot }) {
       diagnosis:
         'Your channel has no reliable posting rhythm yet, so viewers are not learning when to come back.',
       action: 'Publish one video this week, then book the same day and time again for next week.',
-      ctaLabel: 'Build weekly plan',
-      hash: 'coach?topic=weekly%20upload%20plan',
-      prefillPrompt: coachPrefill(
-        'Consistency',
-        Number(consistency.score),
-        '2-week schedule: upload days + times + 3 video ideas. Keep it realistic.'
-      ),
+      ctaLabel: 'Open Thumbnail Generator',
+      hash: 'thumbnails',
+      prefillPrompt: thumbPrefill({
+        pillar: 'Consistency',
+        score: Number(consistency.score),
+        videoTitle: null,
+      }),
       impact: 'A simple weekly rhythm is the smallest habit that compounds.',
     }
   }
@@ -209,9 +207,9 @@ export function computeNextBestAction({ audit, growth, snapshot }) {
       diagnosis: 'View velocity is flat — you’re not compounding reach yet.',
       action:
         'Pair one stronger thumbnail test with your next upload, or add a Short to feed the funnel.',
-      ctaLabel: 'Generate a script',
-      hash: 'coach/scripts',
-      prefillPrompt: `${scriptPrefill({ concept: null, pillar: 'Growth', score: null })} (≈${Math.round(proj)} views / 30d projected — pick one packaging test + one new video).`,
+      ctaLabel: 'Open Thumbnail Generator',
+      hash: 'thumbnails',
+      prefillPrompt: `${thumbPrefill({ pillar: 'Growth', score: null, videoTitle: null })} (≈${Math.round(proj)} views / 30d projected — pick one packaging test + one new video).`,
       impact: `At this pace you’re on track for ~${Math.round(proj)} views in 30 days — packaging wins move it first.`,
     }
   }
@@ -238,10 +236,10 @@ export function computeNextBestAction({ audit, growth, snapshot }) {
     headline: 'Next best action',
     title: 'Keep the flywheel turning',
     diagnosis: 'Nothing is on fire — keep compounding what worked.',
-    action: 'Take the best idea below, script it, then package it.',
-    ctaLabel: 'Browse ideas',
-    hash: 'coach/scripts',
-    prefillPrompt: scriptPrefill({ concept: null, pillar: 'Next video', score: null }),
+    action: 'Take the best idea below and package it.',
+    ctaLabel: 'Open Thumbnail Generator',
+    hash: 'thumbnails',
+    prefillPrompt: thumbPrefill({ pillar: 'Next video', score: null, videoTitle: null }),
     impact: 'Consistency beats one-off spikes.',
   }
 }
@@ -289,7 +287,7 @@ export function getSnapshotStatInsight(key, snapshot) {
       if (d > 0) {
         return {
           tip: 'Up vs last period · double down on what worked.',
-          href: 'coach/scripts',
+          href: 'thumbnails',
           cta: 'Open',
         }
       }
@@ -304,7 +302,7 @@ export function getSnapshotStatInsight(key, snapshot) {
   if (key === 'watch_time_hours') {
     return {
       tip: 'Retention beats clicks · low vs views? Tighten hooks & pacing.',
-      href: 'coach/scripts?focus=pacing',
+      href: 'thumbnails',
       cta: 'Open',
     }
   }
@@ -314,13 +312,13 @@ export function getSnapshotStatInsight(key, snapshot) {
     if (n != null && Number(n) <= 1) {
       return {
         tip: 'Thin sample · publish more to read trends clearly.',
-        href: 'coach',
+        href: 'thumbnails',
         cta: 'Open',
       }
     }
     return {
       tip: 'Pick a weekly cadence you can sustain.',
-      href: 'coach?topic=schedule',
+      href: 'thumbnails',
       cta: 'Open',
     }
   }
@@ -328,7 +326,7 @@ export function getSnapshotStatInsight(key, snapshot) {
   if (key === 'views_per_video') {
     return {
       tip: 'Vs your niche: low = sharpen angle; high = sequels.',
-      href: 'coach/scripts',
+      href: 'thumbnails',
       cta: 'Open',
     }
   }
@@ -340,7 +338,7 @@ export function getGrowthStatInsight(key) {
   if (key === 'subs') {
     return {
       tip: 'Ask for the sub after value (mid-roll), not only at the outro.',
-      href: 'coach?topic=cta',
+      href: 'thumbnails',
       cta: 'Go',
     }
   }
@@ -386,13 +384,9 @@ export function fixLineToAction(line, area) {
   }
   if (t.includes('upload') || t.includes('schedule') || a.includes('consistency')) {
     return {
-      label: 'Coach',
-      hash: 'coach?topic=schedule',
-      prefill: coachPrefill(
-        'Consistency',
-        null,
-        'Weekly plan I can stick to — days, times, 2 ideas.'
-      ),
+      label: 'Thumbnails',
+      hash: 'thumbnails',
+      prefill: thumbPrefill({ pillar: 'Consistency', score: null, videoTitle: null }),
     }
   }
   if (t.includes('title') || t.includes('description') || t.includes('seo')) {
@@ -402,16 +396,16 @@ export function fixLineToAction(line, area) {
       prefill: optimizePrefill('SEO / titles', null),
     }
   }
-  if (t.includes('hook') || t.includes('script')) {
+  if (t.includes('hook')) {
     return {
-      label: 'Script',
-      hash: 'coach/scripts',
-      prefill: scriptPrefill({ concept: null, pillar: 'Hook', score: null }),
+      label: 'Thumbnails',
+      hash: 'thumbnails',
+      prefill: thumbPrefill({ pillar: 'Hook', score: null, videoTitle: null }),
     }
   }
   return {
-    label: 'Coach',
-    hash: 'coach',
+    label: 'Thumbnails',
+    hash: 'thumbnails',
     prefill: getAreaPrefill(area || 'Channel', null),
   }
 }

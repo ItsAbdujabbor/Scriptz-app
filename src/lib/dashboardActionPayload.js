@@ -1,4 +1,4 @@
-/** Append AI-ready prefill to hash routes from the dashboard (Coach / Script / Thumb / Optimize). */
+/** Append AI-ready prefill to hash routes from the dashboard (Thumb / Optimize). */
 
 const MAX = 1200
 
@@ -52,24 +52,11 @@ export function stripHashQueryParams(keys) {
   }
 }
 
-/** Coach: planning / diagnosis */
-export function coachPrefill(pillar, score, ask) {
-  const s = score != null ? ` (${score}/100)` : ''
-  return `[From dashboard] Focus: ${pillar}${s}.\n\n${ask}`
-}
-
 /** Thumbnail generator: creative directions */
 export function thumbPrefill({ pillar, score, videoTitle }) {
   const t = videoTitle ? `Video: "${videoTitle}". ` : ''
   const s = score != null ? `Audit ${pillar} ${score}/100. ` : ''
   return `${t}${s}Give me 4 contrasting thumbnail directions (layout, face vs text-heavy, color, 3–5 words on-image). Then I'll generate the strongest.`
-}
-
-/** Script generator: outline + hook */
-export function scriptPrefill({ concept, pillar, score }) {
-  const c = concept ? `Concept: "${concept}". ` : ''
-  const s = score != null ? `${pillar} ${score}/100. ` : ''
-  return `${c}${s}Outline the video + write the first 60s (hook + pattern interrupt). Optimize for retention.`
 }
 
 /** Optimize: what to do on existing videos */
@@ -88,34 +75,6 @@ export function prefillForDashboardHashHref(href) {
   if (base === 'optimize') return optimizePrefill('titles & thumbnails', null)
   if (base === 'thumbnails')
     return thumbPrefill({ pillar: 'CTR / packaging', score: null, videoTitle: null })
-  if (base === 'coach/scripts') {
-    const focus = params.get('focus')
-    if (focus === 'pacing' || focus === 'hook') {
-      return scriptPrefill({
-        concept: null,
-        pillar: focus === 'hook' ? 'Hook' : 'Pacing / retention',
-        score: null,
-      })
-    }
-    return scriptPrefill({ concept: null, pillar: 'Next video', score: null })
-  }
-  if (base === 'coach') {
-    const topic = params.get('topic') || ''
-    const t = topic.toLowerCase()
-    if (t.includes('cta'))
-      return coachPrefill(
-        'Retention',
-        null,
-        'Stronger subscribe CTA placement — mid-video after value, not only at the end.'
-      )
-    if (t.includes('schedule'))
-      return coachPrefill('Consistency', null, 'Realistic weekly upload rhythm I can sustain.')
-    return coachPrefill(
-      'Channel',
-      null,
-      'What should I prioritize this week based on my dashboard?'
-    )
-  }
   return null
 }
 
@@ -127,17 +86,13 @@ export function getAreaPrefill(areaName, score) {
     return thumbPrefill({ pillar: 'CTR / thumbnails', score: s, videoTitle: null })
   }
   if (a.includes('consistency')) {
-    return coachPrefill(
-      'Consistency',
-      s,
-      'Minimal viable weekly plan I can keep — days, times, 2 video ideas.'
-    )
+    return thumbPrefill({ pillar: 'Consistency', score: s, videoTitle: null })
   }
   if (a.includes('seo')) {
     return optimizePrefill('SEO / titles', s)
   }
   if (a.includes('retention')) {
-    return scriptPrefill({ concept: null, pillar: 'Retention / hook', score: s })
+    return thumbPrefill({ pillar: 'Retention / hook', score: s, videoTitle: null })
   }
-  return coachPrefill('Channel', s, 'Top 3 fixes for my channel this week, in order.')
+  return thumbPrefill({ pillar: 'Channel', score: s, videoTitle: null })
 }

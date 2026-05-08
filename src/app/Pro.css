@@ -1,7 +1,15 @@
-/* Pro page — same canvas as Dashboard (#121212 via .dashboard-main-wrap), scroll in .dashboard-main-scroll */
+/* Pro page — sits on the same dot-grid canvas as the Thumbnail
+ * Generator. The <ThumbBackgroundFX /> element is mounted by
+ * AuthenticatedRoutes one level OUTSIDE the scrolling content (inside
+ * `<main class="dashboard-main-wrap">`), so the grid stays pinned
+ * while the pricing column scrolls and only spans the main column —
+ * the sidebar paints its own surface in a sibling element.
+ */
 
 /* Width + horizontal inset from .dashboard-content-shell */
 .pro-page {
+  position: relative;
+  z-index: 1; /* sit above the dot-grid sibling that lives in dashboard-main-wrap */
   width: 100%;
   margin: 0;
   padding: 0 0 clamp(1.25rem, 3vw, 2rem);
@@ -36,14 +44,39 @@
 }
 
 .pro-page .pri-header {
-  margin-bottom: 2.5rem;
+  margin: 0 auto 2.75rem;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+/* Tighter, single-line heading using the same vivid gradient the
+ * landing-page hero applies to its accent line — see `.lin-h1-accent`
+ * in src/landing/hero/hero.css. Background-clipped to the text so each
+ * letter starts white on the left, fades through light-violet, and
+ * lands on indigo at the right edge. Sized down from the hero scale so
+ * it reads as a confident in-app section title rather than a shout. */
+.pro-page .pri-h2 {
+  font-size: clamp(2rem, 3.4vw, 3.4rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  margin: 0;
+  background: linear-gradient(125deg, #ffffff 0%, #c4b5fd 38%, #818cf8 68%, #6366f1 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
 
 .pro-page .pri-lead {
-  max-width: 36rem;
-  margin-left: auto;
-  margin-right: auto;
+  max-width: 32rem;
+  margin: 0 auto;
+  font-size: 1rem;
+  line-height: 1.55;
+  color: rgba(229, 231, 235, 0.65);
 }
 
 /* Remove landing-only background wash */
@@ -55,7 +88,32 @@
   display: none;
 }
 
-/* Top 28% of each card gets a soft fade — subtle inner-light shadow effect. */
+/* ─────────────────────────────────────────────────────────────────
+ * Pricing-card tier neutralisation.
+ *
+ * The shared landing pricing.css gives each tier a coloured top-shade
+ * radial (`--tier-shade`) AND a coloured 2px accent line at the very
+ * top (`.pri-card::after` consuming `--tier-accent`). For Starter
+ * that shade is emerald-green and for Ultimate it's amber — too much
+ * colour for an in-app surface where the cards should read as a
+ * uniform set with the popular tier (Creator) being the only signal.
+ *
+ * We override at the Pro level by:
+ *   1. Resetting `--tier-shade` / `--tier-accent` on the non-popular
+ *      tiers so any consumer reads neutral white instead of green/amber.
+ *   2. Replacing `.pri-card::after` with a uniform very-faint white
+ *      hairline (or violet on the popular card).
+ * ───────────────────────────────────────────────────────────────── */
+.pro-page .pri-card--starter,
+.pro-page .pri-card--ultimate {
+  --tier-shade: rgba(255, 255, 255, 0.04);
+  --tier-accent: rgba(255, 255, 255, 0.16);
+  --tier-btn: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.06));
+  --tier-btn-shadow: rgba(0, 0, 0, 0.32);
+}
+
+/* Top 28% soft inner-light fade — same uniform white wash for every
+ * card. Creator's slightly violet override lives just below. */
 .pro-page .pri-card::before {
   display: block;
   content: '';
@@ -68,14 +126,27 @@
   pointer-events: none;
 }
 
-/* Creator card keeps a softer violet-tinted top fade instead of tinting the
-   whole card. */
 .pro-page .pri-card--pop::before {
-  display: block;
   background: linear-gradient(180deg, rgba(167, 139, 250, 0.2) 0%, transparent 100%);
 }
 
-/* Keep row content above the fade */
+/* Top accent hairline. Hidden on Starter + Ultimate (no tier tint),
+ * preserved as a soft violet on Creator so it reads as the highlighted
+ * pick. The base rule lives in pricing.css; here we override it. */
+.pro-page .pri-card::after {
+  background: transparent;
+}
+
+.pro-page .pri-card--pop::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(167, 139, 250, 0.55) 50%,
+    transparent 100%
+  );
+}
+
+/* Keep row content above the fade. */
 .pro-page .pri-card > * {
   position: relative;
   z-index: 1;
@@ -222,59 +293,123 @@
    ═══════════════════════════════════════ */
 
 /* Billing toggle (Monthly / Annually) */
-.pro-billing-toggle {
+/* Billing-cycle toggle wrap. Inline-flex so the wrap auto-sizes to just
+ * the chip group; `position: relative` anchors the floating "Save 30%"
+ * badge. The parent `.pri-header` is a centred column-flex so this
+ * stays horizontally centred. Extra top margin gives the floating
+ * badge breathing room above. */
+.pro-billing-wrap {
+  position: relative;
   display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 100px;
-  margin-top: 1.25rem;
+  margin-top: 2.25rem;
 }
 
-.pro-billing-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.95rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  font-family: inherit;
-  color: rgba(255, 255, 255, 0.5);
-  background: transparent;
-  border: none;
-  border-radius: 100px;
-  cursor: pointer;
-  transition:
-    color 0.15s ease,
-    background 0.15s ease;
+.pro-billing-wrap .thumb-gen-pill-tab-group {
+  gap: 0.45rem;
 }
 
-.pro-billing-btn:hover {
-  color: rgba(255, 255, 255, 0.75);
-}
-
-.pro-billing-btn--active {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.1);
-}
-
+/* "Save 30%" badge — floats ABOVE the Annually pill, NOT overlapping.
+ * `bottom: calc(100% + 6px)` parks it 6px above the wrap's top edge so
+ * it can never collide with the pill no matter what height the badge
+ * is. Right-aligned to sit roughly above the Annually chip. Same
+ * anchored-flag pattern as `.auth-oauth-last` for the OAuth buttons. */
 .pro-billing-save {
-  font-size: 0.65rem;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 14px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  font-size: 0.62rem;
   font-weight: 700;
-  padding: 0.1rem 0.4rem;
-  color: #30d158;
-  background: rgba(48, 209, 88, 0.15);
-  border-radius: 100px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #6ee7b7;
+  background: #0a0a14;
+  border: 1px solid rgba(52, 211, 153, 0.42);
+  border-radius: 9999px;
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.55),
+    0 0 0 3px rgba(10, 10, 20, 0.55);
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 /* ─ Plan cards — equal size, no glow ─ */
 .pro-page .pri-cards {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
+  gap: 1.15rem;
   align-items: stretch;
+}
+
+/* "Most Popular" badge — match the brand violet cleanly. The landing
+ * uses indigo; in-app we want the same accent as the chat tabs and
+ * heading gradient (violet-300 → indigo-500). */
+.pro-page .pri-pop-badge {
+  background: rgba(167, 139, 250, 0.14);
+  border: 1px solid rgba(167, 139, 250, 0.42);
+  color: #c4b5fd;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  padding: 0.3rem 0.7rem;
+}
+
+/* Plan name: sized down a touch + tighter tracking so the row reads
+ * cleanly next to the badge. */
+.pro-page .pri-plan-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.018em;
+  color: #fff;
+}
+
+/* Price block — keep the big number bold, but soften the /mo + billed
+ * line so the eye lands on the dollar value first. */
+.pro-page .pri-price-nums .pri-cur {
+  font-size: clamp(2rem, 3.2vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+  line-height: 1;
+}
+
+.pro-page .pri-price-nums .pri-mo {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(229, 231, 235, 0.55);
+  letter-spacing: 0;
+}
+
+.pro-page .pri-billed-mo {
+  margin-top: 0.45rem;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: rgba(229, 231, 235, 0.45);
+  letter-spacing: 0.02em;
+}
+
+.pro-page .pri-desc {
+  margin-top: 0.85rem;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: rgba(229, 231, 235, 0.7);
+}
+
+.pro-page .pri-desc strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Top section breathing room. */
+.pro-page .pri-top {
+  margin-bottom: 1.4rem;
+}
+
+.pro-page .pri-name-row {
+  margin-bottom: 0.85rem;
 }
 
 .pro-page .pri-card {
@@ -282,32 +417,45 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: rgba(24, 24, 28, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  padding: 1.5rem clamp(1.1rem, 1.6vw, 1.5rem) 1.4rem;
+  background: rgba(20, 20, 26, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  backdrop-filter: blur(22px) saturate(1.05);
+  -webkit-backdrop-filter: blur(22px) saturate(1.05);
+  /* Cool deep shadow with a faint inset top highlight — gives every
+   * card the same tactile "glass card resting on the canvas" feel. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 0 rgba(0, 0, 0, 0.32),
+    0 16px 40px rgba(0, 0, 0, 0.32);
   overflow: visible; /* let info-tooltips escape the card bounds */
-  transition: none;
-  transform: none !important;
-  animation: none !important;
+  transition:
+    border-color 220ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 220ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .pro-page .pri-card:hover {
-  border-color: rgba(255, 255, 255, 0.07);
-  background: rgba(24, 24, 28, 0.6);
-  transform: none;
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 1px 0 rgba(0, 0, 0, 0.32),
+    0 22px 48px rgba(0, 0, 0, 0.4);
 }
 
-/* Creator card: same base color as the others, only the top fade + border
-   accent signal "Most popular". */
+/* Creator (popular) card. Same surface, same shadow, same lift — the
+ * ONLY signals it's the highlighted pick are the violet border, the
+ * faint violet top fade, the violet hairline on `::after`, and the
+ * "Most Popular" badge in the corner. No outer glow / halo / coloured
+ * drop-shadow — the row reads as a clean three-card set. */
 .pro-page .pri-card--pop {
-  background: rgba(24, 24, 28, 0.6);
-  border-color: rgba(139, 92, 246, 0.28);
+  border-color: rgba(167, 139, 250, 0.4);
 }
 
 .pro-page .pri-card--pop:hover {
-  border-color: rgba(139, 92, 246, 0.28);
-  background: rgba(24, 24, 28, 0.6);
+  border-color: rgba(196, 181, 253, 0.55);
 }
 
 /* Disable scroll-reveal animation on pricing cards */

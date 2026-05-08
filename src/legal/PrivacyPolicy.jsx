@@ -31,12 +31,12 @@ export function PrivacyPolicy({ onBack }) {
 
         <header className="legal-header">
           <h1 className="legal-title">Privacy Policy</h1>
-          <p className="legal-updated">Last updated: April 2026</p>
+          <p className="legal-updated">Last updated: May 2026</p>
         </header>
 
         <div className="legal-content">
           <p>
-            Scriptz AI (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;) is committed to
+            Clixa AI (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;) is committed to
             protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and
             safeguard your information when you use our website, applications, and services (the
             &quot;Service&quot;). By using the Service, you consent to the practices described in
@@ -61,7 +61,7 @@ export function PrivacyPolicy({ onBack }) {
             <li>
               <strong>Billing data:</strong> when you subscribe or purchase credits, our payment
               processor (see §3) collects your name, billing address, tax/VAT ID where applicable,
-              and payment instrument details. Scriptz AI receives only a customer reference,
+              and payment instrument details. Clixa AI receives only a customer reference,
               transaction status, and non-sensitive summary data — we{' '}
               <strong>never store full card numbers, CVV, or bank details</strong>.
             </li>
@@ -82,9 +82,15 @@ export function PrivacyPolicy({ onBack }) {
               device identifiers, and access times.
             </li>
             <li>
-              <strong>Cookies and similar technologies:</strong> we use cookies and similar
-              technologies to maintain sessions, remember preferences, and analyze usage. You can
-              manage cookie settings in your browser.
+              <strong>Cookies and similar storage:</strong> we use a small number of
+              strictly-necessary technologies — primarily browser local storage — to keep you
+              signed in and remember your preferences. We do not place third-party analytics or
+              advertising tracking cookies on our domain. When you complete a purchase, Paddle's
+              hosted checkout sets its own cookies on Paddle's domain to support the transaction;
+              when you embed or watch YouTube content, Google may set cookies on its own domains.
+              Those third-party cookies are governed by the respective providers' privacy notices.
+              You can clear or block cookies and local storage at any time in your browser
+              settings.
             </li>
           </ul>
           <h3>Third-party data</h3>
@@ -100,7 +106,7 @@ export function PrivacyPolicy({ onBack }) {
             <li>Provide, operate, maintain, and improve the Service</li>
             <li>Authenticate your identity and manage your account</li>
             <li>
-              Process your requests and deliver AI-generated content (e.g. scripts, thumbnails)
+              Process your requests and deliver AI-generated content (e.g. thumbnails, titles)
             </li>
             <li>Send you service-related notices, updates, and support messages</li>
             <li>Analyze usage and trends to improve our product and user experience</li>
@@ -116,42 +122,93 @@ export function PrivacyPolicy({ onBack }) {
           </p>
           <ul>
             <li>
-              <strong>Service providers (subprocessors):</strong> with vendors who help us operate
-              the Service, under contracts that limit their use of your data. Current core
-              subprocessors include:
+              <strong>Service providers (subprocessors):</strong> vendors who help us operate the
+              Service, under contracts that limit their use of your data. Current subprocessors:
               <ul>
                 <li>
                   <strong>Paddle.com Market Ltd</strong> — Merchant of Record for all paid
                   subscriptions and credit packs. Paddle collects your billing information directly,
                   processes your payment, handles sales tax / VAT collection and remittance where
-                  required, and transmits a transaction reference back to Scriptz AI. Paddle's
-                  privacy notice is available at{' '}
+                  required, and transmits a transaction reference back to Clixa AI. Paddle's
+                  privacy notice:{' '}
                   <a href="https://www.paddle.com/legal/privacy" target="_blank" rel="noopener">
                     paddle.com/legal/privacy
                   </a>
                   .
                 </li>
                 <li>
-                  <strong>Supabase</strong> — authentication and account database.
+                  <strong>Amazon Web Services (AWS)</strong> — cloud hosting in the{' '}
+                  <em>us-east-1</em> region: EC2 compute, S3 object storage, and CloudFront CDN.
+                  Our Postgres account database runs inside an EC2 instance under our control. We
+                  do not use AWS Cognito, RDS, or any other AWS managed identity service —
+                  authentication is handled in-house (see the &ldquo;Authentication&rdquo; note
+                  below). Subprocessor terms:{' '}
+                  <a
+                    href="https://aws.amazon.com/agreement/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    aws.amazon.com/agreement
+                  </a>
+                  .
                 </li>
                 <li>
-                  <strong>OpenAI</strong> — AI image generation on your prompts. Prompts and
-                  reference images you submit are transmitted to OpenAI per their API policy; we do
-                  not allow training on your data.
+                  <strong>Cloudflare</strong> — DNS hosting and registrar for the{' '}
+                  <code>clixa.app</code> domain. Cloudflare may receive request metadata (e.g. IP
+                  address, request URL) when resolving DNS. Cloudflare's privacy notice:{' '}
+                  <a
+                    href="https://www.cloudflare.com/privacypolicy/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    cloudflare.com/privacypolicy
+                  </a>
+                  .
                 </li>
                 <li>
-                  <strong>Google (YouTube Data API)</strong> — when you connect your channel, with
-                  scopes you explicitly authorise.
+                  <strong>OpenAI</strong> — image-generation infrastructure for AI-generated
+                  thumbnails. Your prompts and reference images are transmitted to OpenAI under
+                  their API terms, which prohibit training on customer data submitted via the API.
+                  OpenAI privacy:{' '}
+                  <a
+                    href="https://openai.com/policies/privacy-policy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    openai.com/policies/privacy-policy
+                  </a>
+                  .
                 </li>
                 <li>
-                  <strong>AWS</strong> — cloud hosting (compute, storage, CDN) located in the
-                  regions noted in our hosting documentation.
+                  <strong>Google Gemini</strong> — text and analysis infrastructure (titles,
+                  brainstorms, content insights). Prompts and related metadata are transmitted to
+                  Google under their Gemini API terms. Google privacy:{' '}
+                  <a
+                    href="https://policies.google.com/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    policies.google.com/privacy
+                  </a>
+                  .
+                </li>
+                <li>
+                  <strong>Google (YouTube Data API)</strong> — when you connect your YouTube
+                  channel, with the scopes you explicitly authorise. We use this only for the
+                  channel/thumbnail features you opt into.
                 </li>
               </ul>
+              <p>
+                <strong>Authentication.</strong> Clixa AI authenticates accounts using JSON Web
+                Tokens (JWT) issued by our own backend; passwords are stored as bcrypt hashes and
+                never in plaintext. Where you choose to sign in with Google, the OAuth flow is
+                initiated directly between your browser, Google, and our backend; no third-party
+                identity broker is involved. We do not currently support Apple Sign-In.
+              </p>
             </li>
             <li>
               <strong>Legal and safety:</strong> when required by law, court order, or government
-              request, or to protect the rights, property, or safety of Scriptz AI, our users, or
+              request, or to protect the rights, property, or safety of Clixa AI, our users, or
               the public.
             </li>
             <li>
@@ -166,14 +223,14 @@ export function PrivacyPolicy({ onBack }) {
 
           <h2>3a. Payment Processing (Paddle — Merchant of Record)</h2>
           <p>
-            Scriptz AI uses <strong>Paddle.com Market Ltd</strong> as its Merchant of Record for all
+            Clixa AI uses <strong>Paddle.com Market Ltd</strong> as its Merchant of Record for all
             paid subscriptions, recurring renewals, and one‑time credit pack purchases. That means:
           </p>
           <ul>
             <li>
               When you complete a purchase, your payment details (card number, billing address, tax
               details) are entered into Paddle's hosted checkout and are collected, stored, and
-              processed by Paddle — not by Scriptz AI.
+              processed by Paddle — not by Clixa AI.
             </li>
             <li>
               Paddle handles sales tax, VAT, GST, and equivalent transaction taxes on our behalf and
@@ -181,7 +238,7 @@ export function PrivacyPolicy({ onBack }) {
             </li>
             <li>Your invoice, receipts, and renewal emails are issued by Paddle under our name.</li>
             <li>
-              Scriptz AI receives a customer ID, subscription status, and transaction metadata back
+              Clixa AI receives a customer ID, subscription status, and transaction metadata back
               from Paddle so we can grant and manage your account entitlements.
             </li>
           </ul>
@@ -272,8 +329,10 @@ export function PrivacyPolicy({ onBack }) {
           <h2>10. Contact Us</h2>
           <p>
             For questions about this Privacy Policy or our privacy practices, or to exercise your
-            rights, please contact us at the contact information provided in the footer of our
-            website (e.g. support@scriptz.ai or the contact form linked from our site).
+            rights, please contact us at{' '}
+            <a href="mailto:support@clixa.app">support@clixa.app</a>. We respond to verifiable
+            requests within a reasonable period and at minimum within the timeframes required by
+            applicable law.
           </p>
         </div>
       </div>

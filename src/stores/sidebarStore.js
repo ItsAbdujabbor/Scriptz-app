@@ -1,10 +1,20 @@
 import { create } from 'zustand'
 
-const STORAGE_KEY = 'scriptz_sidebar_ui'
+const STORAGE_KEY = 'clixa_sidebar_ui'
+const LEGACY_STORAGE_KEY = 'scriptz_sidebar_ui'
 
 function loadStored() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    // One-shot migration from the legacy "scriptz_*" brand key.
+    let raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) {
+      const legacy = localStorage.getItem(LEGACY_STORAGE_KEY)
+      if (legacy) {
+        localStorage.setItem(STORAGE_KEY, legacy)
+        raw = legacy
+      }
+      localStorage.removeItem(LEGACY_STORAGE_KEY)
+    }
     return raw ? JSON.parse(raw) : null
   } catch {
     return null

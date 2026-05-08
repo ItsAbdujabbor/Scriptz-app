@@ -1,6 +1,7 @@
 /** Thumbnail generation and chat API. */
 import { getApiBaseUrl } from '../lib/env.js'
 import { parseApiError } from '../lib/aiErrors.js'
+import { useThumbnailJobStatusStore } from '../stores/thumbnailJobStatusStore.js'
 
 /** UUID-ish key for the Idempotency-Key header — see api/videoThumbnails.js
  *  for the full design. One key per *click intent*, reused on retries. */
@@ -127,8 +128,59 @@ export const thumbnailsApi = {
       fetchInit
     )
   },
-  chat(accessToken, payload, fetchInit = {}) {
-    return request('POST', '/api/thumbnails/chat', accessToken, payload, {}, fetchInit)
+  /**
+   * Async submit + poll wrapper. From the consumer's perspective this
+   * still returns a Promise that resolves to a ThumbnailChatResponse —
+   * but underneath the hood we POST /chat/submit, get a job_id back
+   * immediately, then poll /chat-jobs/{job_id} until terminal. The
+   * server does the heavy work in the background-job worker process,
+   * NOT in the request cycle, so the API thread is freed in <100ms.
+   *
+   * Live status: every poll updates `useThumbnailJobStatusStore` with
+   * the worker's latest status_message. The loader hint reads from
+   * that store and shows polite progress text ("Calling provider",
+   * "Retrying after timeout") instead of a static spinner.
+   *
+   * Idempotency: each "Generate" click gets a fresh Idempotency-Key.
+   * Double-taps replay the same job_id — no double charges.
+   */
+  async chat(accessToken, payload, fetchInit = {}) {
+    const opts = (fetchInit && fetchInit.options) || {}
+    const idempotencyKey = opts.idempotencyKey || newIdempotencyKey()
+
+    // Reset live status before submit so a stale message from a
+    // previous run doesn't briefly flash.
+    useThumbnailJobStatusStore.getState().clear()
+
+    let submission
+    try {
+      submission = await request(
+        'POST',
+        '/api/thumbnails/chat/submit',
+        accessToken,
+        payload,
+        { 'Idempotency-Key': idempotencyKey },
+        fetchInit,
+      )
+    } catch (err) {
+      useThumbnailJobStatusStore.getState().clear()
+      throw err
+    }
+
+    if (!submission?.job_id) {
+      // Defensive fallback: the server returned the legacy sync chat
+      // response shape (e.g. older deploy). Return as-is.
+      return submission
+    }
+
+    try {
+      const result = await pollThumbnailChatJob(
+        accessToken, submission.job_id, fetchInit,
+      )
+      return result
+    } finally {
+      useThumbnailJobStatusStore.getState().clear()
+    }
   },
   updateConversation(accessToken, conversationId, payload) {
     return request('PATCH', `/api/thumbnails/conversations/${conversationId}`, accessToken, payload)
@@ -163,4 +215,98 @@ export const thumbnailsApi = {
   faceSwap(accessToken, payload, fetchInit = {}) {
     return request('POST', '/api/thumbnails/face-swap', accessToken, payload, {}, fetchInit)
   },
+  /** Brainstorm YouTube title ideas with Gemini.
+   *  payload: { topic: string, count: 10 | 20, is_short?: boolean }
+   *  Response: { titles: [{ title: string, reasoning: string }] } */
+  titleIdeas(accessToken, payload, fetchInit = {}) {
+    return request('POST', '/api/thumbnails/title-ideas', accessToken, payload, {}, fetchInit)
+  },
+  /** Append a typed event (recreate / analyze / edit / faceswap / titles)
+   *  to a thumbnail conversation. Creates the conversation if
+   *  `conversation_id` is null. Used fire-and-forget after each
+   *  non-prompt operation succeeds, so all flows persist into one
+   *  thread and survive a reload.
+   *  payload: { conversation_id?, channel_id?, kind, user_content, extra_data }
+   *  Response: { conversation_id, user_message, assistant_message } */
+  appendEvent(accessToken, payload, fetchInit = {}) {
+    return request('POST', '/api/thumbnails/events', accessToken, payload, {}, fetchInit)
+  },
+}
+
+// ─── Async-job polling helpers ──────────────────────────────────────────────
+//
+// Used by `thumbnailsApi.chat` to wait on a worker-processed job. The
+// frontend's mutation hook stays unchanged (resolves with a
+// ThumbnailChatResponse); only the transport changes underneath.
+
+const POLL_INTERVAL_MS = 1500
+const POLL_TIMEOUT_MS = 180_000  // 3 min hard cap; the worker has its
+                                  //   own ~30s retry budget per job
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Poll a chat-job's status until it terminates. Updates the
+ * job-status store on each tick so the live loader hint can read it.
+ * Resolves with the final ThumbnailChatResponse or throws an error
+ * shaped like the legacy sync route's failures (so existing catch
+ * blocks in the caller continue to work unchanged).
+ */
+async function pollThumbnailChatJob(accessToken, jobId, fetchInit = {}) {
+  const start = Date.now()
+  const path = `/api/thumbnails/chat-jobs/${encodeURIComponent(jobId)}`
+  while (Date.now() - start < POLL_TIMEOUT_MS) {
+    let s
+    try {
+      s = await request('GET', path, accessToken, null, {}, fetchInit)
+    } catch (err) {
+      // Network blip — keep polling unless caller's signal says stop.
+      if (fetchInit?.signal?.aborted) throw err
+      await sleep(POLL_INTERVAL_MS)
+      continue
+    }
+
+    useThumbnailJobStatusStore.getState().update(s)
+
+    if (s.status === 'done' && s.result) return s.result
+    if (s.status === 'failed') {
+      // Re-shape into the same payload the legacy sync route raised so
+      // the existing catch block in ThumbnailGenerator.jsx parses it
+      // identically. parseApiError already handles this shape.
+      const err = new Error(s.error || 'Generation failed')
+      err.status = 502
+      err.payload = {
+        error: {
+          code: s.error_code || 'PROVIDER_UNAVAILABLE',
+          message: s.error || 'Generation failed',
+          extra: {
+            ...(s.error_extra || {}),
+            attempt: s.attempt_count,
+            max_attempts: s.max_attempts,
+            retryable: true,
+          },
+        },
+      }
+      throw err
+    }
+
+    await sleep(POLL_INTERVAL_MS)
+  }
+  // Soft timeout — don't claim failure; let the user wait or retry.
+  // Refund logic already handled server-side regardless.
+  const err = new Error(
+    'Generation is taking longer than expected. Please wait or try again.',
+  )
+  err.status = 504
+  err.payload = {
+    error: {
+      code: 'JOB_POLL_TIMEOUT',
+      message:
+        'We\'re still working on this thumbnail — please refresh in a minute.',
+      extra: { retryable: true },
+    },
+  }
+  throw err
 }

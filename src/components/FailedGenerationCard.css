@@ -1,0 +1,270 @@
+/* Thumbnail-card-shaped failed-generation card. Mirrors the dimensions
+ * and outer radius of `.thumb-gen-loader` / `.thumb-batch-img-wrap` so
+ * the loader → failure transition is layout-stable.
+ *
+ * Stage colour: subtle amber-red glass so it reads as an error without
+ * being alarming. Action buttons live below the stage, matching where
+ * the success card's hover actions appear. Style mirrors the rest of
+ * the in-app glass cards (rounded corners, gradient bg, soft shadow). */
+
+.thumb-failed-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  animation: thumb-failed-card-in 0.32s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.thumb-failed-card__stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 18px 18px 18px 2px;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(
+      120% 90% at 50% 0%,
+      rgba(248, 113, 113, 0.18) 0%,
+      rgba(248, 113, 113, 0.07) 40%,
+      rgba(20, 12, 16, 0.96) 100%
+    ),
+    #100b0e;
+  border: 1px solid rgba(248, 113, 113, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 12px 32px rgba(0, 0, 0, 0.28),
+    0 2px 6px rgba(248, 113, 113, 0.08);
+}
+
+/* "We're a bit busy" — provider RPM bucket empty. Cooler amber-blue
+ * tint reads as "wait a sec, we'll be right with you" rather than a
+ * hard error. */
+.thumb-failed-card--rate-limited .thumb-failed-card__stage {
+  background:
+    radial-gradient(
+      120% 90% at 50% 0%,
+      rgba(251, 191, 36, 0.18) 0%,
+      rgba(96, 165, 250, 0.10) 50%,
+      rgba(12, 14, 22, 0.96) 100%
+    ),
+    #0c0f17;
+  border-color: rgba(251, 191, 36, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 12px 32px rgba(0, 0, 0, 0.28),
+    0 2px 6px rgba(251, 191, 36, 0.06);
+}
+
+/* "High demand" — queue is full. Warm amber-orange. */
+.thumb-failed-card--queued .thumb-failed-card__stage {
+  background:
+    radial-gradient(
+      120% 90% at 50% 0%,
+      rgba(251, 146, 60, 0.18) 0%,
+      rgba(251, 146, 60, 0.06) 50%,
+      rgba(20, 14, 12, 0.96) 100%
+    ),
+    #14100b;
+  border-color: rgba(251, 146, 60, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 12px 32px rgba(0, 0, 0, 0.28),
+    0 2px 6px rgba(251, 146, 60, 0.06);
+}
+
+/* Soft inner glow that mirrors `.thumb-gen-loader__stage`'s vibe but in
+ * a warning hue. Lives below the content via z-index. */
+.thumb-failed-card__stage-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      90% 70% at 50% 35%,
+      rgba(252, 165, 165, 0.14) 0%,
+      transparent 70%
+    );
+  pointer-events: none;
+  z-index: 0;
+  animation: thumb-failed-card-pulse 4.2s ease-in-out infinite;
+}
+
+.thumb-failed-card--rate-limited .thumb-failed-card__stage-glow {
+  background:
+    radial-gradient(
+      90% 70% at 50% 35%,
+      rgba(253, 224, 71, 0.16) 0%,
+      transparent 70%
+    );
+}
+
+.thumb-failed-card--queued .thumb-failed-card__stage-glow {
+  background:
+    radial-gradient(
+      90% 70% at 50% 35%,
+      rgba(254, 215, 170, 0.18) 0%,
+      transparent 70%
+    );
+}
+
+.thumb-failed-card__stage-content {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 1.2rem 1.6rem;
+  text-align: center;
+}
+
+.thumb-failed-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(248, 113, 113, 0.16);
+  color: #fca5a5;
+  margin-bottom: 0.1rem;
+}
+
+.thumb-failed-card--rate-limited .thumb-failed-card__icon {
+  background: rgba(251, 191, 36, 0.18);
+  color: #fcd34d;
+}
+
+.thumb-failed-card--queued .thumb-failed-card__icon {
+  background: rgba(251, 146, 60, 0.18);
+  color: #fdba74;
+}
+
+.thumb-failed-card__attempt {
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.55);
+  font-style: italic;
+}
+
+.thumb-failed-card__countdown {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.2rem;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+
+.thumb-failed-card__title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.thumb-failed-card__msg {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.75);
+  max-width: 38ch;
+}
+
+.thumb-failed-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0 0.1rem;
+}
+
+.thumb-failed-card__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.95rem;
+  font-size: 0.83rem;
+  font-weight: 500;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    transform 80ms ease;
+}
+
+.thumb-failed-card__btn:active {
+  transform: scale(0.97);
+}
+
+.thumb-failed-card__btn--primary {
+  background: rgba(248, 113, 113, 0.16);
+  color: #fff;
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+.thumb-failed-card__btn--primary:hover {
+  background: rgba(248, 113, 113, 0.24);
+  border-color: rgba(248, 113, 113, 0.58);
+}
+
+.thumb-failed-card--rate-limited .thumb-failed-card__btn--primary {
+  background: rgba(251, 191, 36, 0.16);
+  border-color: rgba(251, 191, 36, 0.4);
+}
+.thumb-failed-card--rate-limited .thumb-failed-card__btn--primary:hover {
+  background: rgba(251, 191, 36, 0.24);
+  border-color: rgba(251, 191, 36, 0.58);
+}
+
+.thumb-failed-card--queued .thumb-failed-card__btn--primary {
+  background: rgba(251, 146, 60, 0.16);
+  border-color: rgba(251, 146, 60, 0.4);
+}
+.thumb-failed-card--queued .thumb-failed-card__btn--primary:hover {
+  background: rgba(251, 146, 60, 0.24);
+  border-color: rgba(251, 146, 60, 0.58);
+}
+
+.thumb-failed-card__btn--ghost {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.thumb-failed-card__btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+@keyframes thumb-failed-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes thumb-failed-card-pulse {
+  0%, 100% { opacity: 0.85; }
+  50%      { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb-failed-card,
+  .thumb-failed-card__stage-glow {
+    animation: none;
+  }
+}

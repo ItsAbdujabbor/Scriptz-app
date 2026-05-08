@@ -1,16 +1,15 @@
 /**
  * Thumbnails — first-class authenticated screen at `#thumbnails`.
  *
- * Hosts the ThumbnailGenerator chat as a top-level route. Replaces the
- * old CoachChat shell after the AI Coach + Scripts features were retired.
- * Keeps the existing `.coach-page` / `.coach-main-wrap` / `.coach-main`
- * container classes because the chat composer CSS lives under the
- * `coach-` prefix and is reused verbatim by ThumbnailGenerator.
+ * Hosts the ThumbnailGenerator chat as a top-level route. Keeps the
+ * `.coach-page` / `.coach-main-wrap` / `.coach-main` container classes
+ * because the chat composer CSS lives under the `coach-` prefix and is
+ * reused verbatim by ThumbnailGenerator.
  */
 import { useEffect, useState, useMemo } from 'react'
 import { useOnboardingStore } from '../stores/onboardingStore'
 import { ThumbnailGenerator } from './ThumbnailGenerator'
-import './CoachChat.css'
+import './Chat.css'
 
 function normalizeHashRoute(value) {
   return String(value || '')

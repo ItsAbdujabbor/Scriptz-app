@@ -1,6 +1,6 @@
-# 💳 Scriptz AI — Credit-Based Billing System (Paddle)
+# 💳 Clixa AI — Credit-Based Billing System (Paddle)
 
-> **Stack**: FastAPI + SQLAlchemy + PostgreSQL (Supabase) + Paddle Billing
+> **Stack**: FastAPI + SQLAlchemy + PostgreSQL (Amazon RDS) + Paddle Billing
 
 ---
 

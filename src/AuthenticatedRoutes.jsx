@@ -1,16 +1,21 @@
-import { useState, useCallback, useMemo, lazy, Suspense } from 'react'
+import { useState, useCallback, useMemo, lazy, Suspense, useEffect } from 'react'
 import { useAuthStore } from './stores/authStore'
 import { useSidebarStore } from './stores/sidebarStore'
 import { useCurrentScreen } from './lib/useCurrentScreen'
 import { emitShellEvent } from './lib/shellEvents'
 import { Sidebar } from './app/Sidebar'
 import { CreatePersonaDialog } from './components/CreatePersonaDialog'
+import { BillingDialog } from './components/BillingDialog'
 import { ToastStack } from './components/ToastStack'
+import {
+  connectJobEventStream,
+  disconnectJobEventStream,
+} from './services/jobEventStream'
 // Each view is its own lazy chunk — Dashboard / Optimize / Billing are
-// temporarily hidden from the UI; Pro stays reachable for the "Go Pro"
-// CTA in the sidebar. (lazyViews.js still exports the hidden ones for
-// the day they come back.)
-import { Thumbnails, Pro } from './lazyViews'
+// temporarily hidden from the UI. The 'pro' view is now a fullscreen
+// takeover routed at the App.jsx level (see <ProScreen>), so the
+// in-shell Pro view is no longer mounted here.
+import { Thumbnails } from './lazyViews'
 
 import './app/Sidebar.css'
 
@@ -27,6 +32,30 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
   const user = useAuthStore((s) => s.user)
   const sidebarCollapsed = useSidebarStore((s) => s.collapsed)
   const screenState = useCurrentScreen()
+
+  // Open the SSE stream for live job-lifecycle events as soon as we're
+  // authenticated. The connection lives for the duration of this
+  // mount; logout (or unmount) tears it down. Token refresh is handled
+  // implicitly: we re-acquire a valid token via the auth store, and
+  // the EventSource client reconnects with backoff if the token
+  // rotates underneath us.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const token = await useAuthStore.getState().getValidAccessToken()
+        if (!cancelled && token) {
+          connectJobEventStream(token)
+        }
+      } catch {
+        // Token unavailable — polling carries the load.
+      }
+    })()
+    return () => {
+      cancelled = true
+      disconnectJobEventStream()
+    }
+  }, [])
 
   const [showPersonasModal, setShowPersonasModal] = useState(false)
   const [showStylesModal, setShowStylesModal] = useState(false)
@@ -60,6 +89,7 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
         onOpenStyles={() => setShowStylesModal(true)}
         onLogout={handleLogout}
         currentScreen={screenState.currentScreen}
+        activeThumbnailConversationId={screenState.thumbnailConversationId}
         onNewChat={handleNewChat}
       />
     ),
@@ -96,8 +126,6 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
             onOpenStyles={() => setShowStylesModal(true)}
           />
         )
-      case 'pro':
-        return <Pro onLogout={onLogout} shellManaged />
       default:
         // Unknown view shouldn't reach here — App.jsx now redirects
         // every legacy hash (dashboard / optimize / billing) to
@@ -141,6 +169,13 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
        * PersonasModal). Mounted at this level — same as SharedSettingsModal
        * — so it renders independently of any modal it's launched from. */}
       <CreatePersonaDialog />
+
+      {/* Always-mounted billing dialog. Listens for
+       * `app:open-billing-dialog` (sidebar Billing button, low-balance
+       * prompts, etc.) and renders the same plan + payment + invoices
+       * surface the legacy `#billing` screen had — but as a centred
+       * modal that matches the rest of the app's dialog language. */}
+      <BillingDialog />
 
       {/* Global toast stack — listens for `app:toast` events and shows
        *  dismissible top-right notifications. Mounted here at the

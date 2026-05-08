@@ -80,6 +80,10 @@ export const queryKeys = {
     featureCosts: ['billing', 'featureCosts'],
     subscription: ['billing', 'subscription'],
     plans: ['billing', 'plans'],
+    /* Ledger key — shared by useLedgerQuery in BillingSettingsPanel and
+     * by `refreshBillingState()` so a single helper can invalidate every
+     * billing surface (credits + sub + ledger) atomically after a payment. */
+    ledger: ['billing', 'ledger', 'recent'],
   },
   modelTier: {
     state: ['modelTier', 'state'],

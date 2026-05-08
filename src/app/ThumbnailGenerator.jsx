@@ -4,7 +4,6 @@ import { createPortal } from 'react-dom'
 import {
   ArrowUp as LucideArrowUp,
   Check as LucideCheck,
-  ChevronDown as LucideChevronDown,
   CloudUpload as LucideUploadCloud,
   Copy as LucideCopy,
   Download as LucideDownload,
@@ -29,7 +28,9 @@ import {
   seedThumbnailRating,
 } from '../queries/thumbnails/thumbnailQueries'
 import { useThumbnailChatActivityStore } from '../stores/thumbnailChatActivityStore'
+import { useThumbnailJobStatusStore } from '../stores/thumbnailJobStatusStore'
 import { EditThumbnailDialog } from '../components/EditThumbnailDialog'
+import { HeaderCreditsBadge } from '../components/HeaderCreditsBadge'
 import { TabBar } from '../components/TabBar'
 import { Dropdown, InlineSpinner, PrimaryPill } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
@@ -45,13 +46,12 @@ import { stripPrefillFromHash } from '../lib/dashboardActionPayload'
 import { useFloatingPosition } from '../lib/useFloatingPosition'
 import { extractYoutubeUrl } from '../lib/youtubeUrl'
 import { renderMessageContent } from '../lib/messageRender.jsx'
-import { useThreadScrollToBottom } from '../lib/useThreadScrollToBottom'
 import { CostHint } from '../components/CostHint'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 import { toast } from '../lib/toast'
 import { friendlyTitleFor, parseApiError } from '../lib/errorMessages'
+import FailedGenerationCard from '../components/FailedGenerationCard'
 import { canvasToBase64Png } from '../lib/canvasToBase64'
-// import './ScriptGenerator.css' // next update — ScriptGenerator moved to src/next-update-ideas
 import './ThumbnailGenerator.css'
 
 // Source-type options for the Recreate / Analyze / Edit tabbars. Icons
@@ -229,10 +229,6 @@ function IconCheck(props) {
   return <LucideCheck strokeWidth={2.5} {...props} />
 }
 
-function IconChevronDown(props) {
-  return <LucideChevronDown strokeWidth={2.2} {...props} />
-}
-
 function IconPaperclip(props) {
   // Custom add-image glyph (src/assets/add-image.svg) — fill-based
   // icon that replaces the previous Lucide paperclip. Name kept for
@@ -264,30 +260,51 @@ function codeToFriendlyMessage(code, backendMsg) {
   switch (code) {
     case 'CONTENT_BLOCKED':
       return (
-        'OpenAI’s safety system blocked this request. Try rephrasing the ' +
-        'prompt or remove the reference image, then generate again.'
+        "The image model wouldn't accept this prompt or reference image. " +
+        'Try rephrasing or removing the reference image and generating again. ' +
+        'Nothing was charged.'
       )
     case 'PROVIDER_RATE_LIMITED':
-      return 'The image provider is rate-limited right now. Try again in a moment.'
+    case 'PROVIDER_BUSY':
+      return (
+        "Sorry — we're getting a lot of demand right now. Please try again " +
+        'in a moment. Nothing was charged.'
+      )
+    case 'HIGH_DEMAND':
+      return (
+        "We're at capacity right now — please try again in a minute. " +
+        'Nothing was charged.'
+      )
     case 'PROVIDER_QUOTA_EXCEEDED':
       return (
-        'The image provider’s account quota is exceeded. Nothing was charged — ' +
-        'please contact support.'
+        "We've hit a usage limit on our side and we're working on it. " +
+        'Please try again later — nothing was charged.'
       )
     case 'PROVIDER_MISCONFIGURED':
       return (
-        'The image provider is misconfigured on the server side. Nothing was ' +
-        'charged — please contact support.'
+        "Something's off on our end and we're investigating. Please try " +
+        'again later — nothing was charged.'
       )
     case 'THUMBNAIL_BAD_REQUEST':
-      return 'The image provider rejected the request. Try different wording.'
+      return (
+        "Something in this request didn't work. Try rewording the prompt or " +
+        'using a different reference image. Nothing was charged.'
+      )
     case 'PROVIDER_UNAVAILABLE':
-      return 'The image provider had a temporary glitch. Nothing was charged — try again.'
-    case 'NO_ACTIVE_SUBSCRIPTION':
+      return (
+        'Sorry — our image provider hiccupped. Nothing was charged. Want to try again?'
+      )
     case 'INSUFFICIENT_CREDITS':
-      return backendMsg // billing flow handles these via other UI paths
+      return (
+        "You don't have enough credits for this. Top up or upgrade your plan."
+      )
+    case 'NO_ACTIVE_SUBSCRIPTION':
+      return backendMsg // billing flow handles this via other UI paths
     default:
-      return backendMsg || 'Could not generate thumbnails.'
+      return (
+        backendMsg ||
+        'Sorry — something went wrong on our end. Nothing was charged. Please try again.'
+      )
   }
 }
 
@@ -300,6 +317,8 @@ function isRetryableCode(code, extra) {
   return [
     'PROVIDER_UNAVAILABLE',
     'PROVIDER_RATE_LIMITED',
+    'PROVIDER_BUSY',
+    'HIGH_DEMAND',
     'CONTENT_BLOCKED',
     'THUMBNAIL_BAD_REQUEST',
   ].includes(code)
@@ -320,7 +339,7 @@ function parseThumbModeFromHash() {
   if (routePart !== 'thumbnails') return 'prompt'
   const params = new URLSearchParams(search)
   const v = params.get('view')
-  if (v === 'recreate' || v === 'analyze' || v === 'edit') return v
+  if (v === 'recreate' || v === 'analyze' || v === 'edit' || v === 'titles') return v
   if (v === 'rater') return 'analyze'
   if (v === 'generate') return 'prompt'
   return 'prompt'
@@ -437,6 +456,18 @@ const THUMB_GEN_SUB_TABS = [
     ),
   },
   {
+    id: 'titles',
+    label: 'Titles',
+    icon: (
+      // Heading / "T" glyph — serif-style top bar with a vertical stem,
+      // reads instantly as "title text". Drawn at the same 24-px viewBox
+      // as the other tab icons, fill-based so it tints with currentColor.
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+        <path d="M21,3H3A1,1,0,0,0,2,4V8A1,1,0,0,0,4,8V5h7V19H9a1,1,0,0,0,0,2h6a1,1,0,0,0,0-2H13V5h7V8a1,1,0,0,0,2,0V4A1,1,0,0,0,21,3Z" />
+      </svg>
+    ),
+  },
+  {
     id: 'edit',
     label: 'Edit',
     icon: (
@@ -519,6 +550,84 @@ function ThumbBatchCirclePicker({ value, onChange, disabled }) {
                 className={`thumb-batch-circle-option ${n === value ? 'is-active' : ''}`}
                 aria-selected={n === value}
                 aria-label={`${n} concept${n === 1 ? '' : 's'} per run`}
+                onClick={() => {
+                  onChange(n)
+                  setOpen(false)
+                }}
+              >
+                <span className="thumb-batch-circle-option-n">{n}</span>
+              </button>
+            ))}
+          </div>,
+          document.body
+        )}
+    </div>
+  )
+}
+
+/**
+ * ThumbTitleCountPicker — glassCircle-styled chooser for the Titles
+ * tab. Same silhouette as `ThumbBatchCirclePicker` (single circle
+ * trigger + portaled popover) so the toolbar reads identically across
+ * modes; only the option set differs (10 / 20 instead of 1-4).
+ */
+function ThumbTitleCountPicker({ value, onChange, disabled }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  const triggerRef = useRef(null)
+  const { popoverRef, style: popoverStyle } = useFloatingPosition({
+    triggerRef,
+    open,
+    placement: 'top-center',
+    offset: 10,
+  })
+  useEffect(() => {
+    const onDoc = (e) => {
+      const inTrigger = ref.current?.contains(e.target)
+      const inPopover = popoverRef.current?.contains(e.target)
+      if (!inTrigger && !inPopover) setOpen(false)
+    }
+    if (open) {
+      document.addEventListener('click', onDoc)
+      return () => document.removeEventListener('click', onDoc)
+    }
+  }, [open, popoverRef])
+  return (
+    <div ref={ref} className={`thumb-batch-circle-picker ${disabled ? 'is-disabled' : ''}`}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="thumb-batch-circle-trigger"
+        disabled={disabled}
+        onClick={() => !disabled && setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Title ideas: ${value}`}
+        title={disabled ? 'Title count' : 'How many titles to generate'}
+      >
+        <span className="thumb-batch-circle-trigger-badge thumb-batch-circle-trigger-badge--solo">
+          {value}
+        </span>
+      </button>
+      {open &&
+        !disabled &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            className="thumb-batch-circle-popover thumb-batch-circle-popover--floating"
+            role="listbox"
+            aria-label="Title count"
+            style={popoverStyle}
+          >
+            <p className="thumb-batch-circle-popover-title">Titles</p>
+            {[4, 8, 12].map((n) => (
+              <button
+                key={n}
+                type="button"
+                role="option"
+                className={`thumb-batch-circle-option ${n === value ? 'is-active' : ''}`}
+                aria-selected={n === value}
+                aria-label={`${n} title ideas per run`}
                 onClick={() => {
                   onChange(n)
                   setOpen(false)
@@ -1055,6 +1164,43 @@ const ThumbnailAnalyzeLoader = memo(function ThumbnailAnalyzeLoader({ imageUrl }
   )
 })
 
+/**
+ * TitlesLoader — placeholder block for the Titles tab. Renders one
+ * skeleton card per requested title (4 / 8 / 12) so the layout
+ * matches the eventual `<TitleIdeasBlock>` exactly — no jump when
+ * results arrive. Each card stagger-fades in and shimmers a
+ * pulsing gradient across the title + reasoning placeholders. No
+ * percentage text, no progress bar — the shimmer alone reads as
+ * "thinking" and keeps the surface calm.
+ */
+const TitlesLoader = memo(function TitlesLoader({ count = 4 }) {
+  const rows = Math.max(1, Math.min(count, 12))
+  return (
+    <div className="thumb-titles-loader" aria-busy="true" aria-label="Generating titles">
+      <div className="thumb-titles-grid">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div
+            key={i}
+            className="thumb-title-card thumb-title-card--skeleton"
+            style={{ animationDelay: `${i * 70}ms` }}
+            aria-hidden
+          >
+            <span className="thumb-title-card__index thumb-title-card__index--skel">
+              {i + 1}
+            </span>
+            <span className="thumb-title-card__body">
+              <span className="thumb-title-card__title-skel" />
+              <span className="thumb-title-card__reason-skel" />
+              <span className="thumb-title-card__score-skel" />
+            </span>
+            <span className="thumb-title-card__actions-skel" aria-hidden />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+})
+
 function gradeFromScore(score) {
   const n = Number(score)
   if (!Number.isFinite(n)) return null
@@ -1126,6 +1272,113 @@ const AnalysisBreakdown = memo(function AnalysisBreakdown({ analysis }) {
   )
 })
 
+// Map a Gemini click-likelihood score (0-100) to a tier so the score
+// badge picks an appropriate accent colour without exposing raw
+// thresholds in the JSX. Same buckets the model uses internally.
+function titleScoreTier(score) {
+  const n = Number(score)
+  if (!Number.isFinite(n)) return 'na'
+  if (n >= 90) return 'a'
+  if (n >= 80) return 'b'
+  if (n >= 70) return 'c'
+  return 'd'
+}
+
+/**
+ * TitleIdeasBlock — renders Gemini-generated YouTube title ideas as a
+ * grid of cards with the title up top, a one-line "why this works"
+ * reasoning below, and two action chips on the right: Copy (writes
+ * the title to the clipboard) and Generate thumbnail (drops the
+ * title into the Prompt-tab textarea and switches mode). Cards use
+ * the same surface family as the thumbnail batch card and
+ * stagger-enter via a CSS keyframe so the list reveals smoothly.
+ */
+function TitleIdeasBlock({ titles, onUseTitle }) {
+  const [copiedIndex, setCopiedIndex] = useState(null)
+  const handleCopy = useCallback((text, idx) => {
+    if (!text) return
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).catch(() => {})
+    }
+    setCopiedIndex(idx)
+    setTimeout(() => {
+      setCopiedIndex((current) => (current === idx ? null : current))
+    }, 1400)
+  }, [])
+  return (
+    <div className="thumb-titles-block coach-stream-block">
+      <div className="thumb-titles-grid">
+        {titles.map((t, i) => {
+          const title = (t?.title || '').trim()
+          if (!title) return null
+          const copied = copiedIndex === i
+          return (
+            <div
+              key={`${i}-${title}`}
+              className="thumb-title-card"
+              style={{ animationDelay: `${Math.min(i * 32, 600)}ms` }}
+            >
+              <span className="thumb-title-card__index">{i + 1}</span>
+              <span className="thumb-title-card__body">
+                <span className="thumb-title-card__title">{title}</span>
+                {t?.reasoning ? (
+                  <span className="thumb-title-card__reason">{t.reasoning}</span>
+                ) : null}
+                {Number.isFinite(t?.score) && (
+                  <span
+                    className={`thumb-title-card__score thumb-title-card__score--${titleScoreTier(t.score)}`}
+                    aria-label={`Click-likelihood score: ${t.score} of 100`}
+                    title="Click-likelihood score"
+                  >
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden>
+                      <path d="M12 2 14.55 8.5 21.5 9 16.25 13.6 17.85 20.5 12 17.1 6.15 20.5 7.75 13.6 2.5 9l6.95-.5L12 2z" />
+                    </svg>
+                    <span className="thumb-title-card__score-num">{t.score}</span>
+                  </span>
+                )}
+              </span>
+              <span className="thumb-title-card__actions">
+                <button
+                  type="button"
+                  className={`thumb-title-action thumb-title-action--icon ${copied ? 'thumb-title-action--copied' : ''}`}
+                  onClick={() => handleCopy(title, i)}
+                  aria-label={copied ? 'Copied' : `Copy title: ${title}`}
+                  title={copied ? 'Copied' : 'Copy title'}
+                >
+                  {copied ? (
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <rect x="9" y="9" width="13" height="13" rx="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                  )}
+                </button>
+                {onUseTitle && (
+                  <button
+                    type="button"
+                    className="thumb-title-action thumb-title-action--primary"
+                    onClick={() => onUseTitle(title)}
+                    aria-label={`Generate a thumbnail for: ${title}`}
+                    title="Generate a thumbnail with this title"
+                  >
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden>
+                      <path d="M19.5,24a1,1,0,0,1-.929-.628l-.844-2.113-2.116-.891a1.007,1.007,0,0,1,.035-1.857l2.088-.791.837-2.092a1.008,1.008,0,0,1,1.858,0l.841,2.1,2.1.841a1.007,1.007,0,0,1,0,1.858l-2.1.841-.841,2.1A1,1,0,0,1,19.5,24ZM10,21a2,2,0,0,1-1.936-1.413L6.45,14.54,1.387,12.846a2.032,2.032,0,0,1,.052-3.871L6.462,7.441,8.154,2.387A1.956,1.956,0,0,1,10.108,1a2,2,0,0,1,1.917,1.439l1.532,5.015,5.03,1.61a2.042,2.042,0,0,1,0,3.872h0l-5.039,1.612-1.612,5.039A2,2,0,0,1,10,21Z" />
+                    </svg>
+                    <span>Generate</span>
+                  </button>
+                )}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 /**
  * Memoised chat message — the whole reason we extracted this from the
  * parent's inline `messages.map(...)` is so each existing message stops
@@ -1140,6 +1393,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
   onRegenerate,
   onViewImage,
   onEditImage,
+  onUseTitle,
 }) {
   return (
     <article
@@ -1181,6 +1435,9 @@ const ChatMessageItem = memo(function ChatMessageItem({
             />
           ) : null}
           {msg.analysis ? <AnalysisBreakdown analysis={msg.analysis} /> : null}
+          {msg.titleIdeas?.length > 0 && (
+            <TitleIdeasBlock titles={msg.titleIdeas} onUseTitle={onUseTitle} />
+          )}
           {msg.thumbnails?.length > 0 && (
             <ThumbnailGridBlock
               thumbnails={msg.thumbnails}
@@ -1201,21 +1458,49 @@ const ChatMessageItem = memo(function ChatMessageItem({
 
 function buildMessagesFromApi(apiMessages = []) {
   return apiMessages.map((m) => {
-    const thumbnails =
-      m.role === 'assistant' && m.extra_data?.thumbnails ? m.extra_data.thumbnails : []
-    const imageUrl =
-      m.role === 'assistant' && m.extra_data?.image_url ? m.extra_data.image_url : null
-    const userRequest =
-      m.role === 'assistant' && m.extra_data?.user_request ? m.extra_data.user_request : ''
+    const isAssistant = m.role === 'assistant'
+    const ed = (isAssistant && m.extra_data) || {}
+    // User-message side: a persisted event flow stores the source
+    // thumbnail on the ASSISTANT row's `extra_data.user_image_url`.
+    // The user row in the chat thread reads the same field forwarded
+    // from its sibling so the bubble can render an image-only message.
+    const isUser = m.role === 'user'
     return {
       id: m.id,
       role: m.role,
       content: m.content,
-      userRequest,
-      thumbnails,
-      imageUrl,
+      userRequest: ed.user_request || '',
+      thumbnails: ed.thumbnails || [],
+      imageUrl: ed.image_url || null,
+      // Source thumbnail used for the user bubble in recreate /
+      // analyze / edit / faceswap flows.
+      _userImageUrl: ed.user_image_url || null,
+      // Kind-specific renderable payloads (analysis, title ideas, etc.)
+      analysis: ed.analysis || null,
+      titleIdeas: ed.title_ideas || null,
+      isRecreate: !!ed.is_recreate,
+      // Pinned for the user-row pre-stitch step below.
+      _isUser: isUser,
     }
   })
+}
+
+// Stitch persisted user-rows with the source-thumbnail their sibling
+// assistant row recorded. The backend stores `user_image_url` on the
+// assistant message's extra_data (where the rendering data lives), so
+// the user bubble's image has to be copied across after a reload.
+function stitchPersistedUserImages(messages) {
+  const next = messages.slice()
+  for (let i = 0; i < next.length; i++) {
+    const m = next[i]
+    if (!m._isUser) continue
+    const partner = next[i + 1]
+    const url = partner && partner.role === 'assistant' ? partner._userImageUrl : null
+    if (url) {
+      next[i] = { ...m, imageUrl: url }
+    }
+  }
+  return next
 }
 
 // Monotonic counter so IDs minted in the same millisecond are still unique.
@@ -1335,6 +1620,12 @@ export function ThumbnailGenerator({
   const [analyzeSourceImage, setAnalyzeSourceImage] = useState(null)
   const [analyzePreviewUrl, setAnalyzePreviewUrl] = useState(null)
   const [_analyzeFetchingPreview, setAnalyzeFetchingPreview] = useState(false)
+  // Titles flow — text-only Gemini call, no image / persona / style.
+  // `titleCount` lets the user pick 4, 8, or 12 ideas per run; pricing
+  // is 1 credit per title so the chip on the Send pill always reads
+  // "n credits" for n requested.
+  const [titleTopic, setTitleTopic] = useState('')
+  const [titleCount, setTitleCount] = useState(4)
   const [editSourceMode, setEditSourceMode] = useState('url')
   const [editUrlInput, setEditUrlInput] = useState('')
   const [editDataUrl, setEditDataUrl] = useState(null)
@@ -1371,6 +1662,12 @@ export function ThumbnailGenerator({
   const [pendingUserMessage, setPendingUserMessage] = useState(null)
   const [pendingAssistant, setPendingAssistant] = useState(false)
   const [pendingUserImageUrl, setPendingUserImageUrl] = useState(null)
+  // Persistent record of generations that failed in this session. The
+  // user's prompt + a polite apology card stay rendered in the chat
+  // thread until the user clicks Retry or Dismiss — replaces the prior
+  // toast-only error UX where the failed attempt disappeared the moment
+  // the in-flight loader unmounted.
+  const [failedAttempts, setFailedAttempts] = useState([])
   // Snap-to-100 signal for <GenerationProgress />. Flips true when the
   // request finishes, lets the bar animate to 100, then we clear pending.
   const [pendingDone, setPendingDone] = useState(false)
@@ -1703,7 +2000,8 @@ export function ThumbnailGenerator({
     const serverConvId = conversationQuery.data?.conversation?.id
     const matchesCurrent = serverConvId == null || Number(serverConvId) === Number(conversationId)
     if (matchesCurrent && conversationQuery.data?.messages?.items) {
-      setMessages(buildMessagesFromApi(conversationQuery.data.messages.items))
+      const built = buildMessagesFromApi(conversationQuery.data.messages.items)
+      setMessages(stitchPersistedUserImages(built))
     } else if (!matchesCurrent || !conversationQuery.data) {
       setMessages([])
     }
@@ -1751,13 +2049,6 @@ export function ThumbnailGenerator({
   const isEmptyScreen =
     !isHistoryLoading && renderedMessages.length === 0 && !pendingUserMessage && !pendingAssistant
   const layoutCentered = isEmptyScreen || isHistoryLoading
-  const { showScrollToBottom, scrollToBottom } = useThreadScrollToBottom(threadRef, {
-    enabled: !isHistoryLoading,
-    deps: [renderedMessages.length, pendingUserMessage, pendingAssistant, thumbMode],
-    // Only surface the button after the user has scrolled up by more than a
-    // full viewport — a small scroll doesn't warrant a jump-to-bottom CTA.
-    minScrollUp: (el) => el.clientHeight * 1.1,
-  })
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -1993,6 +2284,7 @@ export function ThumbnailGenerator({
         userRequest: assistant.userRequest || userContent,
         isRecreate: assistant.isRecreate || false,
         analysis: assistant.analysis || null,
+        titleIdeas: assistant.titleIdeas || null,
       },
     ])
   }, [])
@@ -2022,6 +2314,26 @@ export function ThumbnailGenerator({
   const clearPromptImage = useCallback(() => {
     setPromptImageDataUrl(null)
     setPromptImageName('')
+  }, [])
+
+  // Retry a previously-failed generation. Removes the failed entry up
+  // front so the chat doesn't double-show the bubble while the new
+  // attempt is in flight. Restores the user's prompt to the draft and
+  // re-fires the same submit handler — if it fails again, a fresh
+  // failed-attempt row will be pushed by the catch block.
+  const handleRetryFailedAttempt = useCallback((entry) => {
+    if (!entry) return
+    setFailedAttempts((prev) => prev.filter((f) => f.id !== entry.id))
+    setDraft(entry.userText || '')
+    // Defer to next tick so setDraft has a chance to commit before the
+    // submit handler reads it.
+    setTimeout(() => {
+      handleSubmitRef.current?.()
+    }, 0)
+  }, [])
+
+  const handleDismissFailedAttempt = useCallback((entryId) => {
+    setFailedAttempts((prev) => prev.filter((f) => f.id !== entryId))
   }, [])
 
   /**
@@ -2196,6 +2508,43 @@ export function ThumbnailGenerator({
         code: code || undefined,
         title: friendlyTitleFor(code),
       })
+      // Persist the failed attempt in the chat thread so the user keeps
+      // a visible record of what they asked for and can retry without
+      // re-typing. The failed-attempts list owns the user-bubble and
+      // error card from this point forward — the in-flight pending
+      // bubbles can clear in `finally` below.
+      const failedId =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `fail-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      setFailedAttempts((prev) => [
+        ...prev,
+        {
+          id: failedId,
+          userText: combined,
+          userImageUrl: userImageAtSubmit,
+          errorCode: code,
+          errorMessage: friendly,
+          retryable,
+          retryAfterSeconds: extra?.retry_after_seconds ?? null,
+          // Backend retry/queue context (set when the route hit our retry
+          // helper or queue cap). Lets the failed-card render "we tried 4
+          // times" / "you were #6 in line" / countdown UI honestly.
+          attempt: extra?.attempt ?? null,
+          maxAttempts: extra?.max_attempts ?? null,
+          totalWaitedSeconds: extra?.total_waited_seconds ?? null,
+          queueDepth: extra?.queue_depth ?? null,
+          queueMaxDepth: extra?.queue_max_depth ?? null,
+          createdAt: Date.now(),
+          options: {
+            num_thumbnails: numThumbnails,
+            persona_id: selectedPersonaId || null,
+            style_id: selectedStyleId || null,
+            channel_id: channelId || null,
+            conversation_id: activeConversationId || null,
+          },
+        },
+      ])
       setDraft(combined)
       setPendingAssistant(false)
       if (activeConversationId) clearPending(activeConversationId)
@@ -2222,6 +2571,75 @@ export function ThumbnailGenerator({
     setMessages((prev) => prev.map(updater))
     setLocalOnlyMessages((prev) => prev.map(updater))
   }, [])
+
+  /**
+   * Persist a non-prompt event into the active conversation. Fire-and-
+   * forget: the local message is already on screen via
+   * `pushLocalAssistantMessage` by the time this runs, so any failure
+   * here only affects reload survival — never the immediate UX. If
+   * the user has no conversation yet, the backend creates one and
+   * we propagate the new id via `onConversationCreated` so subsequent
+   * events land in the same thread.
+   */
+  const persistEvent = useCallback(
+    async (kind, userContent, extraData) => {
+      try {
+        const token = await getAccessTokenOrNull()
+        if (!token) return
+        const res = await thumbnailsApi.appendEvent(token, {
+          conversation_id: conversationId || undefined,
+          channel_id: channelId || undefined,
+          kind,
+          user_content: userContent || '',
+          extra_data: extraData || {},
+        })
+        const newId = res?.conversation_id
+        if (newId != null && newId !== conversationId) {
+          onConversationCreated?.(newId)
+        }
+        // Refresh the sidebar so the new chat row appears (and the
+        // background-renamed title eventually fades in). The actual
+        // queryKey is `['thumbnails', 'conversations', params]`, so
+        // we invalidate every variant via `exact: false`.
+        queryClient.invalidateQueries({
+          queryKey: ['thumbnails', 'conversations'],
+          exact: false,
+        })
+      } catch (err) {
+        if (typeof console !== 'undefined') {
+          console.warn('[thumbnail] persistEvent failed:', kind, err)
+        }
+      }
+    },
+    [channelId, conversationId, onConversationCreated, queryClient]
+  )
+
+  const handleUseTitleAsPrompt = useCallback(
+    (text) => {
+      const trimmed = (text || '').trim()
+      if (!trimmed) return
+      // Drop the title into the Prompt textarea and flip to that
+      // mode so the user lands on the composer with the title
+      // already typed in. Slice to the same 2000-char cap the
+      // textarea enforces to keep state clean.
+      setDraft(trimmed.slice(0, 2000))
+      handleThumbModeTab('prompt')
+      // Focus + scroll-to-end on the next tick once the Prompt form
+      // re-mounts. RAF avoids racing the SmoothHeight tab transition.
+      requestAnimationFrame(() => {
+        const el = document.querySelector('.thumb-prompt-textarea')
+        if (el && typeof el.focus === 'function') {
+          el.focus()
+          try {
+            el.setSelectionRange(trimmed.length, trimmed.length)
+          } catch (_) {
+            /* selectionRange not supported on this input — ignore */
+          }
+        }
+      })
+    },
+    [handleThumbModeTab]
+  )
 
   const handleRegenerateOne = useCallback(
     async (userRequest) => {
@@ -2335,6 +2753,12 @@ export function ThumbnailGenerator({
           userRequest: instructions,
           isRecreate: true,
         })
+        persistEvent('recreate', userText, {
+          image_url: imageUrl,
+          user_image_url: sourceImageUrl,
+          user_request: instructions,
+          is_recreate: true,
+        })
       } else {
         const results = await Promise.all(
           Array.from({ length: count }, () => thumbnailsApi.regenerateWithPersona(token, payload))
@@ -2349,6 +2773,12 @@ export function ThumbnailGenerator({
           userImageUrl: sourceImageUrl,
           userRequest: instructions,
           isRecreate: true,
+        })
+        persistEvent('recreate', userText, {
+          thumbnails,
+          user_image_url: sourceImageUrl,
+          user_request: instructions,
+          is_recreate: true,
         })
       }
       finishLoading()
@@ -2458,6 +2888,11 @@ export function ThumbnailGenerator({
         userRequest: '',
         analysis: rating,
       })
+      persistEvent('analyze', userText, {
+        image_url: imageUrl,
+        user_image_url: imageUrl,
+        analysis: rating,
+      })
       finishLoading()
     } catch (err) {
       const { code, message } = parseApiError(err, 'Could not analyze thumbnail.')
@@ -2468,6 +2903,52 @@ export function ThumbnailGenerator({
     } finally {
       setPendingUserMessage(null)
       setPendingUserImageUrl(null)
+    }
+  }
+
+  const handleTitleIdeasSubmit = async (e) => {
+    e?.preventDefault?.()
+    if (!requirePaywall()) return
+    if (pendingAssistant) return
+    const topic = titleTopic.trim()
+    if (!topic) {
+      setSendError('Type a topic or rough idea so we know what to brainstorm titles for.')
+      setSendErrorMeta(null)
+      return
+    }
+    const userText = topic
+    setSendError('')
+    setSendErrorMeta(null)
+    setPendingUserMessage(userText)
+    setPendingAssistant(true)
+    setTitleTopic('')
+    try {
+      const token = await getAccessTokenOrNull()
+      if (!token) throw new Error('Not authenticated')
+      const res = await thumbnailsApi.titleIdeas(token, {
+        topic,
+        count: titleCount,
+      })
+      const titles = Array.isArray(res?.titles) ? res.titles : []
+      if (!titles.length) throw new Error('No titles returned.')
+      pushLocalAssistantMessage(userText, {
+        content: '',
+        userRequest: topic,
+        titleIdeas: titles,
+      })
+      persistEvent('titles', userText, {
+        user_request: topic,
+        title_ideas: titles,
+      })
+      finishLoading()
+    } catch (err) {
+      const { code, message } = parseApiError(err, 'Could not generate titles.')
+      setSendError(message)
+      setSendErrorMeta(null)
+      setPendingAssistant(false)
+      toast.error(message, { code: code || undefined, title: friendlyTitleFor(code) })
+    } finally {
+      setPendingUserMessage(null)
     }
   }
 
@@ -2520,6 +3001,13 @@ export function ThumbnailGenerator({
         transition={{ duration: 0.42, ease: IOS_EASE }}
       >
         <div className="thumb-bg-fx-top-shadow" aria-hidden="true" />
+        {/* Top-right credits badge — pinned over the chat shell so it's
+         * always reachable. Click → CreditPacks top-up dialog (same one
+         * the rest of the app uses via the `app:open-credits-modal`
+         * event). Hidden for unsubscribed users by HeaderCreditsBadge. */}
+        <div className="thumb-screen-credits">
+          <HeaderCreditsBadge />
+        </div>
         <PlanCallout />
         <div
           ref={threadRef}
@@ -2580,8 +3068,18 @@ export function ThumbnailGenerator({
                 onRegenerate={handleRegenerateOne}
                 onViewImage={openThumbLightbox}
                 onEditImage={openEditorForThumbnail}
+                onUseTitle={handleUseTitleAsPrompt}
               />
             ))}
+
+          {failedAttempts.map((entry) => (
+            <FailedAttemptBlock
+              key={entry.id}
+              entry={entry}
+              onRetry={handleRetryFailedAttempt}
+              onDismiss={handleDismissFailedAttempt}
+            />
+          ))}
 
           {(pendingUserMessage || pendingUserImageUrl) && (
             <article className="coach-message coach-message--user coach-message--enter">
@@ -2609,6 +3107,8 @@ export function ThumbnailGenerator({
             <article className="coach-message coach-message--assistant coach-message--enter">
               {thumbMode === 'analyze' ? (
                 <ThumbnailAnalyzeLoader imageUrl={pendingUserImageUrl} />
+              ) : thumbMode === 'titles' ? (
+                <TitlesLoader count={titleCount} />
               ) : (
                 /* Shared 16:9 placeholder slot that the result thumbnail
                  * will land in — keeps the layout stable so the loader →
@@ -2633,6 +3133,16 @@ export function ThumbnailGenerator({
                       })()}
                     />
                   </div>
+                  <ThumbnailGenSlowHint
+                    estimatedDurationMs={(() => {
+                      if (thumbMode === 'recreate') {
+                        return numRecreateThumbnails > 1
+                          ? GEN_DURATION_BATCH_MS
+                          : GEN_DURATION_RECREATE_MS
+                      }
+                      return numThumbnails > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_SINGLE_MS
+                    })()}
+                  />
                 </div>
               )}
             </article>
@@ -2650,22 +3160,6 @@ export function ThumbnailGenerator({
           transition={{ duration: 0.28, ease: IOS_EASE }}
           className="coach-composer-wrap coach-composer-wrap--thumb-tools"
         >
-          {/* Scroll-to-bottom — same pattern as ScriptGenerator */}
-          <div
-            className={`coach-scroll-to-bottom ${showScrollToBottom && !isEmptyScreen ? 'coach-scroll-to-bottom--visible' : ''}`}
-            aria-hidden={!showScrollToBottom || isEmptyScreen}
-          >
-            <button
-              type="button"
-              className="coach-scroll-to-bottom-btn"
-              onClick={scrollToBottom}
-              aria-label="Scroll to bottom"
-              title="Scroll to bottom"
-            >
-              <IconChevronDown />
-            </button>
-          </div>
-
           <div className="thumb-gen-footer-chrome">
             {/* Inline error pill removed — errors now surface as a top-
              * right toast (see `useEffect` watchers on `sendError` /
@@ -3011,6 +3505,47 @@ export function ThumbnailGenerator({
                   </form>
                 )}
 
+                {thumbMode === 'titles' && (
+                  <form onSubmit={handleTitleIdeasSubmit} className="thumb-gen-mode-form">
+                    <div className="coach-composer-input-wrap thumb-prompt-input-wrap">
+                      <textarea
+                        value={titleTopic}
+                        onChange={(e) => setTitleTopic(e.target.value.slice(0, 600))}
+                        placeholder=""
+                        rows={2}
+                        className="coach-composer-input"
+                        maxLength={600}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            handleTitleIdeasSubmit(e)
+                          }
+                        }}
+                      />
+                      <SmoothHint visible={!titleTopic} variant="textarea">
+                        Topic, rough idea, or angle — what should the titles be about?
+                      </SmoothHint>
+                    </div>
+                    <div className="coach-composer-actions thumb-gen-toolbar">
+                      <div className="thumb-gen-toolbar-tools">
+                        <ThumbTitleCountPicker
+                          value={titleCount}
+                          onChange={setTitleCount}
+                          disabled={pendingAssistant}
+                        />
+                      </div>
+                      <div className="thumb-gen-submit-group">
+                        <ThumbSendPill
+                          featureKey="thumbnail_title_ideas"
+                          count={titleCount}
+                          disabled={pendingAssistant || !titleTopic.trim()}
+                          ariaLabel="Brainstorm titles"
+                        />
+                      </div>
+                    </div>
+                  </form>
+                )}
+
                 {thumbMode === 'edit' && (
                   <form onSubmit={handleEditSubmit} className="thumb-gen-mode-form">
                     <div className="thumb-source-inline-row">
@@ -3088,22 +3623,36 @@ export function ThumbnailGenerator({
           onApply={async (result) => {
             // Editor returns either a single URL (batch = 1) or an array
             // (batch > 1). Grid render matches the normal multi-thumbnail
-            // response shape so cards look identical in the chat.
+            // response shape so cards look identical in the chat. The
+            // user bubble shows just the source thumbnail (no hardcoded
+            // prose), so we render an image-only user message.
             const urls = Array.isArray(result) ? result : [result]
+            const sourceImageUrl = editDialogUrl
             if (urls.length <= 1) {
-              pushLocalAssistantMessage('Edit this thumbnail.', {
+              pushLocalAssistantMessage('', {
                 content: '',
                 imageUrl: urls[0] || null,
+                userImageUrl: sourceImageUrl,
+              })
+              persistEvent('edit', '', {
+                image_url: urls[0] || null,
+                user_image_url: sourceImageUrl,
               })
             } else {
-              pushLocalAssistantMessage('Edit this thumbnail.', {
+              const thumbnails = urls.map((image_url, i) => ({
+                title: `${i + 1}x`,
+                image_url,
+                emotion: '',
+                psychology_angle: '',
+              }))
+              pushLocalAssistantMessage('', {
                 content: '',
-                thumbnails: urls.map((image_url, i) => ({
-                  title: `${i + 1}x`,
-                  image_url,
-                  emotion: '',
-                  psychology_angle: '',
-                })),
+                thumbnails,
+                userImageUrl: sourceImageUrl,
+              })
+              persistEvent('edit', '', {
+                thumbnails,
+                user_image_url: sourceImageUrl,
               })
             }
             setShowEditDialog(false)
@@ -3115,6 +3664,99 @@ export function ThumbnailGenerator({
         />
       )}
       {lightbox ? <ThumbnailLightbox url={lightbox.url} onClose={() => setLightbox(null)} /> : null}
+    </div>
+  )
+}
+
+/**
+ * Renders a single failed-generation pair in the chat thread: the user's
+ * prompt bubble (mirroring `ChatMessageItem`'s user-bubble shape) plus
+ * the inline error card with retry / dismiss controls. Lives at the bottom
+ * of the file so the chat list can call it as a regular component.
+ */
+function FailedAttemptBlock({ entry, onRetry, onDismiss }) {
+  return (
+    <>
+      <article className="coach-message coach-message--user coach-message--enter">
+        <div className="coach-user-message-stack">
+          {entry.userImageUrl ? (
+            <div className="thumb-user-sent-image">
+              <img
+                src={entry.userImageUrl}
+                alt="Sent thumbnail"
+                className="thumb-user-sent-img"
+                decoding="async"
+              />
+            </div>
+          ) : null}
+          {entry.userText ? (
+            <div className="coach-message-bubble">
+              <p>{entry.userText}</p>
+            </div>
+          ) : null}
+        </div>
+      </article>
+      <article className="coach-message coach-message--assistant coach-message--enter">
+        <FailedGenerationCard entry={entry} onRetry={onRetry} onDismiss={onDismiss} />
+      </article>
+    </>
+  )
+}
+
+/**
+ * Staged loader hint that fades in inside the in-flight loader. Cycles
+ * through three honest messages based on elapsed time:
+ *
+ *   stage 0 (0–1× estimated)  : silent — loader handles its own UI
+ *   stage 1 (1–2× estimated)  : "Taking a little longer than usual…"
+ *   stage 2 (2×+ estimated)   : "High demand right now — your thumbnail
+ *                                is queued, hang tight."
+ *
+ * This gives users honest staged feedback during the wait without needing
+ * SSE/polling. Auto-unmounts with the parent loader, so the timer is
+ * cleaned up on every mount/unmount cycle.
+ */
+function ThumbnailGenSlowHint({ estimatedDurationMs }) {
+  const [stage, setStage] = useState(0)
+  // Live worker-side status drives the message when it's available.
+  // The submit+poll wrapper writes here on every poll, so the hint
+  // reflects what the worker is actually doing — "Calling provider",
+  // "One quick retry — provider had a small hiccup", "Almost there" —
+  // rather than a generic "taking longer". Backs the silent-retry UX:
+  // the user sees friendly progress text instead of an alarming error
+  // during transient blips.
+  const liveStatus = useThumbnailJobStatusStore((s) => s.status)
+  useEffect(() => {
+    const baseline = Math.max(0, estimatedDurationMs || 0)
+    if (baseline <= 0) return undefined
+    const t1 = setTimeout(() => setStage(1), baseline)
+    const t2 = setTimeout(() => setStage(2), baseline * 2)
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+    }
+  }, [estimatedDurationMs])
+
+  // Live worker status wins when present — but only show it once the
+  // user has been waiting at least the baseline duration. For a job
+  // that resolves in 4 s we don't want a "Queued — your turn is coming
+  // up" message to flash; the silent loader handles fast cases.
+  const liveMessage = liveStatus?.status_message
+  if (liveMessage && stage >= 1) {
+    return (
+      <div className="thumb-gen-loader__slow-hint" role="status" aria-live="polite">
+        {liveMessage}
+      </div>
+    )
+  }
+
+  if (stage === 0) return null
+  const message = stage === 1
+    ? 'Taking a little longer than usual — hang tight while the provider catches up.'
+    : "High demand right now — your thumbnail is queued. We'll have it ready shortly."
+  return (
+    <div className="thumb-gen-loader__slow-hint" role="status" aria-live="polite">
+      {message}
     </div>
   )
 }

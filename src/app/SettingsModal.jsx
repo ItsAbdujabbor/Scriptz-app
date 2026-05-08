@@ -519,20 +519,20 @@ export function SettingsModal({
                 <SectionCard icon="help" title="Help">
                   <ul className="s-link-list">
                     <li>
-                      <a href="mailto:support@scriptz.ai?subject=Help" className="s-link">
+                      <a href="mailto:support@clixa.app?subject=Help" className="s-link">
                         <span>Help center</span>
                         <I.arrow />
                       </a>
                     </li>
                     <li>
-                      <a href="mailto:support@scriptz.ai" className="s-link">
+                      <a href="mailto:support@clixa.app" className="s-link">
                         <span>Contact support</span>
                         <I.arrow />
                       </a>
                     </li>
                     <li>
                       <a
-                        href="https://scriptz.ai/docs"
+                        href="https://clixa.app/docs"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="s-link"

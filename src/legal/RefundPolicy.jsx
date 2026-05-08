@@ -31,19 +31,19 @@ export function RefundPolicy({ onBack }) {
 
         <header className="legal-header">
           <h1 className="legal-title">Refund Policy</h1>
-          <p className="legal-updated">Last updated: April 2026</p>
+          <p className="legal-updated">Last updated: May 2026</p>
         </header>
 
         <div className="legal-content">
           <p>
             This Refund Policy explains when and how you can request a refund for purchases made on
-            Scriptz AI (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;). By subscribing to a
+            Clixa AI (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;). By subscribing to a
             paid plan or purchasing credits you agree to the terms below. This policy should be read
             together with our <a href="#terms">Terms of Service</a> and{' '}
             <a href="#privacy">Privacy Policy</a>.
           </p>
           <p>
-            <strong>Merchant of Record.</strong> All Scriptz AI payments are processed by{' '}
+            <strong>Merchant of Record.</strong> All Clixa AI payments are processed by{' '}
             <strong>Paddle.com Market Ltd</strong>, which acts as our Merchant of Record. Paddle
             handles the transaction, collects applicable taxes, and is the party named on your card
             or bank statement. Approved refunds are issued by Paddle back to your original payment
@@ -52,7 +52,7 @@ export function RefundPolicy({ onBack }) {
 
           <h2>1. General Policy</h2>
           <p>
-            Scriptz AI provides digital, AI-powered services that incur immediate compute costs the
+            Clixa AI provides digital, AI-powered services that incur immediate compute costs the
             moment they are used. For this reason, fees paid for subscriptions and credit packs are
             generally <strong>non-refundable</strong> once the billing period has started or credits
             have been consumed, except as expressly stated in this policy or required by applicable
@@ -104,8 +104,7 @@ export function RefundPolicy({ onBack }) {
 
           <h2>5. AI-Generated Content</h2>
           <p>
-            Credits spent on AI generation (thumbnails, titles, scripts, SEO optimisations, etc.)
-            are{' '}
+            Credits spent on AI generation (thumbnails, titles, SEO optimisations, etc.) are{' '}
             <strong>not refundable once the generation has completed successfully</strong>,
             regardless of whether you choose to use the result. If a generation fails due to a
             verified error on our side (e.g. provider outage, server error), credits are
@@ -131,7 +130,7 @@ export function RefundPolicy({ onBack }) {
 
           <h2>7. How to Request a Refund</h2>
           <p>
-            Send your refund request from the email address associated with your Scriptz AI account.
+            Send your refund request from the email address associated with your Clixa AI account.
             Include:
           </p>
           <ul>
@@ -140,11 +139,10 @@ export function RefundPolicy({ onBack }) {
             <li>A brief reason for the request.</li>
           </ul>
           <p>
-            Contact us at the email listed in the footer of our website, or through the Help section
-            of our <a href="#privacy">Privacy Policy</a>. We aim to respond within 3 business days.
-            Once a refund is approved, Paddle (our Merchant of Record) processes the refund back to
-            your original payment method, typically within 5–10 business days — timing depends on
-            your bank or card issuer.
+            Email <a href="mailto:support@clixa.app">support@clixa.app</a>. We aim to respond
+            within 3 business days. Once a refund is approved, Paddle (our Merchant of Record)
+            processes the refund back to your original payment method, typically within 5–10
+            business days — timing depends on your bank or card issuer.
           </p>
 
           <h2>8. Chargebacks</h2>
@@ -159,7 +157,7 @@ export function RefundPolicy({ onBack }) {
           <p>
             Where applicable, refunds will include any sales tax, VAT, or GST that was charged on
             the original invoice. Currency conversion fees applied by your bank or card issuer are
-            not refundable by Scriptz AI.
+            not refundable by Clixa AI.
           </p>
 
           <h2>10. Changes to This Policy</h2>
@@ -173,9 +171,9 @@ export function RefundPolicy({ onBack }) {
 
           <h2>11. Contact</h2>
           <p>
-            For refund requests or questions about this Refund Policy, please contact us using the
-            contact information provided in the footer of our website or in our{' '}
-            <a href="#privacy">Privacy Policy</a>.
+            For refund requests or questions about this Refund Policy, email{' '}
+            <a href="mailto:support@clixa.app">support@clixa.app</a> or see our{' '}
+            <a href="#privacy">Privacy Policy</a> for the full set of ways to reach us.
           </p>
         </div>
       </div>

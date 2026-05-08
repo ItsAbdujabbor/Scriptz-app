@@ -1,0 +1,115 @@
+/* ThumbPillTabs — pill-shaped tab chips.
+ *
+ * Originally lived in src/app/ThumbnailGenerator.css, which only loads
+ * with the Thumbnails view. The component is also used on the Pro
+ * pricing screen, so the styles travel with the component now —
+ * importing this file from `ThumbPillTabs.jsx` guarantees the chips
+ * render correctly wherever the component is mounted, regardless of
+ * which lazy view loaded first.
+ *
+ * Visual contract:
+ *   inactive  → quiet glass tile with a subtle hairline ring
+ *   hover     → ring brightens, background lifts a touch
+ *   active    → accent-gradient body with a stronger inner bezel
+ */
+
+.thumb-gen-pill-tab-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.thumb-gen-pill-tab-group--right {
+  justify-content: flex-end;
+}
+
+.thumb-gen-pill-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 34px;
+  padding: 0 14px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 100%), #23232d;
+  color: rgba(229, 231, 235, 0.78);
+  font-family:
+    'Poppins',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 1px 0 rgba(0, 0, 0, 0.3);
+  transition:
+    background 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.thumb-gen-pill-tab:hover:not(.thumb-gen-pill-tab--active) {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 100%), #2c2c38;
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 1px 0 rgba(0, 0, 0, 0.3);
+}
+
+.thumb-gen-pill-tab--active,
+.thumb-gen-pill-tab--active:hover {
+  background: var(
+    --accent-gradient,
+    linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)
+  );
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #ffffff;
+  filter: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 2px 10px rgba(0, 0, 0, 0.3);
+  transform: none;
+}
+
+.thumb-gen-pill-tab:not(.thumb-gen-pill-tab--active):active {
+  transform: scale(0.97);
+  transition: transform 0.1s ease;
+}
+
+.thumb-gen-pill-tab:focus-visible {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.32);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 3px rgba(255, 255, 255, 0.08);
+}
+
+.thumb-gen-pill-tab--active svg {
+  stroke-width: 2.2;
+}
+
+.thumb-gen-pill-tab svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}

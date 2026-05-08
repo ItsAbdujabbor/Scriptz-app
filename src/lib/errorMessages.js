@@ -6,17 +6,20 @@
  */
 
 const TITLES = {
-  CONTENT_BLOCKED: 'Content blocked',
-  PROVIDER_RATE_LIMITED: 'Rate limited — try again',
-  PROVIDER_QUOTA_EXCEEDED: 'Provider quota exceeded',
-  PROVIDER_MISCONFIGURED: 'Provider misconfigured',
-  THUMBNAIL_BAD_REQUEST: 'Thumbnail request rejected',
-  PROVIDER_UNAVAILABLE: 'Provider unavailable — retrying may help',
+  CONTENT_BLOCKED: "Couldn't accept that one",
+  PROVIDER_RATE_LIMITED: "We're a bit busy",
+  PROVIDER_BUSY: "We're a bit busy",
+  HIGH_DEMAND: 'High demand right now',
+  PROVIDER_QUOTA_EXCEEDED: 'Daily limit reached',
+  PROVIDER_MISCONFIGURED: 'Working on a hiccup',
+  THUMBNAIL_BAD_REQUEST: 'Try a different prompt',
+  PROVIDER_UNAVAILABLE: 'Provider hiccup',
+  INSUFFICIENT_CREDITS: 'Need more credits',
 }
 
 export function friendlyTitleFor(code) {
-  if (!code) return 'Generation failed'
-  return TITLES[code] || 'Generation failed'
+  if (!code) return 'Something went wrong'
+  return TITLES[code] || 'Something went wrong'
 }
 
 /**

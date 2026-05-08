@@ -1,165 +1,42 @@
 /**
- * YouTube API client — OAuth connect, list channels, channel info, disconnect, switch.
- * Uses same base URL as auth (Vite proxy in dev).
+ * YouTube — thumbnail-fetch only.
+ *
+ * The full YouTube account integration was removed. The single capability
+ * left is "given a YouTube URL, get the thumbnail image" so the user can
+ * use a real video's thumbnail as a reference for AI image generation.
  */
 
 import { getApiBaseUrl } from '../lib/env.js'
 import { parseApiError } from '../lib/aiErrors.js'
 
-function request(method, path, accessToken, body = null, headers = {}) {
-  const url = getApiBaseUrl() + path
-  const h = { 'Content-Type': 'application/json', ...headers }
-  if (accessToken) h['Authorization'] = `Bearer ${accessToken}`
-  const opts = { method, headers: h }
-  if (body != null) opts.body = JSON.stringify(body)
-  return fetch(url, opts).then(async (res) => {
-    const contentType = res.headers.get('Content-Type') || ''
-    const isJson = contentType.indexOf('application/json') !== -1
-    const data = isJson ? await res.json().catch(() => ({})) : {}
-    if (!res.ok) {
-      // Rich error: status, code, retryAfterMs, feature — see lib/aiErrors.
-      throw parseApiError(res, data)
-    }
-    return data
-  })
+function authHeaders(accessToken) {
+  return accessToken ? { Authorization: `Bearer ${accessToken}` } : {}
 }
 
 export const youtubeApi = {
-  /** Get OAuth authorization URL to redirect the user to Google. */
-  getAuthorizationUrl(accessToken) {
-    return request('GET', '/api/youtube/connect', accessToken).then((r) => r.authorization_url)
-  },
-
-  /** List all connected YouTube channels for the user. */
-  listChannels(accessToken) {
-    return request('GET', '/api/youtube/channels', accessToken)
-  },
-
-  /** Get full channel info (avatar, subs, views, etc.) for the active or specified channel. */
-  getChannelInfo(accessToken, channelId = null) {
-    const headers = channelId ? { 'X-Channel-Id': channelId } : {}
-    return request('GET', '/api/youtube/me', accessToken, null, headers)
-  },
-
-  /** Disconnect a YouTube channel. */
-  disconnectChannel(accessToken, channelId) {
-    return request('DELETE', `/api/youtube/channels/${encodeURIComponent(channelId)}`, accessToken)
-  },
-
-  /** Set the active channel for subsequent operations. */
-  switchChannel(accessToken, channelId) {
-    return request('POST', '/api/youtube/channels/switch', accessToken, { channel_id: channelId })
+  /**
+   * Fetch the thumbnail image bytes for a YouTube URL.
+   * Returns a Blob the caller can pass to URL.createObjectURL or upload.
+   */
+  async fetchThumbnail(accessToken, youtubeUrl) {
+    const u = `${getApiBaseUrl()}/api/youtube/thumbnail?url=${encodeURIComponent(youtubeUrl)}`
+    const res = await fetch(u, { headers: authHeaders(accessToken) })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw parseApiError(res, data)
+    }
+    return res.blob()
   },
 
   /**
-   * List channel videos (paginated, cached on backend). Uses DB-first cache with TTL.
-   * @param {string} accessToken
-   * @param {object} options - { page, per_page, search, sort, video_type } (sort: published_at | views | engagement; video_type: all | videos | shorts)
+   * Resolve the canonical public thumbnail URL for a YouTube video without
+   * fetching the bytes. Returns `{ video_id, url, fallback_url }`.
    */
-  listVideos(accessToken, options = {}) {
-    const params = new URLSearchParams()
-    if (options.page != null) params.set('page', String(options.page))
-    if (options.per_page != null) params.set('per_page', String(options.per_page))
-    if (options.search != null && options.search.trim()) params.set('search', options.search.trim())
-    if (options.sort != null) params.set('sort', options.sort)
-    if (options.video_type != null && options.video_type !== 'all')
-      params.set('video_type', options.video_type)
-    const qs = params.toString()
-    const path = '/api/youtube/videos' + (qs ? '?' + qs : '')
-    const headers = options.channel_id ? { 'X-Channel-Id': options.channel_id } : {}
-    return request('GET', path, accessToken, null, headers)
-  },
-
-  /**
-   * Get AI optimization suggestions for a video (titles, description, tags, etc.).
-   * POST /api/youtube/optimize-video body: { video_id }
-   */
-  optimizeVideo(accessToken, videoId, channelId = null) {
-    const headers = channelId ? { 'X-Channel-Id': channelId } : {}
-    return request(
-      'POST',
-      '/api/youtube/optimize-video',
-      accessToken,
-      { video_id: videoId },
-      headers
-    )
-  },
-
-  /**
-   * Score a video title with Gemini AI.
-   * POST /api/youtube/score-title body: { title, video_id? }
-   * Returns { score, tier, explanation }.
-   *
-   * `videoId` is optional but strongly recommended — when set, the
-   * backend writes the score through to the per-video AI cache so the
-   * Optimize modal can rehydrate it on the next open (including from
-   * another device) without re-charging credits.
-   */
-  scoreTitle(accessToken, title, videoId = null) {
-    const body = { title: title || '' }
-    if (videoId) body.video_id = videoId
-    return request('POST', '/api/youtube/score-title', accessToken, body)
-  },
-
-  /**
-   * Comprehensive video score — title + description + tags + engagement + thumbnail.
-   * POST /api/youtube/score-video body: { video_id, title?, description?, tags?, view_count?, like_count?, comment_count?, thumbnail_url? }
-   * Returns { score, tier, breakdown }.
-   */
-  scoreVideo(accessToken, videoData) {
-    return request('POST', '/api/youtube/score-video', accessToken, videoData)
-  },
-
-  /**
-   * Generate 3 AI title recommendations. POST /api/youtube/title-recommendations
-   * Body: { video_idea, script_text?, thumbnail_url }
-   * Returns { titles: [{ title, score }], thumbnail_url }.
-   */
-  getTitleRecommendations(accessToken, body) {
-    return request('POST', '/api/youtube/title-recommendations', accessToken, body)
-  },
-
-  /**
-   * Refine video description with an instruction. POST /api/youtube/refine-description
-   * Body: { video_id, description, instruction }. Returns { description }.
-   */
-  refineDescription(accessToken, body) {
-    return request('POST', '/api/youtube/refine-description', accessToken, body)
-  },
-
-  /**
-   * Generate tags with scores. POST /api/youtube/generate-tags
-   * Body: { video_id, description?, title? }. Returns { tags: [{ tag, score }] }.
-   */
-  generateTags(accessToken, body) {
-    return request('POST', '/api/youtube/generate-tags', accessToken, body)
-  },
-
-  /**
-   * Apply title, description, tags to a video on YouTube.
-   * PATCH /api/youtube/videos/{video_id} body: { title?, description?, tags? }
-   */
-  updateVideoMetadata(accessToken, videoId, body, channelId = null) {
-    const headers = channelId ? { 'X-Channel-Id': channelId } : {}
-    return request(
-      'PATCH',
-      `/api/youtube/videos/${encodeURIComponent(videoId)}`,
-      accessToken,
-      body,
-      headers
-    )
-  },
-
-  /**
-   * Read cached AI artifacts (titles, tags, refined description) for a video.
-   * GET /api/youtube/videos/{video_id}/ai-cache.
-   * Free — no credits charged. Used to hydrate the Optimize modal on open.
-   */
-  getVideoAICache(accessToken, videoId) {
-    return request(
-      'GET',
-      `/api/youtube/videos/${encodeURIComponent(videoId)}/ai-cache`,
-      accessToken
-    )
+  async getThumbnailUrl(accessToken, youtubeUrl) {
+    const u = `${getApiBaseUrl()}/api/youtube/thumbnail-url?url=${encodeURIComponent(youtubeUrl)}`
+    const res = await fetch(u, { headers: authHeaders(accessToken) })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw parseApiError(res, data)
+    return data
   },
 }
