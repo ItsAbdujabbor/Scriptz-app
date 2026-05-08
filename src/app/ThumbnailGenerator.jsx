@@ -1661,6 +1661,11 @@ export function ThumbnailGenerator({
   const [sendErrorMeta, setSendErrorMeta] = useState(null)
   const [pendingUserMessage, setPendingUserMessage] = useState(null)
   const [pendingAssistant, setPendingAssistant] = useState(false)
+  // Mode locked-in at submission time. The loader for an in-flight job
+  // reads from this — NOT the current `thumbMode` tab — so switching
+  // tabs while a generation is running doesn't swap the loader (used
+  // to flip the analyze image preview to a generic % bar mid-job).
+  const [pendingMode, setPendingMode] = useState(null)
   const [pendingUserImageUrl, setPendingUserImageUrl] = useState(null)
   // Persistent record of generations that failed in this session. The
   // user's prompt + a polite apology card stay rendered in the chat
@@ -2068,9 +2073,12 @@ export function ThumbnailGenerator({
   }, [])
 
   // Reset the progress "done" flag whenever a new pending starts so the
-  // shared <GenerationProgress /> begins from 0 again.
+  // shared <GenerationProgress /> begins from 0 again. Also drop
+  // `pendingMode` once the in-flight job finishes so the next submission
+  // captures fresh mode at submit time.
   useEffect(() => {
     if (pendingAssistant) setPendingDone(false)
+    else setPendingMode(null)
   }, [pendingAssistant])
 
   useEffect(() => {
@@ -2426,6 +2434,7 @@ export function ThumbnailGenerator({
     setPendingUserMessage(combined)
     setPendingUserImageUrl(userImageAtSubmit)
     setPendingAssistant(true)
+    setPendingMode(thumbMode)
     setDraft('')
 
     // Eagerly create a conversation the first time the user submits in a
@@ -2645,6 +2654,7 @@ export function ThumbnailGenerator({
     async (userRequest) => {
       if (!userRequest?.trim() || pendingAssistant) return
       setPendingAssistant(true)
+      setPendingMode('prompt')
       setPendingUserMessage(userRequest)
       try {
         const result = await chatMutation.mutateAsync({
@@ -2724,6 +2734,7 @@ export function ThumbnailGenerator({
     setPendingUserMessage(userText)
     setPendingUserImageUrl(sourceImageUrl)
     setPendingAssistant(true)
+    setPendingMode('recreate')
     setRecreateDraft('')
     setRecreateSourceImage(null)
     setRecreateUrlInput('')
@@ -2865,6 +2876,7 @@ export function ThumbnailGenerator({
     setPendingUserMessage(userText)
     setPendingUserImageUrl(imageUrl)
     setPendingAssistant(true)
+    setPendingMode('analyze')
     setAnalyzeTitle('')
     setAnalyzeSourceImage(null)
     setAnalyzeUrlInput('')
@@ -2921,6 +2933,7 @@ export function ThumbnailGenerator({
     setSendErrorMeta(null)
     setPendingUserMessage(userText)
     setPendingAssistant(true)
+    setPendingMode('titles')
     setTitleTopic('')
     try {
       const token = await getAccessTokenOrNull()
@@ -3105,16 +3118,15 @@ export function ThumbnailGenerator({
 
           {pendingAssistant && (
             <article className="coach-message coach-message--assistant coach-message--enter">
-              {thumbMode === 'analyze' ? (
+              {/* Loader picks from the LOCKED `pendingMode` (set at
+               * submission time) so tab-switching doesn't change the
+               * in-flight loader. Falls back to current `thumbMode` only
+               * for legacy paths that didn't capture a mode. */}
+              {(pendingMode || thumbMode) === 'analyze' ? (
                 <ThumbnailAnalyzeLoader imageUrl={pendingUserImageUrl} />
-              ) : thumbMode === 'titles' ? (
+              ) : (pendingMode || thumbMode) === 'titles' ? (
                 <TitlesLoader count={titleCount} />
               ) : (
-                /* Shared 16:9 placeholder slot that the result thumbnail
-                 * will land in — keeps the layout stable so the loader →
-                 * image swap doesn't cause a height jump. <ThumbnailGenFill />
-                 * fills the whole stage left→right in a bright gradient
-                 * with a centred percentage. */
                 <div
                   className="thumb-gen-loader"
                   aria-busy="true"
@@ -3124,7 +3136,8 @@ export function ThumbnailGenerator({
                     <ThumbnailGenFill
                       done={pendingDone}
                       estimatedDurationMs={(() => {
-                        if (thumbMode === 'recreate') {
+                        const lockedMode = pendingMode || thumbMode
+                        if (lockedMode === 'recreate') {
                           return numRecreateThumbnails > 1
                             ? GEN_DURATION_BATCH_MS
                             : GEN_DURATION_RECREATE_MS
@@ -3135,7 +3148,8 @@ export function ThumbnailGenerator({
                   </div>
                   <ThumbnailGenSlowHint
                     estimatedDurationMs={(() => {
-                      if (thumbMode === 'recreate') {
+                      const lockedMode = pendingMode || thumbMode
+                      if (lockedMode === 'recreate') {
                         return numRecreateThumbnails > 1
                           ? GEN_DURATION_BATCH_MS
                           : GEN_DURATION_RECREATE_MS
