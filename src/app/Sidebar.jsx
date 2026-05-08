@@ -10,7 +10,7 @@ import { useFloatingPosition } from '../lib/useFloatingPosition'
 import { openBillingDialog } from '../lib/billingDialogBus'
 import { ConfirmDialog } from '../components/ui'
 import AccountAvatar from '../components/AccountAvatar'
-import { useCreditsQuery, useSubscriptionQuery } from '../queries/billing/creditsQueries'
+import { useSubscriptionQuery } from '../queries/billing/creditsQueries'
 import {
   useModelTierStateQuery,
   useSetModelTierMutation,
@@ -283,17 +283,7 @@ const MODEL_ORDER = { 'SRX-3': 0, 'SRX-2': 1 }
 // Single row in the model-tier picker. Owns its own hover state so the
 // info popover can open on hover, and it portals the popover to <body>
 // so the expanded panel's `overflow: hidden` can't clip it.
-function ModelTierRow({
-  tier,
-  isActive,
-  isLocked,
-  tag,
-  info,
-  pinned,
-  isBusy,
-  onPick,
-  onTogglePin,
-}) {
+function ModelTierRow({ tier, isActive, tag, info, pinned, isBusy, onPick, onTogglePin }) {
   const infoBtnRef = useRef(null)
   const [hovered, setHovered] = useState(false)
   const open = !!(info && (pinned || hovered))
@@ -310,7 +300,6 @@ function ModelTierRow({
       className={[
         'sidebar-account-model__row',
         isActive ? 'sidebar-account-model__row--active' : '',
-        isLocked ? 'sidebar-account-model__row--locked' : '',
         open ? 'sidebar-account-model__row--info-open' : '',
       ]
         .filter(Boolean)
@@ -327,19 +316,7 @@ function ModelTierRow({
         <span className="sidebar-account-model__code">{tier.code}</span>
         <span className="sidebar-account-model__tag-sm">{tag}</span>
         <span className="sidebar-account-model__row-right" aria-hidden>
-          {isLocked ? (
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="5" y="11" width="14" height="9" rx="2" />
-              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-            </svg>
-          ) : isActive ? (
+          {isActive ? (
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -628,12 +605,16 @@ export function Sidebar({
   const [modelTierOpen, setModelTierOpen] = useState(false)
   const { data: tierState } = useModelTierStateQuery()
   const setTierMutation = useSetModelTierMutation()
+  // Both tiers are unlocked for everyone — backend confirms via
+  // `list_tiers_for_user` (always `locked: false`). Fallback mirrors
+  // the same shape so a brief load / fetch error doesn't flash a lock
+  // icon next to Max.
   const modelTiers =
     tierState?.tiers && tierState.tiers.length
       ? tierState.tiers
       : [
-          { code: 'SRX-2', label: 'Pro', locked: false },
-          { code: 'SRX-3', label: 'Max', locked: true },
+          { code: 'SRX-2', label: 'Pro' },
+          { code: 'SRX-3', label: 'Max' },
         ]
   const currentTier = tierState?.selected || 'SRX-2'
 
@@ -647,10 +628,10 @@ export function Sidebar({
       requestAnimationFrame(() => historySearchInputRef.current?.focus())
     }
   }, [historySearchOpen])
-  // Subscription + credits state drive the sidebar plan label, credits count,
-  // and Go Pro visibility.
+  // Subscription drives the sidebar plan label and Go Pro visibility.
+  // (Credits count moved to the header pill — `HeaderCreditsBadge` —
+  // so the sidebar no longer subscribes to that query.)
   const { data: subscription } = useSubscriptionQuery()
-  const { data: creditsData } = useCreditsQuery()
   const activeStatuses = ['active', 'trialing', 'past_due']
   const hasActivePlan = !!(subscription && activeStatuses.includes(subscription.status))
   const planLabel = (() => {
@@ -665,28 +646,6 @@ export function Sidebar({
     const trialTag = subscription.is_trial ? ' · Trial' : ''
     return `${name[0].toUpperCase()}${name.slice(1)}${period}${trialTag}`
   })()
-  const totalCredits = creditsData
-    ? Number(creditsData.subscription_credits || 0) + Number(creditsData.permanent_credits || 0)
-    : null
-  // Exact credit count — no "1K" abbreviation. The orb shrinks the
-  // font to fit longer numbers; we never round.
-  const creditsLabel = totalCredits == null ? '—' : String(totalCredits)
-  // Plan-cycle quota (for the orb's progress ring). Falls back to the
-  // current balance so users without a paid plan get a full ring
-  // instead of a divide-by-zero.
-  const planCredits = Number(subscription?.plan_credits) || 0
-  const orbDenominator = planCredits > 0 ? planCredits : totalCredits || 1
-  const creditsRatio =
-    totalCredits == null ? 0 : Math.max(0, Math.min(1, Number(totalCredits) / orbDenominator))
-  // SVG circumference: 2π × r (r = 16 here) ≈ 100.53. Using exactly 100
-  // keeps the dashoffset math clean — `100 - ratio*100` yields the
-  // remaining-portion stroke.
-  const ORB_CIRC = 100
-  const ringDashOffset = ORB_CIRC - creditsRatio * ORB_CIRC
-  // Font auto-shrinks for long numbers so even a 6-digit count still
-  // fits inside the 32px expanded / 38px collapsed orb.
-  const credLen = creditsLabel.length
-  const credFontPx = credLen >= 6 ? 7 : credLen === 5 ? 8 : credLen === 4 ? 10 : 12
   // Store actions are stable refs — read once from getState() to avoid extra subscriptions
   const [{ setCollapsed, toggleCollapsed, setMobileOpen, closeMobile }] = useState(() =>
     useSidebarStore.getState()
@@ -710,7 +669,7 @@ export function Sidebar({
     prevCollapsedRef.current = collapsed
 
     if (collapsed && !wasCollapsed) {
-      setRailCollapseSettle(true)  
+      setRailCollapseSettle(true)
       setRailExpandFade(false)
       const id = window.setTimeout(() => setRailCollapseSettle(false), 420)
       return () => window.clearTimeout(id)
@@ -724,18 +683,12 @@ export function Sidebar({
     }
   }, [collapsed])
 
-  // Handler for the nested model-tier picker in the expanded account panel.
-  // Locked tiers send the user to the paywall; unlocked tiers mutate
-  // immediately (optimistic state lives in the hook).
+  // Handler for the nested model-tier picker in the expanded account
+  // panel. Both tiers are available to every user, so a click always
+  // mutates the selection immediately (optimistic state lives in the
+  // hook). Paywall + credit balance gate actual generation.
   const handlePickTier = (t) => {
     if (t.code === currentTier) return
-    if (t.locked) {
-      setAccountDialogOpen(false)
-      closeMobile()
-      // eslint-disable-next-line react-hooks/immutability
-      if (typeof window !== 'undefined') window.location.hash = 'pro'
-      return
-    }
     setTierMutation.mutate(t.code)
   }
 
@@ -991,7 +944,6 @@ export function Sidebar({
               .sort((a, b) => (MODEL_ORDER[a.code] ?? 99) - (MODEL_ORDER[b.code] ?? 99))
               .map((t) => {
                 const isActive = t.code === currentTier
-                const isLocked = !!t.locked
                 const tag = t.label || MODEL_TAG[t.code] || t.code
                 const info = MODEL_INFO[t.code] || ''
                 const pinned = openModelInfo === t.code
@@ -1001,7 +953,6 @@ export function Sidebar({
                     key={t.code}
                     tier={t}
                     isActive={isActive}
-                    isLocked={isLocked}
                     tag={tag}
                     info={info}
                     pinned={pinned}

@@ -2569,16 +2569,6 @@
   color: #86efac;
 }
 
-.sidebar-account-model__row--locked .sidebar-account-model__row-main {
-  color: rgba(229, 229, 231, 0.45);
-}
-.sidebar-account-model__row--locked .sidebar-account-model__code {
-  color: rgba(229, 229, 231, 0.5);
-}
-.sidebar-account-model__row--locked .sidebar-account-model__tag-sm {
-  color: rgba(229, 229, 231, 0.45);
-}
-
 /* Info button — flush right of the row, brightens on hover. */
 .sidebar-account-model__info-btn {
   position: absolute;
