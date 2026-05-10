@@ -1,12 +1,22 @@
-name: Deploy main to scriptz.app
+name: Deploy main to clixa.app
 
-# Auto-deploys every push to `main` to the S3 bucket behind scriptz.app,
-# then invalidates the CloudFront cache so the new build is visible
-# immediately. Can also be triggered manually from the Actions tab.
+# Auto-deploys main → S3 bucket behind clixa.app, then invalidates
+# the CloudFront cache so the new build is visible immediately.
+#
+# Setup required (one-time): add two repo secrets at
+# Settings → Secrets and variables → Actions:
+#   AWS_ACCESS_KEY_ID
+#   AWS_SECRET_ACCESS_KEY
+# Use the keys printed by the IAM user `gh-actions-deploy` (deploy-only
+# permissions: list/put/delete on the bucket + CloudFront invalidation).
+#
+# Push trigger is disabled until those secrets are configured — it was
+# spamming failure emails on every commit. After the secrets are in,
+# re-enable it by uncommenting the `push:` block below.
 
 on:
-  push:
-    branches: [main]
+  # push:
+  #   branches: [main]
   workflow_dispatch: {}
 
 concurrency:
@@ -22,8 +32,8 @@ jobs:
 
     env:
       AWS_REGION: us-east-1
-      S3_BUCKET: scriptz-app-frontend
-      CLOUDFRONT_DISTRIBUTION_ID: E3JZROJ6M5S5NX
+      S3_BUCKET: clixa-app-195874016451
+      CLOUDFRONT_DISTRIBUTION_ID: ECPKX3YV9V9CH
 
     steps:
       - name: Checkout
@@ -92,4 +102,4 @@ jobs:
           echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Bucket:** s3://${{ env.S3_BUCKET }}/" >> $GITHUB_STEP_SUMMARY
           echo "- **Distribution:** ${{ env.CLOUDFRONT_DISTRIBUTION_ID }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Live URL:** https://scriptz.app" >> $GITHUB_STEP_SUMMARY
+          echo "- **Live URL:** https://clixa.app" >> $GITHUB_STEP_SUMMARY
