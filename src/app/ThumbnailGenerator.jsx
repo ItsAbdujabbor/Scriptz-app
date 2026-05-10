@@ -1491,11 +1491,34 @@ function buildMessagesFromApi(apiMessages = []) {
   return apiMessages.map((m) => {
     const isAssistant = m.role === 'assistant'
     const ed = (isAssistant && m.extra_data) || {}
+    const isUser = m.role === 'user'
+    // Failure events: assistant row carries `kind: 'failure'` plus the
+    // error metadata. Mark with `_kind: 'failure'` so the render dispatch
+    // routes to FailedAttemptBlock; the prior user row's content gets
+    // pulled into `userText` by `mergeFailurePairs` further down.
+    if (isAssistant && ed.kind === 'failure') {
+      return {
+        id: m.id,
+        _kind: 'failure',
+        createdAt: m.created_at ? Date.parse(m.created_at) : Date.now(),
+        mode: ed.mode || 'prompt',
+        userText: '',
+        userImageUrl: ed.user_image_url || null,
+        errorCode: ed.error_code || null,
+        errorMessage: ed.error_message || '',
+        retryable: !!ed.retryable,
+        retryAfterSeconds: ed.retry_after_seconds || null,
+        attempt: ed.attempt || null,
+        maxAttempts: ed.max_attempts || null,
+        options: ed.options || null,
+        // Mark the partner user row for removal during the merge pass.
+        _failureRow: true,
+      }
+    }
     // User-message side: a persisted event flow stores the source
     // thumbnail on the ASSISTANT row's `extra_data.user_image_url`.
     // The user row in the chat thread reads the same field forwarded
     // from its sibling so the bubble can render an image-only message.
-    const isUser = m.role === 'user'
     return {
       id: m.id,
       role: m.role,
@@ -1530,6 +1553,37 @@ function stitchPersistedUserImages(messages) {
     if (url) {
       next[i] = { ...m, imageUrl: url }
     }
+  }
+  return next
+}
+
+// Fold the (user, failure-assistant) pair the events route writes for
+// every persisted failure into ONE failure entry: copy the user
+// content/image into the failure entry's `userText` / `userImageUrl`,
+// then drop the user row so the chat doesn't render two siblings
+// (the FailedAttemptBlock already shows the user bubble inside the
+// same block as the error card).
+function mergeFailurePairs(messages) {
+  const next = []
+  for (let i = 0; i < messages.length; i++) {
+    const cur = messages[i]
+    if (cur._kind === 'failure') {
+      const prior = next[next.length - 1]
+      if (prior && prior._isUser) {
+        // Pull user content into the failure entry, then remove the
+        // user row from the rendered list — FailedAttemptBlock owns
+        // the user bubble for failure rows.
+        const folded = {
+          ...cur,
+          userText: cur.userText || prior.content || '',
+          userImageUrl: cur.userImageUrl || prior.imageUrl || null,
+        }
+        next.pop()
+        next.push(folded)
+        continue
+      }
+    }
+    next.push(cur)
   }
   return next
 }
@@ -2049,7 +2103,10 @@ export function ThumbnailGenerator({
     const matchesCurrent = serverConvId == null || Number(serverConvId) === Number(conversationId)
     if (matchesCurrent && conversationQuery.data?.messages?.items) {
       const built = buildMessagesFromApi(conversationQuery.data.messages.items)
-      setMessages(stitchPersistedUserImages(built))
+      // Run stitch FIRST so user-row images get folded into their
+      // user bubbles, then fold (user, failure) pairs into single
+      // failure entries for FailedAttemptBlock to render.
+      setMessages(mergeFailurePairs(stitchPersistedUserImages(built)))
     } else if (!matchesCurrent || !conversationQuery.data) {
       setMessages([])
     }
@@ -2408,20 +2465,101 @@ export function ThumbnailGenerator({
   // `localOnlyMessages` (with `_kind: 'failure'`) so they sort
   // chronologically alongside successes — a new submission appears
   // BELOW the previous failure, not above it.
-  const pushFailureEntry = useCallback((failure) => {
-    const id =
-      typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `fail-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    const entry = {
-      id,
-      _kind: 'failure',
-      createdAt: Date.now(),
-      ...failure,
-    }
-    setLocalOnlyMessages((prev) => [...prev, entry])
-    return entry
-  }, [])
+  //
+  // Persistence: failure rows go through the same /events endpoint
+  // success events use, so they get a server-assigned id and survive
+  // a navigate-away → navigate-back round trip. Optimistic local
+  // insert renders the card instantly; once the POST returns, the
+  // local entry is dropped and the server-canonical pair is mirrored
+  // into the React Query cache (which `buildMessagesFromApi` will
+  // re-render as a `_kind: 'failure'` entry on the next pass).
+  const pushFailureEntry = useCallback(
+    async (failure) => {
+      const localId =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `fail-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const localEntry = {
+        id: localId,
+        _kind: 'failure',
+        createdAt: Date.now(),
+        ...failure,
+      }
+      setLocalOnlyMessages((prev) => [...prev, localEntry])
+
+      // Best-effort persist. Auto-creates the conversation if needed
+      // (the events route already does that for the success path).
+      try {
+        const token = await getAccessTokenOrNull()
+        if (!token) return localEntry
+        const res = await thumbnailsApi.appendEvent(token, {
+          conversation_id: conversationId || undefined,
+          channel_id: channelId || undefined,
+          kind: 'failure',
+          user_content: failure.userText || '',
+          extra_data: {
+            mode: failure.mode,
+            error_code: failure.errorCode,
+            error_message: failure.errorMessage,
+            retryable: failure.retryable,
+            retry_after_seconds: failure.retryAfterSeconds,
+            attempt: failure.attempt,
+            max_attempts: failure.maxAttempts,
+            user_image_url: failure.userImageUrl,
+            options: failure.options,
+          },
+        })
+        const newConvId = res?.conversation_id
+        if (newConvId != null && newConvId !== conversationId) {
+          onConversationCreated?.(newConvId)
+        }
+        // Mirror into the React Query conversation cache so a
+        // navigate-away → back round-trip serves the fresh failure
+        // immediately (5-minute staleTime would otherwise show a
+        // version without the failure briefly).
+        const convIdForCache = newConvId ?? conversationId
+        if (convIdForCache != null) {
+          queryClient.setQueryData(queryKeys.thumbnails.conversation(convIdForCache), (prev) => {
+            if (!prev) return prev
+            const items = prev.messages?.items || []
+            const knownIds = new Set(items.map((m) => m?.id))
+            const additions = []
+            if (res.user_message && !knownIds.has(res.user_message.id)) {
+              additions.push(res.user_message)
+            }
+            if (res.assistant_message && !knownIds.has(res.assistant_message.id)) {
+              additions.push(res.assistant_message)
+            }
+            if (additions.length === 0) return prev
+            return {
+              ...prev,
+              messages: { ...(prev.messages || {}), items: [...items, ...additions] },
+            }
+          })
+          // Refresh the sidebar so a brand-new conversation row appears.
+          queryClient.invalidateQueries({
+            queryKey: ['thumbnails', 'conversations'],
+            exact: false,
+          })
+        }
+        // Drop the optimistic local entry — the server pair will surface
+        // through `buildMessagesFromApi` (next reload) or via the cache
+        // we just hydrated (immediate). Either way, dedup is by server
+        // id so we don't get a stale double.
+        setLocalOnlyMessages((prev) => prev.filter((m) => m.id !== localId))
+      } catch (err) {
+        if (typeof console !== 'undefined') {
+          console.warn('[thumbnail] failure persist failed:', err)
+        }
+        // Local entry stays so the user still sees the card; the toast
+        // already showed the original error. Worst case: a hard refresh
+        // loses this one card, but the underlying generation error was
+        // already communicated.
+      }
+      return localEntry
+    },
+    [channelId, conversationId, onConversationCreated, queryClient]
+  )
 
   // Retry a previously-failed generation. Removes the failure card from
   // the thread up front (so the chat doesn't double-show while the new
