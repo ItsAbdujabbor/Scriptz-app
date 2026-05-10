@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, RefreshCw, X, Clock, Users } from 'lucide-react'
+import { AlertTriangle, RefreshCw, Clock, Users } from 'lucide-react'
 import './FailedGenerationCard.css'
 
 /**
@@ -63,7 +63,7 @@ function Countdown({ seconds }) {
   )
 }
 
-export default function FailedGenerationCard({ entry, onRetry, onDismiss }) {
+export default function FailedGenerationCard({ entry, onRetry }) {
   const variant = variantOf(entry?.errorCode)
   const retryable = !!entry?.retryable
   const attempt = entry?.attempt
@@ -95,8 +95,8 @@ export default function FailedGenerationCard({ entry, onRetry, onDismiss }) {
           ) : null}
           <Countdown seconds={entry?.retryAfterSeconds} />
         </div>
-        <div className="thumb-failed-card__actions">
-          {retryable ? (
+        {retryable ? (
+          <div className="thumb-failed-card__actions">
             <button
               type="button"
               className="thumb-failed-card__btn thumb-failed-card__btn--primary"
@@ -105,16 +105,8 @@ export default function FailedGenerationCard({ entry, onRetry, onDismiss }) {
               <RefreshCw size={14} aria-hidden="true" />
               <span>Try again</span>
             </button>
-          ) : null}
-          <button
-            type="button"
-            className="thumb-failed-card__btn thumb-failed-card__btn--ghost"
-            onClick={() => onDismiss?.(entry?.id)}
-          >
-            <X size={14} aria-hidden="true" />
-            <span>Dismiss</span>
-          </button>
-        </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )

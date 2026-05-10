@@ -17,10 +17,12 @@
 
 .thumb-failed-card__stage {
   position: relative;
-  /* No fixed aspect ratio — the card grows to fit content + actions.
-   * Min-height keeps the visual presence comparable to the 16:9 loader
-   * so the loader → failure transition doesn't shrink dramatically. */
-  min-height: 240px;
+  /* 16:9 — same proportions as the success thumbnail card and the
+   * generation loader, so the loader → success vs loader → failure
+   * transitions both land on the same footprint. The internal layout
+   * is flex-column so message centers in the upper region and the
+   * single Try-again action docks at the bottom. */
+  aspect-ratio: 16 / 9;
   display: flex;
   flex-direction: column;
   border-radius: 18px 18px 18px 2px;
@@ -100,16 +102,17 @@
   position: relative;
   z-index: 1;
   /* `flex: 1` so the centered title/message take all available space
-   * and the action row docks at the bottom of the card. */
+   * and the single Try-again action docks at the bottom of the card. */
   flex: 1;
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.55rem;
-  padding: 1.4rem 1.6rem 1rem;
+  gap: 0.5rem;
+  padding: 1rem 1.6rem 0.6rem;
   text-align: center;
+  min-height: 0; /* allow flex children to shrink under fixed aspect ratio */
 }
 
 .thumb-failed-card__icon {
@@ -169,18 +172,15 @@
   max-width: 38ch;
 }
 
-/* Action row docks at the bottom of the gradient card — sits inside
- * the stage as a sibling of stage-content. Padding mirrors the
- * stage-content side padding so buttons line up visually with the
- * title above. Centered to read cleanly for an error card. */
+/* Action row docks at the bottom of the gradient card. With Dismiss
+ * removed, only Try-again sits here — centered, small breathing room
+ * to the bottom edge. */
 .thumb-failed-card__actions {
   position: relative;
   z-index: 1;
   display: flex;
-  flex-wrap: wrap;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 0 1.4rem 1.2rem;
+  padding: 0 1.4rem 1rem;
 }
 
 .thumb-failed-card__btn {

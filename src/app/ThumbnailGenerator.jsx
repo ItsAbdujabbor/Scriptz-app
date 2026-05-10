@@ -1697,12 +1697,11 @@ export function ThumbnailGenerator({
   // to flip the analyze image preview to a generic % bar mid-job).
   const [pendingMode, setPendingMode] = useState(null)
   const [pendingUserImageUrl, setPendingUserImageUrl] = useState(null)
-  // Persistent record of generations that failed in this session. The
-  // user's prompt + a polite apology card stay rendered in the chat
-  // thread until the user clicks Retry or Dismiss — replaces the prior
-  // toast-only error UX where the failed attempt disappeared the moment
-  // the in-flight loader unmounted.
-  const [failedAttempts, setFailedAttempts] = useState([])
+  // Failed generations are pushed inline into `localOnlyMessages` with
+  // `_kind: 'failure'` (see `pushFailureEntry` further down) so they
+  // sort chronologically alongside successes. A new request after a
+  // failure renders BELOW the failure card, not in a separate "errors"
+  // block at the bottom. Removed the prior `failedAttempts` state.
   // Snap-to-100 signal for <GenerationProgress />. Flips true when the
   // request finishes, lets the bar animate to 100, then we clear pending.
   const [pendingDone, setPendingDone] = useState(false)
@@ -1752,6 +1751,12 @@ export function ThumbnailGenerator({
   // lot of state and is rebuilt every render). The ref is refreshed in
   // a no-dep useEffect further down, after `handleSubmit` is in scope.
   const handleSubmitRef = useRef(null)
+  // Same trick for the other mode-specific submit handlers — the
+  // failure-card retry dispatcher needs to call whichever one matches
+  // `entry.mode` without React re-creating the callback every render.
+  const handleTitleIdeasSubmitRef = useRef(null)
+  const handleRecreateSubmitRef = useRef(null)
+  const handleAnalyzeFooterSubmitRef = useRef(null)
 
   // Errors-as-toasts: any time `sendError` / `editFooterError` becomes
   // truthy, fire a top-right toast and clear the state immediately. The
@@ -2398,24 +2403,52 @@ export function ThumbnailGenerator({
     setPromptImageName('')
   }, [])
 
-  // Retry a previously-failed generation. Removes the failed entry up
-  // front so the chat doesn't double-show the bubble while the new
-  // attempt is in flight. Restores the user's prompt to the draft and
-  // re-fires the same submit handler — if it fails again, a fresh
-  // failed-attempt row will be pushed by the catch block.
-  const handleRetryFailedAttempt = useCallback((entry) => {
-    if (!entry) return
-    setFailedAttempts((prev) => prev.filter((f) => f.id !== entry.id))
-    setDraft(entry.userText || '')
-    // Defer to next tick so setDraft has a chance to commit before the
-    // submit handler reads it.
-    setTimeout(() => {
-      handleSubmitRef.current?.()
-    }, 0)
+  // Push an inline failure card into the chat thread. Failures live in
+  // `localOnlyMessages` (with `_kind: 'failure'`) so they sort
+  // chronologically alongside successes — a new submission appears
+  // BELOW the previous failure, not above it.
+  const pushFailureEntry = useCallback((failure) => {
+    const id =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `fail-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const entry = {
+      id,
+      _kind: 'failure',
+      createdAt: Date.now(),
+      ...failure,
+    }
+    setLocalOnlyMessages((prev) => [...prev, entry])
+    return entry
   }, [])
 
-  const handleDismissFailedAttempt = useCallback((entryId) => {
-    setFailedAttempts((prev) => prev.filter((f) => f.id !== entryId))
+  // Retry a previously-failed generation. Removes the failure card from
+  // the thread up front (so the chat doesn't double-show while the new
+  // attempt is in flight) and dispatches to the right submit handler
+  // based on `entry.mode`. On a fresh failure, the catch block pushes
+  // a new failure entry which lands BELOW the retry's pending bubble.
+  const handleRetryFailedAttempt = useCallback((entry) => {
+    if (!entry) return
+    setLocalOnlyMessages((prev) => prev.filter((m) => m.id !== entry.id))
+    const mode = entry.mode || 'prompt'
+    // Defer the dispatch to next tick so the relevant draft state has
+    // a chance to commit before the submit handler reads it.
+    setTimeout(() => {
+      if (mode === 'titles') {
+        setTitleTopic(entry.userText || '')
+        setTimeout(() => handleTitleIdeasSubmitRef.current?.(), 0)
+      } else if (mode === 'recreate') {
+        setRecreateUrlInput(entry.userText || '')
+        setTimeout(() => handleRecreateSubmitRef.current?.(), 0)
+      } else if (mode === 'analyze') {
+        setTimeout(() => handleAnalyzeFooterSubmitRef.current?.(), 0)
+      } else {
+        // 'prompt' (default thumbnail-generate) — restore the draft text
+        // and re-fire the main submit handler.
+        setDraft(entry.userText || '')
+        setTimeout(() => handleSubmitRef.current?.(), 0)
+      }
+    }, 0)
   }, [])
 
   /**
@@ -2596,38 +2629,30 @@ export function ThumbnailGenerator({
       // re-typing. The failed-attempts list owns the user-bubble and
       // error card from this point forward — the in-flight pending
       // bubbles can clear in `finally` below.
-      const failedId =
-        typeof crypto !== 'undefined' && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `fail-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-      setFailedAttempts((prev) => [
-        ...prev,
-        {
-          id: failedId,
-          userText: combined,
-          userImageUrl: userImageAtSubmit,
-          errorCode: code,
-          errorMessage: friendly,
-          retryable,
-          retryAfterSeconds: extra?.retry_after_seconds ?? null,
-          // Backend retry/queue context (set when the route hit our retry
-          // helper or queue cap). Lets the failed-card render "we tried 4
-          // times" / "you were #6 in line" / countdown UI honestly.
-          attempt: extra?.attempt ?? null,
-          maxAttempts: extra?.max_attempts ?? null,
-          totalWaitedSeconds: extra?.total_waited_seconds ?? null,
-          queueDepth: extra?.queue_depth ?? null,
-          queueMaxDepth: extra?.queue_max_depth ?? null,
-          createdAt: Date.now(),
-          options: {
-            num_thumbnails: numThumbnails,
-            persona_id: selectedPersonaId || null,
-            style_id: selectedStyleId || null,
-            channel_id: channelId || null,
-            conversation_id: activeConversationId || null,
-          },
+      pushFailureEntry({
+        mode: 'prompt',
+        userText: combined,
+        userImageUrl: userImageAtSubmit,
+        errorCode: code,
+        errorMessage: friendly,
+        retryable,
+        retryAfterSeconds: extra?.retry_after_seconds ?? null,
+        // Backend retry/queue context (set when the route hit our retry
+        // helper or queue cap). Lets the failed-card render "we tried 4
+        // times" / "you were #6 in line" / countdown UI honestly.
+        attempt: extra?.attempt ?? null,
+        maxAttempts: extra?.max_attempts ?? null,
+        totalWaitedSeconds: extra?.total_waited_seconds ?? null,
+        queueDepth: extra?.queue_depth ?? null,
+        queueMaxDepth: extra?.queue_max_depth ?? null,
+        options: {
+          num_thumbnails: numThumbnails,
+          persona_id: selectedPersonaId || null,
+          style_id: selectedStyleId || null,
+          channel_id: channelId || null,
+          conversation_id: activeConversationId || null,
         },
-      ])
+      })
       setDraft(combined)
       setPendingAssistant(false)
       if (activeConversationId) clearPending(activeConversationId)
@@ -2766,9 +2791,12 @@ export function ThumbnailGenerator({
     ]
   )
 
-  // Keep `handleSubmitRef` pointing at the latest `handleSubmit` so the
-  // error-toast's "Retry" action always invokes the most recent closure
-  // (with the most recent state). Runs after every render — cheap.
+  // Keep the per-mode submit refs pointing at the latest closures so the
+  // failure-card retry dispatcher (and the toast Retry action) always
+  // invoke the most recent handler with current state. Runs after every
+  // render — cheap. The other three (title / recreate / analyze) are
+  // wired in their own no-dep useEffects further below, after each
+  // handler is in scope.
   useEffect(() => {
     handleSubmitRef.current = handleSubmit
   })
@@ -2869,9 +2897,15 @@ export function ThumbnailGenerator({
       finishLoading()
     } catch (err) {
       const { code, message } = parseApiError(err, 'Could not recreate thumbnail.')
-      setSendError(message)
-      setSendErrorMeta(null)
       setPendingAssistant(false)
+      pushFailureEntry({
+        mode: 'recreate',
+        userText: instructions,
+        userImageUrl: sourceImageUrl,
+        errorCode: code,
+        errorMessage: message,
+        retryable: true,
+      })
       toast.error(message, { code: code || undefined, title: friendlyTitleFor(code) })
     } finally {
       setPendingUserMessage(null)
@@ -2982,9 +3016,15 @@ export function ThumbnailGenerator({
       finishLoading()
     } catch (err) {
       const { code, message } = parseApiError(err, 'Could not analyze thumbnail.')
-      setSendError(message)
-      setSendErrorMeta(null)
       setPendingAssistant(false)
+      pushFailureEntry({
+        mode: 'analyze',
+        userText: titleTrim,
+        userImageUrl: imageUrl,
+        errorCode: code,
+        errorMessage: message,
+        retryable: true,
+      })
       toast.error(message, { code: code || undefined, title: friendlyTitleFor(code) })
     } finally {
       setPendingUserMessage(null)
@@ -3030,14 +3070,31 @@ export function ThumbnailGenerator({
       finishLoading()
     } catch (err) {
       const { code, message } = parseApiError(err, 'Could not generate titles.')
-      setSendError(message)
-      setSendErrorMeta(null)
       setPendingAssistant(false)
+      // Persist as an inline failure card (mode='titles' so retry
+      // re-fires this same handler with the same topic). Toast still
+      // fires for top-of-screen visibility but the card stays in the
+      // thread.
+      pushFailureEntry({
+        mode: 'titles',
+        userText: topic,
+        errorCode: code,
+        errorMessage: message,
+        retryable: true,
+      })
       toast.error(message, { code: code || undefined, title: friendlyTitleFor(code) })
     } finally {
       setPendingUserMessage(null)
     }
   }
+
+  // Refs for the mode-specific submit handlers so the failure-card
+  // retry dispatcher can call the latest closures.
+  useEffect(() => {
+    handleTitleIdeasSubmitRef.current = handleTitleIdeasSubmit
+    handleRecreateSubmitRef.current = handleRecreateSubmit
+    handleAnalyzeFooterSubmitRef.current = handleAnalyzeFooterSubmit
+  })
 
   return (
     <div
@@ -3147,26 +3204,21 @@ export function ThumbnailGenerator({
           )}
 
           {!isHistoryLoading &&
-            renderedMessages.map((msg) => (
-              <ChatMessageItem
-                key={msg.id}
-                msg={msg}
-                onReplaceThumbnail={handleReplaceThumbnail}
-                onRegenerate={handleRegenerateOne}
-                onViewImage={openThumbLightbox}
-                onEditImage={openEditorForThumbnail}
-                onUseTitle={handleUseTitleAsPrompt}
-              />
-            ))}
-
-          {failedAttempts.map((entry) => (
-            <FailedAttemptBlock
-              key={entry.id}
-              entry={entry}
-              onRetry={handleRetryFailedAttempt}
-              onDismiss={handleDismissFailedAttempt}
-            />
-          ))}
+            renderedMessages.map((msg) =>
+              msg?._kind === 'failure' ? (
+                <FailedAttemptBlock key={msg.id} entry={msg} onRetry={handleRetryFailedAttempt} />
+              ) : (
+                <ChatMessageItem
+                  key={msg.id}
+                  msg={msg}
+                  onReplaceThumbnail={handleReplaceThumbnail}
+                  onRegenerate={handleRegenerateOne}
+                  onViewImage={openThumbLightbox}
+                  onEditImage={openEditorForThumbnail}
+                  onUseTitle={handleUseTitleAsPrompt}
+                />
+              )
+            )}
 
           {(pendingUserMessage || pendingUserImageUrl) && (
             <article className="coach-message coach-message--user coach-message--enter">
@@ -3762,7 +3814,7 @@ export function ThumbnailGenerator({
  * the inline error card with retry / dismiss controls. Lives at the bottom
  * of the file so the chat list can call it as a regular component.
  */
-function FailedAttemptBlock({ entry, onRetry, onDismiss }) {
+function FailedAttemptBlock({ entry, onRetry }) {
   return (
     <>
       <article className="coach-message coach-message--user coach-message--enter">
@@ -3785,7 +3837,7 @@ function FailedAttemptBlock({ entry, onRetry, onDismiss }) {
         </div>
       </article>
       <article className="coach-message coach-message--assistant coach-message--enter">
-        <FailedGenerationCard entry={entry} onRetry={onRetry} onDismiss={onDismiss} />
+        <FailedGenerationCard entry={entry} onRetry={onRetry} />
       </article>
     </>
   )
