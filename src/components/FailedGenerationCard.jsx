@@ -76,6 +76,10 @@ export default function FailedGenerationCard({ entry, onRetry, onDismiss }) {
       role="alert"
       aria-live="polite"
     >
+      {/* Single visual card — message + actions both live INSIDE the
+       * gradient-bordered stage so the failure reads as one cohesive
+       * surface (was previously: stage held the message, actions sat
+       * as a separate sibling outside the gradient frame). */}
       <div className="thumb-failed-card__stage">
         <div className="thumb-failed-card__stage-glow" aria-hidden="true" />
         <div className="thumb-failed-card__stage-content">
@@ -91,26 +95,26 @@ export default function FailedGenerationCard({ entry, onRetry, onDismiss }) {
           ) : null}
           <Countdown seconds={entry?.retryAfterSeconds} />
         </div>
-      </div>
-      <div className="thumb-failed-card__actions">
-        {retryable ? (
+        <div className="thumb-failed-card__actions">
+          {retryable ? (
+            <button
+              type="button"
+              className="thumb-failed-card__btn thumb-failed-card__btn--primary"
+              onClick={() => onRetry?.(entry)}
+            >
+              <RefreshCw size={14} aria-hidden="true" />
+              <span>Try again</span>
+            </button>
+          ) : null}
           <button
             type="button"
-            className="thumb-failed-card__btn thumb-failed-card__btn--primary"
-            onClick={() => onRetry?.(entry)}
+            className="thumb-failed-card__btn thumb-failed-card__btn--ghost"
+            onClick={() => onDismiss?.(entry?.id)}
           >
-            <RefreshCw size={14} aria-hidden="true" />
-            <span>Try again</span>
+            <X size={14} aria-hidden="true" />
+            <span>Dismiss</span>
           </button>
-        ) : null}
-        <button
-          type="button"
-          className="thumb-failed-card__btn thumb-failed-card__btn--ghost"
-          onClick={() => onDismiss?.(entry?.id)}
-        >
-          <X size={14} aria-hidden="true" />
-          <span>Dismiss</span>
-        </button>
+        </div>
       </div>
     </div>
   )

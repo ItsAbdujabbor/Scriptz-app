@@ -1,23 +1,28 @@
-/* Thumbnail-card-shaped failed-generation card. Mirrors the dimensions
- * and outer radius of `.thumb-gen-loader` / `.thumb-batch-img-wrap` so
- * the loader → failure transition is layout-stable.
+/* Thumbnail-card-shaped failed-generation card. Mirrors the rounded
+ * outer shape of `.thumb-gen-loader` / `.thumb-batch-img-wrap` so the
+ * loader → failure transition is layout-stable. The whole thing —
+ * message + retry/dismiss actions — lives inside ONE bordered card
+ * (the gradient stage). Buttons used to sit as a sibling outside the
+ * stage which read as "card with floating buttons under it"; now
+ * they're docked at the bottom of the same card.
  *
  * Stage colour: subtle amber-red glass so it reads as an error without
- * being alarming. Action buttons live below the stage, matching where
- * the success card's hover actions appear. Style mirrors the rest of
- * the in-app glass cards (rounded corners, gradient bg, soft shadow). */
+ * being alarming. Style mirrors the rest of the in-app glass cards
+ * (rounded corners, gradient bg, soft shadow). */
 
 .thumb-failed-card {
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
   animation: thumb-failed-card-in 0.32s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
 .thumb-failed-card__stage {
   position: relative;
-  aspect-ratio: 16 / 9;
+  /* No fixed aspect ratio — the card grows to fit content + actions.
+   * Min-height keeps the visual presence comparable to the 16:9 loader
+   * so the loader → failure transition doesn't shrink dramatically. */
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
   border-radius: 18px 18px 18px 2px;
   overflow: hidden;
   isolation: isolate;
@@ -44,7 +49,7 @@
     radial-gradient(
       120% 90% at 50% 0%,
       rgba(251, 191, 36, 0.18) 0%,
-      rgba(96, 165, 250, 0.10) 50%,
+      rgba(96, 165, 250, 0.1) 50%,
       rgba(12, 14, 22, 0.96) 100%
     ),
     #0c0f17;
@@ -77,46 +82,33 @@
 .thumb-failed-card__stage-glow {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(
-      90% 70% at 50% 35%,
-      rgba(252, 165, 165, 0.14) 0%,
-      transparent 70%
-    );
+  background: radial-gradient(90% 70% at 50% 35%, rgba(252, 165, 165, 0.14) 0%, transparent 70%);
   pointer-events: none;
   z-index: 0;
   animation: thumb-failed-card-pulse 4.2s ease-in-out infinite;
 }
 
 .thumb-failed-card--rate-limited .thumb-failed-card__stage-glow {
-  background:
-    radial-gradient(
-      90% 70% at 50% 35%,
-      rgba(253, 224, 71, 0.16) 0%,
-      transparent 70%
-    );
+  background: radial-gradient(90% 70% at 50% 35%, rgba(253, 224, 71, 0.16) 0%, transparent 70%);
 }
 
 .thumb-failed-card--queued .thumb-failed-card__stage-glow {
-  background:
-    radial-gradient(
-      90% 70% at 50% 35%,
-      rgba(254, 215, 170, 0.18) 0%,
-      transparent 70%
-    );
+  background: radial-gradient(90% 70% at 50% 35%, rgba(254, 215, 170, 0.18) 0%, transparent 70%);
 }
 
 .thumb-failed-card__stage-content {
   position: relative;
   z-index: 1;
-  height: 100%;
+  /* `flex: 1` so the centered title/message take all available space
+   * and the action row docks at the bottom of the card. */
+  flex: 1;
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.55rem;
-  padding: 1.2rem 1.6rem;
+  padding: 1.4rem 1.6rem 1rem;
   text-align: center;
 }
 
@@ -177,11 +169,18 @@
   max-width: 38ch;
 }
 
+/* Action row docks at the bottom of the gradient card — sits inside
+ * the stage as a sibling of stage-content. Padding mirrors the
+ * stage-content side padding so buttons line up visually with the
+ * title above. Centered to read cleanly for an error card. */
 .thumb-failed-card__actions {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 0.5rem;
-  padding: 0 0.1rem;
+  padding: 0 1.4rem 1.2rem;
 }
 
 .thumb-failed-card__btn {
@@ -258,8 +257,13 @@
 }
 
 @keyframes thumb-failed-card-pulse {
-  0%, 100% { opacity: 0.85; }
-  50%      { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
