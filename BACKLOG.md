@@ -76,12 +76,6 @@ Last reviewed: 2026-05-10. Items are tagged `[P0]` (blocks usage / data integrit
 
 ## §3 — Backend Gaps `[BACKEND]`
 
-### `[P1]` Reset password email never sent
-
-**Where:** `Clixa-Api/app/api/routes/auth.py:276` — `# TODO: Send email with reset token`
-**State:** The forgot-password endpoint generates a reset token and stores it but never emails it to the user. The user has no way to receive the link.
-**Fix:** Wire up Brevo (already configured for waitlist) or AWS SES. Email should include the reset link with the token.
-
 ### `[P1]` Backend has no SSE for non-prompt jobs
 
 **Where:** `Clixa-Api/app/services/job_runner.py` — `_publish_event` / `_publish_progress`
@@ -180,15 +174,18 @@ Last reviewed: 2026-05-10. Items are tagged `[P0]` (blocks usage / data integrit
 
 ## §7 — Auth / Account `[AUTH]`
 
-### `[P1]` Email/password sign-up doesn't exist (only Google OAuth)
+Auth is OAuth-only by design (Google). Email/password sign-up,
+forgot-password, and reset-password endpoints were intentionally
+removed — Google manages credentials, so a local password surface
+adds attack surface for no benefit. Apple OAuth shows as "Coming
+soon" in the dialog and is the only realistic addition to consider.
 
-**State:** The OAuth dialog only offers Google + a "Coming soon" Apple button. No email/password fallback.
-**Fix:** Either ship Apple OAuth (medium effort) or add email/password sign-up (more effort, needs verification email pipeline + password reset).
+### `[P2]` Apple OAuth ("Coming soon" today)
 
-### `[P2]` No "delete account" flow
-
-**State:** Users have no UI to delete their own account. Manual DB intervention required.
-**Fix:** Add Settings → Danger Zone → Delete account button. Backend already has the cascade logic in some routes; needs a unified endpoint.
+**State:** The OAuth dialog has an Apple button rendered as
+`is-coming-soon` / disabled. To ship: register an Apple Service ID,
+mirror the Google OAuth client setup with PKCE, add the
+`apple` provider branch in `auth_oauth.py`.
 
 ---
 
@@ -207,20 +204,7 @@ Last reviewed: 2026-05-10. Items are tagged `[P0]` (blocks usage / data integrit
 
 ---
 
-## §9 — Future Features `[FUTURE]`
-
-These aren't gaps — they're expansion options the user has hinted at or that obviously fit the product.
-
-- Multi-channel support beyond the current single-channel layout (some scaffolding exists in `Clixa-Admin/src/api/channels.js` but UI is shallow).
-- Bulk thumbnail export (download all generated thumbnails as a ZIP).
-- A/B test mode (the backend has `ab_tests` route stubs that were deleted in a refactor — could be restored).
-- Public share links for individual thumbnails.
-- Team workspaces (multiple users on one channel).
-- Webhook callbacks for completed generations (for Zapier-style integrations).
-
----
-
-## §10 — Documentation `[DOCS]`
+## §9 — Documentation `[DOCS]`
 
 ### `[P2]` `CLAUDE.md` files are well-maintained but no end-user docs
 
