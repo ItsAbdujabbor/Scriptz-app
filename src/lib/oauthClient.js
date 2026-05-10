@@ -175,7 +175,23 @@ export async function consumeOAuthCallback() {
 
   if (errorParam) {
     cleanupCallbackUrl(url)
-    throw new Error(url.searchParams.get('error_description') || errorParam)
+    const desc = url.searchParams.get('error_description') || errorParam
+    // Dev-mode hint: `redirect_uri_mismatch` almost always means the
+    // current origin isn't on the Google OAuth client's authorized
+    // redirect-URIs list. Spell out the exact value to add so the
+    // developer can fix it in one click in Google Cloud Console.
+    if (
+      errorParam === 'redirect_uri_mismatch' &&
+      typeof import.meta !== 'undefined' &&
+      import.meta.env?.DEV
+    ) {
+      throw new Error(
+        `${desc}. Add ${redirectUri()} to the Google OAuth client's ` +
+          `Authorized redirect URIs (Google Cloud Console → APIs & Services → ` +
+          `Credentials → your OAuth client).`
+      )
+    }
+    throw new Error(desc)
   }
   if (!code) return null
 

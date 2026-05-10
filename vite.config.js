@@ -27,6 +27,14 @@ export default defineConfig({
     },
   },
   server: {
+    // Pin the dev port so the OAuth redirect_uri is stable. Google's
+    // OAuth client allow-list is a strict equality check on the
+    // redirect URI — if Vite picks a different port (because 5173 is
+    // taken) sign-in fails with redirect_uri_mismatch. `strictPort`
+    // surfaces a clean "port in use" error at startup instead of
+    // silently falling through to 5174.
+    port: 5173,
+    strictPort: true,
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8000',
