@@ -25,14 +25,6 @@ import { Footer } from './components/Footer'
 import { DemoModal } from './components/DemoModal'
 import { rafThrottle } from '../lib/rafThrottle'
 
-const SECTION_NAV = {
-  solution: 'nav-features',
-  results: 'nav-results',
-  'social-proof': 'nav-reviews',
-  pricing: 'nav-pricing',
-  faq: 'nav-faq',
-}
-
 export function LandingPage() {
   useEffect(() => {
     const headerEl = document.getElementById('header')
@@ -107,45 +99,11 @@ export function LandingPage() {
       })
     }
 
-    /* ── 4. Header nav active-state observer ───────────────────────────── */
-    const sectionIds = Object.keys(SECTION_NAV)
-    const sectionEls = sectionIds.map((id) => document.getElementById(id)).filter(Boolean)
+    /* Header nav scroll-spy intentionally omitted — section headlines
+     * are the visual anchor; highlighting a nav link as the user scrolls
+     * was redundant chrome. */
 
-    const setHeaderActive = (sectionId) => {
-      headerEl
-        ?.querySelectorAll('.header-nav-link.active')
-        .forEach((l) => l.classList.remove('active'))
-      const navId = SECTION_NAV[sectionId]
-      if (!navId) return
-      document.getElementById(navId)?.classList.add('active')
-    }
-
-    let navObserver = null
-    if (sectionEls.length && typeof IntersectionObserver !== 'undefined') {
-      // Track which sections are currently in the observation band, resolve
-      // the active one as the topmost in DOM order — avoids races when fast
-      // scrolling fires multiple intersect callbacks at once.
-      const visibleIds = new Set()
-      navObserver = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) visibleIds.add(entry.target.id)
-            else visibleIds.delete(entry.target.id)
-          })
-          if (visibleIds.size === 0) return
-          for (const id of sectionIds) {
-            if (visibleIds.has(id)) {
-              setHeaderActive(id)
-              break
-            }
-          }
-        },
-        { rootMargin: '-12% 0px -58% 0px', threshold: 0 }
-      )
-      sectionEls.forEach((el) => navObserver.observe(el))
-    }
-
-    /* ── 5. Smooth-scroll for header desktop nav links ─────────────────── */
+    /* ── Smooth-scroll for header desktop nav links ─────────────────── */
     const handleNavClick = (e) => {
       const href = e.currentTarget.getAttribute('href')
       if (!href || href.charAt(0) !== '#' || href === '#login' || href === '#register') return
@@ -167,7 +125,6 @@ export function LandingPage() {
       closeDemoButtons.forEach((btn) => btn.removeEventListener('click', closeDemo))
       demoModal?.removeEventListener('keydown', onDemoEscape)
       priClickHandlers.forEach(({ btn, handler }) => btn.removeEventListener('click', handler))
-      navObserver?.disconnect()
       navLinks.forEach((link) => link.removeEventListener('click', handleNavClick))
     }
   }, [])

@@ -111,11 +111,9 @@
   color: #fff !important;
   background: rgba(255, 255, 255, 0.07);
 }
-.header .header-nav-link.active {
-  color: #e9d5ff !important;
-  background: rgba(139, 92, 246, 0.18);
-  border: 1px solid rgba(139, 92, 246, 0.25);
-}
+/* No scroll-spy active-state pill — the section headlines below
+ * already tell the user where they are, so highlighting one nav link
+ * as scrollSpy moves between sections was redundant chrome. */
 
 /* ─── Desktop CTA group ────────────────────────────────────────────────────── */
 .header .header-actions {
