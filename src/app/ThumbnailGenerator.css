@@ -2784,10 +2784,26 @@
  * `.coach-composer-wrap--thumb-tools` (see ThumbnailGenerator.jsx),
  * so this stays correct as the composer expands/collapses with mode
  * switches and multi-line input. */
+/* Bottom padding has TWO jobs:
+ *   1. Clear the floating composer (`--coach-composer-stack-px` is
+ *      kept in sync by the ResizeObserver on the footer, so the value
+ *      tracks the composer's actual height as it expands/collapses
+ *      with mode switches + multi-line input).
+ *   2. Reserve enough viewport space ABOVE the composer that the most
+ *      recent thumbnail card lands in the visible center, not flush
+ *      against the input bar. The 38vh extra (~38% of viewport height)
+ *      pushes the auto-scroll-end sentinel low enough that the last
+ *      card settles in the center of the readable area for typical
+ *      laptop / phone heights without forcing the user to scroll up
+ *      after each generation.
+ *
+ * The composer itself is `position: sticky; bottom: 0` and never gets
+ * "attached" to the message — it stays pinned to the viewport bottom
+ * regardless of how the thread scrolls. */
 #coach-panel-thumbnails .coach-thread--thumb-panel {
   align-items: stretch;
   gap: 1.4rem;
-  padding-bottom: 200px;
+  padding-bottom: calc(var(--coach-composer-stack-px, 200px) + 38vh);
 }
 
 /* Invisible probe at the very top of the thread; the IntersectionObserver
