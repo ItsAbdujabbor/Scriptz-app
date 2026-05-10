@@ -524,7 +524,7 @@
       ),
     /* Near-opaque base — high alpha so the marquee behind is barely
      * visible (just a hint), not a frosted blur. */
-    rgba(10, 8, 24, 0.92);
+    rgba(10, 8, 24, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.18);
   /* No backdrop-filter — the panel is now near-opaque, so the
    * frost effect is intentionally gone. */
@@ -598,7 +598,7 @@
     ),
     /* Match the resting near-opaque base; focus only changes border
      * + inner highlight, not transparency. */
-    rgba(12, 9, 28, 0.94);
+    rgba(12, 9, 28, 0.99);
   /* Focus is signaled via the brighter border + inner highlights only
    * — no outer halo. */
   box-shadow:
