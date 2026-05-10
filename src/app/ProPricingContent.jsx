@@ -4,11 +4,11 @@ import { useAuthStore } from '../stores/authStore'
 import { getPlans, startCheckout, changePlan } from '../api/billing'
 import { preloadPaddle } from '../lib/paddle'
 import { useSubscriptionQuery, refreshBillingState } from '../queries/billing/creditsQueries'
-import { queryKeys } from '../lib/query/queryKeys'
 import { celebrate } from '../lib/celebrate'
 import { friendlyMessage } from '../lib/aiErrors'
 import { ThumbPillTabs } from '../components/ThumbPillTabs'
 import { useSubscriptionActivationStore } from '../stores/subscriptionActivationStore'
+import { Faq } from '../landing/components/Faq'
 
 /* ─── Plan catalog (mirrors backend; kept in sync with billing.py) ───
  * Marketing copy + numbers live here. Real Paddle price ids are pulled
@@ -98,7 +98,13 @@ function buildFeatures(plan, annual) {
 /* ── Icons ────────────────────────────────────────────────────────── */
 function CheckIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M5 12.5l4.5 4.5L19 7.5" />
     </svg>
   )
@@ -106,7 +112,13 @@ function CheckIcon() {
 
 function CrossIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   )
@@ -114,7 +126,13 @@ function CrossIcon() {
 
 function ShieldIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M12 3l8 4v6c0 4.5-3.5 7.5-8 8-4.5-.5-8-3.5-8-8V7l8-4z" />
     </svg>
   )
@@ -122,7 +140,13 @@ function ShieldIcon() {
 
 function BoltIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M13 3L4 14h7l-1 7 9-11h-7l1-7z" />
     </svg>
   )
@@ -130,7 +154,13 @@ function BoltIcon() {
 
 function CycleIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M3 12a9 9 0 0115-6.7L21 8M21 12a9 9 0 01-15 6.7L3 16" />
       <path d="M21 3v5h-5M3 21v-5h5" />
     </svg>
@@ -139,7 +169,13 @@ function CycleIcon() {
 
 function GiftIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="3" y="8" width="18" height="13" rx="2" />
       <path d="M3 12h18M12 8v13M8 8a2.5 2.5 0 010-5c2 0 4 5 4 5M16 8a2.5 2.5 0 000-5c-2 0-4 5-4 5" />
     </svg>
@@ -276,8 +312,7 @@ export function ProPricingContent({ onStartTrial }) {
             : {
                 emoji: '✅',
                 title: `Scheduled: ${plan.name}`,
-                subtitle:
-                  'Your plan will switch at the end of the current billing period.',
+                subtitle: 'Your plan will switch at the end of the current billing period.',
                 variant: 'success',
                 confetti: false,
               }
@@ -296,9 +331,8 @@ export function ProPricingContent({ onStartTrial }) {
       // charge today — that's what we surface in the order summary.
       const priceDisplay = annual ? plan.annual : plan.monthly
       const perMonthAmount = parseFloat(String(priceDisplay).replace(/[^0-9.]/g, ''))
-      const totalDueAmount = annual && Number.isFinite(perMonthAmount)
-        ? perMonthAmount * 12
-        : perMonthAmount
+      const totalDueAmount =
+        annual && Number.isFinite(perMonthAmount) ? perMonthAmount * 12 : perMonthAmount
       const totalDueDisplay = Number.isFinite(totalDueAmount)
         ? `$${totalDueAmount.toFixed(2)}`
         : priceDisplay
@@ -328,9 +362,7 @@ export function ProPricingContent({ onStartTrial }) {
       )
       window.location.hash = 'checkout'
     } catch (e) {
-      setCheckoutError(
-        friendlyMessage(e) || 'Could not complete the request. Please try again.'
-      )
+      setCheckoutError(friendlyMessage(e) || 'Could not complete the request. Please try again.')
     } finally {
       setCheckoutLoading(null)
     }
@@ -343,8 +375,8 @@ export function ProPricingContent({ onStartTrial }) {
         <span className="pro-eyebrow">Pricing</span>
         <h1 className="pro-hero-title">Choose your perfect plan</h1>
         <p className="pro-hero-sub">
-          Credit-based pricing for every AI feature. Upgrade, downgrade, or cancel
-          whenever — it's that simple.
+          Credit-based pricing for every AI feature. Upgrade, downgrade, or cancel whenever — it's
+          that simple.
         </p>
 
         <ActivatingProStrip hasActiveSub={hasActiveSub} />
@@ -383,13 +415,8 @@ export function ProPricingContent({ onStartTrial }) {
           const feats = buildFeatures(plan, annual)
 
           return (
-            <div
-              key={plan.tier}
-              className={`pro-card${featured ? ' pro-card--featured' : ''}`}
-            >
-              {featured ? (
-                <span className="pro-card-badge">Most popular</span>
-              ) : null}
+            <div key={plan.tier} className={`pro-card${featured ? ' pro-card--featured' : ''}`}>
+              {featured ? <span className="pro-card-badge">Most popular</span> : null}
 
               <p className="pro-card-name">{plan.name}</p>
 
@@ -397,9 +424,7 @@ export function ProPricingContent({ onStartTrial }) {
                 <span className="pro-card-amount">{price}</span>
                 <span className="pro-card-period">/mo</span>
               </div>
-              <p className="pro-card-billed">
-                {annual ? 'Billed annually' : 'Billed monthly'}
-              </p>
+              <p className="pro-card-billed">{annual ? 'Billed annually' : 'Billed monthly'}</p>
 
               <p className="pro-card-tagline">
                 {plan.tagline} Up to <strong>{fmtNum(thumbs)} thumbnails</strong>{' '}
@@ -427,10 +452,7 @@ export function ProPricingContent({ onStartTrial }) {
                 {feats.map((f, i) => {
                   const isOff = f.included === false
                   return (
-                    <li
-                      key={i}
-                      className={`pro-card-feat${isOff ? ' pro-card-feat--off' : ''}`}
-                    >
+                    <li key={i} className={`pro-card-feat${isOff ? ' pro-card-feat--off' : ''}`}>
                       <span className="pro-card-feat-check" aria-hidden="true">
                         {isOff ? <CrossIcon /> : <CheckIcon />}
                       </span>
@@ -461,14 +483,19 @@ export function ProPricingContent({ onStartTrial }) {
         ))}
       </section>
 
-      {/* FAQ moved to the canonical landing FAQ at /#faq — keeping a single
-          source of truth so credit/refund/trial copy never goes out of sync
-          with the legal pages. */}
+      {/* Inline FAQ — same component the landing page uses, so the
+          billing / credits / refund / trial answers stay in one place
+          and never drift out of sync. The wrapper class lets the Pro
+          screen tighten the section's vertical padding (the landing
+          version reserves 7rem top/bottom which is too much inside
+          a checkout-style screen). */}
+      <div className="pro-faq-wrap">
+        <Faq />
+      </div>
 
       {/* Footer hint */}
       <p className="pro-footer">
-        Have a question we didn't cover?{' '}
-        <a href="mailto:support@clixa.app">support@clixa.app</a>
+        Have a question we didn't cover? <a href="mailto:support@clixa.app">support@clixa.app</a>
       </p>
     </>
   )

@@ -1,4 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+// Self-import the FAQ CSS so the component renders correctly wherever
+// it's mounted (landing, Pro pricing screen, etc.). The landing's
+// styles.css used to be the only consumer, but the component now
+// travels its styling with it so other screens can drop it in.
+import '../sections/faq/faq.css'
 
 const FAQS = [
   {
