@@ -2170,8 +2170,19 @@ export function ThumbnailGenerator({
     }
   }, [isCurrentConversationPending, conversationQuery.data, conversationId, clearPending, markSeen])
 
+  // The skeleton is for FIRST-OPEN of an existing conversation only.
+  // When the user has just sent a message (pending user/assistant
+  // state is non-null), they're already getting visible feedback via
+  // the in-flight bubble + loader card — flashing a full-thread
+  // skeleton on top of that would feel like the screen is reloading.
+  // This matches the ChatGPT-style "everything happens in place"
+  // transition: empty state → user bubble + loader → result, with
+  // no intermediate skeleton swap.
   const isHistoryLoading =
-    conversationId != null && (conversationQuery.isPending || conversationQuery.isPlaceholderData)
+    conversationId != null &&
+    (conversationQuery.isPending || conversationQuery.isPlaceholderData) &&
+    !pendingUserMessage &&
+    !pendingAssistant
   // Combined render list: server-canonical chat thread first (sorted by
   // numeric server id), then local-only recreate / analyze results
   // appended in the order they happened. The two buckets never overlap
