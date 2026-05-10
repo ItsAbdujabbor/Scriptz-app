@@ -6,10 +6,7 @@ import { BannedScreen } from './auth/BannedScreen'
 import { Login } from './auth/Login'
 import { Signup } from './auth/Signup'
 import { prefetchHistoryConversations } from './lib/query/prefetchHistoryConversations'
-import {
-  prefetchSubscription,
-  seedSubscriptionFromCache,
-} from './lib/query/prefetchSubscription'
+import { prefetchSubscription, seedSubscriptionFromCache } from './lib/query/prefetchSubscription'
 import { AppShellLoading } from './components/AppShellLoading'
 import { Splash } from './components/Splash'
 import { useOnboardingStore } from './stores/onboardingStore'
@@ -59,9 +56,7 @@ const AuthenticatedRoutes = lazy(() => import('./AuthenticatedRoutes.jsx'))
 /** Pro pricing — its own fullscreen takeover, NOT mounted inside the
  *  authenticated shell. A close-X in the top-right dismisses it back to
  *  wherever the user came from. */
-const ProScreen = lazy(() =>
-  import('./app/ProScreen').then((m) => ({ default: m.ProScreen }))
-)
+const ProScreen = lazy(() => import('./app/ProScreen').then((m) => ({ default: m.ProScreen })))
 
 /** Checkout — Stripe-style fullscreen takeover that hosts the Paddle
  *  Inline Checkout iframe. Reached from the pricing page after the
@@ -184,6 +179,19 @@ function App() {
   // (the URL has `?code=…`). Cleared once ensureSession resolves so the
   // landing page can render afterwards if the exchange somehow failed.
   const [oauthCallbackPending, setOauthCallbackPending] = useState(urlIsOAuthCallback)
+  // Auth-dialog mode lock. When the user opens the auth dialog from the
+  // landing page (or from any other non-auth screen), capture whether
+  // they meant Sign in or Sign up and KEEP THAT until the dialog
+  // actually closes. While the dialog is open, hash changes between
+  // `#login` and `#register` (whether from a deep-link, a stray
+  // navigation effect, or the sign-in CTA inside the dialog mid-OAuth)
+  // do NOT swap the dialog body — the user said "if I'm registering,
+  // stay on register." Only `goBack` (close X) or successful auth can
+  // dismiss it; reopening from a closed state captures fresh.
+  const [lockedAuthMode, setLockedAuthMode] = useState(() => {
+    const v = getView()
+    return v === 'login' || v === 'signup' ? v : null
+  })
   const accessToken = useAuthStore((s) => s.accessToken)
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
@@ -249,6 +257,20 @@ function App() {
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
+
+  // Track when the auth dialog opens / closes so we can lock the mode
+  // it was opened in. Transitions:
+  //   * (any non-auth view) → 'login' or 'signup'  ⇒ lock to that mode
+  //   * 'login'/'signup' → (any non-auth view)     ⇒ release the lock
+  //   * 'login' ↔ 'signup' while open              ⇒ DO NOTHING (lock holds)
+  useEffect(() => {
+    const isAuthView = view === 'login' || view === 'signup'
+    if (isAuthView && lockedAuthMode == null) {
+      setLockedAuthMode(view)
+    } else if (!isAuthView && lockedAuthMode != null) {
+      setLockedAuthMode(null)
+    }
+  }, [view, lockedAuthMode])
 
   useEffect(() => {
     if (!sessionChecked || !accessToken) return
@@ -399,26 +421,22 @@ function App() {
   // Marketing-area views — landing + login/signup dialogs render together
   // so LandingPage stays mounted across landing → login → signup
   // transitions (no remount, no flash, dialog drops in instantly).
-  const isMarketingView =
-    view === 'landing' || view === 'login' || view === 'signup'
+  const isMarketingView = view === 'landing' || view === 'login' || view === 'signup'
 
   if (isMarketingView) {
+    // `lockedAuthMode` is the source of truth for which dialog body
+    // shows — see the dialog-mode-lock effect above. Once captured at
+    // open time, it ignores any subsequent `view` flip between
+    // `login` and `signup`, so a stray hash change can't swap a
+    // half-filled signup form for the login screen.
     return (
       <Suspense fallback={null}>
         <LandingPage />
-        {view === 'login' && (
-          <Login
-            onBack={goBack}
-            onGoToSignup={goToSignup}
-            onSuccess={onAuthSuccess}
-          />
+        {lockedAuthMode === 'login' && (
+          <Login onBack={goBack} onGoToSignup={goToSignup} onSuccess={onAuthSuccess} />
         )}
-        {view === 'signup' && (
-          <Signup
-            onBack={goBack}
-            onGoToLogin={goToLogin}
-            onSuccess={goToDashboardAfterSignup}
-          />
+        {lockedAuthMode === 'signup' && (
+          <Signup onBack={goBack} onGoToLogin={goToLogin} onSuccess={goToDashboardAfterSignup} />
         )}
       </Suspense>
     )
