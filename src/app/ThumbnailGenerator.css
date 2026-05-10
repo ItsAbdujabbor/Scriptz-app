@@ -102,6 +102,19 @@
   }
 }
 
+/* Narrow phones (≤ 480 px): the model picker, plan callout, and
+ * credits pill all share the same top horizontal band. With three
+ * absolutely-positioned elements competing for ~360 px of width
+ * they begin to overlap. The model-tier picker is duplicated inside
+ * the sidebar account panel, so we hide its top-left dropdown here
+ * and let the plan callout + credits breathe. Mobile users who
+ * really want to switch tiers can do so from the sidebar. */
+@media (max-width: 480px) {
+  .thumb-model-dropdown {
+    display: none;
+  }
+}
+
 /* ═══ Model tier dropdown — always pinned top-left ═══ */
 .thumb-model-dropdown {
   position: absolute;
