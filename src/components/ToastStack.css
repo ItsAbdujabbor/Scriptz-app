@@ -19,8 +19,12 @@
   position: relative;
   overflow: hidden;
   background: var(--surface-card-raised, #1f1f24);
+  /* Single hairline border on every side. Previously a 4 px coloured
+   * left edge accented the toast tone (red for error, etc.) — felt
+   * heavy and inconsistent with the rest of the app's quiet card
+   * chrome. Tone is now communicated by the bottom progress-bar fill
+   * (`.toast-card__progress-bar`) and the optional title icon. */
   border: 1px solid var(--border-card, rgba(255, 255, 255, 0.07));
-  border-left: 4px solid var(--toast-accent, #ef4444);
   border-radius: 14px;
   box-shadow:
     0 12px 32px rgba(0, 0, 0, 0.45),
