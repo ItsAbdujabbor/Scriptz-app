@@ -1729,6 +1729,13 @@ export function ThumbnailGenerator({
   const recreateTextareaRef = useRef(null)
   const editFileInputRef = useRef(null)
   const modePaneRef = useRef(null)
+  // Whether the user has scrolled past the very top of the chat thread.
+  // Drives a `.coach-chat-shell--scrolled` modifier class on the chat
+  // shell so the floating header trio (model picker, plan callout,
+  // credits pill) compacts to a tighter rhythm once content is being
+  // read. Default false so first paint shows the expanded "welcome"
+  // sizing.
+  const [isScrolled, setIsScrolled] = useState(false)
   const modePaneFromHeightRef = useRef(null)
 
   // Rotating composer hint — rendered as an overlay on top of the
@@ -2095,6 +2102,36 @@ export function ThumbnailGenerator({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages.length, pendingUserMessage, pendingAssistant])
+
+  // Track whether the chat thread has scrolled away from its top edge.
+  // The 8px threshold means a user has to genuinely *start* reading
+  // before the header collapses — accidental wheel ticks at the top
+  // don't toggle the state. The listener is rAF-throttled so a fast
+  // scroll never overwhelms the React commit queue.
+  useEffect(() => {
+    const root = threadRef.current
+    if (!root) return
+    let raf = 0
+    const update = () => {
+      raf = 0
+      const next = root.scrollTop > 8
+      setIsScrolled((prev) => (prev === next ? prev : next))
+    }
+    const onScroll = () => {
+      if (raf) return
+      raf = window.requestAnimationFrame(update)
+    }
+    update()
+    root.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      if (raf) window.cancelAnimationFrame(raf)
+      root.removeEventListener('scroll', onScroll)
+    }
+    // `conversationId` is in the deps because switching conversations
+    // re-mounts the threadRef contents from the placeholder cache,
+    // which can put us back at scrollTop 0 and we want the header
+    // to snap back to its expanded shape.
+  }, [conversationId])
 
   const openThumbLightbox = useCallback((url, title) => {
     if (!url) return
@@ -3045,7 +3082,7 @@ export function ThumbnailGenerator({
         </defs>
       </svg>
       <motion.section
-        className={`coach-chat-shell${isEmptyScreen ? ' coach-chat-shell--thumb-empty' : ''}`}
+        className={`coach-chat-shell${isEmptyScreen ? ' coach-chat-shell--thumb-empty' : ''}${isScrolled ? ' coach-chat-shell--scrolled' : ''}`}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.42, ease: IOS_EASE }}

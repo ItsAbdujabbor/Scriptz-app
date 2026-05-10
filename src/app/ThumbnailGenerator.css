@@ -5073,3 +5073,220 @@
     transform: scale(0.85);
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+ * DESKTOP / LAPTOP HEADER (≥ 641 px)
+ *
+ * The "header" of the thumbnail screen is a three-element band pinned
+ * to the top of `.coach-chat-shell`:
+ *   • model-tier picker    (top-left)
+ *   • plan callout         (top-center, only for free / trial users)
+ *   • credits badge        (top-right)
+ *
+ * Plus the mode tab strip (`.thumb-gen-tab-row`) that sits above the
+ * composer.
+ *
+ * Goals here:
+ *   1. Make the resting header noticeably tighter — the previous
+ *      sizes (38 px callout, 34 px chips) ate too much vertical space
+ *      on a 13" laptop.
+ *   2. When the user starts reading (scrolled past the top), shrink
+ *      the trio further and dim the chrome so the chat content owns
+ *      the eye. The shell adds `--scrolled` once `scrollTop > 8`.
+ *   3. Active mode-tab chips get a brighter brand-violet rim + soft
+ *      outer glow so the selection reads "matchy" with the rest of
+ *      the violet accents (callout border, credits pill, send pill).
+ * ────────────────────────────────────────────────────────────────────── */
+@media (min-width: 641px) {
+  /* Floating elements share the same vertical baseline so they line up
+   * as a single header band. The shell sets a CSS var that toggles
+   * smaller values when scrolled. */
+  .coach-chat-shell {
+    --thumb-header-top: 0.7rem;
+    --thumb-header-height: 32px;
+    /* Lower the stage's reference top-padding so the chat content
+     * doesn't leave a large empty band under the smaller header. */
+    --thumb-header-stage-top: 1.25rem;
+    transition:
+      --thumb-header-top 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      --thumb-header-height 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Smaller plan callout — lighter background fill, accent border kept
+   * so it still reads as the brand-tinted center pill. The CTA pill
+   * inside shrinks too so the whole chip clamps to the same height. */
+  .thumb-plan-callout {
+    top: var(--thumb-header-top);
+    height: var(--thumb-header-height);
+    padding: 3px 4px 3px 11px;
+    gap: 0.45rem;
+    font-size: 0.78rem;
+    border-radius: 999px;
+    transition:
+      top 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      padding 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      background 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 0.22s ease,
+      box-shadow 0.22s ease,
+      transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .thumb-plan-callout__icon {
+    width: 18px;
+    height: 18px;
+  }
+  .thumb-plan-callout__icon svg {
+    width: 13px;
+    height: 13px;
+  }
+  .thumb-plan-callout__cta {
+    height: 26px;
+    padding: 0 11px;
+    font-size: 0.74rem;
+  }
+
+  /* Credits badge top vertical alignment ties to the same shared var. */
+  .thumb-screen-credits {
+    top: var(--thumb-header-top);
+    transition: top 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Model picker also docks at the same top offset so the three
+   * elements form a single header line. */
+  .thumb-model-dropdown {
+    top: var(--thumb-header-top);
+    transition: top 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .thumb-model-trigger {
+    padding: 0.32rem 0.5rem 0.32rem 0.6rem;
+    height: var(--thumb-header-height);
+    box-sizing: border-box;
+  }
+  .thumb-model-trigger-code {
+    font-size: 0.74rem;
+  }
+  .thumb-model-trigger-tag {
+    font-size: 0.5rem;
+    padding: 0.12rem 0.38rem;
+  }
+  .thumb-model-trigger-chevron {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* Mode-tab row — chips drop from 34 → 30 px, font/padding/icon tighten
+   * to match. Row margin closes up so the composer is closer to the
+   * composer itself and the screen reads less "header heavy". */
+  .thumb-gen-tab-row {
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+    transition: margin-bottom 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  #coach-panel-thumbnails .thumb-gen-pill-tab {
+    height: 30px;
+    padding: 0 12px;
+    font-size: 0.76rem;
+    gap: 0.4rem;
+    transition:
+      background 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+      border-color 0.22s ease,
+      color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+      box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+      transform 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+      height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      padding 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  #coach-panel-thumbnails .thumb-gen-pill-tab svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  /* "Matchy" active state — the active chip wears the same violet
+   * border + outer halo the credits pill / plan callout do, so the
+   * whole header band reads as one branded surface. The inner bezel
+   * keeps the bright filled body; what changes is the *outer ring* —
+   * a 1.5 px brand-violet rim + a faint 14 px ambient glow that ties
+   * it to the credits pill's box-shadow recipe. */
+  #coach-panel-thumbnails .thumb-gen-pill-tab--active,
+  #coach-panel-thumbnails .thumb-gen-pill-tab--active:hover {
+    border-color: rgba(196, 181, 253, 0.65);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.34),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+      0 2px 10px rgba(0, 0, 0, 0.3),
+      /* Brand-violet ambient — this is the "matchy" hook: same hue
+       * as the plan-callout border + credits-badge accent, so all
+       * three header pieces share an identity colour. */
+        0 0 0 1.5px rgba(167, 139, 250, 0.42),
+      0 0 14px rgba(124, 58, 237, 0.32);
+  }
+}
+
+/* — Scrolled state: tighter further, dimmer background — only on
+ *   ≥ 641 px. Mobile keeps its own breakpoint behavior. */
+@media (min-width: 641px) {
+  .coach-chat-shell--scrolled {
+    --thumb-header-top: 0.4rem;
+    --thumb-header-height: 28px;
+  }
+  .coach-chat-shell--scrolled .thumb-plan-callout {
+    padding: 2px 3px 2px 9px;
+    gap: 0.35rem;
+    font-size: 0.74rem;
+    /* Dim the body so the chip recedes from the foreground while the
+     * user is reading. The CTA stays full-strength so users can still
+     * convert without hunting. */
+    background:
+      radial-gradient(120% 80% at 50% 0%, rgba(124, 58, 237, 0.1) 0%, transparent 70%),
+      rgba(20, 18, 28, 0.7);
+    border-color: rgba(196, 181, 253, 0.14);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.04),
+      0 4px 14px rgba(0, 0, 0, 0.28);
+  }
+  .coach-chat-shell--scrolled .thumb-plan-callout__icon {
+    width: 16px;
+    height: 16px;
+  }
+  .coach-chat-shell--scrolled .thumb-plan-callout__icon svg {
+    width: 11px;
+    height: 11px;
+  }
+  .coach-chat-shell--scrolled .thumb-plan-callout__cta {
+    height: 22px;
+    padding: 0 9px;
+    font-size: 0.7rem;
+  }
+  /* Hide the long sub-text once compacted so the chip doesn't get
+   * squeezed into ellipsis. The headline stays. */
+  .coach-chat-shell--scrolled .thumb-plan-callout__sub {
+    display: none;
+  }
+
+  /* Model picker shrinks slightly — same vertical rhythm as the rest. */
+  .coach-chat-shell--scrolled .thumb-model-trigger {
+    padding: 0.28rem 0.45rem 0.28rem 0.55rem;
+    height: 28px;
+  }
+  .coach-chat-shell--scrolled .thumb-model-trigger-code {
+    font-size: 0.7rem;
+  }
+  .coach-chat-shell--scrolled .thumb-model-trigger-tag {
+    font-size: 0.46rem;
+    padding: 0.1rem 0.34rem;
+  }
+}
+
+/* On scroll the credits badge body itself gets a subtle dim too, but
+ * only on desktop. The badge owns the rule via its own selector so its
+ * hover/active states still take precedence. */
+@media (min-width: 641px) {
+  .coach-chat-shell--scrolled .header-credits-badge {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.74rem;
+  }
+  .coach-chat-shell--scrolled .header-credits-badge-icon svg {
+    width: 11px;
+    height: 11px;
+  }
+}
