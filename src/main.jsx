@@ -13,6 +13,8 @@ import { createAppQueryClient } from './lib/query/queryClient'
 import { setAppQueryClient } from './lib/sessionReset'
 import { installPaywallInterceptor } from './lib/paywallInterceptor'
 import { installConversationLRU } from './queries/thumbnails/conversationLRU'
+import { subscribeCacheEvents } from './lib/query/broadcastSync'
+import { queryKeys } from './lib/query/queryKeys'
 
 installPaywallInterceptor()
 
@@ -116,6 +118,33 @@ setAppQueryClient(queryClient)
 // chats; persists the order to localStorage so the LRU bookkeeping
 // survives reloads (messages re-fetch lazily on first open).
 installConversationLRU(queryClient, { capacity: 50 })
+
+// Cross-tab cache sync. When tab A persists a new message or a
+// failure event, it broadcasts the delta; every other tab on the
+// same origin applies the same `setQueryData` so the conversation
+// detail stays in sync without an extra fetch. See broadcastSync.js
+// for the message shapes.
+subscribeCacheEvents((evt) => {
+  if (!evt || typeof evt !== 'object') return
+  if (evt.kind === 'conversation:append') {
+    const { conversationId, items } = evt
+    if (conversationId == null || !Array.isArray(items) || items.length === 0) return
+    queryClient.setQueryData(queryKeys.thumbnails.conversation(conversationId), (prev) => {
+      if (!prev) return prev
+      const cur = prev.messages?.items || []
+      const knownIds = new Set(cur.map((m) => m?.id))
+      const additions = items.filter((m) => m && !knownIds.has(m.id))
+      if (additions.length === 0) return prev
+      return { ...prev, messages: { ...(prev.messages || {}), items: [...cur, ...additions] } }
+    })
+  } else if (evt.kind === 'conversation:invalidate' && evt.conversationId != null) {
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.thumbnails.conversation(evt.conversationId),
+    })
+  } else if (evt.kind === 'conversations:invalidate') {
+    queryClient.invalidateQueries({ queryKey: ['thumbnails', 'conversations'], exact: false })
+  }
+})
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

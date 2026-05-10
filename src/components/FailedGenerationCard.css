@@ -21,7 +21,10 @@
    * generation loader, so the loader → success vs loader → failure
    * transitions both land on the same footprint. The internal layout
    * is flex-column so message centers in the upper region and the
-   * single Try-again action docks at the bottom. */
+   * single Try-again action docks at the bottom. Compact variant
+   * (title mode) drops the aspect ratio — title successes are
+   * vertical stacks of short rows so a 16:9 error card looks
+   * oversized. */
   aspect-ratio: 16 / 9;
   display: flex;
   flex-direction: column;
@@ -181,6 +184,37 @@
   display: flex;
   justify-content: center;
   padding: 0 1.4rem 1rem;
+}
+
+/* Compact variant — used by title-mode failures (where the success
+ * card is a short row, not a 16:9 image). Drops the aspect ratio,
+ * tightens vertical padding, and lets the card sit naturally as a
+ * narrow horizontal banner that matches the title list's rhythm. */
+.thumb-failed-card--compact .thumb-failed-card__stage {
+  aspect-ratio: auto;
+  min-height: 0;
+}
+.thumb-failed-card--compact .thumb-failed-card__stage-content {
+  padding: 1rem 1.4rem 0.7rem;
+  gap: 0.4rem;
+}
+.thumb-failed-card--compact .thumb-failed-card__icon {
+  width: 36px;
+  height: 36px;
+  margin-bottom: 0;
+}
+.thumb-failed-card--compact .thumb-failed-card__icon svg {
+  width: 22px;
+  height: 22px;
+}
+.thumb-failed-card--compact .thumb-failed-card__title {
+  font-size: 0.95rem;
+}
+.thumb-failed-card--compact .thumb-failed-card__msg {
+  font-size: 0.82rem;
+}
+.thumb-failed-card--compact .thumb-failed-card__actions {
+  padding: 0 1.4rem 0.85rem;
 }
 
 .thumb-failed-card__btn {

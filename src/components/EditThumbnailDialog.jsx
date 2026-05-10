@@ -611,7 +611,7 @@ function BrushSizePopover({ value, onChange }) {
 }
 
 /* ── Component ────────────────────────────────────────────────────── */
-export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
+export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
   const [mode, setMode] = useState('edit') // 'edit' | 'faceswap'
   const [editPrompt, setEditPrompt] = useState('')
   const [batch] = useState(1)
@@ -703,7 +703,6 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
   useEffect(() => {
     editTextareaRef.current?.focus()
   }, [])
-
 
   // Load the image + size the canvas to its natural dimensions, with a
   // 1920-px-wide minimum so thumbnails that ship at low resolution
@@ -1311,13 +1310,30 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply }) {
       onApply?.(urls.length === 1 ? urls[0] : urls)
       onClose?.()
     } catch (err) {
-      setError(
+      const friendly =
         friendlyMessage(err) ||
-          (mode === 'faceswap'
-            ? 'Face swap failed. Try a different character.'
-            : 'Edit failed. Try a different prompt.')
-      )
+        (mode === 'faceswap'
+          ? 'Face swap failed. Try a different character.'
+          : 'Edit failed. Try a different prompt.')
+      setError(friendly)
       setBusy(false)
+      // Notify parent so it can persist a failure card in the chat
+      // thread (mode='edit'). Parent decides whether to push — the
+      // dialog stays open so the user can immediately retry inside
+      // it; the persisted card is a permanent record once the dialog
+      // closes with the failure unresolved.
+      try {
+        onError?.({
+          friendly,
+          code: err?.code || null,
+          retryable: true,
+          baseImageUrl: imageUrl,
+          editMode: mode,
+          prompt: mode === 'faceswap' ? '' : editPrompt || '',
+        })
+      } catch {
+        /* never let the parent's error path mask the user-facing one */
+      }
     }
   }
 
@@ -2213,7 +2229,6 @@ function FaceSwapPanel({ busy, disabled, onGenerate, unitCost, totalCost }) {
             </>
           )}
         </button>
-
       </div>
 
       <CharacterPickerDialog

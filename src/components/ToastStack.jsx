@@ -56,7 +56,14 @@ export function ToastStack() {
         lastFiredRef.current = { key: dedupeKey, at: now }
 
         const id = `${now}-${Math.random().toString(36).slice(2, 8)}`
-        const duration = typeof opts.duration === 'number' ? opts.duration : DEFAULT_DURATION
+        // Action-bearing toasts (Retry, Undo, etc.) stay until manually
+        // dismissed — auto-dismissing them is hostile UX since the user
+        // may need a moment to read the message before deciding to act.
+        // The caller can still pass an explicit `duration` to opt back
+        // in. Without an action: standard auto-dismiss.
+        const hasAction = !!opts.action && typeof opts.onAction === 'function'
+        const duration =
+          typeof opts.duration === 'number' ? opts.duration : hasAction ? 0 : DEFAULT_DURATION
         const next = {
           id,
           tone,

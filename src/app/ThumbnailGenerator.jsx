@@ -53,6 +53,7 @@ import { friendlyTitleFor, parseApiError } from '../lib/errorMessages'
 import FailedGenerationCard from '../components/FailedGenerationCard'
 import { canvasToBase64Png } from '../lib/canvasToBase64'
 import { queryKeys } from '../lib/query/queryKeys'
+import { broadcastCacheEvent } from '../lib/query/broadcastSync'
 import './ThumbnailGenerator.css'
 
 // Source-type options for the Recreate / Analyze / Edit tabbars. Icons
@@ -108,6 +109,20 @@ const THUMB_COMPOSER_HINTS = [
   'Ripped athlete mid-lift under dramatic red rim lighting, black vignette, bold yellow title “30-DAY TRANSFORMATION”',
   'Dark desk with a glowing laptop and cyan LED strips behind it, film-noir mood, bold cyan title “I BUILT A SAAS IN 24 HOURS”',
   'Split before/after of a messy room and a clean room with arrow, high-contrast lighting, bold green title “EXTREME CLEAN”',
+]
+
+// Short, scannable example chips for the empty-state. These sit below
+// the headline and pre-fill the composer when clicked. Six is enough
+// to cover common channel types without overwhelming a first-time
+// user. Keep them under ~40 chars so they fit a single chip line at
+// any viewport width.
+const THUMB_EMPTY_SAMPLES = [
+  'Shocked face with stacks of cash',
+  'Tech unboxing on neon backdrop',
+  'Fitness transformation before/after',
+  'Cinematic gaming hero shot',
+  'Cooking close-up with steam',
+  'Travel vlog at sunset',
 ]
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -1790,6 +1805,10 @@ export function ThumbnailGenerator({
   // read. Default false so first paint shows the expanded "welcome"
   // sizing.
   const [isScrolled, setIsScrolled] = useState(false)
+  // Whether the user has scrolled UP enough that the latest message is
+  // off-screen — drives the floating "↓ jump to latest" pill in the
+  // bottom-right of the thread. Off when within 200px of the bottom.
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false)
   const modePaneFromHeightRef = useRef(null)
 
   // Rotating composer hint — rendered as an overlay on top of the
@@ -2166,6 +2185,40 @@ export function ThumbnailGenerator({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages.length, pendingUserMessage, pendingAssistant])
 
+  // Mobile soft-keyboard handling. When the keyboard opens, the visual
+  // viewport shrinks but the layout viewport (window.innerHeight) does
+  // not — so the composer footer stays at its old position and the
+  // bottom of the page is hidden behind the keyboard. We measure the
+  // visualViewport height delta and expose it as `--clixa-keyboard-px`
+  // on the document root so any element that needs to lift over the
+  // keyboard can read it. The composer wrap's bottom-padding rule
+  // (in ThumbnailGenerator.css) consumes this var.
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const vv = window.visualViewport
+    if (!vv) return undefined
+    const root = document.documentElement
+    let raf = 0
+    const apply = () => {
+      raf = 0
+      const delta = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      root.style.setProperty('--clixa-keyboard-px', `${Math.round(delta)}px`)
+    }
+    const onChange = () => {
+      if (raf) return
+      raf = window.requestAnimationFrame(apply)
+    }
+    apply()
+    vv.addEventListener('resize', onChange)
+    vv.addEventListener('scroll', onChange)
+    return () => {
+      if (raf) window.cancelAnimationFrame(raf)
+      vv.removeEventListener('resize', onChange)
+      vv.removeEventListener('scroll', onChange)
+      root.style.removeProperty('--clixa-keyboard-px')
+    }
+  }, [])
+
   // Track whether the chat thread has scrolled away from its top edge.
   // The 8px threshold means a user has to genuinely *start* reading
   // before the header collapses — accidental wheel ticks at the top
@@ -2179,6 +2232,13 @@ export function ThumbnailGenerator({
       raf = 0
       const next = root.scrollTop > 8
       setIsScrolled((prev) => (prev === next ? prev : next))
+      // Jump-to-latest pill: visible when the user has scrolled UP and
+      // the latest message is well off the bottom of the viewport.
+      // 200px hysteresis avoids the pill flickering on/off near the
+      // bottom edge as new content lands.
+      const distanceFromBottom = root.scrollHeight - root.scrollTop - root.clientHeight
+      const wantJumpPill = distanceFromBottom > 200
+      setShowJumpToLatest((prev) => (prev === wantJumpPill ? prev : wantJumpPill))
     }
     const onScroll = () => {
       if (raf) return
@@ -2519,23 +2579,29 @@ export function ThumbnailGenerator({
         // version without the failure briefly).
         const convIdForCache = newConvId ?? conversationId
         if (convIdForCache != null) {
+          const additions = []
+          if (res.user_message) additions.push(res.user_message)
+          if (res.assistant_message) additions.push(res.assistant_message)
           queryClient.setQueryData(queryKeys.thumbnails.conversation(convIdForCache), (prev) => {
             if (!prev) return prev
             const items = prev.messages?.items || []
             const knownIds = new Set(items.map((m) => m?.id))
-            const additions = []
-            if (res.user_message && !knownIds.has(res.user_message.id)) {
-              additions.push(res.user_message)
-            }
-            if (res.assistant_message && !knownIds.has(res.assistant_message.id)) {
-              additions.push(res.assistant_message)
-            }
-            if (additions.length === 0) return prev
+            const newItems = additions.filter((m) => m && !knownIds.has(m.id))
+            if (newItems.length === 0) return prev
             return {
               ...prev,
-              messages: { ...(prev.messages || {}), items: [...items, ...additions] },
+              messages: { ...(prev.messages || {}), items: [...items, ...newItems] },
             }
           })
+          // Cross-tab: same delta broadcast so a second tab viewing
+          // this conversation gets the failure card immediately.
+          if (additions.length > 0) {
+            broadcastCacheEvent({
+              kind: 'conversation:append',
+              conversationId: convIdForCache,
+              items: additions,
+            })
+          }
           // Refresh the sidebar so a brand-new conversation row appears.
           queryClient.invalidateQueries({
             queryKey: ['thumbnails', 'conversations'],
@@ -2581,6 +2647,17 @@ export function ThumbnailGenerator({
         setTimeout(() => handleRecreateSubmitRef.current?.(), 0)
       } else if (mode === 'analyze') {
         setTimeout(() => handleAnalyzeFooterSubmitRef.current?.(), 0)
+      } else if (mode === 'edit') {
+        // Re-open the editor pre-loaded with the same base image. The
+        // ROI brush state isn't serialized (canvas state is too rich to
+        // round-trip cleanly through JSON), so the user re-paints the
+        // mask. Prompt text is restored where the dialog reads it on
+        // mount via initial state. Base image is the source of truth.
+        const baseUrl = entry.options?.base_image_url || entry.userImageUrl
+        if (baseUrl) {
+          setEditDialogUrl(baseUrl)
+          setShowEditDialog(true)
+        }
       } else {
         // 'prompt' (default thumbnail-generate) — restore the draft text
         // and re-fire the main submit handler.
@@ -2654,23 +2731,29 @@ export function ThumbnailGenerator({
       const convId =
         result.user_message?.conversation_id || result.conversation_id || conversationIdHint
       if (convId != null) {
+        const additions = []
+        if (result.user_message) additions.push(result.user_message)
+        if (result.assistant_message) additions.push(result.assistant_message)
         queryClient.setQueryData(queryKeys.thumbnails.conversation(convId), (prev) => {
           if (!prev) return prev
           const items = prev.messages?.items || []
           const knownIds = new Set(items.map((m) => m?.id))
-          const newItems = []
-          if (result.user_message && !knownIds.has(result.user_message.id)) {
-            newItems.push(result.user_message)
-          }
-          if (result.assistant_message && !knownIds.has(result.assistant_message.id)) {
-            newItems.push(result.assistant_message)
-          }
+          const newItems = additions.filter((m) => m && !knownIds.has(m.id))
           if (newItems.length === 0) return prev
           return {
             ...prev,
             messages: { ...(prev.messages || {}), items: [...items, ...newItems] },
           }
         })
+        // Cross-tab: broadcast the same delta so any other tabs viewing
+        // this conversation converge without an extra fetch.
+        if (additions.length > 0) {
+          broadcastCacheEvent({
+            kind: 'conversation:append',
+            conversationId: convId,
+            items: additions,
+          })
+        }
       }
     },
     [queryClient]
@@ -3367,6 +3450,24 @@ export function ThumbnailGenerator({
             >
               <span className="coach-empty-state-kicker">Thumbnail Generator</span>
               <h1>What thumbnail do you need?</h1>
+              {/* Sample-prompt chips. Click → pre-fill the composer +
+               * focus the textarea. Quick on-ramp for first-time users
+               * who don't know what to type. */}
+              <div className="thumb-empty-state__samples" role="group" aria-label="Example prompts">
+                {THUMB_EMPTY_SAMPLES.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className="thumb-empty-state__sample"
+                    onClick={() => {
+                      setDraft(s)
+                      setTimeout(() => textareaRef.current?.focus(), 0)
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
             </motion.div>
           )}
 
@@ -3473,6 +3574,29 @@ export function ThumbnailGenerator({
         </div>
 
         <div className="thumb-bg-fx-shadow" aria-hidden="true" />
+
+        {showJumpToLatest && !isEmptyScreen ? (
+          <button
+            type="button"
+            className="thumb-jump-to-latest"
+            aria-label="Jump to latest message"
+            onClick={() => {
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+            }}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+        ) : null}
 
         <motion.footer
           ref={composerFooterRef}
@@ -3940,6 +4064,26 @@ export function ThumbnailGenerator({
           onClose={() => {
             setShowEditDialog(false)
             setEditDialogUrl(null)
+          }}
+          onError={(err) => {
+            // Persist the editor failure as an in-thread card so it
+            // survives a navigate-away. The dialog stays open so the
+            // user can retry inside it; this card is the permanent
+            // record. mode='edit' so handleRetryFailedAttempt's
+            // `edit` case can re-open the dialog pre-loaded.
+            pushFailureEntry({
+              mode: 'edit',
+              userText: err?.prompt || '',
+              userImageUrl: err?.baseImageUrl || editDialogUrl,
+              errorCode: err?.code || null,
+              errorMessage: err?.friendly || 'Edit failed.',
+              retryable: !!err?.retryable,
+              options: {
+                base_image_url: err?.baseImageUrl || editDialogUrl,
+                edit_mode: err?.editMode || 'edit',
+                prompt: err?.prompt || '',
+              },
+            })
           }}
           onApply={async (result) => {
             // Editor returns either a single URL (batch = 1) or an array

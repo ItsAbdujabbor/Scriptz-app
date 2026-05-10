@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
 import { getPlans, startCheckout, changePlan, skipTrial } from '../api/billing'
@@ -50,6 +50,29 @@ const ULTIMATE = {
 }
 
 const PLANS = [STARTER, CREATOR, ULTIMATE]
+
+/** Strip currency symbol from a "$X.YY" string and parse as float. */
+function priceNum(p) {
+  const n = Number.parseFloat(String(p || '').replace(/[^0-9.]/g, ''))
+  return Number.isFinite(n) ? n : 0
+}
+
+/** Compute the rounded savings percent when billing annually instead
+ * of monthly. Reads from the actual plan catalog so the headline can
+ * never drift out of sync with prices. Returns the smallest savings
+ * across plans so the headline is honest for every tier. */
+function computeAnnualSavingsPct(plans) {
+  const ratios = plans
+    .map((p) => {
+      const m = priceNum(p.monthly)
+      const a = priceNum(p.annual)
+      if (!m || !a || a >= m) return null
+      return (m - a) / m
+    })
+    .filter((r) => r != null && r > 0)
+  if (!ratios.length) return 0
+  return Math.round(Math.min(...ratios) * 100)
+}
 
 function fmtCredits(n) {
   if (n >= 1000) return (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + 'K'
@@ -210,6 +233,10 @@ export function ProPricingContent({ onStartTrial }) {
   const [plans, setPlans] = useState(null)
   const [checkoutLoading, setCheckoutLoading] = useState(null)
   const [checkoutError, setCheckoutError] = useState(null)
+  // Computed savings — never hardcoded so the headline stays honest
+  // when prices in the catalog change. Uses the smallest savings
+  // across plans so we never overstate.
+  const annualSavingsPct = useMemo(() => computeAnnualSavingsPct(PLANS), [])
   const queryClient = useQueryClient()
   const { user, getValidAccessToken } = useAuthStore()
   const { data: subscription } = useSubscriptionQuery()
@@ -400,7 +427,7 @@ export function ProPricingContent({ onStartTrial }) {
           />
         </div>
         <p className="pro-billing-save" aria-hidden="true">
-          <span className="pro-billing-save-pct">Save 30%</span>
+          <span className="pro-billing-save-pct">Save {annualSavingsPct}%</span>
           <span>when billed annually</span>
         </p>
       </section>
@@ -550,13 +577,42 @@ function TrialActiveStrip({ subscription }) {
       setErrMsg(friendlyMessage(err) || 'Could not end the trial. Please try again.'),
   })
 
+  // Days remaining in the trial. Backend reports `trial_ends_at` as
+  // an ISO timestamp; we cache `now` in state so the impure
+  // `Date.now()` reference lives in an effect (re-fired hourly), not
+  // in the render body. Defaults gracefully when the field is
+  // missing (older sessions). Hooks declared BEFORE the early return
+  // so the rules-of-hooks order is stable across renders.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 60 * 60 * 1000)
+    return () => window.clearInterval(id)
+  }, [])
+  const daysLeft = useMemo(() => {
+    const end = subscription?.trial_ends_at || subscription?.trial_end_at
+    if (!end) return null
+    const ms = Date.parse(end) - now
+    if (!Number.isFinite(ms)) return null
+    if (ms <= 0) return 0
+    return Math.max(1, Math.ceil(ms / (1000 * 60 * 60 * 24)))
+  }, [subscription?.trial_ends_at, subscription?.trial_end_at, now])
+
   if (!subscription?.is_trial || mut.isSuccess) return null
   const planName = subscription.plan_name || subscription.tier || 'Pro'
+  const daysLabel =
+    daysLeft == null
+      ? null
+      : daysLeft === 0
+        ? 'ends today'
+        : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`
 
   return (
     <div className="pro-trial-strip" role="status" aria-live="polite">
       <div className="pro-trial-strip__body">
-        <strong className="pro-trial-strip__title">You're on a free trial of {planName}</strong>
+        <strong className="pro-trial-strip__title">
+          You're on a free trial of {planName}
+          {daysLabel ? <span className="pro-trial-strip__days"> · {daysLabel}</span> : null}
+        </strong>
         <span className="pro-trial-strip__sub">
           Skip the trial to unlock the full plan now — your card is charged today and all your
           monthly credits are added instantly.

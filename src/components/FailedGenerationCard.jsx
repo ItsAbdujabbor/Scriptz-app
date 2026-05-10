@@ -69,10 +69,17 @@ export default function FailedGenerationCard({ entry, onRetry }) {
   const attempt = entry?.attempt
   const maxAttempts = entry?.maxAttempts
   const showAttemptInfo = !!(attempt && maxAttempts && maxAttempts > 1 && attempt >= 2)
+  // Mode-aware shape: 16:9 stage matches the success thumbnail card for
+  // image-producing modes (prompt / recreate / analyze / edit). Title
+  // mode produces a vertical stack of compact rows on success, so a
+  // 16:9 error card looks oversized — `--compact` drops the aspect
+  // ratio and switches to a tight content-sized card.
+  const mode = entry?.mode || 'prompt'
+  const compact = mode === 'titles'
 
   return (
     <div
-      className={`thumb-failed-card thumb-failed-card--${variant}`}
+      className={`thumb-failed-card thumb-failed-card--${variant}${compact ? ' thumb-failed-card--compact' : ''}`}
       role="alert"
       aria-live="polite"
     >

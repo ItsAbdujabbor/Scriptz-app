@@ -1140,6 +1140,15 @@
   color: #ffffff;
 }
 
+/* Days-remaining chip — quiet violet weight against the bold white
+ * title so the eye lands on the plan name first, then the countdown. */
+.pro-trial-strip__days {
+  font-weight: 500;
+  color: #ddd6fe;
+  letter-spacing: -0.005em;
+  font-variant-numeric: tabular-nums;
+}
+
 .pro-trial-strip__sub {
   font-size: 0.85rem;
   font-weight: 400;
