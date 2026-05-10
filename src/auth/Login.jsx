@@ -108,9 +108,9 @@ export function Login({ onBack, onSuccess, oauthInProgress = false }) {
       {/* OAuth callback overlay — see Signup.jsx for the same pattern. */}
       {oauthInProgress && (
         <div className="auth-dialog-loading" role="status" aria-live="polite">
+          <h1 className="auth-title">Welcoming you back…</h1>
+          <p className="auth-subtitle">Verifying with Google. Hang tight.</p>
           <span className="auth-dialog-loading-spinner" aria-hidden="true" />
-          <p className="auth-dialog-loading-label">Welcoming you back…</p>
-          <p className="auth-dialog-loading-sub">Verifying with Google. Hang tight.</p>
         </div>
       )}
 

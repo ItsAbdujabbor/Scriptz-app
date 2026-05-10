@@ -219,7 +219,11 @@
   border-radius: 9999px !important;
   text-decoration: none;
   white-space: nowrap;
-  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.42);
+  /* No outer drop / glow — the button reads as a flat brand-violet
+   * pill against the header background. Only an internal top-edge
+   * highlight is kept (inset) so the gradient body still has a
+   * subtle bezel. */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
   position: relative;
   overflow: hidden;
   /* box-shadow + filter dropped from transition: both trigger full
@@ -249,7 +253,7 @@
 }
 .header .header-trial:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 28px rgba(124, 58, 237, 0.56);
+  /* Hover keeps the inset highlight; no outer glow on hover either. */
   filter: brightness(1.07);
 }
 .header .header-trial:hover::before {

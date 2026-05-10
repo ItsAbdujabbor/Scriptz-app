@@ -106,16 +106,16 @@ export function Signup({ onBack, onSuccess, oauthInProgress = false }) {
         </button>
       )}
 
-      {/* OAuth callback overlay — covers the dialog body with a centered
-       * spinner + label. Mounted on top of the form so the user sees a
-       * single continuous "in progress" surface from the moment they
-       * clicked Google to the moment auth lands. No close X while this
-       * is up so the dialog can't be dismissed mid-exchange. */}
+      {/* OAuth callback overlay. Reuses `.auth-title` + `.auth-subtitle`
+       * (the same classes the resting dialog uses) so font size /
+       * weight / gradient match exactly between the resting and
+       * loading states — no visual jump on refresh. The spinner sits
+       * below the type so the user reads the message first. */}
       {oauthInProgress && (
         <div className="auth-dialog-loading" role="status" aria-live="polite">
+          <h1 className="auth-title">Signing you in…</h1>
+          <p className="auth-subtitle">Finishing setup with Google. Hang tight.</p>
           <span className="auth-dialog-loading-spinner" aria-hidden="true" />
-          <p className="auth-dialog-loading-label">Signing you in…</p>
-          <p className="auth-dialog-loading-sub">Finishing setup with Google. Hang tight.</p>
         </div>
       )}
 

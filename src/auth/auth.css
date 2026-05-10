@@ -443,18 +443,12 @@
   }
 }
 
-.auth-dialog-loading-label {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: #f5f3ff;
-}
-
-.auth-dialog-loading-sub {
-  margin: 0;
-  font-size: 0.86rem;
-  color: rgba(229, 229, 231, 0.62);
+/* The loading overlay reuses .auth-title + .auth-subtitle directly so
+ * font size / weight / gradient / letter-spacing match the resting
+ * dialog exactly — no jump on the OAuth callback render. The spinner
+ * gets a small top margin so it sits below the type. */
+.auth-dialog-loading .auth-dialog-loading-spinner {
+  margin-top: 0.6rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
