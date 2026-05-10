@@ -1848,10 +1848,6 @@ export function ThumbnailGenerator({
   // read. Default false so first paint shows the expanded "welcome"
   // sizing.
   const [isScrolled, setIsScrolled] = useState(false)
-  // Whether the user has scrolled UP enough that the latest message is
-  // off-screen — drives the floating "↓ jump to latest" pill in the
-  // bottom-right of the thread. Off when within 200px of the bottom.
-  const [showJumpToLatest, setShowJumpToLatest] = useState(false)
   const modePaneFromHeightRef = useRef(null)
 
   // Rotating composer hint — rendered as an overlay on top of the
@@ -2305,13 +2301,6 @@ export function ThumbnailGenerator({
       raf = 0
       const next = root.scrollTop > 8
       setIsScrolled((prev) => (prev === next ? prev : next))
-      // Jump-to-latest pill: visible when the user has scrolled UP and
-      // the latest message is well off the bottom of the viewport.
-      // 200px hysteresis avoids the pill flickering on/off near the
-      // bottom edge as new content lands.
-      const distanceFromBottom = root.scrollHeight - root.scrollTop - root.clientHeight
-      const wantJumpPill = distanceFromBottom > 200
-      setShowJumpToLatest((prev) => (prev === wantJumpPill ? prev : wantJumpPill))
     }
     const onScroll = () => {
       if (raf) return
@@ -3732,29 +3721,6 @@ export function ThumbnailGenerator({
         </div>
 
         <div className="thumb-bg-fx-shadow" aria-hidden="true" />
-
-        {showJumpToLatest && !isEmptyScreen ? (
-          <button
-            type="button"
-            className="thumb-jump-to-latest"
-            aria-label="Jump to latest message"
-            onClick={() => {
-              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-            }}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </button>
-        ) : null}
 
         <motion.footer
           ref={composerFooterRef}
