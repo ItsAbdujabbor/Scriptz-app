@@ -3568,7 +3568,7 @@ export function ThumbnailGenerator({
         </defs>
       </svg>
       <motion.section
-        className={`coach-chat-shell${isEmptyScreen ? ' coach-chat-shell--thumb-empty' : ''}${isScrolled ? ' coach-chat-shell--scrolled' : ''}`}
+        className={`coach-chat-shell${isScrolled ? ' coach-chat-shell--scrolled' : ''}`}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.42, ease: IOS_EASE }}
@@ -3606,17 +3606,21 @@ export function ThumbnailGenerator({
             </div>
           ) : null}
 
-          {isEmptyScreen && (
-            <motion.div
-              className="coach-empty-state thumb-empty-state"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease: IOS_EASE, delay: 0.12 }}
-            >
-              <span className="coach-empty-state-kicker">Thumbnail Generator</span>
-              <h1>{emptyGreeting}</h1>
-            </motion.div>
-          )}
+          <AnimatePresence>
+            {isEmptyScreen && (
+              <motion.div
+                key="thumb-empty-state"
+                className="coach-empty-state thumb-empty-state"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.32, ease: IOS_EASE }}
+              >
+                <span className="coach-empty-state-kicker">Thumbnail Generator</span>
+                <h1>{emptyGreeting}</h1>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Top sentinel — when this enters the viewport we fetch the
               next older-page of messages. Only attached when more

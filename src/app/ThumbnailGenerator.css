@@ -1498,40 +1498,23 @@
  * rule below stops applying — chrome snaps back to its default
  * `position: absolute; bottom: 0` anchor at the bottom of the screen.
  * ──────────────────────────────────────────────────────────────────── */
-.coach-chat-shell--thumb-empty {
-  justify-content: center !important;
-  align-items: stretch !important;
-}
-
-/* `.coach-thread` defaults to `flex: 1; padding: 3.6rem … 6.25rem`
- * and `.coach-thread--empty` adds `padding-bottom: 6rem` — together
- * those spread the heading and the chrome ~12rem apart even with
- * the shell flex-centred. `!important` here because both base rules
- * are on classes the thread also carries (`coach-thread`,
- * `coach-thread--thumb-panel`) so the cascade tie-breaks via order. */
-.coach-chat-shell--thumb-empty .coach-thread--empty {
-  flex: 0 0 auto !important;
-  overflow: visible !important;
-  padding: 0 var(--dash-gutter-x, 1.75rem) !important;
-  min-height: 0 !important;
-  gap: 0 !important;
-}
-
-.coach-chat-shell--thumb-empty .thumb-gen-footer-chrome {
-  position: static !important;
-  bottom: auto !important;
-  top: auto !important;
-  padding: 0 1rem calc(0.5rem + env(safe-area-inset-bottom, 0px)) !important;
-}
-
-/* Heading: kill the default `margin: auto` (which would still try to
- * absorb extra space inside the now-shrunk thread) and add a more
- * generous gutter below so the greeting visually breathes apart from
- * the composer pill instead of sticking to it. */
-.coach-chat-shell--thumb-empty .thumb-empty-state {
-  margin: 0 auto !important;
-  padding: 0 0 2.5rem !important;
-}
+/* Empty-state layout overrides removed.
+ *
+ * Previous design: when the thread had no messages we collapsed the
+ * thread to fit-content, took the composer out of `position: absolute`,
+ * and stacked heading + composer as one flex-centered block. The
+ * moment the user sent the first message the overrides dropped, the
+ * composer FLEW from screen-center to its default sticky-bottom
+ * anchor, the thread re-expanded to flex: 1, and the heading
+ * unmounted — a hard layout reset that read as "the page reloaded."
+ *
+ * New design (ChatGPT pattern): composer is ALWAYS pinned at the
+ * bottom via its default `position: absolute` anchor. The empty-state
+ * heading sits inside the thread (centered via the existing
+ * `.thumb-empty-state { margin: auto }` rule + `.coach-thread--empty
+ * { align-items: center }`). On first send, only the heading fades
+ * out; the composer never moves, the thread keeps its size, no
+ * layout reset is visible. */
 
 .thumb-gen-footer-error {
   margin: 0.35rem auto 0.5rem !important;
