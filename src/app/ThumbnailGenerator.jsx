@@ -34,7 +34,7 @@ import { HeaderCreditsBadge } from '../components/HeaderCreditsBadge'
 import { TabBar } from '../components/TabBar'
 import { Dropdown, InlineSpinner, PrimaryPill } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { ChatHistorySkeleton } from '../components/ChatHistorySkeleton'
 import { friendlyMessage } from '../lib/aiErrors'
 import GenerationProgress from '../components/GenerationProgress'
@@ -1482,8 +1482,41 @@ const ChatMessageItem = memo(function ChatMessageItem({
             />
           ) : null}
           {msg.analysis ? <AnalysisBreakdown analysis={msg.analysis} /> : null}
-          {msg.titleIdeas?.length > 0 && (
-            <TitleIdeasBlock titles={msg.titleIdeas} onUseTitle={onUseTitle} />
+          {/* Title-card branch: while the in-place pending placeholder
+           * is in flight (`_titlesPending` set when the user submits,
+           * cleared when the API response is patched into this same
+           * message), render the skeleton stack inside the assistant
+           * card so the swap to populated rows is a content crossfade
+           * within the SAME mounted container — no sibling jump. The
+           * AnimatePresence wraps both branches with `layout` and a
+           * fade so the height + opacity animate smoothly between the
+           * skeleton and the populated rows. */}
+          {(msg._titlesPending || msg.titleIdeas?.length > 0) && (
+            <motion.div layout style={{ width: '100%' }}>
+              <AnimatePresence mode="wait" initial={false}>
+                {msg._titlesPending ? (
+                  <motion.div
+                    key="titles-loader"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18, ease: IOS_EASE }}
+                  >
+                    <TitlesLoader count={msg.titleIdeasCount || 4} />
+                  </motion.div>
+                ) : msg.titleIdeas?.length > 0 ? (
+                  <motion.div
+                    key="titles-populated"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.22, ease: IOS_EASE }}
+                  >
+                    <TitleIdeasBlock titles={msg.titleIdeas} onUseTitle={onUseTitle} />
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </motion.div>
           )}
           {msg.thumbnails?.length > 0 && (
             <ThumbnailGridBlock
@@ -2187,10 +2220,29 @@ export function ThumbnailGenerator({
   // numeric server id), then local-only recreate / analyze results
   // appended in the order they happened. The two buckets never overlap
   // by id (server ids are numeric, local-only ids are tagged strings).
-  const renderedMessages = useMemo(
-    () => [...sortByServerId(messages), ...localOnlyMessages],
-    [messages, localOnlyMessages]
-  )
+  // `renderedMessages` is the single ordered list the chat thread
+  // walks. Two-source rule:
+  //   1. Server-canonical `messages` come first (sorted by numeric id).
+  //   2. Local-only optimistic + non-chat results + failures append
+  //      after, in insertion order.
+  //
+  // Cross-source dedup: when a local optimistic entry has been bound
+  // to its server twin (via `linkLocalToServer`, which sets
+  // `_serverMessageId`), we filter that server id out of the
+  // server-list — the local entry is the visible one and is keyed by
+  // its stable local id, so there's no remount on bind. On
+  // conversation switch both lists are wiped; the next refetch
+  // populates `messages` with server-canonical truth and there are
+  // no local entries to dedup against, so the natural rebuild is
+  // clean.
+  const renderedMessages = useMemo(() => {
+    const linkedServerIds = new Set()
+    for (const m of localOnlyMessages) {
+      if (m && m._serverMessageId != null) linkedServerIds.add(m._serverMessageId)
+    }
+    const sortedServer = sortByServerId(messages).filter((m) => !linkedServerIds.has(m.id))
+    return [...sortedServer, ...localOnlyMessages]
+  }, [messages, localOnlyMessages])
   const isEmptyScreen =
     !isHistoryLoading && renderedMessages.length === 0 && !pendingUserMessage && !pendingAssistant
   const layoutCentered = isEmptyScreen || isHistoryLoading
@@ -2488,21 +2540,28 @@ export function ThumbnailGenerator({
       }
     }
 
-    // Recreate / analyze flows don't write to the chat conversation, so
-    // their results live in `localOnlyMessages` (rendered after the
-    // server-canonical `messages`). IDs are local-only strings — these
-    // messages never round-trip through the chat refetch so they don't
-    // collide with server numeric ids.
+    // Recreate / analyze / titles / edit flows don't go through the
+    // chat endpoint, so their results live in `localOnlyMessages`
+    // (rendered after the server-canonical `messages`). IDs are
+    // local-only strings — these messages never collide with server
+    // numeric ids. Caller receives `{ userId, assistantId }` so it
+    // can later call `linkLocalToServer` after the persist round-trip
+    // succeeds — that tags this entry with its `_serverMessageId` so
+    // the dedup pass in `renderedMessages` filters out the duplicate
+    // server entry that arrives via the conversation refetch.
+    const userId = genLocalId('local-user')
+    const assistantId = assistant.id ?? genLocalId('local-assistant')
     setLocalOnlyMessages((prev) => [
       ...prev,
       {
-        id: genLocalId('local-user'),
+        id: userId,
         role: 'user',
         content: userContent,
         imageUrl: assistant.userImageUrl || null,
+        _optimistic: true,
       },
       {
-        id: assistant.id ?? genLocalId('local-assistant'),
+        id: assistantId,
         role: 'assistant',
         content: assistant.content || '',
         thumbnails: assistant.thumbnails || [],
@@ -2511,9 +2570,82 @@ export function ThumbnailGenerator({
         isRecreate: assistant.isRecreate || false,
         analysis: assistant.analysis || null,
         titleIdeas: assistant.titleIdeas || null,
+        // For the title-mode in-place pending pattern: caller can pass
+        // `_titlesPending: true` + `titleIdeasCount` to render skeleton
+        // rows inside the same card; later patches replace those with
+        // the real titles via `patchLocalAssistantMessage`. The card
+        // itself never unmounts.
+        _titlesPending: !!assistant._titlesPending,
+        titleIdeasCount: assistant.titleIdeasCount || null,
+        _optimistic: true,
       },
     ])
+    return { userId, assistantId }
   }, [])
+
+  // Patch fields on an existing local-only message. Used by the title
+  // in-place pending pattern: push a placeholder with skeleton state,
+  // then patch in the real titleIdeas when the API returns. The card
+  // stays mounted across the swap so the transition is a smooth
+  // content crossfade instead of a sibling unmount/remount.
+  const patchLocalAssistantMessage = useCallback((assistantId, partial) => {
+    if (!assistantId || !partial) return
+    setLocalOnlyMessages((prev) =>
+      prev.map((m) => (m.id === assistantId ? { ...m, ...partial } : m))
+    )
+  }, [])
+
+  // Bind a local optimistic pair to its server-canonical pair. After
+  // the persist POST returns, mark each local entry with
+  // `_serverMessageId` so `renderedMessages` knows to skip the server
+  // duplicate that arrives via the conversation refetch. Also hydrate
+  // the React Query conversation cache + broadcast cross-tab so other
+  // tabs / navigate-back surfaces converge to the server-canonical
+  // truth without an extra fetch.
+  const linkLocalToServer = useCallback(
+    (localIds, response, conversationIdHint) => {
+      if (!localIds || !response) return
+      const userServerId = response.user_message?.id ?? null
+      const assistantServerId = response.assistant_message?.id ?? null
+      setLocalOnlyMessages((prev) =>
+        prev.map((m) => {
+          if (m.id === localIds.userId && userServerId != null) {
+            return { ...m, _serverMessageId: userServerId, _optimistic: false }
+          }
+          if (m.id === localIds.assistantId && assistantServerId != null) {
+            return { ...m, _serverMessageId: assistantServerId, _optimistic: false }
+          }
+          return m
+        })
+      )
+      const convId =
+        response.conversation_id || response.user_message?.conversation_id || conversationIdHint
+      if (convId != null) {
+        const additions = []
+        if (response.user_message) additions.push(response.user_message)
+        if (response.assistant_message) additions.push(response.assistant_message)
+        if (additions.length > 0) {
+          queryClient.setQueryData(queryKeys.thumbnails.conversation(convId), (prevCache) => {
+            if (!prevCache) return prevCache
+            const items = prevCache.messages?.items || []
+            const knownIds = new Set(items.map((m) => m?.id))
+            const newItems = additions.filter((m) => m && !knownIds.has(m.id))
+            if (newItems.length === 0) return prevCache
+            return {
+              ...prevCache,
+              messages: { ...(prevCache.messages || {}), items: [...items, ...newItems] },
+            }
+          })
+          broadcastCacheEvent({
+            kind: 'conversation:append',
+            conversationId: convId,
+            items: additions,
+          })
+        }
+      }
+    },
+    [queryClient]
+  )
 
   const runWholeImageEdit = useCallback(async ({ imageUrl, prompt }) => {
     const token = await getAccessTokenOrNull()
@@ -2967,7 +3099,7 @@ export function ThumbnailGenerator({
     async (kind, userContent, extraData) => {
       try {
         const token = await getAccessTokenOrNull()
-        if (!token) return
+        if (!token) return null
         const res = await thumbnailsApi.appendEvent(token, {
           conversation_id: conversationId || undefined,
           channel_id: channelId || undefined,
@@ -2987,21 +3119,21 @@ export function ThumbnailGenerator({
           queryKey: ['thumbnails', 'conversations'],
           exact: false,
         })
-        // Also invalidate the SPECIFIC conversation's detail cache so
-        // the next navigate-back fetches the fresh history including
-        // this just-persisted event (without this the 5-minute
-        // staleTime would serve a stale version that doesn't include
-        // the new recreate / analyze / titles / edit message).
-        const convIdForCache = newId ?? conversationId
-        if (convIdForCache != null) {
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.thumbnails.conversation(convIdForCache),
-          })
-        }
+        // NOTE: detail-cache hydration is now done by `linkLocalToServer`
+        // in the calling handler (it has the optimistic local IDs to
+        // bind to + the server response in hand). We deliberately DON'T
+        // `invalidateQueries` on the conversation here — that would
+        // trigger a refetch which races the local-to-server linking
+        // and can briefly show duplicates before the link lands. The
+        // setQueryData in `linkLocalToServer` is the authoritative
+        // hydration path; refetches still fire on next mount via
+        // React Query's normal cache lifecycle.
+        return res
       } catch (err) {
         if (typeof console !== 'undefined') {
           console.warn('[thumbnail] persistEvent failed:', kind, err)
         }
+        return null
       }
     },
     [channelId, conversationId, onConversationCreated, queryClient]
@@ -3144,19 +3276,20 @@ export function ThumbnailGenerator({
         const res = await thumbnailsApi.regenerateWithPersona(token, payload)
         const imageUrl = res?.image_url
         if (!imageUrl) throw new Error('No image returned from recreate.')
-        pushLocalAssistantMessage(userText, {
+        const localIds = pushLocalAssistantMessage(userText, {
           content: '',
           imageUrl,
           userImageUrl: sourceImageUrl,
           userRequest: instructions,
           isRecreate: true,
         })
-        persistEvent('recreate', userText, {
+        const persisted = await persistEvent('recreate', userText, {
           image_url: imageUrl,
           user_image_url: sourceImageUrl,
           user_request: instructions,
           is_recreate: true,
         })
+        if (persisted) linkLocalToServer(localIds, persisted, conversationId)
       } else {
         const results = await Promise.all(
           Array.from({ length: count }, () => thumbnailsApi.regenerateWithPersona(token, payload))
@@ -3165,19 +3298,20 @@ export function ThumbnailGenerator({
           image_url: r?.image_url,
           title: `Variation ${i + 1}`,
         }))
-        pushLocalAssistantMessage(userText, {
+        const localIds = pushLocalAssistantMessage(userText, {
           content: '',
           thumbnails,
           userImageUrl: sourceImageUrl,
           userRequest: instructions,
           isRecreate: true,
         })
-        persistEvent('recreate', userText, {
+        const persisted = await persistEvent('recreate', userText, {
           thumbnails,
           user_image_url: sourceImageUrl,
           user_request: instructions,
           is_recreate: true,
         })
+        if (persisted) linkLocalToServer(localIds, persisted, conversationId)
       }
       finishLoading()
     } catch (err) {
@@ -3286,18 +3420,19 @@ export function ThumbnailGenerator({
       // ScorePill resolves instantly from cache instead of firing a
       // second /rate (which would double-charge credits).
       seedThumbnailRating(queryClient, imageUrl, rating)
-      pushLocalAssistantMessage(userText, {
+      const localIds = pushLocalAssistantMessage(userText, {
         content: '',
         userImageUrl: imageUrl,
         imageUrl,
         userRequest: '',
         analysis: rating,
       })
-      persistEvent('analyze', userText, {
+      const persisted = await persistEvent('analyze', userText, {
         image_url: imageUrl,
         user_image_url: imageUrl,
         analysis: rating,
       })
+      if (persisted) linkLocalToServer(localIds, persisted, conversationId)
       finishLoading()
     } catch (err) {
       const { code, message } = parseApiError(err, 'Could not analyze thumbnail.')
@@ -3330,10 +3465,22 @@ export function ThumbnailGenerator({
     const userText = topic
     setSendError('')
     setSendErrorMeta(null)
-    setPendingUserMessage(userText)
-    setPendingAssistant(true)
-    setPendingMode('titles')
     setTitleTopic('')
+    // In-place pending pattern for titles: instead of the separate
+    // `pendingAssistant` loader (which would unmount when results
+    // arrive and remount the real card next to it — visible jump),
+    // push the assistant placeholder NOW with `_titlesPending: true`
+    // and a row count. The card renders the TitlesLoader skeleton
+    // inside its body. When titles arrive we patch this same entry
+    // in place so the card stays mounted and the skeleton crossfades
+    // to populated rows. ChatGPT-style.
+    const localIds = pushLocalAssistantMessage(userText, {
+      content: '',
+      userRequest: topic,
+      titleIdeas: null,
+      _titlesPending: true,
+      titleIdeasCount: titleCount,
+    })
     try {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Not authenticated')
@@ -3343,19 +3490,25 @@ export function ThumbnailGenerator({
       })
       const titles = Array.isArray(res?.titles) ? res.titles : []
       if (!titles.length) throw new Error('No titles returned.')
-      pushLocalAssistantMessage(userText, {
-        content: '',
-        userRequest: topic,
+      // Patch the SAME local entry — no remount, smooth in-place
+      // skeleton → populated transition driven by AnimatePresence
+      // inside TitleIdeasBlock.
+      patchLocalAssistantMessage(localIds.assistantId, {
         titleIdeas: titles,
+        _titlesPending: false,
       })
-      persistEvent('titles', userText, {
+      const persisted = await persistEvent('titles', userText, {
         user_request: topic,
         title_ideas: titles,
       })
-      finishLoading()
+      if (persisted) linkLocalToServer(localIds, persisted, conversationId)
     } catch (err) {
       const { code, message } = parseApiError(err, 'Could not generate titles.')
-      setPendingAssistant(false)
+      // Drop the optimistic placeholder so the failure card lands
+      // where the user expects (immediately after the user bubble).
+      setLocalOnlyMessages((prev) =>
+        prev.filter((m) => m.id !== localIds.userId && m.id !== localIds.assistantId)
+      )
       // Persist as an inline failure card (mode='titles' so retry
       // re-fires this same handler with the same topic). Toast still
       // fires for top-of-screen visibility but the card stays in the
@@ -3368,9 +3521,11 @@ export function ThumbnailGenerator({
         retryable: true,
       })
       toast.error(message, { code: code || undefined, title: friendlyTitleFor(code) })
-    } finally {
-      setPendingUserMessage(null)
     }
+    // No `finally` clearing of `pendingUserMessage` — title mode no
+    // longer uses the separate pending-bubble flow; the user bubble
+    // is the local-entry pushed up front and is patched/dropped
+    // depending on the result.
   }
 
   // Refs for the mode-specific submit handlers so the failure-card
@@ -4097,15 +4252,16 @@ export function ThumbnailGenerator({
             const urls = Array.isArray(result) ? result : [result]
             const sourceImageUrl = editDialogUrl
             if (urls.length <= 1) {
-              pushLocalAssistantMessage('', {
+              const localIds = pushLocalAssistantMessage('', {
                 content: '',
                 imageUrl: urls[0] || null,
                 userImageUrl: sourceImageUrl,
               })
-              persistEvent('edit', '', {
+              const persisted = await persistEvent('edit', '', {
                 image_url: urls[0] || null,
                 user_image_url: sourceImageUrl,
               })
+              if (persisted) linkLocalToServer(localIds, persisted, conversationId)
             } else {
               const thumbnails = urls.map((image_url, i) => ({
                 title: `${i + 1}x`,
@@ -4113,15 +4269,16 @@ export function ThumbnailGenerator({
                 emotion: '',
                 psychology_angle: '',
               }))
-              pushLocalAssistantMessage('', {
+              const localIds = pushLocalAssistantMessage('', {
                 content: '',
                 thumbnails,
                 userImageUrl: sourceImageUrl,
               })
-              persistEvent('edit', '', {
+              const persisted = await persistEvent('edit', '', {
                 thumbnails,
                 user_image_url: sourceImageUrl,
               })
+              if (persisted) linkLocalToServer(localIds, persisted, conversationId)
             }
             setShowEditDialog(false)
             setEditDialogUrl(null)
