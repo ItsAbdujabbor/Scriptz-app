@@ -1472,6 +1472,51 @@ const ChatMessageItem = memo(function ChatMessageItem({
               canRegenerate
             />
           ) : null}
+          {/* Prompt / recreate in-place pending: when the placeholder is
+           * pushed with `_promptPending: true`, render the existing
+           * <ThumbnailGenFill> loader inside the SAME mounted card. When
+           * the API result is patched in (clearing `_promptPending` and
+           * filling `thumbnails`), AnimatePresence crossfades to the
+           * populated grid below. The old sibling-loader block (rendered
+           * outside the messages list) used to flash on first message
+           * because the loader and the result lived in different React
+           * subtrees — this in-place pattern keeps the assistant card
+           * mounted across the swap. */}
+          {msg._promptPending && (
+            <motion.div
+              key="prompt-loader"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22, ease: IOS_EASE }}
+              style={{ width: '100%' }}
+            >
+              <div className="thumb-gen-loader" aria-busy="true" aria-label="Generating thumbnail">
+                <div className="thumb-gen-loader__stage">
+                  <ThumbnailGenFill
+                    estimatedDurationMs={(() => {
+                      const lockedMode = msg._promptMode || 'prompt'
+                      const count = msg._promptCount || 1
+                      if (lockedMode === 'recreate') {
+                        return count > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_RECREATE_MS
+                      }
+                      return count > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_SINGLE_MS
+                    })()}
+                  />
+                </div>
+                <ThumbnailGenSlowHint
+                  estimatedDurationMs={(() => {
+                    const lockedMode = msg._promptMode || 'prompt'
+                    const count = msg._promptCount || 1
+                    if (lockedMode === 'recreate') {
+                      return count > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_RECREATE_MS
+                    }
+                    return count > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_SINGLE_MS
+                  })()}
+                />
+              </div>
+            </motion.div>
+          )}
           {/* Analyze branch: same in-place pending pattern as titles. The
            * submit handler pushes a placeholder local message with
            * `_analyzePending: true` + `userImageUrl` set; we render the
@@ -1819,22 +1864,23 @@ export function ThumbnailGenerator({
   // Structured metadata for the most recent sendError — lets the footer
   // render a Retry pill only when the error is retryable.
   const [sendErrorMeta, setSendErrorMeta] = useState(null)
-  const [pendingUserMessage, setPendingUserMessage] = useState(null)
+  // `pendingAssistant` gates submit handlers + composer disable while a
+  // chat-mode generation is running. The user-bubble + loader are no
+  // longer rendered as siblings (they live INSIDE the assistant card
+  // via `_promptPending` on the local placeholder), so the only
+  // remaining role of this flag is double-submit / disabled-state.
   const [pendingAssistant, setPendingAssistant] = useState(false)
-  // Mode locked-in at submission time. The loader for an in-flight job
-  // reads from this — NOT the current `thumbMode` tab — so switching
-  // tabs while a generation is running doesn't swap the loader (used
-  // to flip the analyze image preview to a generic % bar mid-job).
-  const [pendingMode, setPendingMode] = useState(null)
-  const [pendingUserImageUrl, setPendingUserImageUrl] = useState(null)
+  // (Removed `pendingMode` — the in-place placeholder carries
+  // `_promptMode` directly, so there's no need for a separate
+  // top-level state to remember which mode is in flight.)
   // Failed generations are pushed inline into `localOnlyMessages` with
   // `_kind: 'failure'` (see `pushFailureEntry` further down) so they
   // sort chronologically alongside successes. A new request after a
   // failure renders BELOW the failure card, not in a separate "errors"
   // block at the bottom. Removed the prior `failedAttempts` state.
-  // Snap-to-100 signal for <GenerationProgress />. Flips true when the
-  // request finishes, lets the bar animate to 100, then we clear pending.
-  const [pendingDone, setPendingDone] = useState(false)
+  // (Removed `pendingDone` — the old sibling loader used it to snap the
+  // progress bar to 100 before unmount; the in-place loader unmounts on
+  // the same commit as the result mounts, so no snap is needed.)
   const finishLoadingRef = useRef(null)
   const promptFileInputRef = useRef(null)
   const recreateFileInputRef = useRef(null)
@@ -2154,9 +2200,7 @@ export function ThumbnailGenerator({
       setDraft('')
       setSendError('')
       setSendErrorMeta(null)
-      setPendingUserMessage(null)
       setPendingAssistant(false)
-      setPendingUserImageUrl(null)
       setPromptImageDataUrl(null)
       setRecreateDraft('')
       setRecreateSourceImage(null)
@@ -2240,7 +2284,6 @@ export function ThumbnailGenerator({
     if (hasAssistantThumbs) {
       clearPending(conversationId)
       setPendingAssistant(false)
-      setPendingUserMessage(null)
       markSeen(conversationId)
     }
   }, [isCurrentConversationPending, conversationQuery.data, conversationId, clearPending, markSeen])
@@ -2252,18 +2295,18 @@ export function ThumbnailGenerator({
   // a fullscreen "Loading conversation" overlay would read as a
   // page reset:
   //
-  //   * `pendingUserMessage` / `pendingAssistant` — chat (prompt /
-  //     recreate) submit is in flight; the in-flight bubble + loader
-  //     own the screen.
+  //   * `pendingAssistant` — chat (prompt / recreate) submit is in
+  //     flight; the in-flight bubble + loader live INSIDE the local
+  //     placeholder so `localOnlyMessages.length > 0` already covers
+  //     this, but we keep the flag for belt-and-suspenders.
   //   * `localOnlyMessages.length > 0` — analyze / titles / edit /
-  //     failure cards are in the optimistic local list. This is the
-  //     case during first-message creation when persistEvent's
-  //     auto-create flips `conversationId` from null → N — the
-  //     conversation query refetches, but our optimistic content is
-  //     already on screen and must NOT be hidden by a fullscreen
-  //     skeleton.
-  const hasInFlightOrLocalContent =
-    pendingUserMessage != null || pendingAssistant || localOnlyMessages.length > 0
+  //     failure cards AND the in-flight prompt placeholder all live
+  //     here. This is the case during first-message creation when
+  //     persistEvent's auto-create flips `conversationId` from null
+  //     → N — the conversation query refetches, but our optimistic
+  //     content is already on screen and must NOT be hidden by a
+  //     fullscreen skeleton.
+  const hasInFlightOrLocalContent = pendingAssistant || localOnlyMessages.length > 0
   const isHistoryLoading =
     conversationId != null &&
     (conversationQuery.isPending || conversationQuery.isPlaceholderData) &&
@@ -2295,8 +2338,7 @@ export function ThumbnailGenerator({
     const sortedServer = sortByServerId(messages).filter((m) => !linkedServerIds.has(m.id))
     return [...sortedServer, ...localOnlyMessages]
   }, [messages, localOnlyMessages])
-  const isEmptyScreen =
-    !isHistoryLoading && renderedMessages.length === 0 && !pendingUserMessage && !pendingAssistant
+  const isEmptyScreen = !isHistoryLoading && renderedMessages.length === 0 && !pendingAssistant
   const layoutCentered = isEmptyScreen || isHistoryLoading
 
   // Auto-scroll on new messages or when a job kicks off / lands. Tab
@@ -2308,7 +2350,7 @@ export function ThumbnailGenerator({
   // remains visible even as the toolbar grows/shrinks.
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [messages.length, pendingUserMessage, pendingAssistant])
+  }, [messages.length, localOnlyMessages.length, pendingAssistant])
 
   // Mobile soft-keyboard handling. When the keyboard opens, the visual
   // viewport shrinks but the layout viewport (window.innerHeight) does
@@ -2387,15 +2429,6 @@ export function ThumbnailGenerator({
     setShowEditDialog(true)
   }, [])
 
-  // Reset the progress "done" flag whenever a new pending starts so the
-  // shared <GenerationProgress /> begins from 0 again. Also drop
-  // `pendingMode` once the in-flight job finishes so the next submission
-  // captures fresh mode at submit time.
-  useEffect(() => {
-    if (pendingAssistant) setPendingDone(false)
-    else setPendingMode(null)
-  }, [pendingAssistant])
-
   useEffect(() => {
     const el = composerFooterRef.current
     if (!el) return
@@ -2409,22 +2442,18 @@ export function ThumbnailGenerator({
     return () => ro.disconnect()
   }, [thumbMode])
 
-  // Call on successful API completion. Drops the loader IMMEDIATELY
-  // — no 360 ms "fill bar tweens to 100%" tail. The result card is
-  // already in `messages` (committed by `commitServerChatPair`), so
-  // any extra time on the loader meant the user saw the loader AND
-  // the result simultaneously. That read as "loading is still
-  // running after the message completed" — the exact bug the user
-  // reported. Loader unmount happens on the same React commit as
-  // the result mount, so the handoff is a single-frame swap with
-  // no overlap.
+  // Call on successful API completion. Drops the in-flight gate
+  // immediately so the composer re-enables. The loader is no longer
+  // a sibling — it lives inside the assistant card and is unmounted
+  // by the `_promptPending: false` patch the caller already applied
+  // before this runs. The result mounts in its place via the
+  // AnimatePresence crossfade in ChatMessageItem.
   const finishLoading = useCallback(() => {
     if (finishLoadingRef.current) {
       clearTimeout(finishLoadingRef.current)
       finishLoadingRef.current = null
     }
     setPendingAssistant(false)
-    setPendingDone(false)
   }, [])
 
   // Textarea auto-resize — SIMPLE version. `height: auto` measures the
@@ -2630,6 +2659,17 @@ export function ThumbnailGenerator({
         // the real `analysis` when /rate returns. Loader and result
         // share one mounted card so they can never both render.
         _analyzePending: !!assistant._analyzePending,
+        // Prompt / recreate in-place pending: caller pushes a
+        // placeholder with `_promptPending: true` + `_promptMode` +
+        // `_promptCount`; the assistant card renders the existing
+        // <ThumbnailGenFill> loader inside the SAME mounted node and
+        // crossfades to the populated thumbnails when the API patches
+        // `_promptPending: false` + `content` + `thumbnails`. This
+        // replaces the old sibling-loader block that used to flash
+        // on first message.
+        _promptPending: !!assistant._promptPending,
+        _promptMode: assistant._promptMode || null,
+        _promptCount: assistant._promptCount || null,
         _optimistic: true,
       },
     ])
@@ -2873,97 +2913,12 @@ export function ThumbnailGenerator({
     }, 0)
   }, [])
 
-  /**
-   * Commit the (user_message, assistant_message) pair the chat endpoint
-   * returned, atomically. Both records have server-assigned numeric ids
-   * so there's no dedupe / merge logic needed — the next conversation
-   * refetch will replay the same ids and wholesale-replace the array
-   * with identical content.
-   *
-   * Falls back gracefully if the backend is older and only returns
-   * `message_id` (the assistant id) without the explicit pair: in that
-   * case we can't commit the user message locally, so we let the next
-   * conversation refetch fill it in.
-   */
-  const commitServerChatPair = useCallback(
-    (result, fallbackUserText, conversationIdHint) => {
-      if (!result) return
-      const thumbnails = result.thumbnails || []
-      const userRecord = result.user_message
-        ? {
-            id: result.user_message.id,
-            role: 'user',
-            content: result.user_message.content,
-            imageUrl: null,
-            userRequest: '',
-            thumbnails: [],
-          }
-        : null
-      const assistantRecord = result.assistant_message
-        ? {
-            id: result.assistant_message.id,
-            role: 'assistant',
-            content: result.assistant_message.content || '',
-            thumbnails,
-            imageUrl: result.assistant_message.extra_data?.image_url || null,
-            userRequest:
-              result.assistant_message.extra_data?.user_request || fallbackUserText || '',
-          }
-        : result.message_id != null
-          ? {
-              id: result.message_id,
-              role: 'assistant',
-              content: thumbnails.length > 0 ? '' : result.content || '',
-              thumbnails,
-              imageUrl: null,
-              userRequest: result.user_request || fallbackUserText || '',
-            }
-          : null
-
-      setMessages((prev) => {
-        const knownIds = new Set(prev.map((m) => m.id))
-        const additions = []
-        if (userRecord && !knownIds.has(userRecord.id)) additions.push(userRecord)
-        if (assistantRecord && !knownIds.has(assistantRecord.id)) additions.push(assistantRecord)
-        if (additions.length === 0) return prev
-        return sortByServerId([...prev, ...additions])
-      })
-
-      // Mirror the new pair into the React Query conversation cache so a
-      // navigate-away → navigate-back round trip serves the FRESH state
-      // (the cache has a 5-minute staleTime, so without this the user
-      // would briefly see the pre-message version of the chat on
-      // re-entry, then watch it pop into place when refetch lands).
-      const convId =
-        result.user_message?.conversation_id || result.conversation_id || conversationIdHint
-      if (convId != null) {
-        const additions = []
-        if (result.user_message) additions.push(result.user_message)
-        if (result.assistant_message) additions.push(result.assistant_message)
-        queryClient.setQueryData(queryKeys.thumbnails.conversation(convId), (prev) => {
-          if (!prev) return prev
-          const items = prev.messages?.items || []
-          const knownIds = new Set(items.map((m) => m?.id))
-          const newItems = additions.filter((m) => m && !knownIds.has(m.id))
-          if (newItems.length === 0) return prev
-          return {
-            ...prev,
-            messages: { ...(prev.messages || {}), items: [...items, ...newItems] },
-          }
-        })
-        // Cross-tab: broadcast the same delta so any other tabs viewing
-        // this conversation converge without an extra fetch.
-        if (additions.length > 0) {
-          broadcastCacheEvent({
-            kind: 'conversation:append',
-            conversationId: convId,
-            items: additions,
-          })
-        }
-      }
-    },
-    [queryClient]
-  )
+  // (Removed `commitServerChatPair` — the in-place pending pattern uses
+  // `linkLocalToServer` to bind the optimistic local entries to their
+  // server twins. The local entry is the visible one; the server twin
+  // is silently filtered out of `renderedMessages` via
+  // `_serverMessageId`, so there's no need to materialize a separate
+  // server-canonical record on success.)
 
   // ×-click handler with shrink-back animation. The CSS rule for
   // `.thumb-attach-pill--closing` swaps the in-keyframe for the out-
@@ -2990,17 +2945,26 @@ export function ThumbnailGenerator({
 
     setSendError('')
     setSendErrorMeta(null)
-    // The user bubble appears INSTANTLY via `pendingUserMessage` (rendered
-    // alongside `pendingAssistant` loader). It's NOT pushed into the
-    // server-canonical `messages` array — that array only ever holds
-    // server records keyed by their numeric ids. On chat-mutation success
-    // we commit the server's (user_message, assistant_message) pair
-    // atomically; on failure the pending bubble simply clears.
+    // In-place pending pattern (matches analyze / titles): push the user
+    // bubble + an assistant placeholder with `_promptPending: true` into
+    // `localOnlyMessages` right now. The assistant card renders the
+    // <ThumbnailGenFill> loader inside the SAME mounted node; when the
+    // API returns we PATCH the placeholder in place (set thumbnails,
+    // clear `_promptPending`) — AnimatePresence crossfades loader →
+    // result without unmounting the card. This is what makes the first
+    // message smooth: the previously-sibling user-bubble + loader used
+    // to live in a different React subtree from the eventual server
+    // messages, so the swap was a hard mount/unmount that flashed.
     const userImageAtSubmit = promptImageDataUrl || null
-    setPendingUserMessage(combined)
-    setPendingUserImageUrl(userImageAtSubmit)
+    const localIds = pushLocalAssistantMessage(combined, {
+      content: '',
+      userImageUrl: userImageAtSubmit,
+      userRequest: combined,
+      _promptPending: true,
+      _promptMode: thumbMode,
+      _promptCount: numThumbnails,
+    })
     setPendingAssistant(true)
-    setPendingMode(thumbMode)
     setDraft('')
 
     // Eagerly create a conversation the first time the user submits in a
@@ -3013,20 +2977,16 @@ export function ThumbnailGenerator({
 
     try {
       if (promptImageDataUrl) {
-        // Whole-image edit doesn't go through the chat endpoint, so
-        // results land in `localOnlyMessages` (rendered after the
-        // server-canonical `messages`). The pending user bubble + the
-        // local-only pair never both render the same content because
-        // pendingUserMessage clears in the finally below.
+        // Whole-image edit doesn't go through the chat endpoint. Patch
+        // the in-place placeholder with the edited image — the loader
+        // crossfades to the populated card without unmount.
         const imageUrl = await runWholeImageEdit({
           imageUrl: promptImageDataUrl,
           prompt: `${combined} ${buildSelectionHint(selectedPersona, selectedStyle)}`.trim(),
         })
-        pushLocalAssistantMessage(combined, {
-          content: '',
+        patchLocalAssistantMessage(localIds.assistantId, {
+          _promptPending: false,
           imageUrl,
-          userImageUrl: userImageAtSubmit,
-          userRequest: combined,
         })
         clearPromptImage()
       } else {
@@ -3038,12 +2998,24 @@ export function ThumbnailGenerator({
           style_id: selectedStyleId || undefined,
           channel_id: channelId || undefined,
         })
-        // Server-canonical commit: append the (user_message, assistant_message)
-        // pair the backend persisted, in id order. No client-side
-        // dedupe needed — the next conversation refetch will return the
-        // same records and wholesale-replace `messages` with the same
-        // content.
-        commitServerChatPair(result, combined, activeConversationId)
+        // Patch the in-place placeholder with the server result first
+        // (loader → thumbnails crossfade in the same card), then bind
+        // local entries to their server twins so the next conversation
+        // refetch dedupes them via `_serverMessageId`.
+        const thumbnails = result?.thumbnails || []
+        const assistantContent =
+          result?.assistant_message?.content || (thumbnails.length > 0 ? '' : result?.content || '')
+        const assistantImageUrl = result?.assistant_message?.extra_data?.image_url || null
+        patchLocalAssistantMessage(localIds.assistantId, {
+          _promptPending: false,
+          content: assistantContent,
+          thumbnails,
+          imageUrl: assistantImageUrl,
+          userRequest: result?.assistant_message?.extra_data?.user_request || combined,
+        })
+        if (result?.user_message || result?.assistant_message) {
+          linkLocalToServer(localIds, result, activeConversationId)
+        }
       }
       finishLoading()
       // Generation succeeded — if the user is still on this conversation,
@@ -3083,11 +3055,15 @@ export function ThumbnailGenerator({
         code: code || undefined,
         title: friendlyTitleFor(code),
       })
+      // Drop the in-place placeholders we pushed on submit; the failure
+      // card below replaces them. (Without this, the user bubble +
+      // empty assistant card would linger above the failure card.)
+      setLocalOnlyMessages((prev) =>
+        prev.filter((m) => m.id !== localIds.userId && m.id !== localIds.assistantId)
+      )
       // Persist the failed attempt in the chat thread so the user keeps
       // a visible record of what they asked for and can retry without
-      // re-typing. The failed-attempts list owns the user-bubble and
-      // error card from this point forward — the in-flight pending
-      // bubbles can clear in `finally` below.
+      // re-typing.
       pushFailureEntry({
         mode: 'prompt',
         userText: combined,
@@ -3115,12 +3091,6 @@ export function ThumbnailGenerator({
       setDraft(combined)
       setPendingAssistant(false)
       if (activeConversationId) clearPending(activeConversationId)
-    } finally {
-      // Always clear the in-flight bubble — on success the server pair has
-      // already been committed (or pushLocalAssistantMessage ran), on
-      // failure there's nothing to commit.
-      setPendingUserMessage(null)
-      setPendingUserImageUrl(null)
     }
   }
 
@@ -3222,9 +3192,14 @@ export function ThumbnailGenerator({
   const handleRegenerateOne = useCallback(
     async (userRequest) => {
       if (!userRequest?.trim() || pendingAssistant) return
+      const localIds = pushLocalAssistantMessage(userRequest, {
+        content: '',
+        userRequest,
+        _promptPending: true,
+        _promptMode: 'prompt',
+        _promptCount: 1,
+      })
       setPendingAssistant(true)
-      setPendingMode('prompt')
-      setPendingUserMessage(userRequest)
       try {
         const result = await chatMutation.mutateAsync({
           message: userRequest,
@@ -3234,19 +3209,30 @@ export function ThumbnailGenerator({
           style_id: selectedStyleId || undefined,
           channel_id: channelId || undefined,
         })
-        // Commit the server-canonical pair atomically — same path as the
-        // primary submit handler. No more local id minting, no merge
-        // dance with the next refetch.
-        commitServerChatPair(result, userRequest, conversationId)
+        const thumbnails = result?.thumbnails || []
+        const assistantContent =
+          result?.assistant_message?.content || (thumbnails.length > 0 ? '' : result?.content || '')
+        const assistantImageUrl = result?.assistant_message?.extra_data?.image_url || null
+        patchLocalAssistantMessage(localIds.assistantId, {
+          _promptPending: false,
+          content: assistantContent,
+          thumbnails,
+          imageUrl: assistantImageUrl,
+          userRequest: result?.assistant_message?.extra_data?.user_request || userRequest,
+        })
+        if (result?.user_message || result?.assistant_message) {
+          linkLocalToServer(localIds, result, conversationId)
+        }
         finishLoading()
       } catch (err) {
         const { code, message } = parseApiError(err, 'Regeneration failed')
+        setLocalOnlyMessages((prev) =>
+          prev.filter((m) => m.id !== localIds.userId && m.id !== localIds.assistantId)
+        )
         setSendError(message)
         setSendErrorMeta(null)
         setPendingAssistant(false)
         toast.error(message, { code: code || undefined, title: friendlyTitleFor(code) })
-      } finally {
-        setPendingUserMessage(null)
       }
     },
     [
@@ -3257,7 +3243,9 @@ export function ThumbnailGenerator({
       channelId,
       pendingAssistant,
       finishLoading,
-      commitServerChatPair,
+      pushLocalAssistantMessage,
+      patchLocalAssistantMessage,
+      linkLocalToServer,
     ]
   )
 
@@ -3303,10 +3291,20 @@ export function ThumbnailGenerator({
     const userText = instructions
     setSendError('')
     setSendErrorMeta(null)
-    setPendingUserMessage(userText)
-    setPendingUserImageUrl(sourceImageUrl)
+    // In-place pending: push the placeholder (user bubble + assistant
+    // card with `_promptPending: true`) into `localOnlyMessages` now;
+    // patch in the result image(s) when the API returns. Loader and
+    // result share one mounted card — no flash on swap.
+    const localIds = pushLocalAssistantMessage(userText, {
+      content: '',
+      userImageUrl: sourceImageUrl,
+      userRequest: instructions,
+      isRecreate: true,
+      _promptPending: true,
+      _promptMode: 'recreate',
+      _promptCount: numRecreateThumbnails,
+    })
     setPendingAssistant(true)
-    setPendingMode('recreate')
     setRecreateDraft('')
     setRecreateSourceImage(null)
     setRecreateUrlInput('')
@@ -3329,12 +3327,9 @@ export function ThumbnailGenerator({
         const res = await thumbnailsApi.regenerateWithPersona(token, payload)
         const imageUrl = res?.image_url
         if (!imageUrl) throw new Error('No image returned from recreate.')
-        const localIds = pushLocalAssistantMessage(userText, {
-          content: '',
+        patchLocalAssistantMessage(localIds.assistantId, {
+          _promptPending: false,
           imageUrl,
-          userImageUrl: sourceImageUrl,
-          userRequest: instructions,
-          isRecreate: true,
         })
         const persisted = await persistEvent('recreate', userText, {
           image_url: imageUrl,
@@ -3351,12 +3346,9 @@ export function ThumbnailGenerator({
           image_url: r?.image_url,
           title: `Variation ${i + 1}`,
         }))
-        const localIds = pushLocalAssistantMessage(userText, {
-          content: '',
+        patchLocalAssistantMessage(localIds.assistantId, {
+          _promptPending: false,
           thumbnails,
-          userImageUrl: sourceImageUrl,
-          userRequest: instructions,
-          isRecreate: true,
         })
         const persisted = await persistEvent('recreate', userText, {
           thumbnails,
@@ -3369,6 +3361,9 @@ export function ThumbnailGenerator({
       finishLoading()
     } catch (err) {
       const { code, message } = parseApiError(err, 'Could not recreate thumbnail.')
+      setLocalOnlyMessages((prev) =>
+        prev.filter((m) => m.id !== localIds.userId && m.id !== localIds.assistantId)
+      )
       setPendingAssistant(false)
       pushFailureEntry({
         mode: 'recreate',
@@ -3379,9 +3374,6 @@ export function ThumbnailGenerator({
         retryable: true,
       })
       toast.error(message, { code: code || undefined, title: friendlyTitleFor(code) })
-    } finally {
-      setPendingUserMessage(null)
-      setPendingUserImageUrl(null)
     }
   }
 
@@ -3746,79 +3738,15 @@ export function ThumbnailGenerator({
               )
             )}
 
-          {(pendingUserMessage || pendingUserImageUrl) && (
-            <article className="coach-message coach-message--user coach-message--enter">
-              <div className="coach-user-message-stack">
-                {pendingUserImageUrl && (
-                  <div className="thumb-user-sent-image">
-                    <img
-                      src={pendingUserImageUrl}
-                      alt="Sent thumbnail"
-                      className="thumb-user-sent-img"
-                      decoding="async"
-                    />
-                  </div>
-                )}
-                {pendingUserMessage ? (
-                  <div className="coach-message-bubble">
-                    <p>{pendingUserMessage}</p>
-                  </div>
-                ) : null}
-              </div>
-            </article>
-          )}
-
-          {pendingAssistant && (
-            <article className="coach-message coach-message--assistant coach-message--enter">
-              {/* Loader picks from the LOCKED `pendingMode` (set at
-               * submission time) so tab-switching doesn't change the
-               * in-flight loader. Falls back to current `thumbMode` only
-               * for legacy paths that didn't capture a mode.
-               *
-               * `analyze` and `titles` are NOT branches here — they
-               * use the in-place pattern: the placeholder local message
-               * carries `_analyzePending` / `_titlesPending` and
-               * ChatMessageItem renders the loader inside the SAME
-               * card as the eventual result. Keeping them out of this
-               * sibling-loader block prevents the duplicate-render
-               * window where both the loader and the result were
-               * visible at once during the `finishLoading` 360 ms
-               * tail. */}
-              {(pendingMode || thumbMode) === 'titles' ? null : (
-                <div
-                  className="thumb-gen-loader"
-                  aria-busy="true"
-                  aria-label="Generating thumbnail"
-                >
-                  <div className="thumb-gen-loader__stage">
-                    <ThumbnailGenFill
-                      done={pendingDone}
-                      estimatedDurationMs={(() => {
-                        const lockedMode = pendingMode || thumbMode
-                        if (lockedMode === 'recreate') {
-                          return numRecreateThumbnails > 1
-                            ? GEN_DURATION_BATCH_MS
-                            : GEN_DURATION_RECREATE_MS
-                        }
-                        return numThumbnails > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_SINGLE_MS
-                      })()}
-                    />
-                  </div>
-                  <ThumbnailGenSlowHint
-                    estimatedDurationMs={(() => {
-                      const lockedMode = pendingMode || thumbMode
-                      if (lockedMode === 'recreate') {
-                        return numRecreateThumbnails > 1
-                          ? GEN_DURATION_BATCH_MS
-                          : GEN_DURATION_RECREATE_MS
-                      }
-                      return numThumbnails > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_SINGLE_MS
-                    })()}
-                  />
-                </div>
-              )}
-            </article>
-          )}
+          {/* The pending user-bubble + loader now live INSIDE the
+           * messages list as a single mounted card (`_promptPending`
+           * on the local placeholder) — see ChatMessageItem. The old
+           * sibling render block lived here and was the source of the
+           * first-message flash: its hard mount/unmount happened in a
+           * different React subtree from the eventual server messages,
+           * so the swap was visually jarring. The in-place placeholder
+           * keeps the same card mounted across the loader → result
+           * crossfade. */}
 
           <div ref={messagesEndRef} />
         </div>
