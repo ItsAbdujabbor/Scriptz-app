@@ -490,16 +490,15 @@
    marquees. Refined: deeper glass, cleaner border, more comfortable
    padding, polished typography.
 ───────────────────────────────────── */
-/* Liquid-glass prompt body — heavy frost, layered sheen, rim light.
+/* Hero prompt body — nearly-opaque dark panel with subtle sheen.
  *
- * The body itself is mostly transparent so the marquee thumbnails
- * behind take a strong backdrop-filter pass: heavy blur + saturate
- * + brightness boost makes them read as a soft, color-rich frost
- * (like looking through a real piece of fogged glass), not a flat
- * dark panel. Three stacked background layers give the surface its
- * own sheen on top of the frost: a radial top-light bloom (the
- * "lensed" highlight where light catches the curve), a top-to-bottom
- * luminance gradient, and a faint dark base to keep text readable. */
+ * Per user feedback: no backdrop-filter blur. The body is mostly
+ * solid (0.92 alpha) so the marquee thumbnails behind don't bleed
+ * through; the small remaining transparency keeps the panel from
+ * feeling like a flat sticker — you can sense there's something
+ * behind without actually reading it. The top radial bloom and the
+ * vertical luminance gradient stay because they're decorative sheen
+ * (not blur), and they give the surface its premium feel. */
 .lin-prompt {
   position: relative;
   z-index: 5;
@@ -512,27 +511,23 @@
      * curved glass bead in product renders. */
     radial-gradient(
       ellipse 70% 55% at 50% -10%,
-      rgba(255, 255, 255, 0.1) 0%,
-      rgba(255, 255, 255, 0.03) 40%,
+      rgba(255, 255, 255, 0.08) 0%,
+      rgba(255, 255, 255, 0.025) 40%,
       transparent 70%
     ),
     /* Top-light → bottom-dark sheen */
     linear-gradient(
         to bottom,
-        rgba(255, 255, 255, 0.08) 0%,
-        rgba(255, 255, 255, 0.02) 45%,
-        rgba(0, 0, 0, 0.07) 100%
+        rgba(255, 255, 255, 0.05) 0%,
+        rgba(255, 255, 255, 0.015) 45%,
+        rgba(0, 0, 0, 0.06) 100%
       ),
-    /* Lower opacity than before — the heavy blur does most of the
-     * legibility work, so the body can be almost-clear. */
-    rgba(10, 8, 24, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  /* Maximum frost — push the blur radius high enough that the
-   * thumbnails behind dissolve completely. Saturate dialed back
-   * slightly because at this blur radius the remaining color noise
-   * was reading as a faint cast. */
-  backdrop-filter: blur(160px) saturate(180%) brightness(1.05) contrast(1.03);
-  -webkit-backdrop-filter: blur(160px) saturate(180%) brightness(1.05) contrast(1.03);
+    /* Near-opaque base — high alpha so the marquee behind is barely
+     * visible (just a hint), not a frosted blur. */
+    rgba(10, 8, 24, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  /* No backdrop-filter — the panel is now near-opaque, so the
+   * frost effect is intentionally gone. */
   /* Outer glow removed (per design feedback) — only inner edge
    * highlights remain. The box now sits flush on the page without
    * a violet halo bleeding into the surrounding stage. */
@@ -587,21 +582,23 @@
 }
 
 .lin-prompt:focus-within {
-  border-color: rgba(255, 255, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.34);
   background:
     radial-gradient(
       ellipse 70% 55% at 50% -10%,
-      rgba(255, 255, 255, 0.13) 0%,
-      rgba(255, 255, 255, 0.04) 40%,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.03) 40%,
       transparent 70%
     ),
     linear-gradient(
       to bottom,
-      rgba(255, 255, 255, 0.1) 0%,
-      rgba(255, 255, 255, 0.03) 45%,
+      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0.02) 45%,
       rgba(0, 0, 0, 0.06) 100%
     ),
-    rgba(12, 9, 28, 0.28);
+    /* Match the resting near-opaque base; focus only changes border
+     * + inner highlight, not transparency. */
+    rgba(12, 9, 28, 0.94);
   /* Focus is signaled via the brighter border + inner highlights only
    * — no outer halo. */
   box-shadow:
