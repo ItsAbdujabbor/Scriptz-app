@@ -1142,29 +1142,24 @@ const ThumbnailGenFill = memo(function ThumbnailGenFill({
   )
 })
 
-const ANALYZE_PHASES = [
-  'Analyzing visuals',
-  'Reading composition',
-  'Rating each criterion',
-  'Scoring CTR potential',
-  'Almost done',
-]
-
 /**
- * Pending-state loader for analyze mode. Replaces the percentage-fill bar
- * (which would lie — /rate returns synchronously, no real progress signal)
- * with a scan sweep over the user's actual thumbnail and a rotating phase
- * label. Same 16:9 stage as the generation loader so the layout doesn't
- * jump when the result swaps in.
+ * Pending-state loader for analyze mode. Cinematic + minimal:
+ *
+ *   * The user's thumbnail sits behind a soft violet sheen so it
+ *     feels "intelligent" without going dark.
+ *   * A vertical scan ribbon sweeps top → bottom on a slow loop.
+ *   * A small bottom-corner pulse indicator (3 dots cycling) signals
+ *     activity. NO rotating phase text, NO percentage, NO "Analyzing
+ *     visuals…" copy. The motion alone reads as alive.
+ *
+ * Sized to the same 16:9 stage as the eventual `<AnalysisBreakdown>`
+ * card so the in-place crossfade in `ChatMessageItem` never reflows.
+ *
+ * (`memo` because the parent re-renders on every keystroke in the
+ * composer; the loader has no props that change inside one
+ * generation, so memo skips re-renders entirely.)
  */
 const ThumbnailAnalyzeLoader = memo(function ThumbnailAnalyzeLoader({ imageUrl }) {
-  const [phaseIdx, setPhaseIdx] = useState(0)
-  useEffect(() => {
-    const id = setInterval(() => {
-      setPhaseIdx((i) => (i + 1) % ANALYZE_PHASES.length)
-    }, 1400)
-    return () => clearInterval(id)
-  }, [])
   return (
     <div className="thumb-analyze-loader" aria-busy="true" aria-label="Analyzing thumbnail">
       <div className="thumb-analyze-loader__stage">
@@ -1177,16 +1172,12 @@ const ThumbnailAnalyzeLoader = memo(function ThumbnailAnalyzeLoader({ imageUrl }
             aria-hidden="true"
           />
         ) : null}
-        <div className="thumb-analyze-loader__veil" aria-hidden="true" />
+        <div className="thumb-analyze-loader__sheen" aria-hidden="true" />
         <div className="thumb-analyze-loader__scan" aria-hidden="true" />
-        <div className="thumb-analyze-loader__phase">
-          <span className="thumb-analyze-loader__phase-dot" aria-hidden="true" />
-          <span className="thumb-analyze-loader__phase-text" aria-live="polite">
-            {ANALYZE_PHASES[phaseIdx]}
-          </span>
-          <span className="thumb-analyze-loader__phase-ellipsis" aria-hidden="true">
-            …
-          </span>
+        <div className="thumb-analyze-loader__pulse" aria-hidden="true">
+          <span className="thumb-analyze-loader__pulse-dot" />
+          <span className="thumb-analyze-loader__pulse-dot" />
+          <span className="thumb-analyze-loader__pulse-dot" />
         </div>
       </div>
     </div>
@@ -1481,7 +1472,42 @@ const ChatMessageItem = memo(function ChatMessageItem({
               canRegenerate
             />
           ) : null}
-          {msg.analysis ? <AnalysisBreakdown analysis={msg.analysis} /> : null}
+          {/* Analyze branch: same in-place pending pattern as titles. The
+           * submit handler pushes a placeholder local message with
+           * `_analyzePending: true` + `userImageUrl` set; we render the
+           * minimal cinematic loader inside the SAME card. When the
+           * /rate response lands, `patchLocalAssistantMessage` fills in
+           * `analysis` and clears the flag — AnimatePresence crossfades
+           * loader → AnalysisBreakdown within one mounted container, so
+           * the loader and the result are NEVER both visible at once
+           * (which was the duplicate the user reported). */}
+          {(msg._analyzePending || msg.analysis) && (
+            <motion.div layout style={{ width: '100%' }}>
+              <AnimatePresence mode="wait" initial={false}>
+                {msg._analyzePending ? (
+                  <motion.div
+                    key="analyze-loader"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.22, ease: IOS_EASE }}
+                  >
+                    <ThumbnailAnalyzeLoader imageUrl={msg.userImageUrl || msg.imageUrl} />
+                  </motion.div>
+                ) : msg.analysis ? (
+                  <motion.div
+                    key="analyze-populated"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.28, ease: IOS_EASE }}
+                  >
+                    <AnalysisBreakdown analysis={msg.analysis} />
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </motion.div>
+          )}
           {/* Title-card branch: while the in-place pending placeholder
            * is in flight (`_titlesPending` set when the user submits,
            * cleared when the API response is patched into this same
@@ -2173,7 +2199,27 @@ export function ThumbnailGenerator({
   // Conversation switch wipes local-only messages — they belong to the
   // session the user just left. Without this the recreate/analyze
   // bubbles from one conversation would bleed into the next.
+  //
+  // CRITICAL: only wipe on a REAL conversation switch (between two
+  // non-null ids) or on go-to-empty (any → null). The null → N
+  // transition is a CREATE — it fires when ensureConversationId or
+  // persistEvent's auto-create updates `conversationId` for the first
+  // time. The user is mid-flow with an optimistic local message
+  // already on screen; wiping `localOnlyMessages` here would cause
+  // the message to disappear briefly until the server-canonical
+  // version lands via the cache, AND would let
+  // `isHistoryLoading` flip true (renderedMessages emptied →
+  // ChatHistorySkeleton "Loading conversation…" flashes fullscreen).
+  // That's the architectural root cause of the post-first-message
+  // loader the user reported.
+  const prevConversationIdRef = useRef(conversationId)
   useEffect(() => {
+    const prev = prevConversationIdRef.current
+    prevConversationIdRef.current = conversationId
+    // null → N (creation): keep the optimistic local content visible.
+    // Initial mount (prev === conversationId): nothing to wipe.
+    if (prev == null || prev === conversationId) return
+    // Real switch (N → M, or N → null): drop stale per-session content.
     setLocalOnlyMessages([])
   }, [conversationId])
 
@@ -2199,19 +2245,29 @@ export function ThumbnailGenerator({
     }
   }, [isCurrentConversationPending, conversationQuery.data, conversationId, clearPending, markSeen])
 
-  // The skeleton is for FIRST-OPEN of an existing conversation only.
-  // When the user has just sent a message (pending user/assistant
-  // state is non-null), they're already getting visible feedback via
-  // the in-flight bubble + loader card — flashing a full-thread
-  // skeleton on top of that would feel like the screen is reloading.
-  // This matches the ChatGPT-style "everything happens in place"
-  // transition: empty state → user bubble + loader → result, with
-  // no intermediate skeleton swap.
+  // The skeleton ("Loading conversation…") is for FIRST-OPEN of an
+  // existing conversation only — the case where we're navigating to a
+  // chat that has server messages we haven't fetched yet. ANY of the
+  // following means the user is already seeing relevant content and
+  // a fullscreen "Loading conversation" overlay would read as a
+  // page reset:
+  //
+  //   * `pendingUserMessage` / `pendingAssistant` — chat (prompt /
+  //     recreate) submit is in flight; the in-flight bubble + loader
+  //     own the screen.
+  //   * `localOnlyMessages.length > 0` — analyze / titles / edit /
+  //     failure cards are in the optimistic local list. This is the
+  //     case during first-message creation when persistEvent's
+  //     auto-create flips `conversationId` from null → N — the
+  //     conversation query refetches, but our optimistic content is
+  //     already on screen and must NOT be hidden by a fullscreen
+  //     skeleton.
+  const hasInFlightOrLocalContent =
+    pendingUserMessage != null || pendingAssistant || localOnlyMessages.length > 0
   const isHistoryLoading =
     conversationId != null &&
     (conversationQuery.isPending || conversationQuery.isPlaceholderData) &&
-    !pendingUserMessage &&
-    !pendingAssistant
+    !hasInFlightOrLocalContent
   // Combined render list: server-canonical chat thread first (sorted by
   // numeric server id), then local-only recreate / analyze results
   // appended in the order they happened. The two buckets never overlap
@@ -2566,6 +2622,11 @@ export function ThumbnailGenerator({
         // itself never unmounts.
         _titlesPending: !!assistant._titlesPending,
         titleIdeasCount: assistant.titleIdeasCount || null,
+        // Same pattern for analyze: push placeholder with
+        // `_analyzePending: true` immediately on submit; patch with
+        // the real `analysis` when /rate returns. Loader and result
+        // share one mounted card so they can never both render.
+        _analyzePending: !!assistant._analyzePending,
         _optimistic: true,
       },
     ])
@@ -3375,7 +3436,6 @@ export function ThumbnailGenerator({
   const handleAnalyzeFooterSubmit = async (e) => {
     e?.preventDefault?.()
     if (!requirePaywall()) return
-    if (pendingAssistant) return
     const imageUrl = analyzeSourceMode === 'upload' ? analyzeSourceImage : analyzePreviewUrl
     if (!imageUrl) {
       setSendError('Add an image or YouTube link to analyze.')
@@ -3389,14 +3449,31 @@ export function ThumbnailGenerator({
     const userText = titleTrim
     setSendError('')
     setSendErrorMeta(null)
-    setPendingUserMessage(userText)
-    setPendingUserImageUrl(imageUrl)
-    setPendingAssistant(true)
-    setPendingMode('analyze')
     setAnalyzeTitle('')
     setAnalyzeSourceImage(null)
     setAnalyzeUrlInput('')
     setAnalyzePreviewUrl(null)
+    // In-place pending pattern (same as titles): push the optimistic
+    // local message NOW with `_analyzePending: true` so the loader
+    // renders INSIDE the assistant card. When the API resolves we
+    // patch the same entry with the real `analysis` — the loader and
+    // the result share one mounted container, so they can never both
+    // be visible simultaneously (which used to cause the duplicate
+    // the user reported during the `finishLoading` 360 ms tail).
+    // No `pendingAssistant` / `pendingUserMessage` is set for analyze.
+    const localIds = pushLocalAssistantMessage(userText, {
+      content: '',
+      userImageUrl: imageUrl,
+      imageUrl,
+      userRequest: '',
+      analysis: null,
+      _analyzePending: true,
+    })
+    // Single-flight latch: the moment the response is committed to
+    // the local card via `patchLocalAssistantMessage`, this flag
+    // flips so the catch / finally branches below can't push a
+    // failure card or duplicate state for the same submission.
+    let resolved = false
     try {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Not authenticated')
@@ -3409,23 +3486,36 @@ export function ThumbnailGenerator({
       // ScorePill resolves instantly from cache instead of firing a
       // second /rate (which would double-charge credits).
       seedThumbnailRating(queryClient, imageUrl, rating)
-      const localIds = pushLocalAssistantMessage(userText, {
-        content: '',
-        userImageUrl: imageUrl,
-        imageUrl,
-        userRequest: '',
+      // Patch the SAME local entry — no remount, smooth in-place
+      // loader → analysis crossfade driven by AnimatePresence inside
+      // ChatMessageItem.
+      patchLocalAssistantMessage(localIds.assistantId, {
         analysis: rating,
+        _analyzePending: false,
       })
+      resolved = true
       const persisted = await persistEvent('analyze', userText, {
         image_url: imageUrl,
         user_image_url: imageUrl,
         analysis: rating,
       })
       if (persisted) linkLocalToServer(localIds, persisted, conversationId)
-      finishLoading()
     } catch (err) {
+      if (resolved) {
+        // The rating already resolved + was committed to the card;
+        // a downstream throw (e.g. persistEvent quirk) shouldn't
+        // surface as a failure card or duplicate the analysis.
+        if (typeof console !== 'undefined') {
+          console.warn('[thumbnail] analyze: post-resolve error swallowed', err)
+        }
+        return
+      }
       const { code, message } = parseApiError(err, 'Could not analyze thumbnail.')
-      setPendingAssistant(false)
+      // Drop the optimistic placeholder so the failure card lands
+      // cleanly where the user expects.
+      setLocalOnlyMessages((prev) =>
+        prev.filter((m) => m.id !== localIds.userId && m.id !== localIds.assistantId)
+      )
       pushFailureEntry({
         mode: 'analyze',
         userText: titleTrim,
@@ -3435,10 +3525,11 @@ export function ThumbnailGenerator({
         retryable: true,
       })
       toast.error(message, { code: code || undefined, title: friendlyTitleFor(code) })
-    } finally {
-      setPendingUserMessage(null)
-      setPendingUserImageUrl(null)
     }
+    // No pending* state was set for analyze (in-place pattern), so
+    // no `finally` cleanup is needed. The optimistic placeholder is
+    // either patched (success) or removed (failure) inside the try
+    // / catch above.
   }
 
   const handleTitleIdeasSubmit = async (e) => {
@@ -3616,7 +3707,6 @@ export function ThumbnailGenerator({
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.32, ease: IOS_EASE }}
               >
-                <span className="coach-empty-state-kicker">Thumbnail Generator</span>
                 <h1>{emptyGreeting}</h1>
               </motion.div>
             )}
@@ -3680,12 +3770,18 @@ export function ThumbnailGenerator({
               {/* Loader picks from the LOCKED `pendingMode` (set at
                * submission time) so tab-switching doesn't change the
                * in-flight loader. Falls back to current `thumbMode` only
-               * for legacy paths that didn't capture a mode. */}
-              {(pendingMode || thumbMode) === 'analyze' ? (
-                <ThumbnailAnalyzeLoader imageUrl={pendingUserImageUrl} />
-              ) : (pendingMode || thumbMode) === 'titles' ? (
-                <TitlesLoader count={titleCount} />
-              ) : (
+               * for legacy paths that didn't capture a mode.
+               *
+               * `analyze` and `titles` are NOT branches here — they
+               * use the in-place pattern: the placeholder local message
+               * carries `_analyzePending` / `_titlesPending` and
+               * ChatMessageItem renders the loader inside the SAME
+               * card as the eventual result. Keeping them out of this
+               * sibling-loader block prevents the duplicate-render
+               * window where both the loader and the result were
+               * visible at once during the `finishLoading` 360 ms
+               * tail. */}
+              {(pendingMode || thumbMode) === 'titles' ? null : (
                 <div
                   className="thumb-gen-loader"
                   aria-busy="true"
