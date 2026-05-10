@@ -177,11 +177,19 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  signInWithGoogle: () => get()._startOAuth('google'),
+  signInWithGoogle: (intent) => get()._startOAuth('google', intent),
 
-  _startOAuth: async (provider) => {
+  _startOAuth: async (provider, intent) => {
     set({ isLoading: true, error: null })
     try {
+      // Persist whether the user came from the login or signup dialog
+      // so the post-redirect callback can re-mount the same dialog with
+      // a loading overlay (instead of a generic full-screen splash).
+      // Intent is read+cleared on the callback render in App.jsx.
+      if (intent === 'login' || intent === 'signup') {
+        const { setOAuthIntent } = await import('../lib/oauthClient')
+        setOAuthIntent(intent)
+      }
       const url = await buildAuthorizeUrl(provider)
       window.location.assign(url)
       return { ok: true }

@@ -23,6 +23,38 @@ const TOKENS_STORAGE_KEY = 'clixa_session'
 const PKCE_VERIFIER_KEY = 'clixa_oauth_pkce'
 const OAUTH_STATE_KEY = 'clixa_oauth_state'
 const OAUTH_PROVIDER_KEY = 'clixa_oauth_provider'
+// `'login'` or `'signup'` — captures which dialog the user was in when
+// they kicked off OAuth, so on the callback round-trip we can re-mount
+// the same dialog (with a loading overlay) instead of flashing a
+// generic full-screen splash.
+const OAUTH_INTENT_KEY = 'clixa_oauth_intent'
+
+export function setOAuthIntent(intent) {
+  try {
+    if (intent === 'login' || intent === 'signup') {
+      sessionStorage.setItem(OAUTH_INTENT_KEY, intent)
+    }
+  } catch {
+    /* sessionStorage may be unavailable */
+  }
+}
+
+export function readOAuthIntent() {
+  try {
+    const v = sessionStorage.getItem(OAUTH_INTENT_KEY)
+    return v === 'login' || v === 'signup' ? v : null
+  } catch {
+    return null
+  }
+}
+
+export function clearOAuthIntent() {
+  try {
+    sessionStorage.removeItem(OAUTH_INTENT_KEY)
+  } catch {
+    /* ignore */
+  }
+}
 
 // One-shot migration of the v1 brand keys ("scriptz_*"). Runs once at module
 // load: if the new key is empty but a legacy key exists, copy the value over
@@ -164,6 +196,10 @@ export async function consumeOAuthCallback() {
   sessionStorage.removeItem(PKCE_VERIFIER_KEY)
   sessionStorage.removeItem(OAUTH_STATE_KEY)
   sessionStorage.removeItem(OAUTH_PROVIDER_KEY)
+  // Intent is consumed by App.jsx on the callback render; clear it
+  // here so a subsequent regular open of the dialog (no OAuth) doesn't
+  // pick up a stale value.
+  sessionStorage.removeItem(OAUTH_INTENT_KEY)
   cleanupCallbackUrl(url)
 
   saveSession(session)
@@ -174,7 +210,7 @@ function cleanupCallbackUrl(url) {
   // OAuth callback debris from Google. Wipe everything we know is theirs —
   // `iss` (identity issuer claim), `hd` (hosted domain), and the rest —
   // so the URL bar reads cleanly after sign-in.
-  [
+  ;[
     'code',
     'state',
     'error',

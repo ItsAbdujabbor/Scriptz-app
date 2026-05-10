@@ -15,16 +15,16 @@
    outer shell is now <Dialog> (which has no opinion on tokens).
 ───────────────────────── */
 .auth-content {
-  --auth-text:      #f4f4f7;
-  --auth-text-2:    rgba(244, 244, 247, 0.62);
-  --auth-text-3:    rgba(244, 244, 247, 0.36);
-  --auth-line:      rgba(148, 163, 255, 0.10);
-  --auth-line-2:    rgba(148, 163, 255, 0.20);
-  --auth-indigo:    #6366f1;
-  --auth-indigo-2:  #818cf8;
-  --auth-violet:    #8b5cf6;
-  --auth-danger:    #f87171;
-  --auth-success:   #4ade80;
+  --auth-text: #f4f4f7;
+  --auth-text-2: rgba(244, 244, 247, 0.62);
+  --auth-text-3: rgba(244, 244, 247, 0.36);
+  --auth-line: rgba(148, 163, 255, 0.1);
+  --auth-line-2: rgba(148, 163, 255, 0.2);
+  --auth-indigo: #6366f1;
+  --auth-indigo-2: #818cf8;
+  --auth-violet: #8b5cf6;
+  --auth-danger: #f87171;
+  --auth-success: #4ade80;
 
   font-family: var(--font, 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
   -webkit-font-smoothing: antialiased;
@@ -103,11 +103,7 @@
       rgba(15, 13, 38, 0.65) 75%,
       rgba(20, 12, 56, 0.92) 100%
     ),
-    linear-gradient(
-      160deg,
-      rgba(30, 20, 88, 0.55) 0%,
-      rgba(76, 29, 149, 0.72) 100%
-    ),
+    linear-gradient(160deg, rgba(30, 20, 88, 0.55) 0%, rgba(76, 29, 149, 0.72) 100%),
     url('/landing1.png') center / cover no-repeat;
   isolation: isolate;
 }
@@ -127,7 +123,7 @@
   background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
   background-size: 18px 18px;
   -webkit-mask-image: radial-gradient(ellipse at 30% 60%, #000 0%, transparent 70%);
-          mask-image: radial-gradient(ellipse at 30% 60%, #000 0%, transparent 70%);
+  mask-image: radial-gradient(ellipse at 30% 60%, #000 0%, transparent 70%);
   pointer-events: none;
   z-index: 0;
 }
@@ -161,7 +157,6 @@
   );
   z-index: 1;
 }
-
 
 /* Brand row — circle-avatar logo + wordmark, top-left of the image
  * panel. The avatar is a clean circle with a 1px hairline ring and no
@@ -245,10 +240,9 @@
   font-style: normal;
   background: linear-gradient(110deg, #ffffff 0%, #c7d2fe 45%, #a5b4fc 100%);
   -webkit-background-clip: text;
-          background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
-
 
 /* ─────────────────────────
    AUTH CONTENT (right pane)
@@ -262,12 +256,7 @@
   flex-direction: column;
   padding: 2rem 1.75rem 1.5rem;
   text-align: center;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(30, 28, 56, 0.55) 0%,
-      rgba(20, 19, 38, 0.20) 100%
-    );
+  background: linear-gradient(180deg, rgba(30, 28, 56, 0.55) 0%, rgba(20, 19, 38, 0.2) 100%);
 }
 
 /* Middle group — head, alert, OAuth, help. Flex-grows and centers its
@@ -365,7 +354,7 @@
   justify-content: center;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: rgba(244, 244, 247, 0.65);
   cursor: pointer;
   font-family: inherit;
@@ -381,7 +370,7 @@
 .auth-dialog-close:hover {
   background: rgba(255, 255, 255, 0.12);
   color: rgba(244, 244, 247, 0.95);
-  border-color: rgba(255, 255, 255, 0.20);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .auth-dialog-close:active {
@@ -402,6 +391,82 @@
 }
 
 /* ─────────────────────────
+   OAUTH CALLBACK OVERLAY
+   Sits on top of the dialog body during the OAuth round-trip — the
+   user sees one continuous "in progress" surface from the moment
+   they click Google to the moment auth lands. No close X is rendered
+   while this is up so the dialog can't be dismissed mid-exchange.
+───────────────────────── */
+.auth-dialog-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  padding: 2rem;
+  text-align: center;
+  /* Solid panel, no blur — matches the user's preference for opaque
+   * surfaces over frosted glass. Slight inner top sheen so the
+   * surface doesn't read as a flat black square. */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 60%),
+    rgba(12, 10, 22, 0.985);
+  border-radius: inherit;
+  animation: auth-dialog-loading-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes auth-dialog-loading-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.auth-dialog-loading-spinner {
+  display: inline-block;
+  width: 38px;
+  height: 38px;
+  border: 2.5px solid rgba(255, 255, 255, 0.12);
+  border-top-color: #c4b5fd;
+  border-radius: 50%;
+  animation: auth-dialog-loading-spin 0.85s linear infinite;
+}
+
+@keyframes auth-dialog-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.auth-dialog-loading-label {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #f5f3ff;
+}
+
+.auth-dialog-loading-sub {
+  margin: 0;
+  font-size: 0.86rem;
+  color: rgba(229, 229, 231, 0.62);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-dialog-loading {
+    animation: none;
+  }
+  .auth-dialog-loading-spinner {
+    animation-duration: 1.6s;
+  }
+}
+
+/* ─────────────────────────
    HEAD (title + subtitle block)
 ───────────────────────── */
 .auth-card-head {
@@ -417,7 +482,7 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.35rem 0.85rem 0.35rem 0.7rem;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.16) 0%, rgba(139, 92, 246, 0.10) 100%);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.16) 0%, rgba(139, 92, 246, 0.1) 100%);
   border: 1px solid rgba(165, 180, 252, 0.32);
   border-radius: 9999px;
   font-size: 0.68rem;
@@ -439,8 +504,13 @@
 }
 
 @keyframes authPulse {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.45; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
 }
 
 .auth-title {
@@ -451,15 +521,9 @@
   margin: 0;
   /* Same vivid gradient as the landing hero h1 (.lin-h1-accent) so the
    * dialog feels like a continuation of the hero's brand voice. */
-  background: linear-gradient(
-    125deg,
-    #ffffff 0%,
-    #c4b5fd 38%,
-    #818cf8 68%,
-    #6366f1 100%
-  );
+  background: linear-gradient(125deg, #ffffff 0%, #c4b5fd 38%, #818cf8 68%, #6366f1 100%);
   -webkit-background-clip: text;
-          background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
 }
@@ -807,7 +871,9 @@
   font-family: inherit;
   font-size: inherit;
   padding: 0;
-  transition: color 0.18s ease, opacity 0.18s ease;
+  transition:
+    color 0.18s ease,
+    opacity 0.18s ease;
   position: relative;
 }
 
@@ -1029,10 +1095,18 @@
   transition: background 0.25s ease;
 }
 
-.ax-strength-seg.is-on-1 { background: #ef4444; }
-.ax-strength-seg.is-on-2 { background: #f59e0b; }
-.ax-strength-seg.is-on-3 { background: #84cc16; }
-.ax-strength-seg.is-on-4 { background: var(--auth-success); }
+.ax-strength-seg.is-on-1 {
+  background: #ef4444;
+}
+.ax-strength-seg.is-on-2 {
+  background: #f59e0b;
+}
+.ax-strength-seg.is-on-3 {
+  background: #84cc16;
+}
+.ax-strength-seg.is-on-4 {
+  background: var(--auth-success);
+}
 
 .ax-strength-label {
   font-size: 0.7rem;
@@ -1041,10 +1115,18 @@
   font-weight: 500;
 }
 
-.ax-strength-label.is-1 { color: #fca5a5; }
-.ax-strength-label.is-2 { color: #fcd34d; }
-.ax-strength-label.is-3 { color: #bef264; }
-.ax-strength-label.is-4 { color: #86efac; }
+.ax-strength-label.is-1 {
+  color: #fca5a5;
+}
+.ax-strength-label.is-2 {
+  color: #fcd34d;
+}
+.ax-strength-label.is-3 {
+  color: #bef264;
+}
+.ax-strength-label.is-4 {
+  color: #86efac;
+}
 
 /* ─────────────────────────
    META ROW (remember + forgot)
@@ -1096,7 +1178,9 @@
   background: var(--auth-indigo);
   opacity: 0;
   transform: scale(0.6);
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
 }
 
 .ax-checkbox input:checked ~ .ax-checkbox-box {
@@ -1288,7 +1372,9 @@
 }
 
 @keyframes axSpin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ─────────────────────────
@@ -1411,7 +1497,7 @@
 }
 
 .ax-icon-badge.is-danger {
-  background: linear-gradient(135deg, rgba(248, 113, 113, 0.20) 0%, rgba(220, 38, 38, 0.10) 100%);
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.2) 0%, rgba(220, 38, 38, 0.1) 100%);
   border-color: rgba(248, 113, 113, 0.32);
   color: #fecaca;
 }
@@ -1556,7 +1642,6 @@
     font-size: 0.88rem;
   }
 }
-
 
 /* ─────────────────────────
    REDUCED MOTION
