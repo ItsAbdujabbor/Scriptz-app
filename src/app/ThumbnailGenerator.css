@@ -4876,61 +4876,6 @@
   margin-bottom: 0;
 }
 
-/* Sample-prompt chips below the empty-state headline. Sit on a
- * centered flex-wrap row; click pre-fills the composer + focuses it.
- * Quiet glass styling matches the rest of the chrome. */
-.thumb-empty-state__samples {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.45rem;
-  margin-top: 0.9rem;
-  max-width: 36rem;
-}
-
-.thumb-empty-state__sample {
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: rgba(229, 231, 235, 0.82);
-  padding: 0.42rem 0.95rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 100%),
-    rgba(20, 18, 28, 0.55);
-  cursor: pointer;
-  white-space: nowrap;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease,
-    transform 0.12s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.thumb-empty-state__sample:hover {
-  background:
-    linear-gradient(180deg, rgba(167, 139, 250, 0.15) 0%, rgba(167, 139, 250, 0.05) 100%),
-    rgba(20, 18, 28, 0.65);
-  border-color: rgba(196, 181, 253, 0.42);
-  color: #ffffff;
-}
-
-.thumb-empty-state__sample:active {
-  transform: scale(0.97);
-}
-
-@media (max-width: 480px) {
-  .thumb-empty-state__samples {
-    max-width: 100%;
-    margin-top: 0.7rem;
-  }
-  .thumb-empty-state__sample {
-    font-size: 0.74rem;
-    padding: 0.38rem 0.85rem;
-  }
-}
-
 /* Jump-to-latest pill — floats in the bottom-right corner of the
  * chat shell, visible when the user has scrolled UP and the latest
  * message is well off-screen. Sits above the composer (the composer

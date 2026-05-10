@@ -111,20 +111,6 @@ const THUMB_COMPOSER_HINTS = [
   'Split before/after of a messy room and a clean room with arrow, high-contrast lighting, bold green title “EXTREME CLEAN”',
 ]
 
-// Short, scannable example chips for the empty-state. These sit below
-// the headline and pre-fill the composer when clicked. Six is enough
-// to cover common channel types without overwhelming a first-time
-// user. Keep them under ~40 chars so they fit a single chip line at
-// any viewport width.
-const THUMB_EMPTY_SAMPLES = [
-  'Shocked face with stacks of cash',
-  'Tech unboxing on neon backdrop',
-  'Fitness transformation before/after',
-  'Cinematic gaming hero shot',
-  'Cooking close-up with steam',
-  'Travel vlog at sunset',
-]
-
 /* ─────────────────────────────────────────────────────────────────────
  * ICON WRAPPERS — thin pass-throughs over `lucide-react` so the rest of
  * the file keeps using `<IconPaperclip />`, `<IconArrowUp />`, etc.
@@ -3450,24 +3436,6 @@ export function ThumbnailGenerator({
             >
               <span className="coach-empty-state-kicker">Thumbnail Generator</span>
               <h1>What thumbnail do you need?</h1>
-              {/* Sample-prompt chips. Click → pre-fill the composer +
-               * focus the textarea. Quick on-ramp for first-time users
-               * who don't know what to type. */}
-              <div className="thumb-empty-state__samples" role="group" aria-label="Example prompts">
-                {THUMB_EMPTY_SAMPLES.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    className="thumb-empty-state__sample"
-                    onClick={() => {
-                      setDraft(s)
-                      setTimeout(() => textareaRef.current?.focus(), 0)
-                    }}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
             </motion.div>
           )}
 
