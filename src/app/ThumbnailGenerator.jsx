@@ -52,6 +52,7 @@ import { toast } from '../lib/toast'
 import { friendlyTitleFor, parseApiError } from '../lib/errorMessages'
 import FailedGenerationCard from '../components/FailedGenerationCard'
 import { canvasToBase64Png } from '../lib/canvasToBase64'
+import { queryKeys } from '../lib/query/queryKeys'
 import './ThumbnailGenerator.css'
 
 // Source-type options for the Recreate / Analyze / Edit tabbars. Icons
@@ -2463,48 +2464,79 @@ export function ThumbnailGenerator({
    * case we can't commit the user message locally, so we let the next
    * conversation refetch fill it in.
    */
-  const commitServerChatPair = useCallback((result, fallbackUserText) => {
-    if (!result) return
-    const thumbnails = result.thumbnails || []
-    const userRecord = result.user_message
-      ? {
-          id: result.user_message.id,
-          role: 'user',
-          content: result.user_message.content,
-          imageUrl: null,
-          userRequest: '',
-          thumbnails: [],
-        }
-      : null
-    const assistantRecord = result.assistant_message
-      ? {
-          id: result.assistant_message.id,
-          role: 'assistant',
-          content: result.assistant_message.content || '',
-          thumbnails,
-          imageUrl: result.assistant_message.extra_data?.image_url || null,
-          userRequest: result.assistant_message.extra_data?.user_request || fallbackUserText || '',
-        }
-      : result.message_id != null
+  const commitServerChatPair = useCallback(
+    (result, fallbackUserText, conversationIdHint) => {
+      if (!result) return
+      const thumbnails = result.thumbnails || []
+      const userRecord = result.user_message
         ? {
-            id: result.message_id,
-            role: 'assistant',
-            content: thumbnails.length > 0 ? '' : result.content || '',
-            thumbnails,
+            id: result.user_message.id,
+            role: 'user',
+            content: result.user_message.content,
             imageUrl: null,
-            userRequest: result.user_request || fallbackUserText || '',
+            userRequest: '',
+            thumbnails: [],
           }
         : null
+      const assistantRecord = result.assistant_message
+        ? {
+            id: result.assistant_message.id,
+            role: 'assistant',
+            content: result.assistant_message.content || '',
+            thumbnails,
+            imageUrl: result.assistant_message.extra_data?.image_url || null,
+            userRequest:
+              result.assistant_message.extra_data?.user_request || fallbackUserText || '',
+          }
+        : result.message_id != null
+          ? {
+              id: result.message_id,
+              role: 'assistant',
+              content: thumbnails.length > 0 ? '' : result.content || '',
+              thumbnails,
+              imageUrl: null,
+              userRequest: result.user_request || fallbackUserText || '',
+            }
+          : null
 
-    setMessages((prev) => {
-      const knownIds = new Set(prev.map((m) => m.id))
-      const additions = []
-      if (userRecord && !knownIds.has(userRecord.id)) additions.push(userRecord)
-      if (assistantRecord && !knownIds.has(assistantRecord.id)) additions.push(assistantRecord)
-      if (additions.length === 0) return prev
-      return sortByServerId([...prev, ...additions])
-    })
-  }, [])
+      setMessages((prev) => {
+        const knownIds = new Set(prev.map((m) => m.id))
+        const additions = []
+        if (userRecord && !knownIds.has(userRecord.id)) additions.push(userRecord)
+        if (assistantRecord && !knownIds.has(assistantRecord.id)) additions.push(assistantRecord)
+        if (additions.length === 0) return prev
+        return sortByServerId([...prev, ...additions])
+      })
+
+      // Mirror the new pair into the React Query conversation cache so a
+      // navigate-away → navigate-back round trip serves the FRESH state
+      // (the cache has a 5-minute staleTime, so without this the user
+      // would briefly see the pre-message version of the chat on
+      // re-entry, then watch it pop into place when refetch lands).
+      const convId =
+        result.user_message?.conversation_id || result.conversation_id || conversationIdHint
+      if (convId != null) {
+        queryClient.setQueryData(queryKeys.thumbnails.conversation(convId), (prev) => {
+          if (!prev) return prev
+          const items = prev.messages?.items || []
+          const knownIds = new Set(items.map((m) => m?.id))
+          const newItems = []
+          if (result.user_message && !knownIds.has(result.user_message.id)) {
+            newItems.push(result.user_message)
+          }
+          if (result.assistant_message && !knownIds.has(result.assistant_message.id)) {
+            newItems.push(result.assistant_message)
+          }
+          if (newItems.length === 0) return prev
+          return {
+            ...prev,
+            messages: { ...(prev.messages || {}), items: [...items, ...newItems] },
+          }
+        })
+      }
+    },
+    [queryClient]
+  )
 
   // ×-click handler with shrink-back animation. The CSS rule for
   // `.thumb-attach-pill--closing` swaps the in-keyframe for the out-
@@ -2584,7 +2616,7 @@ export function ThumbnailGenerator({
         // dedupe needed — the next conversation refetch will return the
         // same records and wholesale-replace `messages` with the same
         // content.
-        commitServerChatPair(result, combined)
+        commitServerChatPair(result, combined, activeConversationId)
       }
       finishLoading()
       // Generation succeeded — if the user is still on this conversation,
@@ -2713,6 +2745,17 @@ export function ThumbnailGenerator({
           queryKey: ['thumbnails', 'conversations'],
           exact: false,
         })
+        // Also invalidate the SPECIFIC conversation's detail cache so
+        // the next navigate-back fetches the fresh history including
+        // this just-persisted event (without this the 5-minute
+        // staleTime would serve a stale version that doesn't include
+        // the new recreate / analyze / titles / edit message).
+        const convIdForCache = newId ?? conversationId
+        if (convIdForCache != null) {
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.thumbnails.conversation(convIdForCache),
+          })
+        }
       } catch (err) {
         if (typeof console !== 'undefined') {
           console.warn('[thumbnail] persistEvent failed:', kind, err)
@@ -2767,7 +2810,7 @@ export function ThumbnailGenerator({
         // Commit the server-canonical pair atomically — same path as the
         // primary submit handler. No more local id minting, no merge
         // dance with the next refetch.
-        commitServerChatPair(result, userRequest)
+        commitServerChatPair(result, userRequest, conversationId)
         finishLoading()
       } catch (err) {
         const { code, message } = parseApiError(err, 'Regeneration failed')
