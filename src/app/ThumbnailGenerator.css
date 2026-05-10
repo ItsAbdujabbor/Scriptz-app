@@ -1525,11 +1525,12 @@
 }
 
 /* Heading: kill the default `margin: auto` (which would still try to
- * absorb extra space inside the now-shrunk thread) and add a tight
- * 1rem gutter below so the heading + bar read as one grouped block. */
+ * absorb extra space inside the now-shrunk thread) and add a more
+ * generous gutter below so the greeting visually breathes apart from
+ * the composer pill instead of sticking to it. */
 .coach-chat-shell--thumb-empty .thumb-empty-state {
   margin: 0 auto !important;
-  padding: 0 0 1rem !important;
+  padding: 0 0 2.5rem !important;
 }
 
 .thumb-gen-footer-error {
@@ -4872,8 +4873,18 @@
 }
 
 .thumb-empty-state h1 {
-  font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+  /* Single line, always — even on narrow phones. The lower clamp
+   * bound + viewport-sized middle term scales the type down with
+   * the screen so a 32-char greeting still fits at 320 px width
+   * without wrapping or horizontal overflow. `nowrap` enforces it
+   * if the user picks a longer phrase; `text-overflow: ellipsis`
+   * is a safety net for truly extreme cases. */
+  font-size: clamp(1.1rem, 4.4vw, 2.2rem);
   margin-bottom: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 /* Jump-to-latest pill — floats in the bottom-right corner of the

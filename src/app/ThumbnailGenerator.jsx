@@ -102,6 +102,21 @@ const SRC_OPTIONS_URL = [
 // available width, line 2 picks up the rest. No hardcoded `\n`: the
 // shape is now driven by the textarea's actual width, which makes the
 // hint read the same on desktop, tablet, and mobile.
+// Greetings shown above the composer on the empty thumbnail screen.
+// One is picked at random per page load so a returning user gets a
+// little variety. All under ~32 chars so they fit on a single line
+// at the responsive font size we use for the headline (no wrapping
+// allowed — `white-space: nowrap` on the `h1` enforces it).
+const THUMB_EMPTY_GREETINGS = [
+  'What thumbnail do you need?',
+  'What are we creating today?',
+  "What's the next viral idea?",
+  "Let's build your next hit.",
+  'Time to make something clickable.',
+  'Got a video to dress up?',
+  "What's catching eyes today?",
+]
+
 const THUMB_COMPOSER_HINTS = [
   'A smiling explorer on a misty mountain peak at golden hour, bold yellow Impact title “I SURVIVED 7 DAYS”, dramatic backlight',
   'Shocked face next to a huge pile of cash with red glow accents, thick white outline, bold red title “I WON $1,000,000?!”',
@@ -1784,6 +1799,15 @@ export function ThumbnailGenerator({
   const recreateTextareaRef = useRef(null)
   const editFileInputRef = useRef(null)
   const modePaneRef = useRef(null)
+  // Greeting shown above the composer on the empty thumbnail screen.
+  // Picked ONCE at mount via lazy useState init so it's stable for
+  // this session — re-randomises only when the user does a hard
+  // refresh / new tab (per spec: "must change when the user refreshes
+  // the screen"). Not stored in any persistent state.
+  const [emptyGreeting] = useState(
+    () => THUMB_EMPTY_GREETINGS[Math.floor(Math.random() * THUMB_EMPTY_GREETINGS.length)]
+  )
+
   // Whether the user has scrolled past the very top of the chat thread.
   // Drives a `.coach-chat-shell--scrolled` modifier class on the chat
   // shell so the floating header trio (model picker, plan callout,
@@ -3435,7 +3459,7 @@ export function ThumbnailGenerator({
               transition={{ duration: 0.5, ease: IOS_EASE, delay: 0.12 }}
             >
               <span className="coach-empty-state-kicker">Thumbnail Generator</span>
-              <h1>What thumbnail do you need?</h1>
+              <h1>{emptyGreeting}</h1>
             </motion.div>
           )}
 
