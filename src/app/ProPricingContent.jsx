@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
-import { getPlans, startCheckout, changePlan } from '../api/billing'
+import { getPlans, startCheckout, changePlan, skipTrial } from '../api/billing'
 import { preloadPaddle } from '../lib/paddle'
 import { useSubscriptionQuery, refreshBillingState } from '../queries/billing/creditsQueries'
 import { celebrate } from '../lib/celebrate'
@@ -380,6 +380,7 @@ export function ProPricingContent({ onStartTrial }) {
         </p>
 
         <ActivatingProStrip hasActiveSub={hasActiveSub} />
+        <TrialActiveStrip subscription={subscription} />
 
         {checkoutError ? (
           <p role="alert" className="pro-checkout-error">
@@ -517,6 +518,70 @@ function ActivatingProStrip({ hasActiveSub }) {
     <div className="pro-activating" role="status" aria-live="polite">
       <span className="pro-activating-spinner" aria-hidden="true" />
       <span>Finalizing your payment — Pro will unlock in a few seconds…</span>
+    </div>
+  )
+}
+
+/**
+ * Surfaces the Skip-Trial CTA inline at the top of the Pro pricing
+ * screen while the user is on a free trial. Same backend mutation
+ * BillingSettingsPanel uses (`POST /api/billing/skip-trial`) — billing
+ * gets charged today, full plan credits land instantly. The button
+ * disappears the moment the mutation resolves so the user isn't
+ * tempted to click twice while the subscription query refetches.
+ */
+function TrialActiveStrip({ subscription }) {
+  const queryClient = useQueryClient()
+  const { getValidAccessToken } = useAuthStore()
+  const [errMsg, setErrMsg] = useState(null)
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      const token = await getValidAccessToken()
+      return skipTrial(token)
+    },
+    onSuccess: () => {
+      setErrMsg(null)
+      // Refresh both subscription + credits so the UI flips out of
+      // trial state immediately without waiting for the polling cycle.
+      refreshBillingState(queryClient)
+    },
+    onError: (err) =>
+      setErrMsg(friendlyMessage(err) || 'Could not end the trial. Please try again.'),
+  })
+
+  if (!subscription?.is_trial || mut.isSuccess) return null
+  const planName = subscription.plan_name || subscription.tier || 'Pro'
+
+  return (
+    <div className="pro-trial-strip" role="status" aria-live="polite">
+      <div className="pro-trial-strip__body">
+        <strong className="pro-trial-strip__title">You're on a free trial of {planName}</strong>
+        <span className="pro-trial-strip__sub">
+          Skip the trial to unlock the full plan now — your card is charged today and all your
+          monthly credits are added instantly.
+        </span>
+      </div>
+      <button
+        type="button"
+        className="pro-trial-strip__cta"
+        onClick={() => mut.mutate()}
+        disabled={mut.isPending}
+      >
+        {mut.isPending ? (
+          <>
+            <span className="pro-trial-strip__spinner" aria-hidden="true" />
+            Processing…
+          </>
+        ) : (
+          'Skip trial — pay now'
+        )}
+      </button>
+      {errMsg ? (
+        <p className="pro-trial-strip__error" role="alert">
+          {errMsg}
+        </p>
+      ) : null}
     </div>
   )
 }
