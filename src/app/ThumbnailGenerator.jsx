@@ -1091,12 +1091,12 @@ const ThumbnailGenFill = memo(function ThumbnailGenFill({
     return () => cancelAnimationFrame(rafRef.current)
   }, [estimatedDurationMs, livePct])
 
-  // On `done` flip, smoothly animate from the current pct → 100 over
-  // ~280 ms (easeOut), instead of snapping in a single frame. The
-  // parent's finishLoading() holds the loader on screen for 360 ms,
-  // so the fill completes naturally and rests at 100 % for ~80 ms
-  // before the article unmounts and the real thumbnail card animates
-  // in via `thumb-assistant-msg-in`. Total handoff feels snappy.
+  // On `done` flip, the parent's `finishLoading` now drops
+  // `pendingAssistant` immediately (single-frame swap with the result
+  // card) so this branch effectively never plays — the article is
+  // unmounted on the same commit. Kept for safety: if a future caller
+  // sets `done` without unmounting, the bar still tweens to 100 over
+  // ~280 ms instead of snapping.
   useEffect(() => {
     if (!done) return
     doneRef.current = true
@@ -2409,19 +2409,22 @@ export function ThumbnailGenerator({
     return () => ro.disconnect()
   }, [thumbMode])
 
-  // Call on successful API completion. Flips `pendingDone` (which the
-  // <ThumbnailGenFill /> component picks up to smoothly tween the bar
-  // from its current pct → 100 over ~280 ms), then unmounts the loader
-  // ~80 ms after the fill animation finishes so the new thumbnail card
-  // can take over. Total handoff: ~360 ms — fast but not jumpy.
+  // Call on successful API completion. Drops the loader IMMEDIATELY
+  // — no 360 ms "fill bar tweens to 100%" tail. The result card is
+  // already in `messages` (committed by `commitServerChatPair`), so
+  // any extra time on the loader meant the user saw the loader AND
+  // the result simultaneously. That read as "loading is still
+  // running after the message completed" — the exact bug the user
+  // reported. Loader unmount happens on the same React commit as
+  // the result mount, so the handoff is a single-frame swap with
+  // no overlap.
   const finishLoading = useCallback(() => {
-    if (finishLoadingRef.current) clearTimeout(finishLoadingRef.current)
-    setPendingDone(true)
-    finishLoadingRef.current = setTimeout(() => {
-      setPendingAssistant(false)
-      setPendingDone(false)
+    if (finishLoadingRef.current) {
+      clearTimeout(finishLoadingRef.current)
       finishLoadingRef.current = null
-    }, 360)
+    }
+    setPendingAssistant(false)
+    setPendingDone(false)
   }, [])
 
   // Textarea auto-resize — SIMPLE version. `height: auto` measures the
