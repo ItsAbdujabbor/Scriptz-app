@@ -7,9 +7,11 @@ import './Splash.css'
  * out once `ready` is true (with a short minimum duration so it doesn't
  * flash for cached / instant-resolve users).
  *
- * Caller passes `ready={true}` once it's ok to reveal the underlying
- * view; `onDone` fires after the fade-out completes so the caller can
- * stop rendering the splash entirely.
+ * Visual: solid dark surface, centered brand mark + label, a single
+ * thin indeterminate progress bar. No glow, no dot grid, no bouncing
+ * dots — deliberately understated so the splash reads as "the app is
+ * loading" instead of "I'm a marketing screen". Matches the style of
+ * `AuthSuccessSplash` for brand consistency across boot ↔ auth-landing.
  */
 export function Splash({ ready = false, onDone, label, minDurationMs = 700 }) {
   const [exiting, setExiting] = useState(false)
@@ -21,7 +23,7 @@ export function Splash({ ready = false, onDone, label, minDurationMs = 700 }) {
     const wait = Math.max(0, minDurationMs - elapsed)
     const start = window.setTimeout(() => {
       setExiting(true)
-      const finish = window.setTimeout(() => onDone?.(), 360)
+      const finish = window.setTimeout(() => onDone?.(), 320)
       return () => window.clearTimeout(finish)
     }, wait)
     return () => window.clearTimeout(start)
@@ -29,17 +31,13 @@ export function Splash({ ready = false, onDone, label, minDurationMs = 700 }) {
 
   return (
     <div className={`splash${exiting ? ' splash--exiting' : ''}`} role="status" aria-live="polite">
-      <div className="splash-glow" aria-hidden />
-      <div className="splash-grid" aria-hidden />
-      <div className="splash-inner">
-        <div className="splash-brand">
-          <img src="/clixalogo.jpg" alt="" className="splash-logo" />
-          <span className="splash-wordmark">Clixa AI</span>
+      <div className="splash__inner">
+        <div className="splash__brand">
+          <img src="/clixalogo.jpg" alt="" className="splash__logo" />
+          <span className="splash__wordmark">Clixa AI</span>
         </div>
-        <p className="splash-tagline">{label || 'Setting up your workspace'}</p>
-        <div className="splash-dots" aria-hidden>
-          <span /><span /><span />
-        </div>
+        <p className="splash__label">{label || 'Setting up your workspace'}</p>
+        <span className="splash__bar" aria-hidden="true" />
       </div>
     </div>
   )
