@@ -1986,7 +1986,23 @@ export function ThumbnailGenerator({
   const conversationQuery = useThumbnailConversationQuery(conversationId, {
     pollWhilePending: isCurrentConversationPending,
   })
-  const chatMutation = useThumbnailChatMutation(onConversationCreated)
+  // Conversations the client minted in this mount (via send-first-message,
+  // persistEvent auto-create, or the chat mutation's auto-create). For these
+  // we KNOW the only server content is what we just wrote — the post-create
+  // refetch has nothing the user is waiting to see, so the "Loading
+  // conversation…" skeleton in the message list would always read as a
+  // false-flash. We suppress it for any id in this set, which removes the
+  // race between `pendingAssistant` / `localOnlyMessages` flipping and
+  // `conversationId` updating via the async hashchange event.
+  const locallyCreatedConvIdsRef = useRef(new Set())
+  const handleConversationCreated = useCallback(
+    (id) => {
+      if (id != null) locallyCreatedConvIdsRef.current.add(Number(id))
+      onConversationCreated?.(id)
+    },
+    [onConversationCreated]
+  )
+  const chatMutation = useThumbnailChatMutation(handleConversationCreated)
   const createConversationMutation = useCreateThumbnailConversationMutation()
   const loadOlderMutation = useLoadOlderThumbnailMessagesMutation()
   const hasMoreOlder = Boolean(conversationQuery.data?.messages?.has_more)
@@ -2066,7 +2082,7 @@ export function ThumbnailGenerator({
         })
         const id = conv?.id
         if (id != null) {
-          onConversationCreated?.(id)
+          handleConversationCreated(id)
           startPending(id)
         }
         return id
@@ -2078,7 +2094,7 @@ export function ThumbnailGenerator({
         return null
       }
     },
-    [channelId, createConversationMutation, onConversationCreated, startPending]
+    [channelId, createConversationMutation, handleConversationCreated, startPending]
   )
 
   useEffect(() => {
@@ -2251,11 +2267,10 @@ export function ThumbnailGenerator({
   // time. The user is mid-flow with an optimistic local message
   // already on screen; wiping `localOnlyMessages` here would cause
   // the message to disappear briefly until the server-canonical
-  // version lands via the cache, AND would let
-  // `isHistoryLoading` flip true (renderedMessages emptied →
-  // ChatHistorySkeleton "Loading conversation…" flashes fullscreen).
-  // That's the architectural root cause of the post-first-message
-  // loader the user reported.
+  // version lands via the cache. The ChatHistorySkeleton suppression
+  // for locally-created conversations (see `isLocallyCreatedConversation`
+  // below) is what guarantees the post-first-message refetch never
+  // flashes a fullscreen "Loading conversation…" loader.
   const prevConversationIdRef = useRef(conversationId)
   useEffect(() => {
     const prev = prevConversationIdRef.current
@@ -2289,28 +2304,31 @@ export function ThumbnailGenerator({
   }, [isCurrentConversationPending, conversationQuery.data, conversationId, clearPending, markSeen])
 
   // The skeleton ("Loading conversation…") is for FIRST-OPEN of an
-  // existing conversation only — the case where we're navigating to a
-  // chat that has server messages we haven't fetched yet. ANY of the
-  // following means the user is already seeing relevant content and
-  // a fullscreen "Loading conversation" overlay would read as a
-  // page reset:
+  // EXISTING conversation only — the case where we're navigating to a
+  // chat that has server messages we haven't fetched yet. We suppress
+  // it whenever any of these are true:
   //
-  //   * `pendingAssistant` — chat (prompt / recreate) submit is in
-  //     flight; the in-flight bubble + loader live INSIDE the local
-  //     placeholder so `localOnlyMessages.length > 0` already covers
-  //     this, but we keep the flag for belt-and-suspenders.
-  //   * `localOnlyMessages.length > 0` — analyze / titles / edit /
-  //     failure cards AND the in-flight prompt placeholder all live
-  //     here. This is the case during first-message creation when
-  //     persistEvent's auto-create flips `conversationId` from null
-  //     → N — the conversation query refetches, but our optimistic
-  //     content is already on screen and must NOT be hidden by a
-  //     fullscreen skeleton.
+  //   * `pendingAssistant` / `localOnlyMessages.length > 0` — the user
+  //     already has visible local content (in-flight prompt placeholder,
+  //     analyze / titles / edit / failure cards) and a fullscreen
+  //     skeleton would read as a page reset.
+  //   * The current `conversationId` was minted by THIS client during
+  //     this mount (send-first-message, persistEvent / chat auto-create).
+  //     The post-create refetch has nothing the user is waiting to see,
+  //     so the skeleton would always be a false-flash. Tracking this
+  //     explicitly via `locallyCreatedConvIdsRef` removes the race
+  //     between local-state flips and the async hashchange that updates
+  //     `conversationId` — the ref is populated synchronously in the
+  //     same call that triggers the hash update, so by the time
+  //     `conversationId` flips here it is already in the set.
   const hasInFlightOrLocalContent = pendingAssistant || localOnlyMessages.length > 0
+  const isLocallyCreatedConversation =
+    conversationId != null && locallyCreatedConvIdsRef.current.has(Number(conversationId))
   const isHistoryLoading =
     conversationId != null &&
     (conversationQuery.isPending || conversationQuery.isPlaceholderData) &&
-    !hasInFlightOrLocalContent
+    !hasInFlightOrLocalContent &&
+    !isLocallyCreatedConversation
   // Combined render list: server-canonical chat thread first (sorted by
   // numeric server id), then local-only recreate / analyze results
   // appended in the order they happened. The two buckets never overlap
@@ -2817,7 +2835,7 @@ export function ThumbnailGenerator({
         })
         const newConvId = res?.conversation_id
         if (newConvId != null && newConvId !== conversationId) {
-          onConversationCreated?.(newConvId)
+          handleConversationCreated(newConvId)
         }
         // Mirror into the React Query conversation cache so a
         // navigate-away → back round-trip serves the fresh failure
@@ -2870,7 +2888,7 @@ export function ThumbnailGenerator({
       }
       return localEntry
     },
-    [channelId, conversationId, onConversationCreated, queryClient]
+    [channelId, conversationId, handleConversationCreated, queryClient]
   )
 
   // Retry a previously-failed generation. Removes the failure card from
@@ -3132,7 +3150,7 @@ export function ThumbnailGenerator({
         })
         const newId = res?.conversation_id
         if (newId != null && newId !== conversationId) {
-          onConversationCreated?.(newId)
+          handleConversationCreated(newId)
         }
         // Refresh the sidebar so the new chat row appears (and the
         // background-renamed title eventually fades in). The actual
@@ -3159,7 +3177,7 @@ export function ThumbnailGenerator({
         return null
       }
     },
-    [channelId, conversationId, onConversationCreated, queryClient]
+    [channelId, conversationId, handleConversationCreated, queryClient]
   )
 
   const handleUseTitleAsPrompt = useCallback(
@@ -3654,7 +3672,7 @@ export function ThumbnailGenerator({
         </defs>
       </svg>
       <motion.section
-        className={`coach-chat-shell${isScrolled ? ' coach-chat-shell--scrolled' : ''}`}
+        className={`coach-chat-shell${isScrolled ? ' coach-chat-shell--scrolled' : ''}${isEmptyScreen ? ' coach-chat-shell--empty' : ''}`}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.42, ease: IOS_EASE }}
@@ -3692,20 +3710,20 @@ export function ThumbnailGenerator({
             </div>
           ) : null}
 
-          <AnimatePresence>
-            {isEmptyScreen && (
-              <motion.div
-                key="thumb-empty-state"
-                className="coach-empty-state thumb-empty-state"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.32, ease: IOS_EASE }}
-              >
-                <h1>{emptyGreeting}</h1>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* Empty greeting: render plain, no enter/exit animation. The
+           * previous AnimatePresence wrapper played a 320ms opacity + y
+           * exit when the user submitted, which kept the greeting in the
+           * DOM alongside the new local message bubble for a third of a
+           * second — visually reading as a brief "thumbnail generator
+           * screen" flash before the chat settled. Removing the
+           * animation makes the transition instant: the moment local
+           * content lands, the greeting is gone and the bubble is in
+           * its natural list position. */}
+          {isEmptyScreen && (
+            <div className="coach-empty-state thumb-empty-state">
+              <h1>{emptyGreeting}</h1>
+            </div>
+          )}
 
           {/* Top sentinel — when this enters the viewport we fetch the
               next older-page of messages. Only attached when more

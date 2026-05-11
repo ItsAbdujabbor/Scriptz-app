@@ -9,6 +9,8 @@ import {
 import { authApi } from '../api/auth'
 import { userApi } from '../api/user'
 import { resetClientCachesForUserChange, LAST_AUTH_USER_ID_KEY } from '../lib/sessionReset'
+import { rumSetUser, rumClearUser } from '../lib/rum'
+import { identify, track } from '../lib/analytics'
 
 let ensureSessionInFlight = null
 let accessTokenInFlight = null
@@ -62,10 +64,19 @@ export const useAuthStore = create((set, get) => ({
       get()._stopProactiveRefresh()
       touchLastUserId(null)
       set({ user: null, accessToken: null, refreshToken: null, expiresAt: null })
+      rumClearUser()
       return
     }
     const user = mapUser(session.user)
-    touchLastUserId(user?.id ?? null)
+    // Only stamp the last-user-id when we actually got a user payload.
+    // Passing null here would call `touchLastUserId(null)`, which (if a
+    // previous id is on disk) triggers `resetClientCachesForUserChange()`
+    // — and THAT wipes the just-written session token. Tokens-without-user
+    // is a rare backend edge case; treat it as "keep the current
+    // last-user-id intact" instead of as a logout.
+    if (user?.id) {
+      touchLastUserId(user.id)
+    }
     set({
       user,
       accessToken: session.accessToken,
@@ -73,6 +84,14 @@ export const useAuthStore = create((set, get) => ({
       expiresAt: session.expiresAt,
       error: null,
     })
+    if (user) {
+      rumSetUser(user)
+      identify(user)
+      // Client-side login signal. The backend will also emit a server-side
+      // signup/login event from auth_oauth — that one is authoritative; this
+      // one just keeps the session_id stitched to the user_id on the client.
+      track('client_session_authenticated', { user_id: user.id })
+    }
     get()._startProactiveRefresh()
   },
 
@@ -81,6 +100,9 @@ export const useAuthStore = create((set, get) => ({
     clearSession()
     touchLastUserId(null)
     set({ user: null, accessToken: null, refreshToken: null, expiresAt: null, error: null })
+    rumClearUser()
+    identify(null)
+    track('client_session_cleared')
   },
 
   clearError() {
@@ -182,13 +204,17 @@ export const useAuthStore = create((set, get) => ({
   _startOAuth: async (provider, intent) => {
     set({ isLoading: true, error: null })
     try {
-      // Persist whether the user came from the login or signup dialog
-      // so the post-redirect callback can re-mount the same dialog with
-      // a loading overlay (instead of a generic full-screen splash).
-      // Intent is read+cleared on the callback render in App.jsx.
-      if (intent === 'login' || intent === 'signup') {
+      // Persist that an auth dialog was open before the OAuth redirect, so
+      // the post-redirect callback re-mounts the dialog with a loading
+      // overlay (instead of a generic full-screen splash). The exact intent
+      // string doesn't matter to App.jsx — it just checks for *any* value
+      // under this key — so we accept 'signin' (unified dialog) as well as
+      // the legacy 'login' / 'signup' values.
+      if (intent === 'signin' || intent === 'login' || intent === 'signup') {
         const { setOAuthIntent } = await import('../lib/oauthClient')
-        setOAuthIntent(intent)
+        // setOAuthIntent only stores 'login' | 'signup'; normalize 'signin'
+        // to 'signup' (welcome-splash defaults are friendly to new users).
+        setOAuthIntent(intent === 'signin' ? 'signup' : intent)
       }
       const url = await buildAuthorizeUrl(provider)
       window.location.assign(url)

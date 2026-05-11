@@ -22,16 +22,8 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { motion, AnimatePresence } from 'framer-motion'
-import {
-  ArrowLeft,
-  Lock,
-  ShieldCheck,
-  RotateCw,
-  CheckCircle2,
-  Sparkles,
-  Info,
-} from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
+import { ArrowLeft, Lock, ShieldCheck, RotateCw, CheckCircle2, Sparkles, Info } from 'lucide-react'
 import { openPaddleInlineCheckout } from '../lib/paddle'
 import { refreshBillingState } from '../queries/billing/creditsQueries'
 import { queryKeys } from '../lib/query/queryKeys'
@@ -64,7 +56,7 @@ function clearSession() {
 
 export function CheckoutScreen({ onClose }) {
   const queryClient = useQueryClient()
-  const session = useMemo(readSession, [])
+  const session = useMemo(() => readSession(), [])
 
   const [status, setStatus] = useState('idle')
   // 'idle' | 'mounting' | 'ready' | 'completed' | 'error'
@@ -97,9 +89,7 @@ export function CheckoutScreen({ onClose }) {
     const loadTimeout = window.setTimeout(() => {
       if (cancelled) return
       setStatus((prev) => (prev === 'ready' || prev === 'completed' ? prev : 'error'))
-      setError(
-        'Checkout took too long to load. Check your connection and try again.'
-      )
+      setError('Checkout took too long to load. Check your connection and try again.')
     }, LOAD_TIMEOUT_MS)
 
     openPaddleInlineCheckout({
@@ -172,8 +162,7 @@ export function CheckoutScreen({ onClose }) {
             // purchases; this branch covers the unusual path of buying
             // a pack via the full CheckoutScreen flow.)
             queryClient.setQueryData(queryKeys.billing.credits, (current) => {
-              const permanent =
-                Number(current?.permanent_credits || 0) + completed.expectedCredits
+              const permanent = Number(current?.permanent_credits || 0) + completed.expectedCredits
               const sub = Number(current?.subscription_credits || 0)
               return {
                 ...(current || {}),
@@ -204,7 +193,7 @@ export function CheckoutScreen({ onClose }) {
         } else if (name === 'checkout.error' || name === 'checkout.failed') {
           window.clearTimeout(readyFallback)
           window.clearTimeout(loadTimeout)
-          // eslint-disable-next-line no-console
+
           console.error('[Paddle] checkout.error payload:', ev)
           setStatus('error')
           setError(
@@ -220,7 +209,7 @@ export function CheckoutScreen({ onClose }) {
       if (cancelled) return
       window.clearTimeout(readyFallback)
       window.clearTimeout(loadTimeout)
-      // eslint-disable-next-line no-console
+
       console.error('[Paddle] openPaddleInlineCheckout rejected:', e)
       setStatus('error')
       setError(friendlyMessage(e) || 'Could not load the checkout. Please try again.')
@@ -327,8 +316,8 @@ export function CheckoutScreen({ onClose }) {
           </dl>
 
           <p className="checkout-renewal">
-            Renews automatically every {renewalPeriod} for{' '}
-            <strong>{totalDueDisplay}</strong>. Cancel anytime.
+            Renews automatically every {renewalPeriod} for <strong>{totalDueDisplay}</strong>.
+            Cancel anytime.
           </p>
 
           <div className="checkout-trust">
@@ -347,9 +336,7 @@ export function CheckoutScreen({ onClose }) {
           <div className="checkout-form-card">
             <header className="checkout-form-head">
               <h2 className="checkout-form-title">Payment details</h2>
-              <p className="checkout-form-sub">
-                Card, Apple Pay, Google Pay, and PayPal.
-              </p>
+              <p className="checkout-form-sub">Card, Apple Pay, Google Pay, and PayPal.</p>
             </header>
 
             <div className="checkout-frame-wrap" data-status={status}>
@@ -414,11 +401,7 @@ export function CheckoutScreen({ onClose }) {
                   <p className="checkout-error-text">
                     {error || 'Something went wrong. Please try again.'}
                   </p>
-                  <button
-                    type="button"
-                    className="checkout-error-retry"
-                    onClick={handleRetry}
-                  >
+                  <button type="button" className="checkout-error-retry" onClick={handleRetry}>
                     <RotateCw size={14} strokeWidth={2} />
                     <span>Try again</span>
                   </button>

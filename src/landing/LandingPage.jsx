@@ -19,7 +19,6 @@ import { Solution } from './components/Solution'
 import { Results } from './components/Results'
 import { SocialProof } from './components/SocialProof'
 import { Pricing } from './components/Pricing'
-import { Faq } from './components/Faq'
 import { FinalCta } from './components/FinalCta'
 import { Footer } from './components/Footer'
 import { DemoModal } from './components/DemoModal'
@@ -106,7 +105,10 @@ export function LandingPage() {
     /* ── Smooth-scroll for header desktop nav links ─────────────────── */
     const handleNavClick = (e) => {
       const href = e.currentTarget.getAttribute('href')
-      if (!href || href.charAt(0) !== '#' || href === '#login' || href === '#register') return
+      if (!href || href.charAt(0) !== '#') return
+      // Auth hashes are routing targets, not in-page anchors — let the
+      // browser handle them (App.jsx picks them up via hashchange).
+      if (href === '#signin' || href === '#login' || href === '#register') return
       const target = document.getElementById(href.slice(1))
       if (!target) return
       e.preventDefault()
@@ -140,7 +142,6 @@ export function LandingPage() {
         <Results />
         <SocialProof />
         <Pricing />
-        <Faq />
         <FinalCta />
         <Footer />
       </main>

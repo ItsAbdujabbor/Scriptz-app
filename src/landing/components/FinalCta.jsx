@@ -35,7 +35,7 @@ export function FinalCta() {
           </p>
 
           {/* CTA */}
-          <a href="#register" className="fcta-btn">
+          <a href="#signin" className="fcta-btn">
             Try for Free
             <svg
               viewBox="0 0 20 20"

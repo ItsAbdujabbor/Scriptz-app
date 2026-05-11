@@ -5331,3 +5331,83 @@
     height: 11px;
   }
 }
+
+/* ── Empty-state centered cluster ──────────────────────────────────────
+ * When the thread has no messages yet, the greeting + composer collapse
+ * to fit-content and the shell stacks them at its vertical centre as
+ * one cluster — no dead space above or below. On first send the
+ * `--empty` class is removed; the thread expands to flex:1 and the
+ * composer drops back to its sticky-bottom anchor with the user's
+ * first bubble appearing in its natural position.
+ * ──────────────────────────────────────────────────────────────────── */
+
+.coach-chat-shell--empty {
+  justify-content: center !important;
+}
+
+.coach-chat-shell--empty .coach-thread {
+  /* Thread collapses to fit the greeting only — the shell does the
+   * centering. overflow:visible because there's nothing to scroll. */
+  flex: 0 1 auto !important;
+  overflow: visible !important;
+  width: 100%;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  gap: 0;
+  justify-content: center !important;
+}
+
+.coach-chat-shell--empty .thumb-empty-state {
+  /* Override the base `margin: auto` (the shell handles vertical
+   * centering now). Horizontal padding gives long greetings room
+   * to breathe on narrow viewports. */
+  margin: 0 auto !important;
+  padding: 0 1.5rem !important;
+}
+
+.coach-chat-shell--empty .coach-composer-wrap,
+.coach-chat-shell--empty .coach-composer-wrap--thumb-tools {
+  /* Flow naturally below the greeting instead of sticking to bottom.
+   * `!important` because shared `.coach-main--thumb .coach-composer-wrap`
+   * resets `margin: 0` at equal specificity. */
+  position: relative !important;
+  bottom: auto !important;
+  margin: 1.25rem 0 0 !important;
+  padding: 0 !important;
+  flex: 0 0 auto !important;
+  width: 100%;
+  transform: none !important;
+}
+
+/* The decorative ambient shadow under the composer would read as noise
+ * over the empty-state radial backdrop, so hide it while centred. */
+.coach-chat-shell--empty .coach-composer-wrap::after {
+  opacity: 0 !important;
+  display: none !important;
+}
+
+/* The actual input bar lives inside `.thumb-gen-footer-chrome`, which
+ * is `position: absolute; bottom: 0` by default — overriding the outer
+ * wrap is not enough. Flow the chrome inline so it sits directly under
+ * the greeting as part of the centred cluster. */
+.coach-chat-shell--empty .thumb-gen-footer-chrome {
+  position: relative !important;
+  bottom: auto !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  padding: 0 !important;
+  pointer-events: auto;
+}
+
+/* Mobile (≤ 640 px) — same centring, just a tighter gutter and a
+ * slightly tighter greeting↔composer gap so the cluster doesn't
+ * crowd against the keyboard area when the user taps the input. */
+@media (max-width: 640px) {
+  .coach-chat-shell--empty .thumb-empty-state {
+    padding: 0 1.1rem;
+  }
+  .coach-chat-shell--empty .coach-composer-wrap {
+    margin-top: 0.9rem;
+  }
+}

@@ -12,6 +12,8 @@
  * trial" error banner; they just land on the pricing page.
  */
 
+import { track } from './analytics'
+
 let installed = false
 
 const PAYWALL_CODE = 'NO_ACTIVE_SUBSCRIPTION'
@@ -45,6 +47,10 @@ export function installPaywallInterceptor() {
       const body = await cloned.json().catch(() => null)
       const code = body?.error?.code || body?.detail?.code || body?.code || null
       if (code === PAYWALL_CODE) {
+        try {
+          const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || ''
+          track('paywall_view', { feature_path: new URL(url, window.location.origin).pathname })
+        } catch {}
         goToPricing()
         return makeSilentResponse()
       }

@@ -38,7 +38,6 @@ function paddleDispatch(ev) {
     try {
       fn(ev)
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error('[Paddle:listener error]', err)
     }
   }
@@ -64,7 +63,12 @@ export function loadPaddle(clientTokenOverride) {
       Paddle.Environment.set('sandbox')
     }
     // eslint-disable-next-line no-console
-    console.info('[Paddle:init] token prefix:', String(token).slice(0, 8), 'env:', paddleEnvironment())
+    console.info(
+      '[Paddle:init] token prefix:',
+      String(token).slice(0, 8),
+      'env:',
+      paddleEnvironment()
+    )
     Paddle.Initialize({ token, eventCallback: paddleDispatch })
     return Paddle
   })()
@@ -144,8 +148,7 @@ export async function openPaddleInlineCheckout({
       variant: 'one-page',
       frameTarget: frameTargetClass,
       frameInitialHeight: 416,
-      frameStyle:
-        'width: 100%; min-width: 312px; background-color: transparent; border: none;',
+      frameStyle: 'width: 100%; min-width: 312px; background-color: transparent; border: none;',
       ...(successUrl ? { successUrl } : {}),
       allowLogout: false,
     },

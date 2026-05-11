@@ -35,9 +35,9 @@ Path alias `@/*` resolves to `src/*` (see [jsconfig.json](jsconfig.json) and [vi
 
 Copy `.env.example` to `.env`. Three things actually matter for development:
 
-| Var                                                                  | Why                                                                                                                        |
-| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `VITE_API_BASE_URL`                                                  | Leave **blank** in dev → uses Vite proxy → no CORS. Set to `https://api.clixa.ai` for prod builds.                      |
+| Var                                                                                                    | Why                                                                                                        |
+| ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `VITE_API_BASE_URL`                                                                                    | Leave **blank** in dev → uses Vite proxy → no CORS. Set to `https://api.clixa.ai` for prod builds.         |
 | `VITE_COGNITO_REGION` / `VITE_COGNITO_USER_POOL_ID` / `VITE_COGNITO_CLIENT_ID` / `VITE_COGNITO_DOMAIN` | All four are required for sign-in. Hosted UI callback URLs in the AWS App Client must include this origin. |
 
 Paddle (`VITE_PADDLE_*`) and Brevo (`VITE_BREVO_*`) are optional unless touching billing or the landing-page waitlist.
@@ -138,6 +138,16 @@ Any AI feature that consumes credits flows through:
 3. On success, the mutation's `onSuccess`/`onError` calls `invalidateCredits(queryClient)`.
 
 Feature keys and per-tier costs are defined backend-side in `Clixa-Api/app/services/billing_config_service.py`. Read the live values via `useFeatureCostsQuery()` — never hardcode credit costs in the UI.
+
+## Storage model — what lives where
+
+The user app never owns canonical content. Everything generated or edited goes through the backend:
+
+- **Postgres (`Clixa-Api`)** — authoritative for users, conversations, messages, ratings, subscriptions, preferences, etc.
+- **S3** — generated thumbnail images. Bucket `clixa-thumbnails-195874016451` (us-east-1), public via `https://d3emdplt2fy66u.cloudfront.net/<key>`. Full + 3 size variants. URLs land in `thumbnail_messages.extra_data.thumbnails[i].image_url` (with `.variants` for srcset).
+- **localStorage / sessionStorage** — never authoritative. Holds auth tokens (`clixa_session`), UI preferences (theme, sidebar), analytics IDs, and ID-only LRU caches (`clixa-thumb-conv-lru-v1`, ≤50 IDs, no content). Safe to clear; everything rebuilds from the server.
+
+Full breakdown lives in [`../Clixa-Api/CLAUDE.md` → "Thumbnail storage model"](../Clixa-Api/CLAUDE.md). When generations land as base64 data URLs instead of S3 URLs, the API repo's backfill CLI (`python -m app.cli backfill-thumbnail-s3`) cleans them up.
 
 ## Reference docs in this repo
 

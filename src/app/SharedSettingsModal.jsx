@@ -6,6 +6,10 @@ import { useCallback } from 'react'
 import { useAuthStore } from '../stores/authStore'
 import { resetClientCachesForDataDelete } from '../lib/sessionReset'
 import { useSubscriptionQuery } from '../queries/billing/creditsQueries'
+import {
+  useEmailPreferencesQuery,
+  useSaveEmailPreferencesMutation,
+} from '../queries/user/emailPreferencesQueries'
 import { SettingsModal } from './SettingsModal'
 
 export function SharedSettingsModal({ open, onClose, onLogout }) {
@@ -20,6 +24,12 @@ export function SharedSettingsModal({ open, onClose, onLogout }) {
   } = useAuthStore()
 
   const { data: subscription } = useSubscriptionQuery()
+  const {
+    data: emailPreferences,
+    isLoading: emailPreferencesLoading,
+    isError: emailPreferencesError,
+  } = useEmailPreferencesQuery()
+  const saveEmailPreferences = useSaveEmailPreferencesMutation()
 
   // "Reset my data" clears server state + every cached artifact: React
   // Query entries, persona/style selection, onboarding prefs, sidebar
@@ -47,6 +57,10 @@ export function SharedSettingsModal({ open, onClose, onLogout }) {
       deleteAccount={deleteAccount}
       clearLocalData={clearLocalData}
       subscription={subscription}
+      emailPreferences={emailPreferences}
+      emailPreferencesLoading={emailPreferencesLoading}
+      emailPreferencesError={emailPreferencesError}
+      saveEmailPreferences={(prefs) => saveEmailPreferences.mutateAsync(prefs)}
       onLogout={handleLogout}
     />
   )

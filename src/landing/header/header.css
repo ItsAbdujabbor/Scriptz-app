@@ -172,33 +172,39 @@
   border-radius: 12px;
 }
 
-/* Log In — ghost pill */
+/* Sign In — borderless ghost pill. Resting state is just text; on hover
+ * a soft pill background fades in, the text brightens to the brand
+ * accent, and the whole pill lifts a hair. No outline, no border. */
 .header .header-login {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.36rem 1rem;
+  padding: 0.4rem 1.1rem;
   font-size: 0.825rem;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.68) !important;
-  background: rgba(255, 255, 255, 0.07) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  background: transparent !important;
+  border: 0 !important;
   border-radius: 9999px !important;
   text-decoration: none;
   white-space: nowrap;
+  letter-spacing: 0.005em;
   transition:
-    color 0.2s ease,
-    background 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.2s ease,
+    color 0.22s ease,
+    background-color 0.22s ease,
+    transform 0.22s ease,
     padding 0.32s cubic-bezier(0.22, 1, 0.36, 1),
     font-size 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.header .header-login:hover {
-  color: #fff !important;
-  background: rgba(255, 255, 255, 0.13) !important;
-  border-color: rgba(255, 255, 255, 0.22) !important;
-  transform: translateY(-1px);
+.header .header-login:hover,
+.header .header-login:focus-visible {
+  color: var(--auth-accent, #a78bfa) !important;
+  background-color: rgba(167, 139, 250, 0.1) !important;
+  outline: none;
+}
+.header .header-login:active {
+  background-color: rgba(167, 139, 250, 0.16) !important;
 }
 .header.scrolled .header-login {
   padding: 0.32rem 0.85rem;
@@ -252,7 +258,6 @@
   transition: transform 0.55s ease;
 }
 .header .header-trial:hover {
-  transform: translateY(-1px);
   /* Hover keeps the inset highlight; no outer glow on hover either. */
   filter: brightness(1.07);
 }

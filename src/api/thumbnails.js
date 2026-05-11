@@ -71,13 +71,9 @@ export const thumbnailsApi = {
    */
   generateBatch(accessToken, payload, options = {}) {
     const key = options.idempotencyKey || newIdempotencyKey()
-    return request(
-      'POST',
-      '/api/thumbnails/generate-batch',
-      accessToken,
-      payload,
-      { 'Idempotency-Key': key },
-    )
+    return request('POST', '/api/thumbnails/generate-batch', accessToken, payload, {
+      'Idempotency-Key': key,
+    })
   },
   regenerateWithPersona(accessToken, payload) {
     return request('POST', '/api/thumbnails/regenerate-with-persona', accessToken, payload)
@@ -160,8 +156,18 @@ export const thumbnailsApi = {
         accessToken,
         payload,
         { 'Idempotency-Key': idempotencyKey },
-        fetchInit,
+        fetchInit
       )
+      // Fire-and-forget product-analytics event. Imported here to avoid a
+      // circular dep with main.jsx; the SDK noops when not initialized.
+      try {
+        const { track } = await import('../lib/analytics')
+        track('generation_submitted', {
+          conversation_id: payload?.conversation_id || null,
+          intent: payload?.intent || null,
+          batch_size: payload?.batch_size || null,
+        })
+      } catch {}
     } catch (err) {
       useThumbnailJobStatusStore.getState().clear()
       throw err
@@ -174,9 +180,7 @@ export const thumbnailsApi = {
     }
 
     try {
-      const result = await pollThumbnailChatJob(
-        accessToken, submission.job_id, fetchInit,
-      )
+      const result = await pollThumbnailChatJob(accessToken, submission.job_id, fetchInit)
       return result
     } finally {
       useThumbnailJobStatusStore.getState().clear()
@@ -191,11 +195,7 @@ export const thumbnailsApi = {
   /** Mark the conversation as seen — clears the unread dot server-side.
    *  Idempotent: only bumps last_seen_at forward. */
   markConversationSeen(accessToken, conversationId) {
-    return request(
-      'POST',
-      `/api/thumbnails/conversations/${conversationId}/seen`,
-      accessToken
-    )
+    return request('POST', `/api/thumbnails/conversations/${conversationId}/seen`, accessToken)
   },
   rate(accessToken, payload, fetchInit = {}) {
     return request('POST', '/api/thumbnails/rate', accessToken, payload, {}, fetchInit)
@@ -240,8 +240,8 @@ export const thumbnailsApi = {
 // ThumbnailChatResponse); only the transport changes underneath.
 
 const POLL_INTERVAL_MS = 1500
-const POLL_TIMEOUT_MS = 180_000  // 3 min hard cap; the worker has its
-                                  //   own ~30s retry budget per job
+const POLL_TIMEOUT_MS = 180_000 // 3 min hard cap; the worker has its
+//   own ~30s retry budget per job
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -296,15 +296,12 @@ async function pollThumbnailChatJob(accessToken, jobId, fetchInit = {}) {
   }
   // Soft timeout — don't claim failure; let the user wait or retry.
   // Refund logic already handled server-side regardless.
-  const err = new Error(
-    'Generation is taking longer than expected. Please wait or try again.',
-  )
+  const err = new Error('Generation is taking longer than expected. Please wait or try again.')
   err.status = 504
   err.payload = {
     error: {
       code: 'JOB_POLL_TIMEOUT',
-      message:
-        'We\'re still working on this thumbnail — please refresh in a minute.',
+      message: "We're still working on this thumbnail — please refresh in a minute.",
       extra: { retryable: true },
     },
   }

@@ -2,9 +2,8 @@ import { useState, useEffect, useLayoutEffect, lazy, Suspense } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from './stores/authStore'
 import { BannedScreen } from './auth/BannedScreen'
-// Login + Signup are eager imports — see comment by the lazy block below.
-import { Login } from './auth/Login'
-import { Signup } from './auth/Signup'
+// AuthDialog is an eager import — see comment by the lazy block below.
+import { AuthDialog } from './auth/AuthDialog'
 import { AuthSuccessSplash } from './auth/AuthSuccessSplash'
 import { prefetchHistoryConversations } from './lib/query/prefetchHistoryConversations'
 import { prefetchSubscription, seedSubscriptionFromCache } from './lib/query/prefetchSubscription'
@@ -40,9 +39,9 @@ function normalizeHashRoute(hashValue) {
 const LandingPage = lazy(() =>
   import('./landing/LandingPage').then((m) => ({ default: m.LandingPage }))
 )
-// Login + Signup are eager imports at the top of this file. Lazy-loading
-// them caused a flash + delay when the user clicked Log In / Sign Up on
-// the landing page — the dialog should appear instantly with no loader.
+// AuthDialog is an eager import at the top of this file. Lazy-loading
+// it caused a flash + delay when the user clicked Sign In on the landing
+// page — the dialog should appear instantly with no loader.
 const Terms = lazy(() => import('./legal/Terms').then((m) => ({ default: m.Terms })))
 const PrivacyPolicy = lazy(() =>
   import('./legal/PrivacyPolicy').then((m) => ({ default: m.PrivacyPolicy }))
@@ -106,8 +105,9 @@ function getView() {
   const hash = (typeof window !== 'undefined' && window.location.hash) || ''
   const h = normalizeHashRoute(hash)
   if (h === 'banned') return 'banned'
-  if (h === 'login') return 'login'
-  if (h === 'register' || h === 'signup') return 'signup'
+  // Single auth surface. `#signin` is the primary; `#login` / `#register`
+  // / `#signup` are kept for back-compat and resolve to the same view.
+  if (h === 'signin' || h === 'login' || h === 'signup' || h === 'register') return 'auth'
   if (h === 'terms') return 'terms'
   if (h === 'privacy') return 'privacy'
   if (h === 'refund') return 'refund'
@@ -180,38 +180,26 @@ function App() {
   // (the URL has `?code=…`). Cleared once ensureSession resolves so the
   // landing page can render afterwards if the exchange somehow failed.
   const [oauthCallbackPending, setOauthCallbackPending] = useState(urlIsOAuthCallback)
-  // Auth-dialog mode lock. When the user opens the auth dialog from the
-  // landing page (or from any other non-auth screen), capture whether
-  // they meant Sign in or Sign up and KEEP THAT until the dialog
-  // actually closes. While the dialog is open, hash changes between
-  // `#login` and `#register` (whether from a deep-link, a stray
-  // navigation effect, or the sign-in CTA inside the dialog mid-OAuth)
-  // do NOT swap the dialog body — the user said "if I'm registering,
-  // stay on register." Only `goBack` (close X) or successful auth can
-  // dismiss it; reopening from a closed state captures fresh.
-  //
-  // On OAuth callback mount (page came back from Google with `?code=`)
-  // we prime the lock from `clixa_oauth_intent` in sessionStorage so
-  // the same dialog re-mounts (in loading state) — the user perceives
-  // the dialog as having "stayed open" through the round-trip.
-  const [lockedAuthMode, setLockedAuthMode] = useState(() => {
+  // Whether the unified auth dialog is currently open. Stays true:
+  //   • for the entire visible lifetime of the dialog,
+  //   • across the OAuth round-trip (primed from sessionStorage so the
+  //     dialog re-mounts with the loading overlay after Google bounces back).
+  // Set to false on close (×) or after the welcome splash hands off.
+  const [authDialogOpen, setAuthDialogOpen] = useState(() => {
     const v = getView()
-    if (v === 'login' || v === 'signup') return v
+    if (v === 'auth') return true
     if (urlIsOAuthCallback()) {
       try {
-        const intent = sessionStorage.getItem('clixa_oauth_intent')
-        if (intent === 'login' || intent === 'signup') return intent
+        if (sessionStorage.getItem('clixa_oauth_intent')) return true
       } catch {
         /* sessionStorage unavailable — fall through */
       }
     }
-    return null
+    return false
   })
-  // Briefly show a centered "Welcome back" / "Welcome to Clixa" screen
-  // after auth lands but BEFORE we route to thumbnails. Mode is the
-  // locked auth mode at the moment auth succeeded so the headline
-  // matches what the user just did. `null` = not showing.
-  const [welcomeMode, setWelcomeMode] = useState(null)
+  // Briefly show a centered welcome screen after auth lands but BEFORE
+  // we route to thumbnails. Boolean: true = splash visible.
+  const [showWelcomeSplash, setShowWelcomeSplash] = useState(false)
   const accessToken = useAuthStore((s) => s.accessToken)
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
@@ -259,15 +247,16 @@ function App() {
           return
         }
         if (token && !hash) {
-          // Skip the direct route when the user came from the auth
-          // dialog (OAuth callback OR a regular dialog open that
-          // primed `lockedAuthMode`). The welcome-splash effect
-          // further down needs a chance to fire so the user sees
-          // the "Welcome back" / "Welcome to Clixa" handoff instead
-          // of jumping straight to the thumbnail screen. Returning
-          // users with a saved session (no dialog open, no callback)
-          // keep the original fast path.
-          if (lockedAuthMode == null) {
+          if (authDialogOpen) {
+            // Came from the auth dialog (regular open or OAuth callback).
+            // Hand off to the welcome splash inline — the separate effect
+            // races with the batched setSessionChecked/oauthCallbackPending
+            // updates here and can miss the window when the callback URL
+            // had no hash, leaving the user stranded on the landing page.
+            setShowWelcomeSplash(true)
+          } else {
+            // Returning user with a saved session, no dialog, no callback.
+            // Skip the splash and route straight in.
             window.location.hash = 'thumbnails'
             setView('thumbnails')
           }
@@ -288,19 +277,13 @@ function App() {
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
 
-  // Track when the auth dialog opens / closes so we can lock the mode
-  // it was opened in. Transitions:
-  //   * (any non-auth view) → 'login' or 'signup'  ⇒ lock to that mode
-  //   * 'login'/'signup' → (any non-auth view)     ⇒ release the lock
-  //   * 'login' ↔ 'signup' while open              ⇒ DO NOTHING (lock holds)
+  // Sync authDialogOpen with the auth view. Opening / closing the dialog
+  // via the X button or successful auth both flip `view` first; this
+  // effect just mirrors that into the boolean source-of-truth.
   useEffect(() => {
-    const isAuthView = view === 'login' || view === 'signup'
-    if (isAuthView && lockedAuthMode == null) {
-      setLockedAuthMode(view)
-    } else if (!isAuthView && lockedAuthMode != null) {
-      setLockedAuthMode(null)
-    }
-  }, [view, lockedAuthMode])
+    if (view === 'auth' && !authDialogOpen) setAuthDialogOpen(true)
+    else if (view !== 'auth' && authDialogOpen) setAuthDialogOpen(false)
+  }, [view, authDialogOpen])
 
   useEffect(() => {
     if (!sessionChecked || !accessToken) return
@@ -314,14 +297,14 @@ function App() {
   useEffect(() => {
     if (!sessionChecked) return
     if (view === 'banned' && !accessToken) {
-      window.location.hash = 'login'
-      setView('login')
+      window.location.hash = 'signin'
+      setView('auth')
     }
   }, [sessionChecked, view, accessToken])
 
   useEffect(() => {
     if (!sessionChecked || !accessToken || user?.role !== 'banned') return
-    const allowed = ['banned', 'login', 'signup', 'terms', 'privacy', 'refund']
+    const allowed = ['banned', 'auth', 'terms', 'privacy', 'refund']
     if (!allowed.includes(view)) {
       window.location.hash = 'banned'
       setView('banned')
@@ -332,71 +315,45 @@ function App() {
     window.history.replaceState(null, '', window.location.pathname + window.location.search)
     setView('landing')
   }
-  // Open the dialog purely as a state toggle — no URL/hash change. The
-  // landing page stays mounted underneath; the dialog drops on top
-  // instantly. Direct navigation to #login still works because getView()
-  // honours the hash.
-  const goToLogin = () => setView('login')
-  const goToSignup = () => setView('signup')
-  const goToDashboardAfterSignup = () => {
-    window.location.hash = 'thumbnails'
-    setView('thumbnails')
-  }
-  const onAuthSuccess = () => {
-    if (useAuthStore.getState().user?.role === 'banned') {
-      window.location.hash = 'banned'
-      setView('banned')
-      return
-    }
-    useOnboardingStore.getState().load()
-    window.location.hash = 'thumbnails'
-    setView('thumbnails')
-  }
   const onLogout = async () => {
-    // Actually clear the session — tokens, user, cached queries — before
-    // navigating. Previously we only changed the hash, so the user stayed
-    // logged in and the "authenticated" redirect loop (line 227) bounced
-    // them right back to dashboard.
     try {
       await logout()
     } catch {
       /* ignore — still navigate away */
     }
-    window.location.hash = 'login'
-    setView('login')
+    window.location.hash = 'signin'
+    setView('auth')
   }
 
   useEffect(() => {
     if (!sessionChecked) return
     const appViews = ['thumbnails', 'pro', 'checkout', 'settings']
     if (appViews.includes(view) && !accessToken) {
-      window.location.hash = 'login'
-      setView('login')
+      window.location.hash = 'signin'
+      setView('auth')
     }
   }, [view, accessToken, sessionChecked])
 
   useEffect(() => {
     if (!sessionChecked || !accessToken) return
     if (useAuthStore.getState().user?.role === 'banned') return
-    if (welcomeMode != null) return // splash already running, don't double-fire
-    // Auth landed and the user came from the auth dialog (locked mode
-    // captures both regular open + OAuth callback restoration). Show
-    // the welcome splash; the splash's own timer hands off to
-    // thumbnails when it finishes.
-    if (lockedAuthMode != null && (['login', 'signup'].includes(view) || oauthCallbackPending)) {
-      setWelcomeMode(lockedAuthMode)
-    } else if (['login', 'signup'].includes(view)) {
-      // Authed user arrived on a login/signup hash directly (e.g. they
-      // typed the URL while already signed in). Skip the welcome
-      // splash — there's no "they just logged in" event to celebrate.
+    if (showWelcomeSplash) return // already running, don't double-fire
+    if (authDialogOpen || oauthCallbackPending) {
+      // Auth landed and the user came from the dialog (regular open
+      // or OAuth callback). Show the welcome splash; its own timer
+      // hands off to thumbnails when it finishes.
+      setShowWelcomeSplash(true)
+    } else if (view === 'auth') {
+      // Authed user arrived on a #signin hash directly (e.g. they typed
+      // the URL while already signed in). Skip the splash.
       window.location.hash = 'thumbnails'
       setView('thumbnails')
     }
-  }, [sessionChecked, accessToken, view, lockedAuthMode, oauthCallbackPending, welcomeMode])
+  }, [sessionChecked, accessToken, view, authDialogOpen, oauthCallbackPending, showWelcomeSplash])
 
   const completeWelcomeSplash = () => {
-    setWelcomeMode(null)
-    setLockedAuthMode(null)
+    setShowWelcomeSplash(false)
+    setAuthDialogOpen(false)
     setOauthCallbackPending(false)
     window.location.hash = 'thumbnails'
     setView('thumbnails')
@@ -428,23 +385,20 @@ function App() {
   }
 
   // Welcome splash — shown after auth lands and BEFORE we route to the
-  // thumbnail screen. Centered "Welcome back" / "Welcome to Clixa";
-  // calls completeWelcomeSplash() when the timer finishes which then
-  // flips the hash + view forward.
-  if (welcomeMode != null) {
-    return <AuthSuccessSplash mode={welcomeMode} onDone={completeWelcomeSplash} />
+  // thumbnail screen. Centered "Welcome to Clixa"; calls
+  // completeWelcomeSplash() when its timer finishes, which flips the
+  // hash + view forward.
+  if (showWelcomeSplash) {
+    return <AuthSuccessSplash onDone={completeWelcomeSplash} />
   }
 
-  // Returning from Google with `?code=…`. If we know which dialog the
-  // user came from (intent persisted in sessionStorage by `_startOAuth`
-  // and primed into `lockedAuthMode` at construct time), re-mount that
-  // dialog with the `oauthInProgress` overlay so the user sees one
-  // continuous "in progress" surface from click → return.
-  //
-  // Fallback: no intent stored (rare — direct deep-link to ?code=, or
-  // sessionStorage cleared). Show the generic full-screen splash so
-  // there's still something on screen during the exchange.
-  if (oauthCallbackPending && lockedAuthMode == null) {
+  // Returning from Google with `?code=…`. If we know the dialog was
+  // open (primed into `authDialogOpen` at construct time from
+  // sessionStorage), the marketing-view branch below re-mounts the
+  // AuthDialog with the loading overlay. Otherwise fall back to the
+  // full-screen splash so there's still something on screen during
+  // the exchange.
+  if (oauthCallbackPending && !authDialogOpen) {
     return <Splash label="Signing you in…" />
   }
 
@@ -480,43 +434,22 @@ function App() {
     )
   }
 
-  // Marketing-area views — landing + login/signup dialogs render together
-  // so LandingPage stays mounted across landing → login → signup
-  // transitions (no remount, no flash, dialog drops in instantly).
-  // `oauthCallbackPending` is also "marketing-territory" because the
-  // user just came back from Google before we know their auth state.
-  const isMarketingView =
-    view === 'landing' || view === 'login' || view === 'signup' || oauthCallbackPending
+  // Marketing-area views — landing + the unified AuthDialog render together
+  // so LandingPage stays mounted (no remount, no flash, dialog drops in
+  // instantly). `oauthCallbackPending` is also "marketing-territory"
+  // because the user just came back from Google before we know their
+  // auth state.
+  const isMarketingView = view === 'landing' || view === 'auth' || oauthCallbackPending
 
   if (isMarketingView) {
-    // `lockedAuthMode` is the source of truth for which dialog body
-    // shows — see the dialog-mode-lock effect above. Once captured at
-    // open time, it ignores any subsequent `view` flip between
-    // `login` and `signup`, so a stray hash change can't swap a
-    // half-filled signup form for the login screen.
-    //
-    // `oauthInProgress` becomes true on the OAuth callback render so
-    // the dialog body shows a centered loading overlay (the Google
-    // exchange takes ~300 ms). The user perceives the dialog as having
-    // stayed open through the entire round-trip.
+    // `oauthInProgress` makes the dialog body show a centered loading
+    // overlay (the Google exchange takes ~300 ms) so the user perceives
+    // the dialog as having stayed open through the entire round-trip.
     return (
       <Suspense fallback={null}>
         <LandingPage />
-        {lockedAuthMode === 'login' && (
-          <Login
-            onBack={goBack}
-            onGoToSignup={goToSignup}
-            onSuccess={onAuthSuccess}
-            oauthInProgress={oauthCallbackPending}
-          />
-        )}
-        {lockedAuthMode === 'signup' && (
-          <Signup
-            onBack={goBack}
-            onGoToLogin={goToLogin}
-            onSuccess={goToDashboardAfterSignup}
-            oauthInProgress={oauthCallbackPending}
-          />
+        {(authDialogOpen || oauthCallbackPending) && (
+          <AuthDialog onClose={goBack} oauthInProgress={oauthCallbackPending} />
         )}
       </Suspense>
     )

@@ -118,6 +118,19 @@ const I = {
       <path d="M21 12H9" />
     </svg>
   ),
+  bell: () => (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 8a6 6 0 1 1 12 0c0 4 1.5 6 2 7H4c.5-1 2-3 2-7z" />
+      <path d="M10 19a2 2 0 0 0 4 0" />
+    </svg>
+  ),
   external: () => (
     <svg
       viewBox="0 0 24 24"
@@ -214,6 +227,187 @@ function ConfirmSheet({
   )
 }
 
+/* ── Notifications — email preferences per category ─────────────────
+ *
+ * Renders one toggle per category. `transactional` is locked on (the
+ * backend treats it as required for account safety; we mirror that lock
+ * in the UI rather than letting the user attempt to disable it and get
+ * a server-side override).
+ *
+ * Save is only enabled while the form is dirty (current values differ
+ * from the server-side baseline). "Unsubscribe from all" sets every
+ * non-transactional category to false in one click.
+ */
+const NOTIFICATION_CATEGORIES = [
+  {
+    key: 'transactional',
+    label: 'Transactional',
+    helper: 'Account, security, and billing notifications — these are required.',
+    locked: true,
+  },
+  {
+    key: 'lifecycle',
+    label: 'Lifecycle',
+    helper: 'Onboarding tips, inactivity nudges, and re-engagement.',
+  },
+  {
+    key: 'marketing',
+    label: 'Marketing',
+    helper: 'New features, promotions, and announcements.',
+  },
+  {
+    key: 'product_updates',
+    label: 'Product updates',
+    helper: 'Major product changes you might care about.',
+  },
+]
+
+function Toggle({ checked, disabled, onChange, ariaLabel }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      disabled={disabled}
+      className={`s-toggle${checked ? ' is-on' : ''}${disabled ? ' is-locked' : ''}`}
+      onClick={() => {
+        if (disabled) return
+        onChange?.(!checked)
+      }}
+    >
+      <span className="s-toggle-thumb" aria-hidden />
+    </button>
+  )
+}
+
+function NotificationsSection({ preferences, loading, error, onSave }) {
+  // Local draft mirrors server state until the user explicitly saves.
+  // We treat `null` (auth failure) and `undefined` (still loading) the
+  // same way at render time — both fall back to category defaults of
+  // true so the toggles aren't all silently flipped to off mid-load.
+  const baseline = preferences || {
+    transactional: true,
+    lifecycle: true,
+    marketing: true,
+    product_updates: true,
+  }
+
+  const [draft, setDraft] = useState(baseline)
+  const [busy, setBusy] = useState(false)
+  const [feedback, setFeedback] = useState(null) // { kind: 'error' | 'success', message }
+
+  // Resync the local draft whenever a fresh server snapshot arrives —
+  // but only when not in the middle of a save (otherwise an in-flight
+  // optimistic update would clobber the user's pending edits).
+  useEffect(() => {
+    if (!preferences || busy) return
+    setDraft(preferences)
+  }, [preferences, busy])
+
+  const dirty = NOTIFICATION_CATEGORIES.some(
+    ({ key }) => Boolean(draft[key]) !== Boolean(baseline[key])
+  )
+
+  const handleToggle = (key, next) => {
+    setDraft((prev) => ({ ...prev, [key]: next }))
+    setFeedback(null)
+  }
+
+  const handleSave = async () => {
+    setBusy(true)
+    setFeedback(null)
+    try {
+      const payload = {
+        transactional: true,
+        lifecycle: Boolean(draft.lifecycle),
+        marketing: Boolean(draft.marketing),
+        product_updates: Boolean(draft.product_updates),
+      }
+      const saved = await onSave?.(payload)
+      if (saved) setDraft(saved)
+      setFeedback({ kind: 'success', message: 'Preferences saved.' })
+    } catch (err) {
+      setFeedback({
+        kind: 'error',
+        message: friendlyMessage(err) || 'Could not save preferences.',
+      })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleUnsubscribeAll = () => {
+    setDraft((prev) => ({
+      ...prev,
+      lifecycle: false,
+      marketing: false,
+      product_updates: false,
+    }))
+    setFeedback(null)
+  }
+
+  return (
+    <div className="s-notifs">
+      {error && !preferences ? (
+        <div className="s-alert s-alert--error">Couldn&apos;t load your preferences.</div>
+      ) : null}
+      {feedback?.kind === 'success' && (
+        <div className="s-alert s-alert--success">{feedback.message}</div>
+      )}
+      {feedback?.kind === 'error' && (
+        <div className="s-alert s-alert--error">{feedback.message}</div>
+      )}
+
+      <ul className="s-notifs-list">
+        {NOTIFICATION_CATEGORIES.map(({ key, label, helper, locked }) => {
+          const checked = Boolean(draft[key])
+          return (
+            <li key={key} className="s-notifs-row">
+              <div className="s-notifs-text">
+                <div className="s-notifs-label">
+                  <span>{label}</span>
+                  {locked ? (
+                    <span className="s-notifs-required" aria-hidden>
+                      Required
+                    </span>
+                  ) : null}
+                </div>
+                <p className="s-notifs-helper">{helper}</p>
+              </div>
+              <Toggle
+                checked={locked ? true : checked}
+                disabled={locked || loading || busy}
+                ariaLabel={label}
+                onChange={(next) => handleToggle(key, next)}
+              />
+            </li>
+          )
+        })}
+      </ul>
+
+      <div className="s-notifs-actions">
+        <button
+          type="button"
+          className="s-btn s-btn--ghost s-btn--link"
+          onClick={handleUnsubscribeAll}
+          disabled={busy || loading}
+        >
+          Unsubscribe from all
+        </button>
+        <button
+          type="button"
+          className="s-btn s-btn--primary"
+          onClick={handleSave}
+          disabled={!dirty || busy || loading}
+        >
+          {busy ? 'Saving…' : 'Save changes'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /* ──────────────────────────── main ────────────────────────────────── */
 
 export function SettingsModal({
@@ -227,6 +421,10 @@ export function SettingsModal({
   deleteAccount,
   clearLocalData,
   subscription,
+  emailPreferences,
+  emailPreferencesLoading,
+  emailPreferencesError,
+  saveEmailPreferences,
   onLogout,
 }) {
   // Change-password sub-form
@@ -512,6 +710,20 @@ export function SettingsModal({
                     </div>
                   </form>
                 )}
+              </SectionCard>
+
+              {/* ── Notifications ── */}
+              <SectionCard
+                icon="bell"
+                title="Email preferences"
+                subtitle="Choose what we email you. Unsubscribing here applies to your account globally."
+              >
+                <NotificationsSection
+                  preferences={emailPreferences}
+                  loading={emailPreferencesLoading}
+                  error={emailPreferencesError}
+                  onSave={saveEmailPreferences}
+                />
               </SectionCard>
 
               {/* ── Help + Legal grid ── */}

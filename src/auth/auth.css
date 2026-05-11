@@ -1649,3 +1649,17 @@
     animation: axSpin 1.4s linear infinite;
   }
 }
+
+/* Marketing consent checkbox on the signup dialog. Top-aligns the box
+ * with the first line of the label so a wrapping description still reads
+ * cleanly, and gives the row a little breathing room from the OAuth stack
+ * above. */
+.auth-marketing-consent {
+  align-items: flex-start;
+  line-height: 1.45;
+  margin-top: -0.25rem;
+}
+
+.auth-marketing-consent .ax-checkbox-box {
+  margin-top: 2px;
+}

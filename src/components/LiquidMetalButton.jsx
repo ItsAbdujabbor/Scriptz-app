@@ -60,9 +60,7 @@ export function LiquidMetalButton({
 
     const loadShader = async () => {
       try {
-        const { liquidMetalFragmentShader, ShaderMount } = await import(
-          '@paper-design/shaders'
-        )
+        const { liquidMetalFragmentShader, ShaderMount } = await import('@paper-design/shaders')
         if (!mounted || !containerRef.current) return
 
         if (shaderMount.current?.dispose) {
@@ -116,7 +114,6 @@ export function LiquidMetalButton({
           shaderMount.current._ro = ro
         }
       } catch (error) {
-        // eslint-disable-next-line no-console
         console.error('Failed to load liquid-metal shader:', error)
       }
     }
@@ -183,9 +180,7 @@ export function LiquidMetalButton({
     [disabled, loading, onClick]
   )
 
-  const outerSize = isFlexible
-    ? { width: '100%', height: h }
-    : { width: numW, height: h }
+  const outerSize = isFlexible ? { width: '100%', height: h } : { width: numW, height: h }
 
   return (
     <div
@@ -198,9 +193,7 @@ export function LiquidMetalButton({
         overflow: 'hidden',
         background: disabled ? 'rgba(180,180,180,0.5)' : undefined,
         transform:
-          isPressed && !disabled
-            ? 'translateY(1px) scale(0.98)'
-            : 'translateY(0) scale(1)',
+          isPressed && !disabled ? 'translateY(1px) scale(0.98)' : 'translateY(0) scale(1)',
         transition:
           'transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
         willChange: 'transform, box-shadow',

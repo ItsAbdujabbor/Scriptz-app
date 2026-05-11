@@ -5,27 +5,28 @@ import { AlertIcon, GoogleIcon, AppleIcon } from './_icons'
 import { AuthBrandPane } from './_AuthBrandPane'
 import './auth.css'
 
-/* Last-used OAuth provider lives in localStorage so we can show a small
- * "Last used" pill on the button the user clicked previously. */
+/**
+ * AuthDialog — single dialog for both first-time signup and returning sign-in.
+ *
+ * Architecture choice: we don't split into Login / Signup any more. The OAuth
+ * provider (Google) is the same in both cases, and the backend already
+ * distinguishes brand-new users from returning ones — so there's nothing to
+ * decide on the client. One dialog, one button, one happy path.
+ *
+ * Marketing-consent capture lives in Settings → Email preferences (default
+ * off, GDPR-safe). It does not belong in the auth modal.
+ */
+
 const LAST_PROVIDER_KEY = 'clixa_last_oauth_provider'
-const LEGACY_LAST_PROVIDER_KEY = 'scriptz_last_oauth_provider'
+
 function readLastProvider() {
   try {
-    let v = localStorage.getItem(LAST_PROVIDER_KEY)
-    if (!v) {
-      // One-shot migration from the legacy "scriptz_*" brand key.
-      const legacy = localStorage.getItem(LEGACY_LAST_PROVIDER_KEY)
-      if (legacy) {
-        localStorage.setItem(LAST_PROVIDER_KEY, legacy)
-        v = legacy
-      }
-      localStorage.removeItem(LEGACY_LAST_PROVIDER_KEY)
-    }
-    return v
+    return localStorage.getItem(LAST_PROVIDER_KEY)
   } catch {
     return null
   }
 }
+
 function writeLastProvider(provider) {
   try {
     localStorage.setItem(LAST_PROVIDER_KEY, provider)
@@ -48,13 +49,13 @@ const CloseIcon = () => (
   </svg>
 )
 
-export function Login({ onBack, onSuccess, oauthInProgress = false }) {
-  // If we're rendered as the dialog for a returning OAuth callback,
-  // surface the spinner immediately on the Google row so the user sees
-  // one continuous "Connecting…" state from click → Google → back-to-
-  // clixa → exchange → done.
+export function AuthDialog({ onClose, oauthInProgress = false }) {
+  // While we're rendered as the dialog for a returning OAuth callback,
+  // surface the spinner immediately on the Google row so the user sees one
+  // continuous "Connecting…" state from click → Google → back-to-clixa →
+  // exchange → splash.
   const [pendingProvider, setPendingProvider] = useState(oauthInProgress ? 'google' : null)
-  const [lastProvider, setLastProvider] = useState(() => readLastProvider())
+  const [lastProvider] = useState(() => readLastProvider())
 
   const {
     signInWithGoogle,
@@ -72,16 +73,16 @@ export function Login({ onBack, onSuccess, oauthInProgress = false }) {
     setPendingProvider(provider)
     clearError()
     writeLastProvider(provider)
-    setLastProvider(provider)
-    // Pass `'login'` as the intent so on the OAuth callback round-trip
-    // the dialog re-mounts in login mode (with this same overlay) —
-    // not a generic full-screen splash.
-    const result = await signInWithGoogle('login')
-    if (result?.ok) {
-      onSuccess?.()
-      return
+    // Intent is 'signin' for the unified dialog. The backend's
+    // get_or_create_from_oauth handles brand-new vs returning automatically;
+    // the intent just keeps the post-redirect re-mount targeting this same
+    // dialog (with loading overlay) instead of a generic splash.
+    const result = await signInWithGoogle('signin')
+    if (!result?.ok) {
+      setPendingProvider(null)
     }
-    setPendingProvider(null)
+    // On success the auth store sets the session; App.jsx handles the
+    // welcome splash → thumbnails handoff.
   }
 
   const loading = storeLoading || pendingProvider !== null || oauthInProgress
@@ -89,27 +90,26 @@ export function Login({ onBack, onSuccess, oauthInProgress = false }) {
   return (
     <Dialog
       open
-      onClose={oauthInProgress ? () => {} : () => onBack?.()}
+      onClose={oauthInProgress ? () => {} : () => onClose?.()}
       size="lg"
       className="auth-dialog-panel"
-      ariaLabelledBy="auth-login-title"
+      ariaLabelledBy="auth-dialog-title"
     >
       {!oauthInProgress && (
         <button
           type="button"
           className="auth-dialog-close"
-          onClick={() => onBack?.()}
+          onClick={() => onClose?.()}
           aria-label="Close"
         >
           <CloseIcon />
         </button>
       )}
 
-      {/* OAuth callback overlay — see Signup.jsx for the same pattern. */}
       {oauthInProgress && (
         <div className="auth-dialog-loading" role="status" aria-live="polite">
-          <h1 className="auth-title">Welcoming you back…</h1>
-          <p className="auth-subtitle">Verifying with Google. Hang tight.</p>
+          <h1 className="auth-title">Signing you in…</h1>
+          <p className="auth-subtitle">Finishing up with Google. Hang tight.</p>
           <span className="auth-dialog-loading-spinner" aria-hidden="true" />
         </div>
       )}
@@ -119,10 +119,10 @@ export function Login({ onBack, onSuccess, oauthInProgress = false }) {
         <div className="auth-content">
           <div className="auth-content-main">
             <div className="auth-card-head">
-              <h1 id="auth-login-title" className="auth-title">
-                Welcome back
+              <h1 id="auth-dialog-title" className="auth-title">
+                Continue to Clixa
               </h1>
-              <p className="auth-subtitle">Sign in to your workspace.</p>
+              <p className="auth-subtitle">Sign in or create an account in one tap.</p>
             </div>
 
             {storeError && (
@@ -153,7 +153,9 @@ export function Login({ onBack, onSuccess, oauthInProgress = false }) {
                       <GoogleIcon />
                     )}
                   </span>
-                  <span>{pendingProvider === 'google' ? 'Connecting…' : 'Log In with Google'}</span>
+                  <span>
+                    {pendingProvider === 'google' ? 'Connecting…' : 'Continue with Google'}
+                  </span>
                 </button>
               </div>
 
@@ -169,7 +171,7 @@ export function Login({ onBack, onSuccess, oauthInProgress = false }) {
                   <span className="auth-oauth-icon">
                     <AppleIcon />
                   </span>
-                  <span>Log In with Apple</span>
+                  <span>Continue with Apple</span>
                 </button>
               </div>
             </div>

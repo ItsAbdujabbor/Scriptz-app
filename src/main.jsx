@@ -15,7 +15,16 @@ import { installPaywallInterceptor } from './lib/paywallInterceptor'
 import { installConversationLRU } from './queries/thumbnails/conversationLRU'
 import { subscribeCacheEvents } from './lib/query/broadcastSync'
 import { queryKeys } from './lib/query/queryKeys'
+import { initRum } from './lib/rum'
+import { initAnalytics, trackPageView } from './lib/analytics'
 
+initRum()
+initAnalytics({ apiBaseUrl: import.meta.env.VITE_API_BASE_URL || '' })
+// First page-load event. Route changes inside the SPA fire their own via
+// the existing hash/route listener (see authStore + App.jsx wiring).
+if (typeof window !== 'undefined') {
+  window.addEventListener('load', () => trackPageView())
+}
 installPaywallInterceptor()
 
 if (typeof document !== 'undefined') {

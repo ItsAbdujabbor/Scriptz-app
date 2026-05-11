@@ -3,6 +3,7 @@ export const queryKeys = {
   user: {
     preferences: ['user', 'preferences'],
     profile: ['user', 'profile'],
+    emailPreferences: ['user', 'emailPreferences'],
   },
   youtube: {
     channels: () => ['youtube', 'channels'],

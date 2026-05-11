@@ -124,7 +124,7 @@ export function Hero() {
               height={48}
               aria-label="Generate"
               onClick={() => {
-                window.location.hash = '#register'
+                window.location.hash = '#signin'
               }}
             />
           </div>

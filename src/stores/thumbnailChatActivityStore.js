@@ -55,9 +55,7 @@ function patchRowEverywhere(qc, conversationId, patch) {
     if (!data?.items) continue
     qc.setQueryData(key, {
       ...data,
-      items: data.items.map((c) =>
-        Number(c.id) === id ? { ...c, ...patch } : c
-      ),
+      items: data.items.map((c) => (Number(c.id) === id ? { ...c, ...patch } : c)),
     })
   }
   const detailKey = queryKeys.thumbnails.conversation(id)
@@ -128,6 +126,9 @@ export function useThumbnailChatActivityStore(selector) {
 
   // Pre-compute the legacy `pending` / `lastSeenAt` maps so old selectors
   // that reach for them keep returning sensible (server-derived) values.
+  // Pending rows use the row's `last_message_at` (or `pending_until`) as
+  // their timestamp — both are server-authoritative and stable across
+  // renders, which keeps useMemo pure (no Date.now() in render).
   const { pending, lastSeenAt } = useMemo(() => {
     const lists = queryClient.getQueriesData({ queryKey: ['thumbnails', 'conversations'] })
     const pendingMap = {}
@@ -136,7 +137,11 @@ export function useThumbnailChatActivityStore(selector) {
       if (!data?.items) continue
       for (const row of data.items) {
         const key = String(row.id)
-        if (row.is_pending) pendingMap[key] = Date.now()
+        if (row.is_pending) {
+          const stamp =
+            Date.parse(row.pending_until || row.last_message_at || row.updated_at || '') || 0
+          pendingMap[key] = stamp
+        }
         if (row.last_seen_at) seenMap[key] = Date.parse(row.last_seen_at) || 0
       }
     }

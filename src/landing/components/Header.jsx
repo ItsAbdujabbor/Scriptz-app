@@ -6,7 +6,6 @@ const NAV_ITEMS = [
   { href: '#results', label: 'Results', id: 'nav-results', section: 'results' },
   { href: '#social-proof', label: 'Reviews', id: 'nav-reviews', section: 'social-proof' },
   { href: '#pricing', label: 'Pricing', id: 'nav-pricing', section: 'pricing' },
-  { href: '#faq', label: 'FAQ', id: 'nav-faq', section: 'faq' },
 ]
 
 /**
@@ -48,12 +47,15 @@ function HeaderBar() {
           ))}
         </nav>
 
-        {/* Desktop / mobile-visible CTAs */}
+        {/* Desktop / mobile-visible CTAs. Both targets are the same unified
+            auth dialog (#signin) — two buttons exist so returning users
+            have an obvious "Sign In" affordance separate from the marketing
+            "Start Free Trial" CTA, without changing dialog behaviour. */}
         <div className="header-actions">
-          <a href="#login" className="header-login">
-            Log In
+          <a href="#signin" className="header-login">
+            Sign In
           </a>
-          <a href="#register" className="header-trial">
+          <a href="#signin" className="header-trial">
             Start Free Trial
           </a>
         </div>
@@ -138,7 +140,7 @@ function HeaderMobileMenu() {
   const close = () => setOpen(false)
 
   const handleNav = (e, href) => {
-    if (href === '#login' || href === '#register') {
+    if (href === '#signin' || href === '#login' || href === '#register') {
       close()
       return
     }
@@ -185,7 +187,6 @@ function HeaderMobileMenu() {
             { href: '#results', label: 'Results' },
             { href: '#social-proof', label: 'Reviews' },
             { href: '#pricing', label: 'Pricing' },
-            { href: '#faq', label: 'FAQ' },
           ].map((item) => (
             <a key={item.href} href={item.href} onClick={(e) => handleNav(e, item.href)}>
               <span className="hm-nav-label">{item.label}</span>
@@ -194,7 +195,7 @@ function HeaderMobileMenu() {
         </nav>
 
         <div className="hm-cta">
-          <a href="#register" className="hm-trial" onClick={close}>
+          <a href="#signin" className="hm-trial" onClick={close}>
             <span className="hm-trial-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
                 <path d="M12 2.5 13.7 9 20.5 10.5 13.7 12 12 18.5 10.3 12 3.5 10.5 10.3 9z" />
@@ -202,8 +203,8 @@ function HeaderMobileMenu() {
             </span>
             Start Free Trial
           </a>
-          <a href="#login" className="hm-login" onClick={close}>
-            Already have an account? <span className="hm-login-em">Log in</span>
+          <a href="#signin" className="hm-login" onClick={close}>
+            Already have an account? <span className="hm-login-em">Sign in</span>
           </a>
         </div>
       </div>

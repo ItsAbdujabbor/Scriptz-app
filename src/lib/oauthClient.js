@@ -28,6 +28,31 @@ const OAUTH_PROVIDER_KEY = 'clixa_oauth_provider'
 // the same dialog (with a loading overlay) instead of flashing a
 // generic full-screen splash.
 const OAUTH_INTENT_KEY = 'clixa_oauth_intent'
+// Marketing-consent checkbox value captured on the signup dialog before the
+// OAuth redirect. Read once on callback and forwarded to the backend exchange
+// so `marketing_consent_at` is set at user creation time. Only meaningful for
+// signups; ignored on plain logins.
+const MARKETING_CONSENT_KEY = 'clixa_marketing_consent'
+
+export function setMarketingConsent(value) {
+  try {
+    sessionStorage.setItem(MARKETING_CONSENT_KEY, value ? '1' : '0')
+  } catch {
+    /* sessionStorage may be unavailable */
+  }
+}
+
+function consumeMarketingConsent() {
+  try {
+    const v = sessionStorage.getItem(MARKETING_CONSENT_KEY)
+    sessionStorage.removeItem(MARKETING_CONSENT_KEY)
+    if (v === '1') return true
+    if (v === '0') return false
+    return null
+  } catch {
+    return null
+  }
+}
 
 export function setOAuthIntent(intent) {
   try {
@@ -207,7 +232,12 @@ export async function consumeOAuthCallback() {
     throw new Error('Missing PKCE verifier — restart sign-in.')
   }
 
-  const session = await exchangeWithBackend(provider, code, verifier)
+  // Pull the signup-time marketing-consent checkbox value (if any). null
+  // means the user came from the login dialog or didn't pass a value, in
+  // which case we don't send the field and the backend leaves any existing
+  // consent state untouched.
+  const marketingConsent = consumeMarketingConsent()
+  const session = await exchangeWithBackend(provider, code, verifier, marketingConsent)
 
   sessionStorage.removeItem(PKCE_VERIFIER_KEY)
   sessionStorage.removeItem(OAUTH_STATE_KEY)
@@ -243,15 +273,21 @@ function cleanupCallbackUrl(url) {
   window.history.replaceState({}, '', clean)
 }
 
-async function exchangeWithBackend(provider, code, verifier) {
+async function exchangeWithBackend(provider, code, verifier, marketingConsent) {
+  const body = {
+    code,
+    code_verifier: verifier,
+    redirect_uri: redirectUri(),
+  }
+  // Only include the field on first-time signups (login flows pass null).
+  // Backend treats explicit `false` as a refusal, so don't default it.
+  if (marketingConsent === true || marketingConsent === false) {
+    body.marketing_consent = marketingConsent
+  }
   const r = await fetch(`${getApiBaseUrl()}/api/auth/oauth/${provider}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      code,
-      code_verifier: verifier,
-      redirect_uri: redirectUri(),
-    }),
+    body: JSON.stringify(body),
   })
   const data = await r.json().catch(() => ({}))
   if (!r.ok) {

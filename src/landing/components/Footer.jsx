@@ -44,13 +44,8 @@ export function Footer() {
             <p className="ftr-col-title">Account</p>
             <ul className="ftr-links">
               <li>
-                <a href="#login" className="ftr-link">
-                  Log in
-                </a>
-              </li>
-              <li>
-                <a href="#register" className="ftr-link">
-                  Start free trial
+                <a href="#signin" className="ftr-link">
+                  Sign in
                 </a>
               </li>
             </ul>
