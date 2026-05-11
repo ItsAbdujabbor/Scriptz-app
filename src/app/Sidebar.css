@@ -306,6 +306,7 @@
 .app-sidebar:not(.collapsed) .sidebar-section-label,
 .app-sidebar:not(.collapsed) .sidebar-user-email,
 .app-sidebar:not(.collapsed) .sidebar-user-plan,
+.app-sidebar:not(.collapsed) .sidebar-account-name,
 .app-sidebar:not(.collapsed) .sidebar-account-email,
 .app-sidebar:not(.collapsed) .sidebar-account-plan,
 .app-sidebar:not(.collapsed) .sidebar-history-row__title,
@@ -321,6 +322,7 @@
 .app-sidebar.collapsed .sidebar-section-label,
 .app-sidebar.collapsed .sidebar-user-email,
 .app-sidebar.collapsed .sidebar-user-plan,
+.app-sidebar.collapsed .sidebar-account-name,
 .app-sidebar.collapsed .sidebar-account-email,
 .app-sidebar.collapsed .sidebar-account-plan,
 .app-sidebar.collapsed .sidebar-history-row__title,
@@ -3338,4 +3340,282 @@
   font-size: 0.74rem;
   color: var(--text-3, rgba(229, 229, 231, 0.5));
   letter-spacing: 0.01em;
+}
+
+/* ============================================================
+   SIDEBAR ACCOUNT NAME LINE + CREDITS PILL (new)
+   ------------------------------------------------------------
+   The old single-row layout was [avatar | email | plan]. The
+   redesign splits this into:
+     • a creative credits pill (separate row above the button)
+     • the account button row: [avatar | name + email | chevron]
+   The plan label is gone from the account button — it's baked
+   into the pill's coloured tag, where it sits next to the live
+   credit balance.
+   ============================================================ */
+
+.sidebar-account-name {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: rgba(245, 243, 255, 0.98);
+  line-height: 1.18;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The email line is now secondary to the name — tone it down so
+   the visual hierarchy reads name-first, email-second. */
+.sidebar-account-wrap .sidebar-account-email {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: rgba(196, 181, 253, 0.6);
+}
+
+/* ── Credits pill (new) ────────────────────────────────────── */
+.sidebar-credits-pill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  margin: 0 0 0.5rem;
+  padding: 0.42rem 0.55rem 0.42rem 0.5rem;
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(124, 58, 237, 0.18) 0%,
+      rgba(109, 40, 217, 0.12) 50%,
+      rgba(76, 29, 149, 0.18) 100%
+    ),
+    rgba(28, 24, 40, 0.55);
+  border: 1px solid rgba(167, 139, 250, 0.22);
+  color: rgba(245, 243, 255, 0.92);
+  font: inherit;
+  isolation: isolate;
+  overflow: hidden;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
+    0 4px 14px -8px rgba(124, 58, 237, 0.45);
+  transition:
+    border-color 0.22s cubic-bezier(0.33, 1, 0.68, 1),
+    box-shadow 0.22s cubic-bezier(0.33, 1, 0.68, 1),
+    transform 0.22s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+/* Subtle moving violet sheen — the gradient drifts across the
+   pill on a slow 8s loop. Pure decoration, GPU-cheap (translateX
+   only). Disabled for users with reduced-motion preferred. */
+.sidebar-credits-pill__glow {
+  position: absolute;
+  inset: -40% -20%;
+  z-index: -1;
+  background: radial-gradient(
+    ellipse at 30% 50%,
+    rgba(167, 139, 250, 0.28) 0%,
+    rgba(124, 58, 237, 0.12) 35%,
+    transparent 65%
+  );
+  filter: blur(14px);
+  opacity: 0.85;
+  animation: sidebarPillSheen 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes sidebarPillSheen {
+  0%,
+  100% {
+    transform: translateX(-12%);
+  }
+  50% {
+    transform: translateX(12%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-credits-pill__glow {
+    animation: none;
+  }
+}
+
+.sidebar-credits-pill__icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #fde68a;
+  background: linear-gradient(135deg, rgba(253, 224, 71, 0.18) 0%, rgba(217, 119, 6, 0.16) 100%);
+  border: 0.5px solid rgba(253, 224, 71, 0.32);
+}
+.sidebar-credits-pill__icon svg {
+  width: 11px;
+  height: 11px;
+  fill: currentColor;
+}
+
+.sidebar-credits-pill__main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.sidebar-credits-pill__amount {
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: #fafafa;
+  line-height: 1;
+}
+
+.sidebar-credits-pill__unit {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(196, 181, 253, 0.65);
+  text-transform: lowercase;
+  line-height: 1;
+}
+
+.sidebar-credits-pill__sep {
+  flex-shrink: 0;
+  width: 1px;
+  height: 14px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(196, 181, 253, 0.3) 50%,
+    transparent 100%
+  );
+}
+
+.sidebar-credits-pill__tag {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.18rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+  border: 1px solid transparent;
+  cursor: default;
+  font-family: inherit;
+}
+
+.sidebar-credits-pill__tag-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 0 0 currentColor;
+}
+
+/* Pro — confident violet with a soft glow on the dot */
+.sidebar-credits-pill__tag--pro {
+  color: #ede9fe;
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.35) 0%, rgba(124, 58, 237, 0.28) 100%);
+  border-color: rgba(167, 139, 250, 0.48);
+}
+.sidebar-credits-pill__tag--pro .sidebar-credits-pill__tag-dot {
+  color: #c4b5fd;
+  box-shadow: 0 0 6px rgba(196, 181, 253, 0.75);
+  animation: sidebarPillProPulse 2.4s ease-in-out infinite;
+}
+@keyframes sidebarPillProPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 6px rgba(196, 181, 253, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 10px rgba(196, 181, 253, 0.95);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-credits-pill__tag--pro .sidebar-credits-pill__tag-dot {
+    animation: none;
+  }
+}
+
+/* Trial — warm amber, signals "running" */
+.sidebar-credits-pill__tag--trial {
+  color: #fef3c7;
+  background: linear-gradient(135deg, rgba(253, 224, 71, 0.22) 0%, rgba(217, 119, 6, 0.22) 100%);
+  border-color: rgba(253, 224, 71, 0.4);
+}
+.sidebar-credits-pill__tag--trial .sidebar-credits-pill__tag-dot {
+  color: #fde68a;
+}
+
+/* Free — neutral chip that doubles as the upgrade CTA. Hover/focus
+   lifts it to the violet ramp to telegraph "tap me to go Pro". */
+.sidebar-credits-pill__tag--free {
+  color: rgba(229, 229, 231, 0.85);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  padding-right: 0.32rem;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.18s cubic-bezier(0.33, 1, 0.68, 1);
+}
+.sidebar-credits-pill__tag--free:hover,
+.sidebar-credits-pill__tag--free:focus-visible {
+  color: #ede9fe;
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.32) 0%, rgba(124, 58, 237, 0.28) 100%);
+  border-color: rgba(167, 139, 250, 0.52);
+  outline: none;
+  transform: translateY(-0.5px);
+}
+.sidebar-credits-pill__upsell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  opacity: 0.7;
+  transition:
+    transform 0.22s cubic-bezier(0.33, 1, 0.68, 1),
+    opacity 0.18s ease;
+}
+.sidebar-credits-pill__upsell svg {
+  width: 10px;
+  height: 10px;
+}
+.sidebar-credits-pill__tag--free:hover .sidebar-credits-pill__upsell,
+.sidebar-credits-pill__tag--free:focus-visible .sidebar-credits-pill__upsell {
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+/* Tone variants — shift the pill's own border + glow to match the
+   plan state at a glance, even without reading the tag text. */
+.sidebar-credits-pill--pro {
+  border-color: rgba(167, 139, 250, 0.42);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.12),
+    0 6px 20px -10px rgba(124, 58, 237, 0.65);
+}
+.sidebar-credits-pill--trial {
+  border-color: rgba(253, 224, 71, 0.34);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
+    0 5px 16px -10px rgba(217, 119, 6, 0.5);
+}
+.sidebar-credits-pill--free {
+  border-color: rgba(167, 139, 250, 0.18);
 }

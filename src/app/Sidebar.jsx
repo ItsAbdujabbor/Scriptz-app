@@ -10,6 +10,7 @@ import { useFloatingPosition } from '../lib/useFloatingPosition'
 import { openBillingDialog } from '../lib/billingDialogBus'
 import { ConfirmDialog } from '../components/ui'
 import AccountAvatar from '../components/AccountAvatar'
+import SidebarCreditsPill from '../components/SidebarCreditsPill'
 import { useSubscriptionQuery } from '../queries/billing/creditsQueries'
 import {
   useModelTierStateQuery,
@@ -628,23 +629,28 @@ export function Sidebar({
       requestAnimationFrame(() => historySearchInputRef.current?.focus())
     }
   }, [historySearchOpen])
-  // Subscription drives the sidebar plan label and Go Pro visibility.
-  // (Credits count moved to the header pill — `HeaderCreditsBadge` —
-  // so the sidebar no longer subscribes to that query.)
-  const { data: subscription } = useSubscriptionQuery()
-  const activeStatuses = ['active', 'trialing', 'past_due']
-  const hasActivePlan = !!(subscription && activeStatuses.includes(subscription.status))
-  const planLabel = (() => {
-    if (!hasActivePlan) return 'Free'
-    const name = subscription.plan_name || subscription.tier || 'Pro'
-    const period =
-      subscription.billing_period === 'year'
-        ? ' · Annual'
-        : subscription.billing_period === 'month'
-          ? ''
-          : ''
-    const trialTag = subscription.is_trial ? ' · Trial' : ''
-    return `${name[0].toUpperCase()}${name.slice(1)}${period}${trialTag}`
+  // Subscription drives Go Pro visibility. The "Free / Pro / Trial" plan
+  // label moved into the new `<SidebarCreditsPill>` below the account
+  // button, which renders credits + plan tag together. The pill
+  // subscribes on its own, so we don't need to mirror the data here.
+  useSubscriptionQuery()
+
+  // Friendly name shown above the email. Prefers the server-provided
+  // username/name (populated from the Google id_token at OAuth time);
+  // falls back to a Title-cased email prefix so we always have *some*
+  // human-looking label even before the backend ships the field.
+  const displayName = (() => {
+    const fromUser = user?.username || user?.name || user?.display_name
+    if (fromUser && String(fromUser).trim()) return String(fromUser).trim()
+    const local = String(user?.email || '').split('@')[0] || ''
+    if (!local) return 'Account'
+    // Strip trailing digits / dots so "buycoinx" stays "buycoinx" and
+    // "first.last" becomes "First Last".
+    const cleaned = local
+      .replace(/[._-]+/g, ' ')
+      .replace(/\s+\d+$/, '')
+      .trim()
+    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
   })()
   // Store actions are stable refs — read once from getState() to avoid extra subscriptions
   const [{ setCollapsed, toggleCollapsed, setMobileOpen, closeMobile }] = useState(() =>
@@ -1275,6 +1281,12 @@ export function Sidebar({
             </nav>
 
             <div className="sidebar-account-wrap">
+              {/* Credits pill — full-width creative pill above the
+               * account row. Hidden on the collapsed rail (the credits
+               * count lives in HeaderCreditsBadge there). Renders for
+               * Free / Pro / Trial with state-specific colour. */}
+              {!collapsed && <SidebarCreditsPill />}
+
               <button
                 ref={userBlockRef}
                 type="button"
@@ -1285,25 +1297,19 @@ export function Sidebar({
                 aria-expanded={accountDialogOpen}
                 title={collapsed && user?.email ? user.email : 'Account menu'}
               >
-                {/* Avatar — accent-gradient circle with the user's
-                 * initial. Credits used to live here as a progress
-                 * orb; that's now in the top-right of the thumbnail
-                 * screen via `<HeaderCreditsBadge />` so the sidebar
-                 * stays focused on identity + plan. */}
                 <span
                   className="sidebar-account-avatar"
                   aria-label={user?.email || 'Account'}
                   title={user?.email || 'Account'}
                 >
-                  <AccountAvatar email={user?.email} />
+                  <AccountAvatar
+                    email={user?.email}
+                    pictureUrl={user?.picture || user?.picture_url || user?.avatar_url || null}
+                  />
                 </span>
                 <span className="sidebar-account-info">
+                  <span className="sidebar-account-name">{displayName}</span>
                   <span className="sidebar-account-email">{user?.email || 'User'}</span>
-                  <span
-                    className={`sidebar-account-plan ${hasActivePlan ? 'sidebar-account-plan--active' : ''} ${subscription?.is_trial ? 'sidebar-account-plan--trial' : ''}`}
-                  >
-                    {planLabel}
-                  </span>
                 </span>
                 <span className="sidebar-account-chevron" aria-hidden>
                   <svg

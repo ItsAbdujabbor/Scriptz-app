@@ -1,24 +1,43 @@
 import { useEffect, useState } from 'react'
 
 /**
- * Renders the inner content of an avatar circle: a Gravatar `<img>` when one
- * exists for the given email, otherwise the user's first initial.
+ * Renders the inner content of an avatar circle.
+ *
+ * Resolution order:
+ *   1. `pictureUrl` — usually the Google profile picture captured from the
+ *      OAuth id_token. Sized down to 64px on render. Falls through to step 2
+ *      on load error so a broken/expired Google CDN URL doesn't leave a
+ *      blank circle.
+ *   2. Gravatar — derived from a sha256 of the lowercased email. `d=404`
+ *      makes the request fail when no avatar is registered, falling through
+ *      to step 3.
+ *   3. The user's first initial on the accent-gradient background.
  *
  * The caller provides the wrapper element with size + circular shape (e.g.
- * `<span className="sidebar-account-avatar">`). This component only chooses
- * what goes inside, so it can drop into any existing avatar slot without
+ * `<span className="sidebar-account-avatar">`). This component only picks
+ * what goes inside, so it drops into any existing avatar slot without
  * disturbing the layout.
- *
- * Gravatar's `d=404` makes the image request fail when no avatar is
- * registered for the hash — `onError` then swaps to the initial fallback.
  */
-export default function AccountAvatar({ email, fallbackChar = 'U', imgClassName = 'sidebar-account-avatar-img', letterClassName = 'sidebar-account-avatar-letter' }) {
+export default function AccountAvatar({
+  email,
+  pictureUrl = null,
+  fallbackChar = 'U',
+  imgClassName = 'sidebar-account-avatar-img',
+  letterClassName = 'sidebar-account-avatar-letter',
+}) {
   const [hash, setHash] = useState(null)
-  const [errored, setErrored] = useState(false)
+  // Two independent error flags so a broken `pictureUrl` falls through to
+  // Gravatar, and a 404 Gravatar falls through to the initial.
+  const [pictureErrored, setPictureErrored] = useState(false)
+  const [gravatarErrored, setGravatarErrored] = useState(false)
   const initial = (email?.[0] || fallbackChar).toUpperCase()
 
   useEffect(() => {
-    setErrored(false)
+    setPictureErrored(false)
+  }, [pictureUrl])
+
+  useEffect(() => {
+    setGravatarErrored(false)
     setHash(null)
     if (!email) return
     let cancelled = false
@@ -30,13 +49,24 @@ export default function AccountAvatar({ email, fallbackChar = 'U', imgClassName 
     }
   }, [email])
 
-  if (hash && !errored) {
+  if (pictureUrl && !pictureErrored) {
+    return (
+      <img
+        src={pictureUrl}
+        alt={email || 'avatar'}
+        className={imgClassName}
+        referrerPolicy="no-referrer"
+        onError={() => setPictureErrored(true)}
+      />
+    )
+  }
+  if (hash && !gravatarErrored) {
     return (
       <img
         src={`https://www.gravatar.com/avatar/${hash}?s=64&d=404`}
         alt={email || 'avatar'}
         className={imgClassName}
-        onError={() => setErrored(true)}
+        onError={() => setGravatarErrored(true)}
       />
     )
   }
