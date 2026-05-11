@@ -3,21 +3,27 @@ name: Deploy main to clixa.app
 # Auto-deploys main → S3 bucket behind clixa.app, then invalidates
 # the CloudFront cache so the new build is visible immediately.
 #
-# Setup required (one-time): add two repo secrets at
-# Settings → Secrets and variables → Actions:
-#   AWS_ACCESS_KEY_ID
-#   AWS_SECRET_ACCESS_KEY
-# Use the keys printed by the IAM user `gh-actions-deploy` (deploy-only
-# permissions: list/put/delete on the bucket + CloudFront invalidation).
+# Auth: GitHub OIDC. The role `clixa-gha-deploy-frontend` is trusted
+# only for `repo:ItsAbdujabbor/Scriptz-app:ref:refs/heads/main`, so PRs
+# and forks cannot assume it. Permissions are scoped to:
+#   * s3:PutObject/DeleteObject/ListBucket on clixa-app-195874016451
+#   * cloudfront:CreateInvalidation/GetInvalidation on ECPKX3YV9V9CH
+# Role ARN comes from the repo secret AWS_DEPLOY_ROLE_ARN.
 #
-# Push trigger is disabled until those secrets are configured — it was
-# spamming failure emails on every commit. After the secrets are in,
-# re-enable it by uncommenting the `push:` block below.
+# Replaces the prior IAM-keys flow (AWS_ACCESS_KEY_ID +
+# AWS_SECRET_ACCESS_KEY) which was never configured and silently
+# failed on every push — push trigger had to be disabled to stop the
+# failure-email spam. OIDC removes the long-lived keys entirely AND
+# makes the push trigger safe to re-enable.
 
 on:
-  # push:
-  #   branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch: {}
+
+permissions:
+  id-token: write   # required to mint the OIDC token for AssumeRoleWithWebIdentity
+  contents: read
 
 concurrency:
   # Cancel in-flight deploys from older commits on the same branch so we
@@ -51,12 +57,12 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-deploy-frontend-${{ github.run_id }}
 
       # 1. Hashed assets → always upload fresh so Content-Type and
       #    Cache-Control are guaranteed, even on reruns where the
