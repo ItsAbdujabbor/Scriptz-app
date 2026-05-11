@@ -1,268 +1,306 @@
-/* Header credits badge — two stacked sections form a single connected
-   "tier ribbon" chip. The top is a rounded pill (credits); the bottom is
-   a narrower banner with a notched downward chevron carved out of it via
-   clip-path. The whole thing is one button — clicking anywhere opens the
-   credits dialog.
+/* HeaderCreditsBadge — one premium pill, two visible zones.
 
-   Custom shape: implemented with `clip-path: polygon(...)` on the banner
-   element. The polygon points trace a rounded-top rectangle that tapers
-   into a downward chevron at the bottom centre. This gives a distinctive
-   non-pill silhouette without dragging in a shape-rendering dependency
-   — the technique is the same one any SVG/clip-path shape library would
-   ultimately use. */
+   Layout: [bolt][count] · [PLAN] inline in a single rounded container.
+   No notched chevron, no stacked sub-card — the divider is a single
+   1px vertical line so the whole thing reads as ONE object. The plan
+   zone picks up tier-specific colour (Starter slate / Creator violet /
+   Ultimate gold / Trial amber) without breaking the container shape.
+
+   Premium accents:
+     • dual-gradient background (deep glass + violet tint)
+     • inner highlight on the top edge (`inset 0 1px 0 …`)
+     • outer drop-shadow with a violet glow halo
+     • slow-drifting sheen (8s loop, GPU translate; respects
+       prefers-reduced-motion)
+     • hover lifts brightness 6% + tightens the violet halo
+*/
 
 .header-credits-badge {
+  position: relative;
   display: inline-flex;
-  flex-direction: column;
-  align-items: stretch;
-  padding: 0;
-  border: 0;
-  background: transparent;
+  align-items: center;
+  gap: 0.42rem;
+  padding: 0.36rem 0.62rem 0.36rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(167, 139, 250, 0.36);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(139, 92, 246, 0.32) 0%,
+      rgba(109, 40, 217, 0.22) 50%,
+      rgba(76, 29, 149, 0.28) 100%
+    ),
+    linear-gradient(180deg, rgba(28, 24, 40, 0.96) 0%, rgba(13, 11, 24, 0.96) 100%);
   color: #f5f3ff;
   font-family: inherit;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.01em;
+  white-space: nowrap;
   cursor: pointer;
   pointer-events: auto;
-  white-space: nowrap;
-  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.32)) drop-shadow(0 0 14px rgba(139, 92, 246, 0.18));
-  transition: transform 0.14s cubic-bezier(0.33, 1, 0.68, 1);
+  overflow: hidden;
+  isolation: isolate;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.25),
+    0 6px 22px -10px rgba(124, 58, 237, 0.55),
+    0 0 0 0 rgba(167, 139, 250, 0);
+  transition:
+    border-color 0.22s ease,
+    background 0.22s ease,
+    box-shadow 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.14s cubic-bezier(0.33, 1, 0.68, 1),
+    filter 0.22s ease;
+}
+
+.header-credits-badge:hover {
+  border-color: rgba(196, 181, 253, 0.5);
+  filter: brightness(1.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.28),
+    0 12px 32px -10px rgba(139, 92, 246, 0.7),
+    0 0 0 4px rgba(167, 139, 250, 0.08);
 }
 
 .header-credits-badge:active {
   transform: scale(0.97);
 }
 
-/* ── Top: credits pill ──────────────────────────────────────── */
-.header-credits-badge__core {
+/* ── Left zone: bolt icon + credit count ───────────────────────── */
+.header-credits-badge__icon {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  padding: 0.42rem 0.85rem;
-  border: 1px solid rgba(167, 139, 250, 0.32);
-  border-radius: 999px;
-  background:
-    linear-gradient(150deg, rgba(139, 92, 246, 0.34) 0%, rgba(99, 102, 241, 0.24) 100%),
-    rgba(13, 11, 24, 0.88);
-  backdrop-filter: blur(18px) saturate(170%);
-  -webkit-backdrop-filter: blur(18px) saturate(170%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 1px 2px rgba(0, 0, 0, 0.25);
-  transition:
-    background 0.22s ease,
-    border-color 0.22s ease;
-}
-
-.header-credits-badge:hover .header-credits-badge__core {
-  border-color: rgba(196, 181, 253, 0.44);
-}
-
-.header-credits-badge-icon {
-  display: inline-flex;
-  color: #a78bfa;
+  width: 17px;
+  height: 17px;
   flex-shrink: 0;
-}
-.header-credits-badge-icon svg {
-  width: 12px;
-  height: 12px;
-}
-
-.header-credits-badge-count {
-  font-variant-numeric: tabular-nums;
-  color: #fff;
-}
-
-/* ── Bottom: tier banner with notched chevron ───────────────────
-   The banner sits flush against the bottom of the credits pill
-   (negative top margin overlaps the rounded edge by 8px so they
-   read as one connected shape). `clip-path` carves a downward
-   chevron into the bottom edge — that's the "custom shape" the
-   ticket-look depends on. */
-.header-credits-badge__banner {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  align-self: center;
-  margin: -8px auto 0;
-  padding: 0.36rem 0.7rem 0.55rem;
-  min-width: 64%;
-  border: 1px solid rgba(167, 139, 250, 0.36);
-  border-top: none; /* invisible under the overlap with the pill */
-  border-radius: 6px;
-  /* Carve a downward chevron into the bottom edge. The 10 points
-     trace: top-left → top-right → right-edge → right-of-chevron →
-     chevron-tip → left-of-chevron → left-edge → close. Slight
-     bottom-corner inset gives the banner subtle "tail" feet. */
-  clip-path: polygon(
-    0% 0%,
-    100% 0%,
-    100% 72%,
-    92% 78%,
-    60% 78%,
-    50% 100%,
-    40% 78%,
-    8% 78%,
-    0% 72%,
-    0% 0%
+  border-radius: 999px;
+  color: #c4b5fd;
+  background: radial-gradient(
+    circle at 35% 30%,
+    rgba(196, 181, 253, 0.28) 0%,
+    rgba(124, 58, 237, 0.18) 50%,
+    rgba(76, 29, 149, 0.18) 100%
   );
-  background:
-    linear-gradient(
-      180deg,
-      rgba(167, 139, 250, 0.42) 0%,
-      rgba(124, 58, 237, 0.38) 50%,
-      rgba(91, 33, 182, 0.4) 100%
-    ),
-    rgba(13, 11, 24, 0.92);
-  font-size: 0.6rem;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #fafafa;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
-  overflow: hidden;
-  transition: filter 0.22s ease;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.16),
+    0 0 6px -2px rgba(167, 139, 250, 0.45);
+}
+.header-credits-badge__icon svg {
+  width: 10px;
+  height: 10px;
+  fill: currentColor;
+  /* Filled bolt reads stronger than stroke-only at 10px. */
+  stroke: none;
 }
 
-.header-credits-badge__banner-text {
+.header-credits-badge__count {
   position: relative;
-  z-index: 2;
+  z-index: 1;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #ffffff;
   line-height: 1;
 }
 
-/* Slow-drifting sheen across the banner — adds the "premium tier"
-   feel without animating layout. Pure GPU translate. */
-.header-credits-badge__banner-shine {
-  position: absolute;
-  inset: 0;
+/* ── Divider — single hairline between the two zones ───────────── */
+.header-credits-badge__divider {
+  position: relative;
   z-index: 1;
+  width: 1px;
+  height: 12px;
+  margin: 0 0.12rem;
   background: linear-gradient(
-    120deg,
-    transparent 35%,
-    rgba(255, 255, 255, 0.16) 50%,
-    transparent 65%
+    180deg,
+    transparent 0%,
+    rgba(196, 181, 253, 0.45) 25%,
+    rgba(196, 181, 253, 0.45) 75%,
+    transparent 100%
   );
-  transform: translateX(-100%);
-  animation: headerBadgeShine 6s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes headerBadgeShine {
-  0%,
-  60% {
-    transform: translateX(-120%);
-  }
-  100% {
-    transform: translateX(120%);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .header-credits-badge__banner-shine {
-    animation: none;
-  }
+  flex-shrink: 0;
 }
 
-.header-credits-badge:hover .header-credits-badge__banner {
-  filter: brightness(1.08);
+/* ── Right zone: plan tag, tier-tinted ─────────────────────────── */
+.header-credits-badge__plan {
+  position: relative;
+  z-index: 1;
+  font-size: 0.575rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  line-height: 1;
+  padding: 0.05rem 0;
+  color: rgba(245, 243, 255, 0.92);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
 }
 
-/* ── Tier-specific colour ramps ─────────────────────────────────
-   Each plan reads at a glance — Starter is restrained, Creator is
-   the vibrant default-violet anchor, Ultimate adds a gold sheen
-   to feel premium, Pro is the legacy "active" colour, Trial is
-   amber so it can't be confused with a paid plan. */
+/* ── Tier-specific accents — each plan gets its own colour ramp ──
+   The container background stays the violet base; the plan label and
+   border/halo shift to give an at-a-glance signal of which plan the
+   user is on. Starter is restrained; Creator is the vibrant default;
+   Ultimate is the gold-violet premium feel; Trial is warm amber. */
 
-.header-credits-badge__banner--starter {
-  background:
-    linear-gradient(180deg, rgba(148, 163, 184, 0.32) 0%, rgba(100, 116, 139, 0.32) 100%),
-    rgba(13, 11, 24, 0.94);
-  border-color: rgba(203, 213, 225, 0.34);
-  color: #f1f5f9;
+.header-credits-badge--tier-starter .header-credits-badge__plan {
+  color: #e2e8f0;
+}
+.header-credits-badge--tier-starter {
+  border-color: rgba(167, 139, 250, 0.3);
 }
 
-.header-credits-badge__banner--creator {
-  background:
-    linear-gradient(
-      180deg,
-      rgba(167, 139, 250, 0.46) 0%,
-      rgba(124, 58, 237, 0.42) 50%,
-      rgba(91, 33, 182, 0.46) 100%
-    ),
-    rgba(13, 11, 24, 0.92);
+.header-credits-badge--tier-creator .header-credits-badge__plan {
+  color: #f3eaff;
+  text-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.5),
+    0 0 8px rgba(196, 181, 253, 0.45);
+}
+.header-credits-badge--tier-creator {
   border-color: rgba(196, 181, 253, 0.5);
-  color: #fdfaff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 1px 2px rgba(0, 0, 0, 0.25),
+    0 10px 32px -10px rgba(139, 92, 246, 0.65);
 }
 
-.header-credits-badge__banner--ultimate {
+.header-credits-badge--tier-ultimate {
+  border-color: rgba(253, 224, 71, 0.55);
   background:
     linear-gradient(
-      180deg,
-      rgba(251, 191, 36, 0.36) 0%,
-      rgba(217, 119, 6, 0.32) 35%,
-      rgba(124, 58, 237, 0.42) 100%
+      135deg,
+      rgba(251, 191, 36, 0.28) 0%,
+      rgba(217, 119, 6, 0.22) 35%,
+      rgba(124, 58, 237, 0.32) 100%
     ),
-    rgba(13, 11, 24, 0.92);
-  border-color: rgba(253, 224, 71, 0.5);
+    linear-gradient(180deg, rgba(28, 24, 40, 0.96) 0%, rgba(13, 11, 24, 0.96) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 1px 2px rgba(0, 0, 0, 0.28),
+    0 10px 32px -8px rgba(217, 119, 6, 0.55);
+}
+.header-credits-badge--tier-ultimate .header-credits-badge__plan {
   color: #fff7ed;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  text-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.55),
+    0 0 10px rgba(253, 224, 71, 0.6);
+}
+.header-credits-badge--tier-ultimate .header-credits-badge__icon {
+  color: #fde68a;
+  background: radial-gradient(
+    circle at 35% 30%,
+    rgba(253, 224, 71, 0.4) 0%,
+    rgba(217, 119, 6, 0.28) 60%,
+    rgba(76, 29, 149, 0.2) 100%
+  );
+}
+.header-credits-badge--tier-ultimate .header-credits-badge__divider {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(253, 224, 71, 0.55) 25%,
+    rgba(253, 224, 71, 0.55) 75%,
+    transparent 100%
+  );
 }
 
-.header-credits-badge__banner--pro {
-  /* Default — matches `creator` but a tad cooler. Catches legacy rows
-     where `tier` is unknown so we never show an un-themed banner. */
-  background:
-    linear-gradient(
-      180deg,
-      rgba(167, 139, 250, 0.42) 0%,
-      rgba(124, 58, 237, 0.38) 50%,
-      rgba(91, 33, 182, 0.4) 100%
-    ),
-    rgba(13, 11, 24, 0.92);
-  border-color: rgba(167, 139, 250, 0.4);
+.header-credits-badge--tier-pro {
+  border-color: rgba(167, 139, 250, 0.42);
+}
+.header-credits-badge--tier-pro .header-credits-badge__plan {
+  color: #f3eaff;
 }
 
-.header-credits-badge__banner--trial {
+/* Trial — amber container override so it can't be mistaken for a
+   paid plan at a glance. Wins over the tier-pro/starter rule via
+   later specificity (same number of class hits, declared after). */
+.header-credits-badge--trial {
+  border-color: rgba(253, 224, 71, 0.55);
   background:
-    linear-gradient(180deg, rgba(253, 224, 71, 0.4) 0%, rgba(217, 119, 6, 0.34) 100%),
-    rgba(13, 11, 24, 0.94);
-  border-color: rgba(253, 224, 71, 0.5);
+    linear-gradient(135deg, rgba(253, 224, 71, 0.24) 0%, rgba(217, 119, 6, 0.22) 100%),
+    linear-gradient(180deg, rgba(28, 24, 40, 0.96) 0%, rgba(13, 11, 24, 0.96) 100%);
+}
+.header-credits-badge--trial .header-credits-badge__plan {
   color: #fef3c7;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
 }
-
-/* ── Low-balance / empty states on the top pill ─────────────── */
-.header-credits-badge--low .header-credits-badge__core {
-  background:
-    linear-gradient(150deg, rgba(250, 176, 5, 0.22) 0%, rgba(245, 158, 11, 0.14) 100%),
-    rgba(13, 11, 24, 0.88);
-  border-color: rgba(253, 224, 71, 0.36);
+.header-credits-badge--trial .header-credits-badge__icon {
+  color: #fde68a;
+  background: radial-gradient(
+    circle at 35% 30%,
+    rgba(253, 224, 71, 0.36) 0%,
+    rgba(217, 119, 6, 0.26) 100%
+  );
 }
-.header-credits-badge--low .header-credits-badge-icon {
+.header-credits-badge--trial .header-credits-badge__divider {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(253, 224, 71, 0.55) 25%,
+    rgba(253, 224, 71, 0.55) 75%,
+    transparent 100%
+  );
+}
+
+/* ── Balance-state overrides on the LEFT zone only ──────────────
+   These re-tint just the bolt + the icon background so the plan
+   colour on the right stays intact. Low = amber bolt; empty =
+   coral bolt. */
+.header-credits-badge--low .header-credits-badge__icon {
   color: #fbbf24;
+  background: radial-gradient(
+    circle at 35% 30%,
+    rgba(251, 191, 36, 0.36) 0%,
+    rgba(245, 158, 11, 0.22) 100%
+  );
 }
-
-.header-credits-badge--empty .header-credits-badge__core {
-  background:
-    linear-gradient(150deg, rgba(239, 68, 68, 0.22) 0%, rgba(220, 38, 38, 0.14) 100%),
-    rgba(13, 11, 24, 0.88);
-  border-color: rgba(252, 165, 165, 0.42);
-}
-.header-credits-badge--empty .header-credits-badge-icon {
+.header-credits-badge--empty .header-credits-badge__icon {
   color: #f87171;
+  background: radial-gradient(
+    circle at 35% 30%,
+    rgba(248, 113, 113, 0.4) 0%,
+    rgba(220, 38, 38, 0.28) 100%
+  );
+}
+.header-credits-badge--empty .header-credits-badge__count {
+  color: #fecaca;
 }
 
-/* ── Compact on small viewports ─────────────────────────────── */
+/* ── Compact on small viewports ─────────────────────────────────
+   Slightly tighter padding + smaller numerals so the pill keeps
+   visual weight without overflowing the header on phones. */
 @media (max-width: 680px) {
-  .header-credits-badge__core {
-    padding: 0.34rem 0.7rem;
-    font-size: 0.72rem;
+  .header-credits-badge {
+    padding: 0.32rem 0.55rem 0.32rem 0.45rem;
+    gap: 0.36rem;
+    font-size: 0.68rem;
   }
-  .header-credits-badge__banner {
-    padding: 0.32rem 0.55rem 0.5rem;
-    font-size: 0.55rem;
-    letter-spacing: 0.14em;
+  .header-credits-badge__icon {
+    width: 15px;
+    height: 15px;
+  }
+  .header-credits-badge__icon svg {
+    width: 9px;
+    height: 9px;
+  }
+  .header-credits-badge__count {
+    font-size: 0.74rem;
+  }
+  .header-credits-badge__plan {
+    font-size: 0.52rem;
+    letter-spacing: 0.11em;
+  }
+  .header-credits-badge__divider {
+    height: 10px;
   }
 }
 
