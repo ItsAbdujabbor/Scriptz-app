@@ -124,7 +124,14 @@ export const useAuthStore = create((set, get) => ({
       if (!refreshToken || !expiresAt) return
       if (Date.now() < expiresAt - 120_000) return
       const next = await refreshSession(refreshToken)
-      if (next) get()._applySession(next)
+      // 'invalid' = backend revoked the refresh token; clear session.
+      // null      = transient (network/5xx); keep session, retry next tick.
+      // object    = success; apply it.
+      if (next === 'invalid') {
+        get().clearSession()
+      } else if (next) {
+        get()._applySession(next)
+      }
     }, 60_000)
     set({ _refreshIntervalId: id })
   },
@@ -152,11 +159,20 @@ export const useAuthStore = create((set, get) => ({
     }
     if (tokensExpired(stored.expiresAt) && stored.refreshToken) {
       const next = await refreshSession(stored.refreshToken)
+      if (next === 'invalid') {
+        // Refresh token is dead — wipe locally.
+        get().clearSession()
+        return
+      }
       if (next) {
         get()._applySession(next)
         return
       }
-      get().clearSession()
+      // Transient failure (network / 5xx). Keep what we have; the next
+      // API call will retry. This avoids the "browser came back from
+      // sleep and got bumped to login because CloudFront returned a
+      // single 502" pathology.
+      get()._applySession(stored)
       return
     }
     get()._applySession(stored)
@@ -185,9 +201,17 @@ export const useAuthStore = create((set, get) => ({
     if (accessTokenInFlight) return accessTokenInFlight
     accessTokenInFlight = (async () => {
       const next = await refreshSession(refreshToken)
-      if (!next) {
+      if (next === 'invalid') {
+        // Backend revoked the refresh token (logout from another tab,
+        // 30-day rotation expiry, etc.) — clear session.
         get().clearSession()
         return null
+      }
+      if (!next) {
+        // Transient failure (network blip, 5xx, multi-tab rotation race).
+        // Don't clear the session — return the stale access token so the
+        // caller can fall through. Next call will try again.
+        return accessToken || null
       }
       get()._applySession(next)
       return next.accessToken

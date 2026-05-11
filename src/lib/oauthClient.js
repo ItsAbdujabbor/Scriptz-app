@@ -331,15 +331,41 @@ export function clearSession() {
 
 /**
  * Refresh the access token using the stored refresh token.
- * Returns the new session or null on failure.
+ *
+ * Returns one of:
+ *   * a session object on success
+ *   * `'invalid'` when the server says the refresh token is dead
+ *     (401 / 403 / "not found" / "expired" / "revoked") — caller should
+ *     clear the session locally because re-trying won't help.
+ *   * `null` for any other failure (network blip, 5xx, timeout, CORS, etc.)
+ *     — the local session is still valid; caller should NOT clear it
+ *     and should retry on the next request.
+ *
+ * The previous shape (always null on any failure) caused a real bug: a
+ * transient 502 during refresh wiped the user's session even though the
+ * tokens on disk were fine. Multi-tab token rotation made it worse —
+ * tab A's refresh would rotate the token, tab B's concurrent refresh
+ * would 401 against the now-revoked token, and clearSession() in tab B
+ * would kick the user out across every tab.
  */
 export async function refreshSession(refreshToken) {
-  if (!refreshToken) return null
-  const r = await fetch(`${getApiBaseUrl()}/api/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  })
+  if (!refreshToken) return 'invalid'
+  let r
+  try {
+    r = await fetch(`${getApiBaseUrl()}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+  } catch {
+    // Network error / DNS failure / offline. Local session is still fine —
+    // the next call to the API will retry. Don't clear.
+    return null
+  }
+  // 401/403 = backend says this refresh token is dead. Clear.
+  if (r.status === 401 || r.status === 403) return 'invalid'
+  // Any other non-2xx (5xx, 502/504 from CloudFront, rate-limit, etc.) is
+  // a transient issue — keep the local session intact.
   if (!r.ok) return null
   const data = await r.json().catch(() => ({}))
   if (!data.access_token) return null
