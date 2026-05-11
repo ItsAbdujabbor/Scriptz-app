@@ -43,6 +43,11 @@ import { usePersonasQuery } from '../queries/personas/personaQueries'
 import GenerationProgress from './GenerationProgress'
 import { friendlyMessage } from '../lib/aiErrors'
 import { canvasToBase64Png } from '../lib/canvasToBase64'
+// Responsive overrides — media-query rules the inline styles can't
+// express without a JS resize listener. Class hooks live on the
+// content wrap / toolbar / input card; see the .css file for the
+// breakpoints they target.
+import './EditThumbnailDialog.css'
 
 const PRIMARY_GRADIENT = 'var(--accent-gradient)'
 const MASK_CSS_OPACITY = 0.4
@@ -647,14 +652,12 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
   const cursorPreviewRef = useRef(null)
   const [cursorVisible, setCursorVisible] = useState(false)
   // Marching-ants marquee — an SVG path-d string traced from the
-  // painted region's outline. Computed at the end of every stroke
-  // (and after undo / redo / clear) by Moore-neighbor contour
-  // tracing on the alpha-thresholded mask. The path is rendered
-  // as an <svg> overlay whose <path>'s `stroke-dashoffset` is
-  // animated, so dashes truly march CW around the perimeter the
-  // way Photoshop's marquee does — not just a diagonal stripe
-  // sliding behind a static outline mask.
-  const [marqueePath, setMarqueePath] = useState(null) // { d, w, h } | null
+  // (Removed `marqueePath` state + the Moore-neighbor contour tracer
+  // that fed it — the marching-ants SVG overlay was removed per user
+  // request; the painted region is now communicated purely by the
+  // semi-transparent fill on the mask canvas. Saves ~100 lines of
+  // perimeter-tracing code and one rAF per stroke commit.)
+
   // Stage aspect-ratio — derived from the source thumbnail so the
   // editor adapts to landscape (16:9), portrait (9:16), and square
   // (1:1) thumbnails without cropping. Default 16:9 for the brief
@@ -745,7 +748,6 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
         setUndoDepth(0)
         setRedoDepth(0)
         setHasDrawn(false)
-        setMarqueePath(null)
       })
       .catch(() => {
         /* image failed — drawing will no-op, edit still works as full-mask */
@@ -915,121 +917,11 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
     ctx.fillRect(x, y, w, h)
   }, [])
 
-  // Build the marching-ants outline mask from the current mask canvas
-  // and stash it as a data URL for the striped overlay to consume via
-  // `mask-image`. Walks the alpha channel once: for every painted
-  // pixel (alpha > MASK_THRESHOLD) we check its 4-neighbours; if any
-  // is below the threshold the pixel sits on an edge, so we paint
-  // the pixel + a small ring around it into the output. The ring
-  // width controls the visible thickness of the marquee. Down-samples
-  // first when the canvas is huge so the walk is sub-50ms even on
-  // big paint surfaces. */
-  // Trace the alpha-thresholded mask into closed SVG contours via
-  // Moore-neighbor boundary following. Each connected component's
-  // outer perimeter becomes one `M…L…Z` sub-path concatenated into
-  // one `<path>`. The downstream <svg> renders this with an animated
-  // `stroke-dashoffset` so the dashes truly travel around each
-  // perimeter — no fixed-angle stripe-mask trickery.
-  const rebuildMarquee = useCallback(() => {
-    const src = maskCanvasRef.current
-    if (!src || !hasDrawn) {
-      setMarqueePath(null)
-      return
-    }
-
-    // Down-sample by `STEP` so the trace stays cheap on huge paint
-    // surfaces. STEP grows with canvas width so 4K paint surfaces
-    // don't pay a 4× walk; the strokes are rounded so the slight
-    // density loss isn't visible at the resulting render size.
-    const STEP = src.width >= 2400 ? 4 : 3
-    const sw = Math.max(2, Math.floor(src.width / STEP))
-    const sh = Math.max(2, Math.floor(src.height / STEP))
-
-    const tmp = document.createElement('canvas')
-    tmp.width = sw
-    tmp.height = sh
-    const tctx = tmp.getContext('2d')
-    tctx.imageSmoothingEnabled = true
-    tctx.drawImage(src, 0, 0, sw, sh)
-    const data = tctx.getImageData(0, 0, sw, sh).data
-    const px32 = new Uint32Array(data.buffer)
-
-    // Binary inside-mask (1 = painted pixel, 0 = transparent).
-    // Read alpha via the high byte of each uint32 (little-endian RGBA).
-    const inside = new Uint8Array(sw * sh)
-    const T = MASK_THRESHOLD << 24
-    for (let i = 0; i < sw * sh; i++) {
-      inside[i] = (px32[i] & 0xff000000) > T ? 1 : 0
-    }
-
-    // 8-direction neighbour offsets, indexed clockwise from East.
-    //   0=E  1=SE  2=S  3=SW  4=W  5=NW  6=N  7=NE
-    const DX = [1, 1, 0, -1, -1, -1, 0, 1]
-    const DY = [0, 1, 1, 1, 0, -1, -1, -1]
-
-    const visited = new Uint8Array(sw * sh)
-    const parts = []
-
-    for (let y = 0; y < sh; y++) {
-      for (let x = 0; x < sw; x++) {
-        const i = y * sw + x
-        if (!inside[i] || visited[i]) continue
-        // We only start tracing from an outer-boundary pixel: the
-        // leftmost foreground pixel of an unvisited component (its
-        // west neighbour is outside or off-grid). Other foreground
-        // pixels — interior cells, or inner-hole boundaries — are
-        // marked visited and skipped: holes inside a stroke don't
-        // get their own marquee, which matches Photoshop's "select
-        // outer contour" behaviour for a freshly painted region.
-        if (x > 0 && inside[i - 1]) {
-          visited[i] = 1
-          continue
-        }
-
-        const startX = x
-        const startY = y
-        let cx = x
-        let cy = y
-        let backDir = 4 // we entered from W
-        const segs = [`M${cx} ${cy}`]
-        const maxSteps = sw * sh * 4
-        let steps = 0
-        while (steps++ < maxSteps) {
-          visited[cy * sw + cx] = 1
-          // Scan 8 neighbours clockwise starting just past the back
-          // direction (so we walk the perimeter consistently CW).
-          let foundNext = false
-          for (let k = 1; k <= 8; k++) {
-            const d = (backDir + k) & 7
-            const nx = cx + DX[d]
-            const ny = cy + DY[d]
-            if (nx < 0 || nx >= sw || ny < 0 || ny >= sh) continue
-            if (!inside[ny * sw + nx]) continue
-            cx = nx
-            cy = ny
-            backDir = (d + 4) & 7
-            foundNext = true
-            break
-          }
-          if (!foundNext) break
-          if (cx === startX && cy === startY) break
-          segs.push(`L${cx} ${cy}`)
-        }
-        // 8-step minimum filters out single-pixel paint specks that
-        // would render as a meaningless dot of dashes.
-        if (steps > 8) {
-          segs.push('Z')
-          parts.push(segs.join(' '))
-        }
-      }
-    }
-
-    if (parts.length === 0) {
-      setMarqueePath(null)
-      return
-    }
-    setMarqueePath({ d: parts.join(' '), w: sw, h: sh })
-  }, [hasDrawn])
+  // (Removed `rebuildMarquee` — was the Moore-neighbor boundary tracer
+  // that built the SVG path for the marching-ants overlay. Marquee
+  // overlay was removed per user request, so this whole ~100-line
+  // perimeter-tracing pass + its rAF schedule on every stroke commit
+  // is dead. Net win: stroke commits skip a per-stroke alpha walk.)
 
   // Push a Promise<Blob> onto the undo stack. Accepts either a ready
   // Promise or a raw ImageData — we convert either way. The Promise
@@ -1157,9 +1049,6 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
     baseSnapshotRef.current = null
     if (snap) pushUndoPromise(imageDataToBlobPromise(snap))
     setHasDrawn(true)
-    // Defer marquee rebuild a frame so React can flush the state
-    // first; reads run after the canvas paint settles.
-    requestAnimationFrame(rebuildMarquee)
   }
 
   /* ── History actions ──────────────────────────────────────────── */
@@ -1175,11 +1064,10 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
       setRedoDepth(redoStackRef.current.length)
       setHasDrawn(undoStackRef.current.length > 0)
       await restoreBlobToCanvas(prevPromise)
-      requestAnimationFrame(rebuildMarquee)
     } finally {
       undoBusyRef.current = false
     }
-  }, [snapshotCanvasAsBlobPromise, restoreBlobToCanvas, rebuildMarquee])
+  }, [snapshotCanvasAsBlobPromise, restoreBlobToCanvas])
 
   const handleRedo = useCallback(async () => {
     if (redoStackRef.current.length === 0 || undoBusyRef.current) return
@@ -1193,11 +1081,10 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
       setRedoDepth(redoStackRef.current.length)
       setHasDrawn(true)
       await restoreBlobToCanvas(nextPromise)
-      requestAnimationFrame(rebuildMarquee)
     } finally {
       undoBusyRef.current = false
     }
-  }, [snapshotCanvasAsBlobPromise, restoreBlobToCanvas, rebuildMarquee])
+  }, [snapshotCanvasAsBlobPromise, restoreBlobToCanvas])
 
   const handleClear = useCallback(() => {
     const canvas = maskCanvasRef.current
@@ -1207,7 +1094,6 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     if (snap) pushUndoPromise(imageDataToBlobPromise(snap))
     setHasDrawn(false)
-    setMarqueePath(null)
   }, [snapshotCanvas, pushUndoPromise, imageDataToBlobPromise])
 
   /* ── Mask export ──────────────────────────────────────────────── */
@@ -1342,10 +1228,14 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
     !!imageUrl &&
     (mode === 'faceswap' ? !!selectedPersona?.image_url : !!editPrompt.trim())
 
+  // Short single-line hints — the previous copy wrapped to 2-3 rows on
+  // narrow viewports and visually fought the composer's compact look.
+  // Power-user detail (paint a region first, match lighting, etc.) is
+  // discoverable from the toolbar tooltips; the hint just nudges.
   const placeholder =
     mode === 'faceswap'
-      ? 'Optional hint — e.g. "keep the same expression" or "match the lighting".'
-      : 'Describe the change — paint a region for targeted edits, or leave blank to edit the whole thumbnail.'
+      ? 'Optional hint — keep expression, match lighting…'
+      : 'Describe the change — or paint a region first.'
 
   return (
     <Dialog
@@ -1366,16 +1256,10 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
           from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        /* Marching-ants — true Photoshop-style: dashes travel along
-         * the perimeter of each contour by animating stroke-dashoffset.
-         * The 9.5-unit shift equals one dash + one gap (6 + 3.5) so
-         * the loop is visually seamless. */
-        @keyframes etd-march {
-          to { stroke-dashoffset: -9.5; }
-        }
       `}</style>
 
       <div
+        className="etd-content"
         style={{
           position: 'relative',
           width: '100%',
@@ -1525,12 +1409,16 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
               // Painted strokes are full-opacity on the canvas; CSS opacity
               // makes the overlay look transparent. This means painting over
               // the same spot twice doesn't accumulate darker — it stays one
-              // uniform transparent layer. In face-swap mode the strokes
-              // are irrelevant (the swap doesn't read the mask), so we
-              // hide them with opacity 0 — the canvas stays mounted so the
-              // pixel buffer survives the mode flip and reappears when the
-              // user switches back to Edit.
-              opacity: mode === 'edit' ? MASK_CSS_OPACITY : 0,
+              // uniform transparent layer. Drawing is now available in BOTH
+              // edit and face-swap modes — the user can mark a region with
+              // the rectangle / brush in either mode. The strokes are
+              // visible in both modes so the user sees what they're
+              // painting. (Whether the mask is consumed by the API depends
+              // on the mode: edit-region uses it as a constraint; face-swap
+              // currently ignores it, treating the paint as a visual
+              // marker for the user's own reference until the backend
+              // grows mask support.)
+              opacity: MASK_CSS_OPACITY,
               // Hide the native crosshair while in brush/eraser mode so
               // only the custom circle preview is visible. Rect tool still
               // uses crosshair so the corner-anchored drag is unambiguous.
@@ -1540,16 +1428,20 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
                   ? 'none'
                   : 'crosshair',
               touchAction: 'none',
-              // Block painting in face-swap mode — pointer events would
-              // hit the (invisible) canvas otherwise.
-              pointerEvents: busy || mode !== 'edit' ? 'none' : 'auto',
+              // Allow painting in both edit and face-swap modes — the
+              // toolbar (rect / brush / eraser / size / colour) is
+              // already visible in both, and the canvas now accepts
+              // pointer input regardless of which mode tab is active.
+              pointerEvents: busy ? 'none' : 'auto',
             }}
           />
           {/* Overlay: sibling canvas that renders the rect-tool preview
               during pointermove without forcing a putImageData restore on
               the mask canvas. pointer-events: none so all input still
               flows to the mask canvas above. Matches mask opacity so the
-              preview blends identically with the committed strokes. */}
+              preview blends identically with the committed strokes —
+              applies in both edit and face-swap modes now that drawing
+              is available in both. */}
           <canvas
             ref={overlayCanvasRef}
             aria-hidden
@@ -1558,67 +1450,16 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
               inset: 0,
               width: '100%',
               height: '100%',
-              opacity: mode === 'edit' ? MASK_CSS_OPACITY : 0,
+              opacity: MASK_CSS_OPACITY,
               pointerEvents: 'none',
             }}
           />
 
-          {/* Marching-ants marquee — outline of the painted region
-           * rendered as a striped pattern masked through the edge
-           * mask. Stripes animate along their gradient axis at a
-           * gentle 1.4 s loop, the classic Photoshop marquee feel.
-           * Hidden during an active stroke so the live brush isn't
-           * cluttered, and only mounts once we have an outline mask
-           * to clip against. */}
-          {marqueePath && !drawingRef.current && mode === 'edit' && (
-            <svg
-              aria-hidden
-              viewBox={`0 0 ${marqueePath.w} ${marqueePath.h}`}
-              preserveAspectRatio="none"
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                pointerEvents: 'none',
-                overflow: 'visible',
-                zIndex: 3,
-              }}
-            >
-              {/* Dark backing — drawn first, full-period not dashed,
-               * so the white marching dashes always have legible
-               * contrast against bright photos. `non-scaling-stroke`
-               * keeps stroke widths in CSS pixels regardless of the
-               * viewBox's downsampled grid scale. */}
-              <path
-                d={marqueePath.d}
-                fill="none"
-                stroke="rgba(0, 0, 0, 0.55)"
-                strokeWidth="2.4"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                vectorEffect="non-scaling-stroke"
-              />
-              {/* White marching dashes — `stroke-dasharray` defines
-               * the dash/gap pattern in viewBox units (≈1 grid cell
-               * each), and `stroke-dashoffset` is animated through
-               * one full period so the dashes crawl CW around every
-               * traced contour in lockstep. */}
-              <path
-                d={marqueePath.d}
-                fill="none"
-                stroke="rgba(255, 255, 255, 0.96)"
-                strokeWidth="1.4"
-                strokeLinejoin="round"
-                strokeLinecap="butt"
-                strokeDasharray="6 3.5"
-                vectorEffect="non-scaling-stroke"
-                style={{
-                  animation: 'etd-march 0.7s linear infinite',
-                }}
-              />
-            </svg>
-          )}
+          {/* Marching-ants marquee was here — removed per user
+           * request. Painted region now reads through the
+           * semi-transparent mask fill on the canvas above; the
+           * supporting `marqueePath` state + Moore-neighbor contour
+           * tracer have been stripped from the component too. */}
 
           {/* Brush cursor preview — circle that follows the pointer
            * while a paint tool is active. Centre is the chosen colour
@@ -1628,7 +1469,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
            * brightness of background. Position is updated imperatively
            * by `moveCursorPreview`; React only re-renders when tool /
            * brushSize / colour / visibility change. */}
-          {(tool === 'brush' || tool === 'eraser') && !busy && mode === 'edit' && (
+          {(tool === 'brush' || tool === 'eraser') && !busy && (
             <div
               ref={cursorPreviewRef}
               aria-hidden
@@ -1730,6 +1571,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
          * aspect ratio (portrait + square cards shrink the toolbar
          * to match instead of leaving it ballooned). */}
         <div
+          className="etd-toolbar"
           style={{
             alignSelf: 'center',
             width: '100%',
@@ -1747,11 +1589,16 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
             flexWrap: 'wrap',
           }}
         >
-          {/* Left cluster — paint tools. Same set is available on
-           * face-swap so users can mark a region around the face
-           * they want replaced (the mask isn't sent today, but the
-           * UI is consistent and undo / clear all behave the same). */}
+          {/* Left cluster — paint tools. Drawing works in BOTH edit
+           * and face-swap modes: the user can mark a region around
+           * the face they want replaced (or a region they want
+           * edited). Edit-region consumes the painted mask as a
+           * constraint; face-swap currently doesn't read it (the
+           * paint is a visual marker for the user's reference) —
+           * the backend can grow mask support without any UI
+           * change. Undo / clear all behave the same in both modes. */}
           <div
+            className="etd-toolbar-cluster"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -1905,7 +1752,10 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
           {/* Center — Edit / Face-swap mode tabs. Same pill recipe as
            * the generator's mode tabs (`ThumbPillTabs`) so the editor
            * reads as part of the same component family. */}
-          <div style={{ flex: '1 1 auto', display: 'flex', justifyContent: 'center' }}>
+          <div
+            className="etd-toolbar-center"
+            style={{ flex: '1 1 auto', display: 'flex', justifyContent: 'center' }}
+          >
             <ThumbPillTabs
               options={EDIT_MODE_OPTIONS}
               value={mode}
@@ -1917,6 +1767,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
           {/* Right cluster — undo / redo / clear. Always visible so
            * the toolbar reads as one cohesive row in both modes. */}
           <div
+            className="etd-toolbar-cluster"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -1974,6 +1825,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
          * button rendered by `<FaceSwapPanel>` above. */}
         {mode === 'edit' && (
           <div
+            className="etd-input-card"
             style={{
               alignSelf: 'center',
               width: '100%',
@@ -1992,6 +1844,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
           >
             <textarea
               ref={editTextareaRef}
+              className="etd-input-textarea"
               value={editPrompt}
               onChange={(e) => {
                 setEditPrompt(e.target.value)
@@ -2024,7 +1877,10 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
                 boxSizing: 'border-box',
               }}
             />
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div
+              className="etd-input-actions"
+              style={{ display: 'flex', justifyContent: 'flex-end' }}
+            >
               <PrimaryActionBtn
                 onClick={handleSubmit}
                 disabled={!canSubmit}
@@ -2126,8 +1982,14 @@ function FaceSwapPanel({ busy, disabled, onGenerate, unitCost, totalCost }) {
             fontFamily: 'inherit',
             fontSize: 13,
             fontWeight: 500,
+            // No outer purple drop-shadow when a persona is selected —
+            // the violet border + tinted background already communicate
+            // the active state, and the outer glow was reading as "this
+            // is a notification" rather than "this is a calm selected
+            // pill". Inset highlight stays for the same subtle top-edge
+            // shine the base state has.
             boxShadow: selectedPersona
-              ? 'inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 6px 18px rgba(124, 58, 237, 0.18)'
+              ? 'inset 0 1px 0 rgba(255, 255, 255, 0.08)'
               : 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
             transition:
               'background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.12s cubic-bezier(0.33, 1, 0.68, 1)',
@@ -2432,7 +2294,10 @@ function CharacterPickerDialog({ open, onClose, items, isPending, selectedId, on
           background: linear-gradient(180deg, rgba(139, 92, 246, 0.22) 0%, rgba(139, 92, 246, 0.08) 100%);
           border-color: rgba(167, 139, 250, 0.6);
           color: #fff;
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 22px rgba(124, 58, 237, 0.22);
+          /* No outer purple drop-shadow — the violet border + tinted
+           * gradient background already communicate the selection.
+           * Inset highlight stays for the subtle top-edge shine. */
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
         }
         .etd-char-picker__avatar {
           width: 100%;

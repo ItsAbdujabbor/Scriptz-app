@@ -12,6 +12,17 @@
 
 .thumb-failed-card {
   width: 100%;
+  /* Match the success thumbnail card's footprint exactly. The success
+   * path wraps in `.thumb-msg-grid-wrap > .thumb-batch-grid >
+   * .thumb-batch-card-wrap` whose 720 px max-width caps the rendered
+   * width inside the chat content column. Without this cap the failure
+   * card was stretching to the full article width (~960 px on
+   * desktop) — visibly wider than the success / loader card it
+   * replaces. Same 720 px cap + centered means loader → success and
+   * loader → failure swaps land on identical pixel footprints. */
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
   animation: thumb-failed-card-in 0.32s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 

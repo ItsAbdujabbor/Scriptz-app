@@ -1,6 +1,190 @@
-/* EditThumbnailDialog has been rewritten as a portaled, fully
- * inline-styled dialog. Nothing in this file is used by the component
- * anymore. Left as an empty stub so any stray import path still
- * resolves without 404-ing.
+/* EditThumbnailDialog — responsive polish.
  *
- * (Safe to delete once you confirm nothing else imports this.) */
+ * The component is otherwise fully inline-styled (see the JSX). This
+ * file owns the handful of media-query-driven overrides that the
+ * inline-style approach can't express without a JS resize listener.
+ * Pair these class hooks with the inline style on the same element —
+ * media-query rules below win (specificity tie + later in cascade).
+ *
+ * Class roster:
+ *   .etd-content    the dialog's vertical-scroll content wrap
+ *   .etd-stage      the canvas + image card
+ *   .etd-toolbar    the floating-glass toolbar under the stage
+ *   .etd-toolbar-cluster      the left + right tool-button clusters
+ *   .etd-toolbar-center       the middle Edit/FaceSwap mode tabs
+ *   .etd-input-card the composer card under the toolbar (edit mode)
+ *   .etd-input-textarea       the prompt textarea
+ *   .etd-input-actions        the bottom row holding the Generate pill
+ *
+ * Breakpoint rhythm (mobile-first):
+ *   ≤640 px      phones                tight, single-thumb reach
+ *   641-1024 px  tablets + small lap   compact but legible
+ *   1025-1440 px small + 13-15" laptop balanced
+ *   ≥1441 px     full desktop          relaxed, generous breathing
+ *
+ * Spacing scales: content padding grows from 14 → 28 px, section gap
+ * from 10 → 16 px, toolbar padding from 6 → 9 px. The proportional
+ * lift keeps the editor feeling "calm and intentional" on big
+ * displays without leaving phones cramped.
+ */
+
+/* ── Phones (≤640) ─────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .etd-content {
+    padding: 14px 14px 12px !important;
+    gap: 10px !important;
+  }
+
+  /* Toolbar: shrink padding + gap so the three clusters fit one row
+   * even at 360 px. The flex-wrap on the parent still rescues us if
+   * the user runs the tabs in a third language with very wide
+   * labels — at that point a second row is the right outcome. */
+  .etd-toolbar {
+    padding: 6px 8px !important;
+    gap: 6px !important;
+    border-radius: 14px !important;
+  }
+
+  /* Clusters: tighter gap inside each cluster so the buttons read
+   * as a single tool group, not a loose row. */
+  .etd-toolbar-cluster {
+    gap: 4px !important;
+  }
+
+  /* Mode tabs (Edit / FaceSwap) — on phones the toolbar's three
+   * clusters wrap to two rows: the tabs span the full width on row
+   * 1, then the left + right tool clusters fall onto row 2. Keeping
+   * the tabs visible (vs hiding them) is critical — they're the
+   * only way to enter face-swap. The `basis: 100%` forces the wrap
+   * even when the math would otherwise fit them inline. */
+  .etd-toolbar-center {
+    flex: 1 1 100% !important;
+    order: -1 !important;
+    justify-content: center !important;
+  }
+
+  /* Input card — tighter chrome so the composer sits comfortably
+   * above the device keyboard without crowding the canvas. */
+  .etd-input-card {
+    padding: 10px 12px !important;
+    border-radius: 18px !important;
+    gap: 8px !important;
+  }
+
+  /* Textarea — slightly smaller text + tighter min-height so a one-
+   * line hint fits without forcing a 60-px-tall empty box. The
+   * max-height stays at 7em so a long prompt can still grow. */
+  .etd-input-textarea {
+    font-size: 0.88rem !important;
+    min-height: 2.2em !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Below the textarea, the Generate pill anchors to the right.
+   * On phones we let it stretch to full width so it's a comfortable
+   * thumb target. */
+  .etd-input-actions {
+    justify-content: stretch !important;
+  }
+  .etd-input-actions > * {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+/* ── Tablets + smallest laptops (641-1024) ─────────────────────── */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .etd-content {
+    padding: 18px 18px 16px !important;
+    gap: 12px !important;
+  }
+  .etd-toolbar {
+    padding: 6px 10px !important;
+    gap: 10px !important;
+  }
+  .etd-toolbar-cluster {
+    gap: 7px !important;
+  }
+  /* Tabs visible but center cluster gives up its flex grow so the
+   * left + right tool buttons get priority on width. */
+  .etd-toolbar-center {
+    flex: 0 1 auto !important;
+  }
+  .etd-input-card {
+    padding: 11px 13px !important;
+    gap: 7px !important;
+  }
+}
+
+/* ── Laptops (1025-1440) ────────────────────────────────────────── */
+@media (min-width: 1025px) and (max-width: 1440px) {
+  /* Slightly more generous side padding than the tablet tier — the
+   * dialog has more horizontal canvas to breathe into. Bottom is
+   * tighter than top because the input card already supplies its
+   * own internal padding-bottom feel. */
+  .etd-content {
+    padding: 24px 26px 20px !important;
+    gap: 14px !important;
+  }
+  .etd-toolbar {
+    padding: 8px 14px !important;
+    gap: 12px !important;
+  }
+  .etd-toolbar-cluster {
+    gap: 8px !important;
+  }
+  .etd-input-card {
+    padding: 13px 16px !important;
+    gap: 7px !important;
+  }
+}
+
+/* ── Full desktop (≥1441) ──────────────────────────────────────── */
+@media (min-width: 1441px) {
+  /* The "calm + intentional" tier — large displays get relaxed
+   * spacing so the editor doesn't feel boxy or cramped against the
+   * dialog's outer shell. The numbers are deliberately a touch
+   * larger than the laptop tier — small enough that the layout
+   * itself doesn't change, big enough that the rhythm reads
+   * differently than a 13" screen. */
+  .etd-content {
+    padding: 28px 32px 22px !important;
+    gap: 16px !important;
+  }
+  .etd-toolbar {
+    padding: 9px 16px !important;
+    gap: 14px !important;
+  }
+  .etd-toolbar-cluster {
+    gap: 9px !important;
+  }
+  .etd-input-card {
+    padding: 14px 18px !important;
+    gap: 8px !important;
+  }
+}
+
+/* ── Cross-breakpoint baselines (apply at every width) ─────────── */
+
+/* Single-line hint — applies at ALL widths. The textarea's natural
+ * behavior is to wrap; we keep the placeholder on one line by
+ * disabling wrap + clipping with ellipsis when it overflows. User
+ * input that exceeds the width still scrolls horizontally rather
+ * than expanding the composer's height beyond expectation. Once the
+ * user starts typing past one line they can press Enter to insert
+ * a newline (the textarea allows it) and the composer grows. */
+.etd-input-textarea {
+  white-space: nowrap;
+  overflow-x: auto;
+  text-overflow: ellipsis;
+}
+
+/* When the textarea has focus or has wrapped content, let it relax
+ * to multi-line so paint-the-edit power users aren't constrained to
+ * one row when crafting a longer prompt. `:focus-within` on the
+ * card switches the textarea back to wrapping. */
+.etd-input-card:focus-within .etd-input-textarea {
+  white-space: pre-wrap;
+  overflow-x: hidden;
+  text-overflow: clip;
+}
