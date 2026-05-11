@@ -1,20 +1,23 @@
-/* Header credits pill — sits inline next to the Dashboard channel pill. */
+/* Header credits badge — two stacked sections form a single connected
+   "tier ribbon" chip. The top is a rounded pill (credits); the bottom is
+   a narrower banner with a notched downward chevron carved out of it via
+   clip-path. The whole thing is one button — clicking anywhere opens the
+   credits dialog.
+
+   Custom shape: implemented with `clip-path: polygon(...)` on the banner
+   element. The polygon points trace a rounded-top rectangle that tapers
+   into a downward chevron at the bottom centre. This gives a distinctive
+   non-pill silhouette without dragging in a shape-rendering dependency
+   — the technique is the same one any SVG/clip-path shape library would
+   ultimately use. */
 
 .header-credits-badge {
   display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.75rem;
-  border: 1px solid rgba(167, 139, 250, 0.32);
-  border-radius: 999px;
-  /* Solid glass — no see-through. Stack a dark base under the violet
-     tint, plus heavy backdrop-filter so anything behind reads as a
-     soft frosted blur, never as visible content. */
-  background:
-    linear-gradient(150deg, rgba(139, 92, 246, 0.32) 0%, rgba(99, 102, 241, 0.22) 100%),
-    rgba(13, 11, 24, 0.85);
-  backdrop-filter: blur(18px) saturate(170%);
-  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: #f5f3ff;
   font-family: inherit;
   font-size: 0.78rem;
@@ -23,28 +26,38 @@
   cursor: pointer;
   pointer-events: auto;
   white-space: nowrap;
-  transition:
-    background 0.22s ease,
-    border-color 0.22s ease,
-    box-shadow 0.22s ease,
-    transform 0.12s ease;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 1px 2px rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-.header-credits-badge:hover {
-  background: linear-gradient(150deg, rgba(139, 92, 246, 0.32) 0%, rgba(99, 102, 241, 0.22) 100%);
-  border-color: rgba(196, 181, 253, 0.38);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 3px 12px rgba(139, 92, 246, 0.18);
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.32)) drop-shadow(0 0 14px rgba(139, 92, 246, 0.18));
+  transition: transform 0.14s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
 .header-credits-badge:active {
   transform: scale(0.97);
+}
+
+/* ── Top: credits pill ──────────────────────────────────────── */
+.header-credits-badge__core {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.85rem;
+  border: 1px solid rgba(167, 139, 250, 0.32);
+  border-radius: 999px;
+  background:
+    linear-gradient(150deg, rgba(139, 92, 246, 0.34) 0%, rgba(99, 102, 241, 0.24) 100%),
+    rgba(13, 11, 24, 0.88);
+  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 1px 2px rgba(0, 0, 0, 0.25);
+  transition:
+    background 0.22s ease,
+    border-color 0.22s ease;
+}
+
+.header-credits-badge:hover .header-credits-badge__core {
+  border-color: rgba(196, 181, 253, 0.44);
 }
 
 .header-credits-badge-icon {
@@ -52,7 +65,6 @@
   color: #a78bfa;
   flex-shrink: 0;
 }
-
 .header-credits-badge-icon svg {
   width: 12px;
   height: 12px;
@@ -63,45 +75,194 @@
   color: #fff;
 }
 
-.header-credits-badge-tag {
-  font-size: 0.625rem;
-  font-weight: 700;
+/* ── Bottom: tier banner with notched chevron ───────────────────
+   The banner sits flush against the bottom of the credits pill
+   (negative top margin overlaps the rounded edge by 8px so they
+   read as one connected shape). `clip-path` carves a downward
+   chevron into the bottom edge — that's the "custom shape" the
+   ticket-look depends on. */
+.header-credits-badge__banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  margin: -8px auto 0;
+  padding: 0.36rem 0.7rem 0.55rem;
+  min-width: 64%;
+  border: 1px solid rgba(167, 139, 250, 0.36);
+  border-top: none; /* invisible under the overlap with the pill */
+  border-radius: 6px;
+  /* Carve a downward chevron into the bottom edge. The 10 points
+     trace: top-left → top-right → right-edge → right-of-chevron →
+     chevron-tip → left-of-chevron → left-edge → close. Slight
+     bottom-corner inset gives the banner subtle "tail" feet. */
+  clip-path: polygon(
+    0% 0%,
+    100% 0%,
+    100% 72%,
+    92% 78%,
+    60% 78%,
+    50% 100%,
+    40% 78%,
+    8% 78%,
+    0% 72%,
+    0% 0%
+  );
+  background:
+    linear-gradient(
+      180deg,
+      rgba(167, 139, 250, 0.42) 0%,
+      rgba(124, 58, 237, 0.38) 50%,
+      rgba(91, 33, 182, 0.4) 100%
+    ),
+    rgba(13, 11, 24, 0.92);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 0.1rem 0.4rem;
-  border-radius: 999px;
-  background: rgba(251, 191, 36, 0.2);
-  color: #fde68a;
-  border: 1px solid rgba(251, 191, 36, 0.35);
+  color: #fafafa;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  transition: filter 0.22s ease;
 }
 
-/* Low balance */
-.header-credits-badge--low {
-  background: linear-gradient(150deg, rgba(250, 176, 5, 0.22) 0%, rgba(245, 158, 11, 0.14) 100%);
-  border-color: rgba(253, 224, 71, 0.32);
+.header-credits-badge__banner-text {
+  position: relative;
+  z-index: 2;
+  line-height: 1;
+}
+
+/* Slow-drifting sheen across the banner — adds the "premium tier"
+   feel without animating layout. Pure GPU translate. */
+.header-credits-badge__banner-shine {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    120deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.16) 50%,
+    transparent 65%
+  );
+  transform: translateX(-100%);
+  animation: headerBadgeShine 6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes headerBadgeShine {
+  0%,
+  60% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .header-credits-badge__banner-shine {
+    animation: none;
+  }
+}
+
+.header-credits-badge:hover .header-credits-badge__banner {
+  filter: brightness(1.08);
+}
+
+/* ── Tier-specific colour ramps ─────────────────────────────────
+   Each plan reads at a glance — Starter is restrained, Creator is
+   the vibrant default-violet anchor, Ultimate adds a gold sheen
+   to feel premium, Pro is the legacy "active" colour, Trial is
+   amber so it can't be confused with a paid plan. */
+
+.header-credits-badge__banner--starter {
+  background:
+    linear-gradient(180deg, rgba(148, 163, 184, 0.32) 0%, rgba(100, 116, 139, 0.32) 100%),
+    rgba(13, 11, 24, 0.94);
+  border-color: rgba(203, 213, 225, 0.34);
+  color: #f1f5f9;
+}
+
+.header-credits-badge__banner--creator {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(167, 139, 250, 0.46) 0%,
+      rgba(124, 58, 237, 0.42) 50%,
+      rgba(91, 33, 182, 0.46) 100%
+    ),
+    rgba(13, 11, 24, 0.92);
+  border-color: rgba(196, 181, 253, 0.5);
+  color: #fdfaff;
+}
+
+.header-credits-badge__banner--ultimate {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(251, 191, 36, 0.36) 0%,
+      rgba(217, 119, 6, 0.32) 35%,
+      rgba(124, 58, 237, 0.42) 100%
+    ),
+    rgba(13, 11, 24, 0.92);
+  border-color: rgba(253, 224, 71, 0.5);
+  color: #fff7ed;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+
+.header-credits-badge__banner--pro {
+  /* Default — matches `creator` but a tad cooler. Catches legacy rows
+     where `tier` is unknown so we never show an un-themed banner. */
+  background:
+    linear-gradient(
+      180deg,
+      rgba(167, 139, 250, 0.42) 0%,
+      rgba(124, 58, 237, 0.38) 50%,
+      rgba(91, 33, 182, 0.4) 100%
+    ),
+    rgba(13, 11, 24, 0.92);
+  border-color: rgba(167, 139, 250, 0.4);
+}
+
+.header-credits-badge__banner--trial {
+  background:
+    linear-gradient(180deg, rgba(253, 224, 71, 0.4) 0%, rgba(217, 119, 6, 0.34) 100%),
+    rgba(13, 11, 24, 0.94);
+  border-color: rgba(253, 224, 71, 0.5);
+  color: #fef3c7;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Low-balance / empty states on the top pill ─────────────── */
+.header-credits-badge--low .header-credits-badge__core {
+  background:
+    linear-gradient(150deg, rgba(250, 176, 5, 0.22) 0%, rgba(245, 158, 11, 0.14) 100%),
+    rgba(13, 11, 24, 0.88);
+  border-color: rgba(253, 224, 71, 0.36);
 }
 .header-credits-badge--low .header-credits-badge-icon {
   color: #fbbf24;
 }
 
-/* Empty */
-.header-credits-badge--empty {
-  background: linear-gradient(150deg, rgba(239, 68, 68, 0.22) 0%, rgba(220, 38, 38, 0.14) 100%);
-  border-color: rgba(252, 165, 165, 0.38);
+.header-credits-badge--empty .header-credits-badge__core {
+  background:
+    linear-gradient(150deg, rgba(239, 68, 68, 0.22) 0%, rgba(220, 38, 38, 0.14) 100%),
+    rgba(13, 11, 24, 0.88);
+  border-color: rgba(252, 165, 165, 0.42);
 }
 .header-credits-badge--empty .header-credits-badge-icon {
   color: #f87171;
 }
 
-/* Trial tag adjusts border color */
-.header-credits-badge--trial {
-  border-color: rgba(251, 191, 36, 0.35);
-}
-
+/* ── Compact on small viewports ─────────────────────────────── */
 @media (max-width: 680px) {
-  .header-credits-badge {
-    padding: 0.35rem 0.6rem;
+  .header-credits-badge__core {
+    padding: 0.34rem 0.7rem;
     font-size: 0.72rem;
+  }
+  .header-credits-badge__banner {
+    padding: 0.32rem 0.55rem 0.5rem;
+    font-size: 0.55rem;
+    letter-spacing: 0.14em;
   }
 }
 

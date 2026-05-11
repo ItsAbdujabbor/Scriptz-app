@@ -1,9 +1,15 @@
 /**
- * HeaderCreditsBadge — inline pill shown next to the channel pill in the
- * Dashboard (and any other screen that has a header pill row).
+ * HeaderCreditsBadge — credits + plan badge stacked into a single ticket-
+ * shaped chip in the top-right of the thumbnail screen.
  *
- * Owns the credits modal state directly — the button and dialog live in the
- * same component, mirroring the proven milestones-dialog pattern in
+ * Top section: rounded pill, bolt icon + live credit balance.
+ * Bottom section: short banner with a notched bottom edge — clip-path
+ * carves the chevron into the rounded rectangle so it reads as a single
+ * connected "tier ribbon", not two stacked pills. Tier-specific colour
+ * ramps (Starter / Creator / Ultimate / Trial) overlay the banner.
+ *
+ * Owns the credits modal state directly — the button and dialog live in
+ * the same component, mirroring the proven milestones-dialog pattern in
  * Dashboard.jsx. A window-event listener lets other parts of the app
  * (sidebar CreditsBadge, Settings → Buy credits) open the same dialog.
  */
@@ -38,6 +44,23 @@ function formatCount(n) {
   return n.toLocaleString('en-US')
 }
 
+// Map the raw plan tier (server-side enum: starter | creator | ultimate)
+// to a display label + className token. The label is what the user reads;
+// the tier token drives the gradient ramp on the bottom banner.
+function planTierAndLabel(subscription, isTrial) {
+  if (isTrial) return { tier: 'trial', label: 'Trial' }
+  const rawTier = (subscription?.tier || '').toString().trim().toLowerCase()
+  const rawName = (subscription?.plan_name || '').toString().trim()
+  const fromTier = ['starter', 'creator', 'ultimate'].includes(rawTier) ? rawTier : null
+  const tier = fromTier || 'pro'
+  // Prefer the human plan_name from the server; fall back to title-cased
+  // tier so legacy rows without plan_name still surface something sane.
+  const label = rawName
+    ? rawName.charAt(0).toUpperCase() + rawName.slice(1)
+    : tier.charAt(0).toUpperCase() + tier.slice(1)
+  return { tier, label }
+}
+
 export function HeaderCreditsBadge({ onClick }) {
   const { data: credits } = useCreditsQuery()
   const { data: subscription } = useSubscriptionQuery()
@@ -59,8 +82,9 @@ export function HeaderCreditsBadge({ onClick }) {
 
   const isLow = total != null && total > 0 && total < 100
   const isEmpty = total === 0
-  const isTrial = subscription?.is_trial
+  const isTrial = !!subscription?.is_trial
   const planCredits = subscription?.plan_credits || 0
+  const { tier, label: planLabel } = planTierAndLabel(subscription, isTrial)
 
   const handleClick = (e) => {
     if (onClick) return onClick(e)
@@ -87,13 +111,24 @@ export function HeaderCreditsBadge({ onClick }) {
               ? `Trial: ${total} credits remaining — upgrade to get the full plan`
               : `${total.toLocaleString('en-US')} credits remaining${planCredits ? ` / ${planCredits.toLocaleString('en-US')} monthly` : ''}`
         }
-        aria-label={total == null ? 'Credits loading' : `${total} credits remaining`}
+        aria-label={
+          total == null ? 'Credits loading' : `${total} credits remaining, ${planLabel} plan`
+        }
       >
-        <span className="header-credits-badge-icon" aria-hidden>
-          <IconZap />
+        {/* Top section — rounded pill with bolt + count. */}
+        <span className="header-credits-badge__core">
+          <span className="header-credits-badge-icon" aria-hidden>
+            <IconZap />
+          </span>
+          <span className="header-credits-badge-count">{formatCount(total)}</span>
         </span>
-        <span className="header-credits-badge-count">{formatCount(total)}</span>
-        {isTrial && <span className="header-credits-badge-tag">trial</span>}
+
+        {/* Bottom section — tier-tinted banner with a notched bottom
+            edge (carved by clip-path on the .__banner element). */}
+        <span className={`header-credits-badge__banner header-credits-badge__banner--${tier}`}>
+          <span className="header-credits-badge__banner-shine" aria-hidden />
+          <span className="header-credits-badge__banner-text">{planLabel}</span>
+        </span>
       </button>
 
       <CreditPacksModal open={dialogOpen} onClose={() => setDialogOpen(false)} />
