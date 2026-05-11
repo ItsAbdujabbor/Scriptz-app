@@ -9,7 +9,14 @@
  */
 
 const STORAGE_ANON = 'clixa_anon_id'
-const STORAGE_SESSION = 'clixa_session'
+// IMPORTANT: must NOT collide with oauthClient.js's `clixa_session` (auth
+// tokens). The previous value `clixa_session` made `ensureSession()`
+// overwrite `{accessToken, refreshToken, expiresAt, user}` with
+// `{id, last}` on the first tracked event of every page load — looked
+// fine in-tab (Zustand cached the tokens) but on next refresh
+// `loadSession()` read this analytics blob, found no accessToken, and
+// bounced the user to landing.
+const STORAGE_SESSION = 'clixa_analytics_session'
 const SESSION_TTL_MS = 30 * 60 * 1000
 const FLUSH_INTERVAL_MS = 5000
 const FLUSH_SIZE = 20
