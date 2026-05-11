@@ -640,16 +640,16 @@
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  /* Quick fade-in on first mount — the greeting becomes visible only
-   * when the thread settles into empty state (after the conversation
-   * query confirms there are no messages). A 220 ms opacity-only
-   * entrance reads as a smooth reveal, not a pop. No exit animation
-   * here on purpose: the previous AnimatePresence-based exit kept the
-   * greeting in the DOM beside the first local-message bubble for a
-   * third of a second, which read as a visible flash. With the
-   * thread's padding-top now CSS-transitioned, the instant unmount is
-   * already smooth. */
-  animation: coachEmptyStateEnter 220ms cubic-bezier(0.33, 1, 0.68, 1) both;
+  /* NO entrance animation here on purpose. A previous attempt added a
+   * 220 ms opacity fade-in, which then became visible during the
+   * first-message create-conversation flow: even a one-frame mount of
+   * the empty-state (e.g. while `pendingAssistant` is briefly false
+   * between the optimistic placeholder being patched and the
+   * conversation-refetch landing) starts the fade-in, and the user
+   * sees a flash of the greeting before the message list re-appears.
+   * The empty-state is rendered conditionally on `isEmptyScreen`; an
+   * instant paint with no transition makes any spurious mount
+   * invisible. */
   padding: 0 0 1.25rem;
   text-align: center;
   box-sizing: border-box;
@@ -1537,18 +1537,6 @@
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-/* Empty-state greeting one-shot fade-in. See `.coach-empty-state` —
- * lives in this file (not ThumbnailGenerator.css) so the keyframe is
- * resolved in the same stylesheet that defines the selector. */
-@keyframes coachEmptyStateEnter {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
   }
 }
 

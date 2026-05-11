@@ -2446,7 +2446,34 @@ export function ThumbnailGenerator({
     const sortedServer = sortByServerId(messages).filter((m) => !linkedServerIds.has(m.id))
     return [...sortedServer, ...localOnlyMessages]
   }, [messages, localOnlyMessages])
-  const isEmptyScreen = !isHistoryLoading && renderedMessages.length === 0 && !pendingAssistant
+
+  // Latch: once we've EVER rendered a message in this mount, the empty
+  // screen never comes back unless the user explicitly switches to a
+  // different (or null) conversation. Without this latch, a transient
+  // state-tear during the first-message → conversation-create →
+  // server-refetch cycle (e.g. `messages` momentarily empty between
+  // `linkLocalToServer` and the conversation-refetch landing the
+  // canonical rows, or `pendingAssistant` flipping false a tick before
+  // the refetch lands) flashes the greeting back onto the screen —
+  // which the user reads as "the screen reset between sending and
+  // getting the reply". Latch flips back to false on a real
+  // conversation switch (see effect below).
+  const sawMessagesRef = useRef(false)
+  if (renderedMessages.length > 0 || pendingAssistant) {
+    sawMessagesRef.current = true
+  }
+  useEffect(() => {
+    // Wipe the latch when the user navigates to a different chat (or
+    // back to "no chat yet"). Same trigger as `setLocalOnlyMessages([])`
+    // — see the `prevConversationIdRef` effect above.
+    sawMessagesRef.current = false
+  }, [conversationId])
+
+  const isEmptyScreen =
+    !isHistoryLoading &&
+    renderedMessages.length === 0 &&
+    !pendingAssistant &&
+    !sawMessagesRef.current
   const layoutCentered = isEmptyScreen || isHistoryLoading
 
   // Auto-scroll on new messages or when a job kicks off / lands. Tab
