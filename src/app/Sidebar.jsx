@@ -628,40 +628,48 @@ export function Sidebar({
       requestAnimationFrame(() => historySearchInputRef.current?.focus())
     }
   }, [historySearchOpen])
-  // Subscription drives the small plan badge in the top-right of the
-  // account button and the visibility of various Pro-only CTAs. The
-  // badge shows the actual plan name (Starter / Creator / Ultimate /
-  // Pro) when active, and "Free" with an upgrade affordance otherwise.
-  const { data: subscription } = useSubscriptionQuery()
-  const activeStatuses = ['active', 'trialing', 'past_due']
-  const hasActivePlan = !!(subscription && activeStatuses.includes(subscription.status))
-  const isTrialPlan = !!(hasActivePlan && subscription?.is_trial)
-  const planBadgeLabel = (() => {
-    if (!hasActivePlan) return 'Free'
-    // Prefer the human plan name from the server. Falls back to "Pro"
-    // when the subscription is active but the name didn't come through
-    // (legacy rows, transient API hiccup).
-    const raw = (subscription.plan_name || subscription.tier || 'Pro').toString().trim()
-    return raw.charAt(0).toUpperCase() + raw.slice(1)
-  })()
-  const planBadgeTone = !hasActivePlan ? 'free' : isTrialPlan ? 'trial' : 'pro'
+  // Subscription is still subscribed-to elsewhere (header credits
+  // badge, sidebar Go-Pro CTA visibility) — keep this hook so the
+  // query stays warm even though we no longer render a plan label in
+  // the account button itself. The plan name now lives only in the
+  // top-right HeaderCreditsBadge ribbon, which is the single source of
+  // truth for "what plan am I on".
+  useSubscriptionQuery()
 
-  // Friendly name shown above the email. Prefers the server-provided
-  // username/name (populated from the Google id_token at OAuth time);
-  // falls back to a Title-cased email prefix so we always have *some*
-  // human-looking label even before the backend ships the field.
+  // Friendly name shown above the email.
+  //
+  // Resolution order matters here:
+  //   1. `user.name` / `user.display_name` — populated from the Google
+  //      id_token at OAuth time. ALWAYS prefer this when we have it;
+  //      it's the user's actual name ("Abdujabbor Sattorov"), exactly
+  //      as Google has it.
+  //   2. Parse the local-part of the email and title-case each word.
+  //      `abdujabbor.sattorov@gmail.com` → "Abdujabbor Sattorov" —
+  //      good enough for users who pre-date the OAuth-name capture and
+  //      haven't re-signed-in yet.
+  //   3. `user.username` LAST — the backend synthesizes this as a
+  //      lowercase alphanumeric blob (`abdujabborsattorov`) which is
+  //      uglier than the email-derived form above, so we only fall
+  //      back to it when we have nothing else.
   const displayName = (() => {
-    const fromUser = user?.username || user?.name || user?.display_name
-    if (fromUser && String(fromUser).trim()) return String(fromUser).trim()
+    const fromGoogle = user?.name || user?.display_name
+    if (fromGoogle && String(fromGoogle).trim()) return String(fromGoogle).trim()
     const local = String(user?.email || '').split('@')[0] || ''
-    if (!local) return 'Account'
-    // Strip trailing digits / dots so "buycoinx" stays "buycoinx" and
-    // "first.last" becomes "First Last".
-    const cleaned = local
-      .replace(/[._-]+/g, ' ')
-      .replace(/\s+\d+$/, '')
-      .trim()
-    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+    if (local) {
+      // Strip trailing digits, split on dots / underscores / dashes,
+      // title-case each chunk, rejoin with a space.
+      const cleaned = local.replace(/\d+$/, '')
+      const words = cleaned
+        .split(/[._-]+/)
+        .filter(Boolean)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      if (words.length) return words.join(' ')
+    }
+    if (user?.username) {
+      const u = String(user.username).trim()
+      if (u) return u.charAt(0).toUpperCase() + u.slice(1)
+    }
+    return 'Account'
   })()
   // Store actions are stable refs — read once from getState() to avoid extra subscriptions
   const [{ setCollapsed, toggleCollapsed, setMobileOpen, closeMobile }] = useState(() =>
@@ -1302,20 +1310,6 @@ export function Sidebar({
                 aria-expanded={accountDialogOpen}
                 title={collapsed && user?.email ? user.email : 'Account menu'}
               >
-                {/* Plan badge — floats in the top-right of the button.
-                 * Renders the live plan name (Starter / Creator / Ultimate
-                 * / Pro) when subscribed; "Free" otherwise, which doubles
-                 * as a subtle upgrade affordance. Hidden on the collapsed
-                 * rail because the whole info column is hidden there. */}
-                {!collapsed && (
-                  <span
-                    className={`sidebar-account-plan-badge sidebar-account-plan-badge--${planBadgeTone}`}
-                    aria-label={`${planBadgeLabel} plan`}
-                  >
-                    <span className="sidebar-account-plan-badge__dot" aria-hidden />
-                    {planBadgeLabel}
-                  </span>
-                )}
                 <span
                   className="sidebar-account-avatar"
                   aria-label={user?.email || 'Account'}
@@ -1327,8 +1321,12 @@ export function Sidebar({
                   />
                 </span>
                 <span className="sidebar-account-info">
-                  <span className="sidebar-account-name">{displayName}</span>
-                  <span className="sidebar-account-email">{user?.email || 'User'}</span>
+                  <span className="sidebar-account-name" title={displayName}>
+                    {displayName}
+                  </span>
+                  <span className="sidebar-account-email" title={user?.email || ''}>
+                    {user?.email || 'User'}
+                  </span>
                 </span>
                 <span className="sidebar-account-chevron" aria-hidden>
                   <svg

@@ -3374,117 +3374,72 @@
   color: rgba(196, 181, 253, 0.6);
 }
 
-/* Make the account button a positioning context for the floating plan
-   badge and give it a hair more top padding so the badge can sit in
-   the corner without crowding the name line. */
+/* ── Sidebar account block (refined) ──────────────────────────────
+   Single row: [avatar | name + email | chevron]. The plan name lives
+   in the HeaderCreditsBadge ribbon now, so this block stays focused
+   on identity. Slightly larger avatar, tighter typography, and a
+   violet hover ring that travels onto the avatar when the button is
+   hovered or the account menu is open — gives the cluster a clear
+   "I'm pointable" affordance without a separate hover tile. */
 .sidebar-account-wrap .sidebar-account-btn {
-  padding-top: 0.65rem;
-}
-
-/* ── Plan badge — top-right of the account button ────────────────
-   Tiny pill that calls out the live plan name (Starter / Creator /
-   Ultimate / Pro / Trial / Free). Floats absolutely in the top-right
-   corner so it never reflows the avatar/name/email row. State-tinted:
-     • pro     — confident violet with a soft pulsing dot
-     • trial   — warm amber, signals "running"
-     • free    — neutral chip that hover-lifts onto the violet ramp to
-                 telegraph "tap me to upgrade"
-   Hidden on the collapsed rail (the info column is hidden there too). */
-.sidebar-account-plan-badge {
-  position: absolute;
-  top: 0.4rem;
-  right: 0.5rem;
-  display: inline-flex;
+  padding: 0.55rem 0.55rem 0.55rem 0.5rem;
+  gap: 0.6rem;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.16rem 0.45rem 0.16rem 0.4rem;
-  border-radius: 999px;
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  line-height: 1;
-  border: 1px solid transparent;
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 2;
-  transition:
-    color 0.2s ease,
-    background 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.18s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
-.sidebar-account-plan-badge__dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 999px;
-  background: currentColor;
+.sidebar-account-wrap .sidebar-account-avatar {
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
-}
-
-/* Pro — violet with a glowing, slowly-pulsing dot. */
-.sidebar-account-plan-badge--pro {
-  color: #ede9fe;
-  background: linear-gradient(135deg, rgba(167, 139, 250, 0.35) 0%, rgba(124, 58, 237, 0.28) 100%);
-  border-color: rgba(167, 139, 250, 0.48);
   box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
-    0 0 14px -6px rgba(124, 58, 237, 0.7);
-}
-.sidebar-account-plan-badge--pro .sidebar-account-plan-badge__dot {
-  color: #c4b5fd;
-  box-shadow: 0 0 6px rgba(196, 181, 253, 0.75);
-  animation: sidebarPlanBadgeProPulse 2.4s ease-in-out infinite;
-}
-@keyframes sidebarPlanBadgeProPulse {
-  0%,
-  100% {
-    box-shadow: 0 0 6px rgba(196, 181, 253, 0.45);
-  }
-  50% {
-    box-shadow: 0 0 10px rgba(196, 181, 253, 0.95);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .sidebar-account-plan-badge--pro .sidebar-account-plan-badge__dot {
-    animation: none;
-  }
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.18),
+    0 1px 2px rgba(0, 0, 0, 0.35);
+  transition:
+    box-shadow 0.22s cubic-bezier(0.33, 1, 0.68, 1),
+    transform 0.22s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
-/* Trial — warm amber. */
-.sidebar-account-plan-badge--trial {
-  color: #fef3c7;
-  background: linear-gradient(135deg, rgba(253, 224, 71, 0.24) 0%, rgba(217, 119, 6, 0.24) 100%);
-  border-color: rgba(253, 224, 71, 0.42);
+.sidebar-account-wrap .sidebar-account-avatar-letter {
+  font-size: 14px;
+}
+
+.sidebar-account-btn:hover .sidebar-account-avatar,
+.sidebar-account-btn--open .sidebar-account-avatar {
   box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
-    0 0 12px -6px rgba(217, 119, 6, 0.55);
-}
-.sidebar-account-plan-badge--trial .sidebar-account-plan-badge__dot {
-  color: #fde68a;
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.22),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 0 0 2px rgba(167, 139, 250, 0.35);
 }
 
-/* Free — neutral chip with a violet hover tease (the wrapping button
-   handles the actual click; this is just the visual signal). */
-.sidebar-account-plan-badge--free {
-  color: rgba(229, 229, 231, 0.78);
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.12);
+/* Tighter info column so the name + email read as one tight unit. */
+.sidebar-account-wrap .sidebar-account-info {
+  gap: 0.12rem;
 }
-.sidebar-account-plan-badge--free .sidebar-account-plan-badge__dot {
+
+.sidebar-account-wrap .sidebar-account-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: rgba(245, 243, 255, 1);
+  line-height: 1.2;
+}
+
+.sidebar-account-wrap .sidebar-account-email {
+  font-size: 0.685rem;
+  font-weight: 500;
+  letter-spacing: 0;
   color: rgba(196, 181, 253, 0.55);
-}
-.sidebar-account-btn:hover .sidebar-account-plan-badge--free,
-.sidebar-account-btn--open .sidebar-account-plan-badge--free {
-  color: #ede9fe;
-  background: linear-gradient(135deg, rgba(167, 139, 250, 0.28) 0%, rgba(124, 58, 237, 0.22) 100%);
-  border-color: rgba(167, 139, 250, 0.42);
+  line-height: 1.2;
 }
 
-/* Push the chevron down so it doesn't visually collide with the
-   badge floating in the top-right corner. */
+.sidebar-account-btn:hover .sidebar-account-email,
+.sidebar-account-btn--open .sidebar-account-email {
+  color: rgba(196, 181, 253, 0.78);
+}
+
+/* Chevron — vertically centered with the avatar (no more drop-down
+   alignment hacks now that the plan-badge corner is gone). */
 .sidebar-account-wrap .sidebar-account-chevron {
-  align-self: flex-end;
-  margin-bottom: 0.1rem;
+  align-self: center;
+  margin-bottom: 0;
 }
