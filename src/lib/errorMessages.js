@@ -10,6 +10,11 @@ const TITLES = {
   PROVIDER_RATE_LIMITED: "We're a bit busy",
   PROVIDER_BUSY: "We're a bit busy",
   HIGH_DEMAND: 'High demand right now',
+  // Server emits the lowercase `queue_full` code when the worker queue is
+  // saturated (429 + auto-refund). Route it to the same human title as
+  // HIGH_DEMAND so callers don't need to special-case the snake_case form.
+  queue_full: 'High demand right now',
+  QUEUE_FULL: 'High demand right now',
   PROVIDER_QUOTA_EXCEEDED: 'Daily limit reached',
   PROVIDER_MISCONFIGURED: 'Working on a hiccup',
   THUMBNAIL_BAD_REQUEST: 'Try a different prompt',
@@ -32,7 +37,10 @@ export function friendlyTitleFor(code) {
  * Returns: { code: string|null, message: string }
  */
 export function parseApiError(err, fallback = 'Something went wrong.') {
-  const payload = err?.payload
+  // `payload` is set by routes that re-shape errors manually (e.g. the
+  // poll-job FAILED path); `body` is set by the shared aiErrors parser
+  // for everything that flows through the standard request() helper.
+  const payload = err?.payload || err?.body
   const errorObj = payload?.error
   const detailObj = payload?.detail && typeof payload.detail === 'object' ? payload.detail : null
 

@@ -13,15 +13,8 @@ import {
 import { SettingsModal } from './SettingsModal'
 
 export function SharedSettingsModal({ open, onClose, onLogout }) {
-  const {
-    user,
-    logout,
-    changePassword,
-    deleteData,
-    deleteAccount,
-    allowsPasswordlessAccountDelete,
-    isLoading: authLoading,
-  } = useAuthStore()
+  const { user, logout, deleteData, deleteAccount, allowsPasswordlessAccountDelete } =
+    useAuthStore()
 
   const { data: subscription } = useSubscriptionQuery()
   const {
@@ -51,8 +44,6 @@ export function SharedSettingsModal({ open, onClose, onLogout }) {
       accountDeletePasswordOptional={
         typeof allowsPasswordlessAccountDelete === 'function' && allowsPasswordlessAccountDelete()
       }
-      authLoading={authLoading}
-      changePassword={changePassword}
       deleteData={deleteData}
       deleteAccount={deleteAccount}
       clearLocalData={clearLocalData}

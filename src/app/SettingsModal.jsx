@@ -7,9 +7,8 @@
  * Sections:
  *   1. Profile hero        — avatar, greeting, email, sign out
  *   2. Plan                — current plan + manage / upgrade CTA
- *   3. Security            — change password
- *   4. Help & Legal        — support contacts + legal pages
- *   5. Danger zone         — reset data, delete account
+ *   3. Help & Legal        — support contacts + legal pages
+ *   4. Danger zone         — reset data, delete account
  *
  * The wrapper SharedSettingsModal threads in auth state from Zustand
  * and the live subscription query.
@@ -415,8 +414,6 @@ export function SettingsModal({
   onClose,
   user,
   accountDeletePasswordOptional,
-  authLoading,
-  changePassword,
   deleteData,
   deleteAccount,
   clearLocalData,
@@ -427,15 +424,6 @@ export function SettingsModal({
   saveEmailPreferences,
   onLogout,
 }) {
-  // Change-password sub-form
-  const [pwOpen, setPwOpen] = useState(false)
-  const [pwCurrent, setPwCurrent] = useState('')
-  const [pwNew, setPwNew] = useState('')
-  const [pwConfirm, setPwConfirm] = useState('')
-  const [pwBusy, setPwBusy] = useState(false)
-  const [pwError, setPwError] = useState('')
-  const [pwSuccess, setPwSuccess] = useState(false)
-
   // Confirm sheets
   const [delDataOpen, setDelDataOpen] = useState(false)
   const [delDataConfirm, setDelDataConfirm] = useState('')
@@ -467,36 +455,6 @@ export function SettingsModal({
 
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) onClose?.()
-  }
-
-  const handleChangePassword = async (e) => {
-    e.preventDefault()
-    setPwError('')
-    setPwSuccess(false)
-    if (!pwCurrent || !pwNew) {
-      setPwError('Both current and new password are required.')
-      return
-    }
-    if (pwNew !== pwConfirm) {
-      setPwError('New passwords do not match.')
-      return
-    }
-    if (pwNew.length < 8) {
-      setPwError('New password must be at least 8 characters.')
-      return
-    }
-    setPwBusy(true)
-    try {
-      await changePassword?.(pwCurrent, pwNew)
-      setPwSuccess(true)
-      setPwCurrent('')
-      setPwNew('')
-      setPwConfirm('')
-    } catch (err) {
-      setPwError(friendlyMessage(err) || 'Could not change password.')
-    } finally {
-      setPwBusy(false)
-    }
   }
 
   const handleDeleteData = async () => {
@@ -636,80 +594,6 @@ export function SettingsModal({
                   <span>{hasActivePlan ? 'Manage plan' : 'Go Pro'}</span>
                   <I.arrow />
                 </button>
-              </SectionCard>
-
-              {/* ── Security ── */}
-              <SectionCard icon="lock" title="Security" subtitle="Change your account password.">
-                {!pwOpen ? (
-                  <button
-                    type="button"
-                    className="s-btn s-btn--ghost s-btn--full"
-                    onClick={() => setPwOpen(true)}
-                  >
-                    <span>Change password</span>
-                    <I.arrow />
-                  </button>
-                ) : (
-                  <form className="s-form" onSubmit={handleChangePassword}>
-                    {pwSuccess && <div className="s-alert s-alert--success">Password updated.</div>}
-                    {pwError && <div className="s-alert s-alert--error">{pwError}</div>}
-                    <label className="s-field">
-                      <span className="s-field-label">Current password</span>
-                      <input
-                        type="password"
-                        className="s-input"
-                        value={pwCurrent}
-                        onChange={(e) => setPwCurrent(e.target.value)}
-                        autoComplete="current-password"
-                        required
-                      />
-                    </label>
-                    <label className="s-field">
-                      <span className="s-field-label">New password</span>
-                      <input
-                        type="password"
-                        className="s-input"
-                        value={pwNew}
-                        onChange={(e) => setPwNew(e.target.value)}
-                        autoComplete="new-password"
-                        minLength={8}
-                        required
-                      />
-                    </label>
-                    <label className="s-field">
-                      <span className="s-field-label">Confirm new password</span>
-                      <input
-                        type="password"
-                        className="s-input"
-                        value={pwConfirm}
-                        onChange={(e) => setPwConfirm(e.target.value)}
-                        autoComplete="new-password"
-                        required
-                      />
-                    </label>
-                    <div className="s-form-actions">
-                      <button
-                        type="button"
-                        className="s-btn s-btn--ghost"
-                        onClick={() => {
-                          setPwOpen(false)
-                          setPwError('')
-                          setPwSuccess(false)
-                        }}
-                        disabled={pwBusy}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        className="s-btn s-btn--primary"
-                        disabled={pwBusy || authLoading}
-                      >
-                        {pwBusy ? 'Saving…' : 'Save password'}
-                      </button>
-                    </div>
-                  </form>
-                )}
               </SectionCard>
 
               {/* ── Notifications ── */}

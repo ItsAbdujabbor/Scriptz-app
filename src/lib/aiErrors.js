@@ -50,12 +50,15 @@ export function parseApiError(response, body) {
     response?.statusText ||
     'Request failed'
 
-  // retry_after_seconds: header > envelope top-level > envelope.extra
+  // retry_after_seconds: header > envelope top-level > envelope.extra.retry_after_seconds > envelope.extra.eta_seconds
+  // The queue_full error (429) emits `extra.eta_seconds` alongside the
+  // standard `Retry-After` header; treat it as a retry hint when present.
   const headerRetry = parseRetryAfterHeader(response?.headers?.get?.('Retry-After'))
   const envRetry = typeof env.retry_after_seconds === 'number' ? env.retry_after_seconds : null
   const extraRetry =
     typeof env?.extra?.retry_after_seconds === 'number' ? env.extra.retry_after_seconds : null
-  const retryAfterSeconds = headerRetry ?? envRetry ?? extraRetry ?? null
+  const extraEta = typeof env?.extra?.eta_seconds === 'number' ? env.extra.eta_seconds : null
+  const retryAfterSeconds = headerRetry ?? envRetry ?? extraRetry ?? extraEta ?? null
 
   const feature = env?.extra?.feature || legacyDetailDict?.feature || null
 
@@ -106,7 +109,22 @@ function friendlyMessageFor({ code, status, serverMessage, retryAfterSeconds }) 
     lowered.includes('insufficient_quota') ||
     lowered.includes('hard limit')
 
-  switch (code) {
+  // Normalize a few server codes that use snake_case so the switch below
+  // matches without us having to duplicate every case.
+  const normalizedCode = code === 'queue_full' ? 'QUEUE_FULL' : code
+
+  switch (normalizedCode) {
+    case 'QUEUE_FULL': {
+      // Surfaced when the AI worker queue is saturated and the backend
+      // rejects with 429 + auto-refunds any credit hold. Phrasing leans
+      // on the ETA (eta_seconds / Retry-After) so the user knows the
+      // wait is short.
+      const wait =
+        retryAfterSeconds && retryAfterSeconds > 0
+          ? ` try again in ${humanizeSeconds(retryAfterSeconds)}.`
+          : ' please try again in a moment.'
+      return `High demand right now —${wait}`
+    }
     case 'RATE_LIMITED':
       return `We're a bit busy right now.${retryHint || ' Please give it a moment and try again.'} Thanks for your patience.`
     case 'PROVIDER_UNAVAILABLE':

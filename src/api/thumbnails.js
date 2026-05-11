@@ -2,6 +2,24 @@
 import { getApiBaseUrl } from '../lib/env.js'
 import { parseApiError } from '../lib/aiErrors.js'
 import { useThumbnailJobStatusStore } from '../stores/thumbnailJobStatusStore.js'
+import { getAppQueryClient } from '../lib/sessionReset.js'
+import { invalidateCredits } from '../queries/billing/creditsQueries.js'
+
+/**
+ * Refresh the credits badge from anywhere in the transport layer. No-ops
+ * if the QueryClient hasn't bootstrapped yet (e.g. during module init).
+ * React Query dedupes concurrent invalidations of the same key, so it's
+ * safe to call this multiple times in a single request lifecycle — only
+ * one refetch will fly.
+ */
+function refreshCreditsBadge() {
+  try {
+    const qc = getAppQueryClient()
+    if (qc) invalidateCredits(qc)
+  } catch {
+    /* never block the request on a cache hiccup */
+  }
+}
 
 /** UUID-ish key for the Idempotency-Key header — see api/videoThumbnails.js
  *  for the full design. One key per *click intent*, reused on retries. */
@@ -71,14 +89,19 @@ export const thumbnailsApi = {
    */
   generateBatch(accessToken, payload, options = {}) {
     const key = options.idempotencyKey || newIdempotencyKey()
+    // Fire badge refresh in parallel with the POST so the post-deduction
+    // balance is visible before the long-running batch resolves.
+    refreshCreditsBadge()
     return request('POST', '/api/thumbnails/generate-batch', accessToken, payload, {
       'Idempotency-Key': key,
     })
   },
   regenerateWithPersona(accessToken, payload) {
+    refreshCreditsBadge()
     return request('POST', '/api/thumbnails/regenerate-with-persona', accessToken, payload)
   },
   generateSync(accessToken, payload) {
+    refreshCreditsBadge()
     return request('POST', '/api/thumbnails/generate-sync', accessToken, payload)
   },
   /** Create an empty conversation up-front so the sidebar can show a row
@@ -147,6 +170,14 @@ export const thumbnailsApi = {
     // Reset live status before submit so a stale message from a
     // previous run doesn't briefly flash.
     useThumbnailJobStatusStore.getState().clear()
+
+    // Kick a credits refresh in parallel with the submit POST so the
+    // badge reflects the post-deduction balance while the worker runs
+    // in the background — instead of staying at the pre-deduction value
+    // until the poll loop ends ~10s+ later. On a 429/queue_full the
+    // backend auto-refunds, so this same refetch reconciles the badge
+    // back up within ~1s of the failure.
+    refreshCreditsBadge()
 
     let submission
     try {
@@ -257,6 +288,12 @@ function sleep(ms) {
 async function pollThumbnailChatJob(accessToken, jobId, fetchInit = {}) {
   const start = Date.now()
   const path = `/api/thumbnails/chat-jobs/${encodeURIComponent(jobId)}`
+  // Periodic credit-badge refresh during the poll loop. The backend may
+  // adjust the balance mid-job (e.g. partial refund, tiered upcharge);
+  // surfacing those within ~10s instead of at job-end avoids the "badge
+  // dips then jumps back" UX. 6 ticks × POLL_INTERVAL_MS = ~9s cadence.
+  let tickCount = 0
+  const REFRESH_EVERY_N_TICKS = 6
   while (Date.now() - start < POLL_TIMEOUT_MS) {
     let s
     try {
@@ -272,6 +309,10 @@ async function pollThumbnailChatJob(accessToken, jobId, fetchInit = {}) {
 
     if (s.status === 'done' && s.result) return s.result
     if (s.status === 'failed') {
+      // Refund (if any) happens server-side before the FAILED status is
+      // visible — refresh credits BEFORE throwing so the toast fires
+      // against a badge that already reflects the refund.
+      refreshCreditsBadge()
       // Re-shape into the same payload the legacy sync route raised so
       // the existing catch block in ThumbnailGenerator.jsx parses it
       // identically. parseApiError already handles this shape.
@@ -292,10 +333,17 @@ async function pollThumbnailChatJob(accessToken, jobId, fetchInit = {}) {
       throw err
     }
 
+    tickCount += 1
+    if (tickCount % REFRESH_EVERY_N_TICKS === 0) {
+      refreshCreditsBadge()
+    }
+
     await sleep(POLL_INTERVAL_MS)
   }
   // Soft timeout — don't claim failure; let the user wait or retry.
-  // Refund logic already handled server-side regardless.
+  // Refund logic already handled server-side regardless; refresh the
+  // badge before throwing so the post-refund balance is visible.
+  refreshCreditsBadge()
   const err = new Error('Generation is taking longer than expected. Please wait or try again.')
   err.status = 504
   err.payload = {

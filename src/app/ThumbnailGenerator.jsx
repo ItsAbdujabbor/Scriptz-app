@@ -287,6 +287,14 @@ function codeToFriendlyMessage(code, backendMsg) {
         "Sorry — we're getting a lot of demand right now. Please try again " +
         'in a moment. Nothing was charged.'
       )
+    case 'queue_full':
+    case 'QUEUE_FULL':
+      // Use the backend's friendly message verbatim — aiErrors.parseApiError
+      // already formats it as "High demand right now — try again in Ns" with
+      // the actual ETA from `extra.eta_seconds` or the `Retry-After` header.
+      return (
+        backendMsg || 'High demand right now — please try again in a moment. Nothing was charged.'
+      )
     case 'HIGH_DEMAND':
       return "We're at capacity right now — please try again in a minute. " + 'Nothing was charged.'
     case 'PROVIDER_QUOTA_EXCEEDED':
@@ -329,6 +337,8 @@ function isRetryableCode(code, extra) {
     'PROVIDER_RATE_LIMITED',
     'PROVIDER_BUSY',
     'HIGH_DEMAND',
+    'queue_full',
+    'QUEUE_FULL',
     'CONTENT_BLOCKED',
     'THUMBNAIL_BAD_REQUEST',
   ].includes(code)
@@ -3048,10 +3058,12 @@ export function ThumbnailGenerator({
       // Parse the structured error payload. The chat route returns either:
       //   • APIError shape:  { error: { code, message, request_id, extra } }
       //   • HTTPException:   { detail: <string> | { code, message, ... } }
-      const body = err?.payload
+      // `payload` is set by the poll-job FAILED path; submit-time errors
+      // surface the parsed body on `err.body` (see lib/aiErrors.js).
+      const body = err?.payload || err?.body
       const errorObj = body?.error
       const detailObj = body?.detail && typeof body.detail === 'object' ? body.detail : null
-      const code = errorObj?.code || detailObj?.code || null
+      const code = errorObj?.code || detailObj?.code || err?.code || null
       const extra = errorObj?.extra || detailObj?.extra || {}
       const backendMsg =
         errorObj?.message ||
@@ -3066,7 +3078,8 @@ export function ThumbnailGenerator({
       setSendErrorMeta({
         code,
         retryable,
-        retryAfterSeconds: extra?.retry_after_seconds ?? null,
+        retryAfterSeconds:
+          extra?.retry_after_seconds ?? extra?.eta_seconds ?? err?.retryAfterSeconds ?? null,
         draft: combined,
       })
       toast.error(backendMsg, {
@@ -3089,7 +3102,8 @@ export function ThumbnailGenerator({
         errorCode: code,
         errorMessage: friendly,
         retryable,
-        retryAfterSeconds: extra?.retry_after_seconds ?? null,
+        retryAfterSeconds:
+          extra?.retry_after_seconds ?? extra?.eta_seconds ?? err?.retryAfterSeconds ?? null,
         // Backend retry/queue context (set when the route hit our retry
         // helper or queue cap). Lets the failed-card render "we tried 4
         // times" / "you were #6 in line" / countdown UI honestly.

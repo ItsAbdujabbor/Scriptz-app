@@ -2170,10 +2170,17 @@
   color: #fde68a;
 }
 
+/* Panel opens UPWARD now (see .sidebar-account-wrap column-reverse).
+ * Closed state shows an UP chevron — "click to expand up". Open state
+ * shows a DOWN chevron — "click to collapse down". Base SVG path is a
+ * down-arrow, so closed = rotate(180deg), open = rotate(360deg) (back
+ * to identity, but going the long way keeps the transition direction
+ * consistent). */
 .sidebar-account-chevron {
   flex-shrink: 0;
   display: inline-flex;
   color: rgba(229, 229, 231, 0.4);
+  transform: rotate(180deg);
   transition:
     transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
     color 0.18s ease;
@@ -2186,7 +2193,7 @@
   color: rgba(196, 181, 253, 0.85);
 }
 .sidebar-account-btn--open .sidebar-account-chevron {
-  transform: rotate(180deg);
+  transform: rotate(360deg);
   color: #c4b5fd;
 }
 
@@ -2313,33 +2320,41 @@
 /* ══ Inline expanding account panel (replaces floating flyout) ══ */
 .sidebar-account-wrap {
   display: flex;
-  flex-direction: column;
+  /* column-reverse: button stays planted at the bottom, panel grows
+   * upward above it (between the history list and the button) instead
+   * of dropping down past the sidebar edge. */
+  flex-direction: column-reverse;
   margin: 0.15rem 0.35rem 0.35rem;
 }
 
-/* Expanded account panel — simpler, tighter. Minimal violet tinting;
- * relies on the row hover to add motion rather than a colourful bg. */
+/* Expanded account panel — popup style above the trigger button.
+ *
+ * Open and close use DIFFERENT transition timings (defined separately
+ * on the base rule and the --open rule). When --open is added the
+ * entry transitions apply; when --open is removed the exit transitions
+ * (defined on the base rule) take over. This lets us pair a buttery
+ * ease-out-quint popup with a quick ease-in-out dismiss. */
 .sidebar-account-panel {
-  margin-top: 0;
+  margin-bottom: 0;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
   max-height: 0;
   overflow: hidden;
   opacity: 0;
-  transform: translateY(-4px);
-  transform-origin: top center;
-  /* All five animatable properties share the same buttery curve and
-   * 0.42s duration so the expand/collapse moves as one piece —
-   * previously opacity finished in 0.18s while the height was still
-   * unfolding for another 160ms, which made the panel "pop in" then
-   * the chrome catch up. Single curve, single duration → smooth. */
+  transform: scale(0.96) translateY(6px);
+  transform-origin: bottom center;
+  /* Exit (--open removed): opacity fades fast, then the panel
+   * collapses height. Both use a single soft ease-in-out so nothing
+   * snaps. The slight max-height delay (0.02s) lets the fade lead the
+   * collapse, which reads as "smoothly disappearing" rather than
+   * everything dropping at once. */
   transition:
-    max-height 0.42s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
-    margin-top 0.42s cubic-bezier(0.22, 1, 0.36, 1),
-    padding 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+    max-height 0.16s cubic-bezier(0.4, 0, 0.2, 1) 0.02s,
+    opacity 0.12s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    margin-bottom 0.16s cubic-bezier(0.4, 0, 0.2, 1) 0.02s,
+    padding 0.16s cubic-bezier(0.4, 0, 0.2, 1) 0.02s;
   pointer-events: none;
   padding: 0 0.3rem;
   border-radius: 12px;
@@ -2349,19 +2364,29 @@
   -webkit-backdrop-filter: blur(22px) saturate(160%);
   backdrop-filter: blur(22px) saturate(160%);
   border: 1px solid rgba(255, 255, 255, 0);
+  will-change: transform, opacity, max-height;
 }
 
 .sidebar-account-panel.sidebar-account-panel--open {
   max-height: 420px;
   opacity: 1;
-  transform: none;
-  margin-top: 0.35rem;
+  transform: scale(1) translateY(0);
+  margin-bottom: 0.35rem;
   padding: 0.3rem;
   pointer-events: auto;
   border-color: rgba(255, 255, 255, 0.07);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 10px 28px rgba(0, 0, 0, 0.35);
+  /* Entry: the panel unfolds upward (max-height + scale), and content
+   * fades in with a tiny lag so the chrome leads. Ease-out-quint gives
+   * the soft, popup-y deceleration without overshoot. */
+  transition:
+    max-height 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1) 0.03s,
+    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+    margin-bottom 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+    padding 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sidebar-account-panel__list {
@@ -2689,47 +2714,66 @@
   display: none !important;
 }
 
-/* Stagger entrance of items when opening */
-.sidebar-account-panel--open .sidebar-account-panel__list > * {
-  animation: sb-account-item-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+/* Items: two-way transitions (animate on BOTH open and close) so the
+ * panel doesn't snap empty on dismiss. Closed default = invisible &
+ * slightly below final position; opening it brings them up and in. */
+.sidebar-account-panel__list > *,
+.sidebar-account-logout {
+  opacity: 0;
+  transform: translateY(6px);
+  /* Exit: quick, no stagger — everything fades together as the panel
+   * collapses, then disappears. */
+  transition:
+    opacity 0.1s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.12s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.sidebar-account-panel--open .sidebar-account-panel__list > :nth-child(1) {
-  animation-delay: 0.02s;
+.sidebar-account-panel--open .sidebar-account-panel__list > *,
+.sidebar-account-panel--open .sidebar-account-logout {
+  opacity: 1;
+  transform: translateY(0);
+  /* Entry: smoother ease-out-quint, quick rise. Stagger (below) only
+   * applies on entry — exit ignores it. */
+  transition:
+    opacity 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.sidebar-account-panel--open .sidebar-account-panel__list > :nth-child(2) {
-  animation-delay: 0.05s;
+/* Stagger on entry only — reverse order so the item closest to the
+ * Account button (last child = AI Model row) animates in first,
+ * rippling upward toward "Account" at the top. Tight delays so the
+ * whole ripple finishes inside ~120ms. */
+.sidebar-account-panel--open .sidebar-account-panel__list > :nth-last-child(1) {
+  transition-delay: 0.02s;
 }
-.sidebar-account-panel--open .sidebar-account-panel__list > :nth-child(3) {
-  animation-delay: 0.08s;
+.sidebar-account-panel--open .sidebar-account-panel__list > :nth-last-child(2) {
+  transition-delay: 0.035s;
 }
-.sidebar-account-panel--open .sidebar-account-panel__list > :nth-child(4) {
-  animation-delay: 0.11s;
+.sidebar-account-panel--open .sidebar-account-panel__list > :nth-last-child(3) {
+  transition-delay: 0.05s;
+}
+.sidebar-account-panel--open .sidebar-account-panel__list > :nth-last-child(4) {
+  transition-delay: 0.065s;
+}
+.sidebar-account-panel--open .sidebar-account-panel__list > :nth-last-child(5) {
+  transition-delay: 0.08s;
 }
 .sidebar-account-panel--open .sidebar-account-logout {
-  animation: sb-account-item-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
-  animation-delay: 0.14s;
-}
-
-@keyframes sb-account-item-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+  transition-delay: 0.095s;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .sidebar-account-panel,
+  .sidebar-account-panel--open,
+  .sidebar-account-panel__list > *,
   .sidebar-account-panel--open .sidebar-account-panel__list > *,
+  .sidebar-account-logout,
   .sidebar-account-panel--open .sidebar-account-logout,
   .sidebar-account-model__pills {
     animation: none !important;
     transition:
       max-height 0.12s ease,
-      opacity 0.12s ease;
+      opacity 0.12s ease !important;
+    transition-delay: 0s !important;
+    transform: none !important;
   }
   .sidebar-account-item::before {
     display: none;

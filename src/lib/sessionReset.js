@@ -19,6 +19,16 @@ export function setAppQueryClient(client) {
   queryClientRef = client
 }
 
+/**
+ * Read the app-wide QueryClient from outside React (e.g. transport-layer
+ * helpers in `src/api/*` that need to invalidate cache during a long-
+ * running async flow). Returns null before `main.jsx` has finished
+ * bootstrapping — callers must no-op in that case.
+ */
+export function getAppQueryClient() {
+  return queryClientRef
+}
+
 /** Set when a session exists; used to detect account switches. */
 export const LAST_AUTH_USER_ID_KEY = 'clixa_last_auth_user_id'
 

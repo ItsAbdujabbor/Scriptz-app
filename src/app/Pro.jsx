@@ -17,12 +17,10 @@ export function Pro({ onLogout, shellManaged }) {
   const {
     user,
     logout,
-    changePassword,
     deleteData,
     deleteAccount,
     getValidAccessToken,
     allowsPasswordlessAccountDelete,
-    isLoading: authLoading,
     clearError,
   } = useAuthStore()
   const {
@@ -226,8 +224,6 @@ export function Pro({ onLogout, shellManaged }) {
             typeof allowsPasswordlessAccountDelete === 'function' &&
             allowsPasswordlessAccountDelete()
           }
-          authLoading={authLoading}
-          changePassword={changePassword}
           deleteData={deleteData}
           deleteAccount={deleteAccount}
           clearLocalData={clearLocalData}
