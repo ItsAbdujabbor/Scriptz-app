@@ -10,7 +10,6 @@ import { useFloatingPosition } from '../lib/useFloatingPosition'
 import { openBillingDialog } from '../lib/billingDialogBus'
 import { ConfirmDialog } from '../components/ui'
 import AccountAvatar from '../components/AccountAvatar'
-import SidebarCreditsPill from '../components/SidebarCreditsPill'
 import { useSubscriptionQuery } from '../queries/billing/creditsQueries'
 import {
   useModelTierStateQuery,
@@ -629,11 +628,23 @@ export function Sidebar({
       requestAnimationFrame(() => historySearchInputRef.current?.focus())
     }
   }, [historySearchOpen])
-  // Subscription drives Go Pro visibility. The "Free / Pro / Trial" plan
-  // label moved into the new `<SidebarCreditsPill>` below the account
-  // button, which renders credits + plan tag together. The pill
-  // subscribes on its own, so we don't need to mirror the data here.
-  useSubscriptionQuery()
+  // Subscription drives the small plan badge in the top-right of the
+  // account button and the visibility of various Pro-only CTAs. The
+  // badge shows the actual plan name (Starter / Creator / Ultimate /
+  // Pro) when active, and "Free" with an upgrade affordance otherwise.
+  const { data: subscription } = useSubscriptionQuery()
+  const activeStatuses = ['active', 'trialing', 'past_due']
+  const hasActivePlan = !!(subscription && activeStatuses.includes(subscription.status))
+  const isTrialPlan = !!(hasActivePlan && subscription?.is_trial)
+  const planBadgeLabel = (() => {
+    if (!hasActivePlan) return 'Free'
+    // Prefer the human plan name from the server. Falls back to "Pro"
+    // when the subscription is active but the name didn't come through
+    // (legacy rows, transient API hiccup).
+    const raw = (subscription.plan_name || subscription.tier || 'Pro').toString().trim()
+    return raw.charAt(0).toUpperCase() + raw.slice(1)
+  })()
+  const planBadgeTone = !hasActivePlan ? 'free' : isTrialPlan ? 'trial' : 'pro'
 
   // Friendly name shown above the email. Prefers the server-provided
   // username/name (populated from the Google id_token at OAuth time);
@@ -1281,12 +1292,6 @@ export function Sidebar({
             </nav>
 
             <div className="sidebar-account-wrap">
-              {/* Credits pill — full-width creative pill above the
-               * account row. Hidden on the collapsed rail (the credits
-               * count lives in HeaderCreditsBadge there). Renders for
-               * Free / Pro / Trial with state-specific colour. */}
-              {!collapsed && <SidebarCreditsPill />}
-
               <button
                 ref={userBlockRef}
                 type="button"
@@ -1297,6 +1302,20 @@ export function Sidebar({
                 aria-expanded={accountDialogOpen}
                 title={collapsed && user?.email ? user.email : 'Account menu'}
               >
+                {/* Plan badge — floats in the top-right of the button.
+                 * Renders the live plan name (Starter / Creator / Ultimate
+                 * / Pro) when subscribed; "Free" otherwise, which doubles
+                 * as a subtle upgrade affordance. Hidden on the collapsed
+                 * rail because the whole info column is hidden there. */}
+                {!collapsed && (
+                  <span
+                    className={`sidebar-account-plan-badge sidebar-account-plan-badge--${planBadgeTone}`}
+                    aria-label={`${planBadgeLabel} plan`}
+                  >
+                    <span className="sidebar-account-plan-badge__dot" aria-hidden />
+                    {planBadgeLabel}
+                  </span>
+                )}
                 <span
                   className="sidebar-account-avatar"
                   aria-label={user?.email || 'Account'}

@@ -3374,167 +3374,70 @@
   color: rgba(196, 181, 253, 0.6);
 }
 
-/* ── Credits pill (new) ────────────────────────────────────── */
-.sidebar-credits-pill {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.42rem;
-  margin: 0 0 0.5rem;
-  padding: 0.42rem 0.55rem 0.42rem 0.5rem;
-  border-radius: 999px;
-  background:
-    linear-gradient(
-      135deg,
-      rgba(124, 58, 237, 0.18) 0%,
-      rgba(109, 40, 217, 0.12) 50%,
-      rgba(76, 29, 149, 0.18) 100%
-    ),
-    rgba(28, 24, 40, 0.55);
-  border: 1px solid rgba(167, 139, 250, 0.22);
-  color: rgba(245, 243, 255, 0.92);
-  font: inherit;
-  isolation: isolate;
-  overflow: hidden;
-  box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
-    0 4px 14px -8px rgba(124, 58, 237, 0.45);
-  transition:
-    border-color 0.22s cubic-bezier(0.33, 1, 0.68, 1),
-    box-shadow 0.22s cubic-bezier(0.33, 1, 0.68, 1),
-    transform 0.22s cubic-bezier(0.33, 1, 0.68, 1);
+/* Make the account button a positioning context for the floating plan
+   badge and give it a hair more top padding so the badge can sit in
+   the corner without crowding the name line. */
+.sidebar-account-wrap .sidebar-account-btn {
+  padding-top: 0.65rem;
 }
 
-/* Subtle moving violet sheen — the gradient drifts across the
-   pill on a slow 8s loop. Pure decoration, GPU-cheap (translateX
-   only). Disabled for users with reduced-motion preferred. */
-.sidebar-credits-pill__glow {
+/* ── Plan badge — top-right of the account button ────────────────
+   Tiny pill that calls out the live plan name (Starter / Creator /
+   Ultimate / Pro / Trial / Free). Floats absolutely in the top-right
+   corner so it never reflows the avatar/name/email row. State-tinted:
+     • pro     — confident violet with a soft pulsing dot
+     • trial   — warm amber, signals "running"
+     • free    — neutral chip that hover-lifts onto the violet ramp to
+                 telegraph "tap me to upgrade"
+   Hidden on the collapsed rail (the info column is hidden there too). */
+.sidebar-account-plan-badge {
   position: absolute;
-  inset: -40% -20%;
-  z-index: -1;
-  background: radial-gradient(
-    ellipse at 30% 50%,
-    rgba(167, 139, 250, 0.28) 0%,
-    rgba(124, 58, 237, 0.12) 35%,
-    transparent 65%
-  );
-  filter: blur(14px);
-  opacity: 0.85;
-  animation: sidebarPillSheen 8s ease-in-out infinite;
-  pointer-events: none;
-}
-
-@keyframes sidebarPillSheen {
-  0%,
-  100% {
-    transform: translateX(-12%);
-  }
-  50% {
-    transform: translateX(12%);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sidebar-credits-pill__glow {
-    animation: none;
-  }
-}
-
-.sidebar-credits-pill__icon {
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
+  top: 0.4rem;
+  right: 0.5rem;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.16rem 0.45rem 0.16rem 0.4rem;
   border-radius: 999px;
-  color: #fde68a;
-  background: linear-gradient(135deg, rgba(253, 224, 71, 0.18) 0%, rgba(217, 119, 6, 0.16) 100%);
-  border: 0.5px solid rgba(253, 224, 71, 0.32);
-}
-.sidebar-credits-pill__icon svg {
-  width: 11px;
-  height: 11px;
-  fill: currentColor;
-}
-
-.sidebar-credits-pill__main {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.28rem;
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.sidebar-credits-pill__amount {
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  color: #fafafa;
-  line-height: 1;
-}
-
-.sidebar-credits-pill__unit {
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: rgba(196, 181, 253, 0.65);
-  text-transform: lowercase;
-  line-height: 1;
-}
-
-.sidebar-credits-pill__sep {
-  flex-shrink: 0;
-  width: 1px;
-  height: 14px;
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(196, 181, 253, 0.3) 50%,
-    transparent 100%
-  );
-}
-
-.sidebar-credits-pill__tag {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.28rem;
-  padding: 0.18rem 0.45rem;
-  border-radius: 999px;
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   line-height: 1;
   border: 1px solid transparent;
-  cursor: default;
-  font-family: inherit;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.18s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
-.sidebar-credits-pill__tag-dot {
+.sidebar-account-plan-badge__dot {
   width: 5px;
   height: 5px;
   border-radius: 999px;
   background: currentColor;
-  box-shadow: 0 0 0 0 currentColor;
+  flex-shrink: 0;
 }
 
-/* Pro — confident violet with a soft glow on the dot */
-.sidebar-credits-pill__tag--pro {
+/* Pro — violet with a glowing, slowly-pulsing dot. */
+.sidebar-account-plan-badge--pro {
   color: #ede9fe;
   background: linear-gradient(135deg, rgba(167, 139, 250, 0.35) 0%, rgba(124, 58, 237, 0.28) 100%);
   border-color: rgba(167, 139, 250, 0.48);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
+    0 0 14px -6px rgba(124, 58, 237, 0.7);
 }
-.sidebar-credits-pill__tag--pro .sidebar-credits-pill__tag-dot {
+.sidebar-account-plan-badge--pro .sidebar-account-plan-badge__dot {
   color: #c4b5fd;
   box-shadow: 0 0 6px rgba(196, 181, 253, 0.75);
-  animation: sidebarPillProPulse 2.4s ease-in-out infinite;
+  animation: sidebarPlanBadgeProPulse 2.4s ease-in-out infinite;
 }
-@keyframes sidebarPillProPulse {
+@keyframes sidebarPlanBadgeProPulse {
   0%,
   100% {
     box-shadow: 0 0 6px rgba(196, 181, 253, 0.45);
@@ -3544,78 +3447,44 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .sidebar-credits-pill__tag--pro .sidebar-credits-pill__tag-dot {
+  .sidebar-account-plan-badge--pro .sidebar-account-plan-badge__dot {
     animation: none;
   }
 }
 
-/* Trial — warm amber, signals "running" */
-.sidebar-credits-pill__tag--trial {
+/* Trial — warm amber. */
+.sidebar-account-plan-badge--trial {
   color: #fef3c7;
-  background: linear-gradient(135deg, rgba(253, 224, 71, 0.22) 0%, rgba(217, 119, 6, 0.22) 100%);
-  border-color: rgba(253, 224, 71, 0.4);
+  background: linear-gradient(135deg, rgba(253, 224, 71, 0.24) 0%, rgba(217, 119, 6, 0.24) 100%);
+  border-color: rgba(253, 224, 71, 0.42);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
+    0 0 12px -6px rgba(217, 119, 6, 0.55);
 }
-.sidebar-credits-pill__tag--trial .sidebar-credits-pill__tag-dot {
+.sidebar-account-plan-badge--trial .sidebar-account-plan-badge__dot {
   color: #fde68a;
 }
 
-/* Free — neutral chip that doubles as the upgrade CTA. Hover/focus
-   lifts it to the violet ramp to telegraph "tap me to go Pro". */
-.sidebar-credits-pill__tag--free {
-  color: rgba(229, 229, 231, 0.85);
+/* Free — neutral chip with a violet hover tease (the wrapping button
+   handles the actual click; this is just the visual signal). */
+.sidebar-account-plan-badge--free {
+  color: rgba(229, 229, 231, 0.78);
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.12);
-  cursor: pointer;
-  padding-right: 0.32rem;
-  transition:
-    color 0.2s ease,
-    background 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.18s cubic-bezier(0.33, 1, 0.68, 1);
 }
-.sidebar-credits-pill__tag--free:hover,
-.sidebar-credits-pill__tag--free:focus-visible {
+.sidebar-account-plan-badge--free .sidebar-account-plan-badge__dot {
+  color: rgba(196, 181, 253, 0.55);
+}
+.sidebar-account-btn:hover .sidebar-account-plan-badge--free,
+.sidebar-account-btn--open .sidebar-account-plan-badge--free {
   color: #ede9fe;
-  background: linear-gradient(135deg, rgba(167, 139, 250, 0.32) 0%, rgba(124, 58, 237, 0.28) 100%);
-  border-color: rgba(167, 139, 250, 0.52);
-  outline: none;
-  transform: translateY(-0.5px);
-}
-.sidebar-credits-pill__upsell {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 12px;
-  height: 12px;
-  opacity: 0.7;
-  transition:
-    transform 0.22s cubic-bezier(0.33, 1, 0.68, 1),
-    opacity 0.18s ease;
-}
-.sidebar-credits-pill__upsell svg {
-  width: 10px;
-  height: 10px;
-}
-.sidebar-credits-pill__tag--free:hover .sidebar-credits-pill__upsell,
-.sidebar-credits-pill__tag--free:focus-visible .sidebar-credits-pill__upsell {
-  opacity: 1;
-  transform: translateX(2px);
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.28) 0%, rgba(124, 58, 237, 0.22) 100%);
+  border-color: rgba(167, 139, 250, 0.42);
 }
 
-/* Tone variants — shift the pill's own border + glow to match the
-   plan state at a glance, even without reading the tag text. */
-.sidebar-credits-pill--pro {
-  border-color: rgba(167, 139, 250, 0.42);
-  box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.12),
-    0 6px 20px -10px rgba(124, 58, 237, 0.65);
-}
-.sidebar-credits-pill--trial {
-  border-color: rgba(253, 224, 71, 0.34);
-  box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
-    0 5px 16px -10px rgba(217, 119, 6, 0.5);
-}
-.sidebar-credits-pill--free {
-  border-color: rgba(167, 139, 250, 0.18);
+/* Push the chevron down so it doesn't visually collide with the
+   badge floating in the top-right corner. */
+.sidebar-account-wrap .sidebar-account-chevron {
+  align-self: flex-end;
+  margin-bottom: 0.1rem;
 }
