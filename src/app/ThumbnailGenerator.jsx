@@ -22,7 +22,6 @@ import {
   useThumbnailConversationQuery,
   useThumbnailConversationsQuery,
   useThumbnailChatMutation,
-  useCreateThumbnailConversationMutation,
   useLoadOlderThumbnailMessagesMutation,
   useThumbnailRatingQuery,
   seedThumbnailRating,
@@ -1655,6 +1654,13 @@ function chatMessageItemPropsEqual(prev, next) {
   if (a === b) return true
   if (!a || !b) return false
   // Identity fields. A change in any of these forces a re-render.
+  // NOTE: `_serverMessageId` and `_optimistic` are intentionally NOT
+  // compared — they're bookkeeping flags consumed only by the parent's
+  // `renderedMessages` dedup pass (and the dedup runs before this
+  // comparator ever sees the entry). Including them caused every
+  // optimistic bubble to re-render the instant `linkLocalToServer`
+  // bound it to its server twin, which the user saw as the entire
+  // thread "updating" on every response.
   if (
     a.id !== b.id ||
     a.role !== b.role ||
@@ -1667,8 +1673,7 @@ function chatMessageItemPropsEqual(prev, next) {
     a._promptCount !== b._promptCount ||
     a._analyzePending !== b._analyzePending ||
     a._titlesPending !== b._titlesPending ||
-    a._editPending !== b._editPending ||
-    a._serverMessageId !== b._serverMessageId
+    a._editPending !== b._editPending
   ) {
     return false
   }
@@ -1782,11 +1787,22 @@ function mergeFailurePairs(messages) {
       if (prior && prior._isUser) {
         // Pull user content into the failure entry, then remove the
         // user row from the rendered list — FailedAttemptBlock owns
-        // the user bubble for failure rows.
+        // the user bubble for failure rows BY DEFAULT.
+        //
+        // `_userMessageId` records the id of the folded user row so a
+        // downstream dedup pass (see `renderedMessages`) can detect the
+        // case where an optimistic user-bubble local entry has been
+        // linked to that same user_message (via `_serverMessageId`).
+        // In that case the failure entry's internal user bubble is
+        // suppressed via `_skipUserBubble` and the local entry is
+        // inserted at this chronological position — so the user
+        // bubble stays mounted (same React key as the loader phase)
+        // without rendering twice.
         const folded = {
           ...cur,
           userText: cur.userText || prior.content || '',
           userImageUrl: cur.userImageUrl || prior.imageUrl || null,
+          _userMessageId: prior.id,
         }
         next.pop()
         next.push(folded)
@@ -1960,6 +1976,92 @@ export function ThumbnailGenerator({
   // via `_promptPending` on the local placeholder), so the only
   // remaining role of this flag is double-submit / disabled-state.
   const [pendingAssistant, setPendingAssistant] = useState(false)
+  // ─── Submission lock ─────────────────────────────────────────────
+  // Hard guard that holds the chat surface in a stable rendered state
+  // from the moment the user hits send until the entire response →
+  // URL-settle cycle completes. Without this lock the first-message
+  // flow is a six-way race: optimistic state updates, the chat job's
+  // own status polling, the eager-conversation-create's hash write,
+  // the chat-response's hash write (which can disagree with the
+  // eager one!), parent setConversationId via hashchange, and the
+  // conversation-detail React Query's mount-refetch all happen on
+  // overlapping ticks. Any one of them transitioning state through
+  // an "empty" intermediate (`conversationId = null`, `messages = []`,
+  // `pendingAssistant` flipped a tick early, `isFetching = true`)
+  // is enough to paint the centered greeting / skeleton for one
+  // frame. While `isSubmittingRef.current` is true:
+  //   • the !conversationId / real-switch wipes are skipped
+  //   • `isEmptyScreen` is FORCED false (no greeting can render)
+  //   • `isHistoryLoading` is FORCED false (no skeleton can render)
+  //   • `layoutCentered` is FORCED false (composer stays at bottom)
+  // The lock is released TWO requestAnimationFrames after the submit
+  // resolves (success or error). Two frames because: frame 1 lets
+  // any in-flight state updates from finishLoading / patches commit;
+  // frame 2 lets any deferred hashchange events propagate through
+  // the parent's setConversationId. By the time the lock drops, the
+  // UI is on the final settled (conversationId, messages, localOnly)
+  // and the natural render shows the canonical thread.
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const isSubmittingRef = useRef(false)
+  const submissionUnlockTimerRef = useRef(null)
+  // The conversationId the active submission is targeting. Initialized
+  // to the current conversationId in `beginSubmission` (null for a
+  // brand-new chat, or an existing id for a submit inside a chat).
+  // Advances to the chat response's id when `handleConversationCreated`
+  // fires from the mutation success path — so the lock follows the
+  // expected URL flip without releasing. A `conversationId` that
+  // disagrees with this target = user-initiated navigation away from
+  // the submission flow, which immediately drops the lock so the
+  // destination view (new chat empty state, or a different chat's
+  // history) renders without obstruction.
+  const submissionTargetRef = useRef(null)
+  const beginSubmission = useCallback((targetConvId) => {
+    if (submissionUnlockTimerRef.current != null) {
+      cancelAnimationFrame(submissionUnlockTimerRef.current)
+      submissionUnlockTimerRef.current = null
+    }
+    submissionTargetRef.current = targetConvId ?? null
+    isSubmittingRef.current = true
+    setIsSubmitting(true)
+  }, [])
+  const endSubmission = useCallback(() => {
+    // Cancel any prior pending unlock — last writer wins.
+    if (submissionUnlockTimerRef.current != null) {
+      cancelAnimationFrame(submissionUnlockTimerRef.current)
+    }
+    submissionUnlockTimerRef.current = requestAnimationFrame(() => {
+      submissionUnlockTimerRef.current = requestAnimationFrame(() => {
+        submissionUnlockTimerRef.current = null
+        submissionTargetRef.current = null
+        isSubmittingRef.current = false
+        setIsSubmitting(false)
+      })
+    })
+  }, [])
+  // Synchronous lock release — used when the user navigates away from
+  // the submission's target conversation. The deferred (RAF×2)
+  // endSubmission is meant for the success/error settle and is the
+  // wrong choice here: we want the destination view to render
+  // immediately on this same frame, no two-frame wait under a lock.
+  const releaseSubmissionLockImmediate = useCallback(() => {
+    if (submissionUnlockTimerRef.current != null) {
+      cancelAnimationFrame(submissionUnlockTimerRef.current)
+      submissionUnlockTimerRef.current = null
+    }
+    submissionTargetRef.current = null
+    isSubmittingRef.current = false
+    setIsSubmitting(false)
+  }, [])
+  useEffect(() => {
+    // Drop the timer on unmount so RAFs don't fire against a torn-down
+    // component (the state setter would log a React warning).
+    return () => {
+      if (submissionUnlockTimerRef.current != null) {
+        cancelAnimationFrame(submissionUnlockTimerRef.current)
+        submissionUnlockTimerRef.current = null
+      }
+    }
+  }, [])
   // (Removed `pendingMode` — the in-place placeholder carries
   // `_promptMode` directly, so there's no need for a separate
   // top-level state to remember which mode is in flight.)
@@ -2073,8 +2175,22 @@ export function ThumbnailGenerator({
     [conversationsListQuery.data, conversationId]
   )
   const isCurrentConversationPending = Boolean(currentConvRow?.is_pending)
+  // `pollWhilePending` exists so a user who navigates AWAY from a chat
+  // mid-generation (or reloads the tab) eventually picks up the worker's
+  // result via the conversation query's poll. We must NOT poll while
+  // THIS tab is actively generating — `pendingAssistant === true` means
+  // the chat mutation is in flight here, the result will arrive via the
+  // mutation's own job-poll and be hydrated into cache by
+  // `linkLocalToServer`. A concurrent conversation-query refetch
+  // wholesale-replaces the cache with whatever the server has at that
+  // instant (typically `[user_message]` only — the assistant hasn't
+  // been persisted yet), tearing the optimistic assistant placeholder
+  // off the screen for one paint cycle. Suppressing the poll while
+  // this tab owns the generation eliminates that flicker; the
+  // server-pending state still gets surfaced via the sidebar list
+  // refetch for OTHER tabs / sessions watching this conversation.
   const conversationQuery = useThumbnailConversationQuery(conversationId, {
-    pollWhilePending: isCurrentConversationPending,
+    pollWhilePending: isCurrentConversationPending && !pendingAssistant,
   })
   // Conversations the client minted in this mount (via send-first-message,
   // persistEvent auto-create, or the chat mutation's auto-create). For these
@@ -2088,12 +2204,47 @@ export function ThumbnailGenerator({
   const handleConversationCreated = useCallback(
     (id) => {
       if (id != null) locallyCreatedConvIdsRef.current.add(Number(id))
+      // If we're mid-submit, the new id IS the submission's target —
+      // advance the tracker so the upcoming `conversationId` change
+      // (triggered by the parent's hashchange listener) is recognized
+      // as the expected URL flip and does NOT release the lock. Only
+      // updates while the lock is active; navigation-driven calls to
+      // this function (from places that pass through `onConversationCreated`
+      // for non-submission reasons) won't accidentally re-target.
+      if (isSubmittingRef.current && id != null) {
+        submissionTargetRef.current = Number(id)
+      }
       onConversationCreated?.(id)
     },
     [onConversationCreated]
   )
+  // Navigation-aware lock release. Watches `conversationId` while a
+  // submission is in flight; if it changes to anything OTHER than the
+  // active submission target, that's the user navigating away (sidebar
+  // click, "New chat", browser back, etc.) — release the lock
+  // synchronously so the destination renders without obstruction. The
+  // submit continues server-side; its eventual response is still
+  // hydrated into the conversation cache (via `linkLocalToServer` and
+  // the merge-only `refreshThumbnailConversationCache`), so a later
+  // return to that chat shows the result.
+  useEffect(() => {
+    if (!isSubmittingRef.current) return
+    const target = submissionTargetRef.current
+    const current = conversationId == null ? null : Number(conversationId)
+    if (current === target) return
+    releaseSubmissionLockImmediate()
+  }, [conversationId, releaseSubmissionLockImmediate])
   const chatMutation = useThumbnailChatMutation(handleConversationCreated)
-  const createConversationMutation = useCreateThumbnailConversationMutation()
+  // NOTE: `useCreateThumbnailConversationMutation` (eager-create) was
+  // removed from this surface. On a brand-new chat we now let the
+  // chat endpoint itself create the conversation and return its
+  // canonical id via the response. Eager-create caused the URL to
+  // double-flip — `null → 55` (eager) → `55 → 56` (chat response,
+  // when the backend ignored our hint and minted a new id) — which
+  // the user could see in the address bar. With one writer the URL
+  // settles `null → 56` exactly once. The sidebar row appears via
+  // `mergeThumbnailConversationsListCache` in the chat mutation's
+  // onSuccess refresh, which writes a stub row keyed on the new id.
   const loadOlderMutation = useLoadOlderThumbnailMessagesMutation()
   const hasMoreOlder = Boolean(conversationQuery.data?.messages?.has_more)
   const isLoadingOlder = loadOlderMutation.isPending
@@ -2150,42 +2301,9 @@ export function ThumbnailGenerator({
     if (conversationId != null) markSeen(conversationId)
   }, [conversationId, markSeen])
 
-  /**
-   * Ensure we have a conversation id before running a chat mutation.
-   *
-   * Best-effort: if the eager-create endpoint is unreachable (old backend,
-   * network blip, etc.) we fall through and let the chat endpoint
-   * auto-create one on first submit — the classic path. That way a
-   * sidebar enhancement can never block actual generation.
-   *
-   * On success we:
-   *   1. Navigate into the new conversation immediately (URL flip).
-   *   2. Show the pending spinner in the sidebar row right away.
-   *   3. Let the user leave mid-generation and still see the row update.
-   */
-  const ensureConversationId = useCallback(
-    async (existingId) => {
-      if (existingId) return existingId
-      try {
-        const conv = await createConversationMutation.mutateAsync({
-          channel_id: channelId || undefined,
-        })
-        const id = conv?.id
-        if (id != null) {
-          handleConversationCreated(id)
-          startPending(id)
-        }
-        return id
-      } catch (err) {
-        // Eager create is a "nice to have" — never block generation on it.
-        if (typeof console !== 'undefined') {
-          console.warn('[thumbnail] eager conversation create failed, using legacy path:', err)
-        }
-        return null
-      }
-    },
-    [channelId, createConversationMutation, handleConversationCreated, startPending]
-  )
+  // (Removed `ensureConversationId` — the chat endpoint is now the
+  // sole creator of new thumbnail conversations. See the comment on
+  // the removed `createConversationMutation` declaration above.)
 
   useEffect(() => {
     const sync = () => setThumbMode(parseThumbModeFromHash())
@@ -2300,7 +2418,17 @@ export function ThumbnailGenerator({
 
   useEffect(() => {
     if (!conversationId) {
-      // Full reset on "New Chat" / blank chat screen.
+      // Full reset on "New Chat" / blank chat screen — but only while
+      // the submission lock is held AND scoped to this conversation
+      // (target == null). The lock is released the moment the user
+      // navigates away from the submission target (see the
+      // navigation-aware effect above), so when this branch fires
+      // because of a user-initiated "New chat" click, the lock is
+      // already off and the reset runs normally. The remaining lock
+      // case — `target == null` (brand-new chat in flight) and
+      // conversationId still null — must keep the optimistic loader
+      // visible.
+      if (isSubmittingRef.current && submissionTargetRef.current == null) return
       setMessages([])
       setLocalOnlyMessages([])
       setDraft('')
@@ -2365,11 +2493,34 @@ export function ThumbnailGenerator({
   useEffect(() => {
     const prev = prevConversationIdRef.current
     prevConversationIdRef.current = conversationId
-    // null → N (creation): keep the optimistic local content visible.
-    // Initial mount (prev === conversationId): nothing to wipe.
+    // null → N (creation): keep the optimistic local content visible
+    // AND keep the sawMessagesRef latch — the user is mid-flow with
+    // a placeholder loader on screen, and wiping either of these
+    // creates a one-paint window the empty-state checks can resolve
+    // true through, flashing the greeting back. Initial mount
+    // (prev === conversationId): nothing to wipe.
     if (prev == null || prev === conversationId) return
-    // Real switch (N → M, or N → null): drop stale per-session content.
+    // A "real switch" (N → M, or N → null) usually means the user
+    // navigated — pick a different chat from the sidebar, hit "New
+    // chat", etc. — and we want to drop stale per-session content so
+    // the destination chat gets a clean slate.
+    //
+    // EXCEPTION: this same effect also fires when the chat mutation
+    // resolves with a `conversation_id` that differs from the
+    // submission target (typically the brand-new-chat case where the
+    // backend mints the id and we go null → respondedId). The lock is
+    // still active in that window, and the navigation-aware effect
+    // saw conversationId match the target (because
+    // `handleConversationCreated` advanced the target first), so the
+    // lock did NOT release. Block the wipe so the optimistic
+    // user_local stays mounted through the URL flip. Any OTHER
+    // conversationId change while the lock is held — i.e. user-
+    // initiated navigation — already released the lock synchronously
+    // by the time this effect runs, so this branch lets the wipe
+    // proceed.
+    if (isSubmittingRef.current) return
     setLocalOnlyMessages([])
+    sawMessagesRef.current = false
   }, [conversationId])
 
   // Auto-recovery: if we're polling because a generation was in flight AND the
@@ -2414,7 +2565,13 @@ export function ThumbnailGenerator({
   const hasInFlightOrLocalContent = pendingAssistant || localOnlyMessages.length > 0
   const isLocallyCreatedConversation =
     conversationId != null && locallyCreatedConvIdsRef.current.has(Number(conversationId))
+  // The submission lock force-suppresses the history-loading skeleton
+  // for the entire first-message flow. Even with the other guards in
+  // place, a conversation-detail refetch landing while the URL is
+  // mid-transition can briefly flip `isPending` true; gating on the
+  // lock removes that paint window entirely.
   const isHistoryLoading =
+    !isSubmitting &&
     conversationId != null &&
     (conversationQuery.isPending || conversationQuery.isPlaceholderData) &&
     !hasInFlightOrLocalContent &&
@@ -2439,12 +2596,63 @@ export function ThumbnailGenerator({
   // no local entries to dedup against, so the natural rebuild is
   // clean.
   const renderedMessages = useMemo(() => {
+    // Build two lookup structures from the local-only entries:
+    //   1. `linkedServerIds` — server message ids that have a local
+    //      optimistic twin. Server entries with these ids are filtered
+    //      out so the optimistic entry (keyed by its stable local id)
+    //      is the visible one, no remount on bind.
+    //   2. `linkedUserMsgToLocal` — server `user_message.id` → the
+    //      local optimistic user-bubble entry. Used to re-position
+    //      that local entry into the chronological slot of a merged
+    //      failure row (where the user_message was folded by
+    //      `mergeFailurePairs`). Without this re-positioning the
+    //      failure card would render above the user bubble — wrong
+    //      visual order — because local entries are otherwise
+    //      appended after all server entries.
     const linkedServerIds = new Set()
+    const linkedUserMsgToLocal = new Map()
     for (const m of localOnlyMessages) {
-      if (m && m._serverMessageId != null) linkedServerIds.add(m._serverMessageId)
+      if (!m || m._serverMessageId == null) continue
+      linkedServerIds.add(m._serverMessageId)
+      // Optimistic failure-entry locals (from `pushFailureEntry`) get
+      // their own slot below — they aren't candidates for user-bubble
+      // re-positioning.
+      if (m._kind !== 'failure') {
+        linkedUserMsgToLocal.set(m._serverMessageId, m)
+      }
     }
-    const sortedServer = sortByServerId(messages).filter((m) => !linkedServerIds.has(m.id))
-    return [...sortedServer, ...localOnlyMessages]
+
+    const result = []
+    const consumedLocalIds = new Set()
+    for (const m of sortByServerId(messages)) {
+      // Server entry has an optimistic twin keyed on its own id — skip;
+      // the local entry will render in its own slot below.
+      if (linkedServerIds.has(m.id)) continue
+      // Merged failure entry whose underlying user_message is linked:
+      // insert the user_local at this chronological position and mark
+      // the failure entry so its internal user bubble doesn't render.
+      // Net effect: ONE user bubble (the kept optimistic one, same
+      // React key as the loader phase — no remount, no enter-animation
+      // re-trigger), followed by the failure card.
+      if (m._kind === 'failure' && m._userMessageId != null) {
+        const userLocal = linkedUserMsgToLocal.get(m._userMessageId)
+        if (userLocal) {
+          result.push(userLocal)
+          consumedLocalIds.add(userLocal.id)
+          result.push({ ...m, _skipUserBubble: true })
+          continue
+        }
+      }
+      result.push(m)
+    }
+    // Append any local entries not already consumed by the
+    // chronological-slot insertion above (recreate / analyze results,
+    // failure cards that haven't yet been linked to a server twin,
+    // etc.). Insertion order preserved.
+    for (const m of localOnlyMessages) {
+      if (!consumedLocalIds.has(m.id)) result.push(m)
+    }
+    return result
   }, [messages, localOnlyMessages])
 
   // Latch: once we've EVER rendered a message in this mount, the empty
@@ -2462,14 +2670,31 @@ export function ThumbnailGenerator({
   if (renderedMessages.length > 0 || pendingAssistant) {
     sawMessagesRef.current = true
   }
-  useEffect(() => {
-    // Wipe the latch when the user navigates to a different chat (or
-    // back to "no chat yet"). Same trigger as `setLocalOnlyMessages([])`
-    // — see the `prevConversationIdRef` effect above.
-    sawMessagesRef.current = false
-  }, [conversationId])
+  // NOTE: the latch is wiped from the `prevConversationIdRef` effect
+  // above (alongside `setLocalOnlyMessages([])`) so the two wipes share
+  // one "is this a REAL chat switch?" decision. Wiping unconditionally
+  // on every `conversationId` change — as we did previously — also
+  // wiped on the null → newId transition that fires when this tab's
+  // own first-message submit auto-creates a conversation, opening a
+  // one-paint window where the empty-state checks could resolve true
+  // and flash the greeting.
 
+  // Empty greeting + centered composer are ONLY for the "no chat yet"
+  // URL — `#thumbnails` with no `?id=`. Once a conversation id exists,
+  // whether the user navigated to it or this tab just minted it on
+  // first-message send, the empty state must never re-appear: the
+  // optimistic content (user bubble + loader card) is the visible truth
+  // and any single-frame window where renderedMessages is briefly
+  // empty (a stale `messages` array between server-fetch landings, a
+  // racing `pendingAssistant` flip, etc.) would otherwise flash the
+  // greeting back onto the screen for one paint and read as the chat
+  // "resetting". Hard-gating on `conversationId == null` makes those
+  // race conditions visually invisible — the latch + pendingAssistant
+  // checks below are kept as belt-and-suspenders for the
+  // conversationId-stays-null case.
   const isEmptyScreen =
+    !isSubmitting &&
+    conversationId == null &&
     !isHistoryLoading &&
     renderedMessages.length === 0 &&
     !pendingAssistant &&
@@ -2915,7 +3140,15 @@ export function ThumbnailGenerator({
   // into the React Query cache (which `buildMessagesFromApi` will
   // re-render as a `_kind: 'failure'` entry on the next pass).
   const pushFailureEntry = useCallback(
-    async (failure) => {
+    async (failure, options = {}) => {
+      // `userLocalId` (optional) — id of an existing user_local entry
+      // that was preserved in `localOnlyMessages` (e.g. the chat-mode
+      // catch path keeps the user bubble so it doesn't remount through
+      // the error swap). When the persist call returns the canonical
+      // `user_message`, we link the kept optimistic bubble to that
+      // server id via `_serverMessageId` so the next conversation
+      // refetch dedupes it instead of rendering a second user bubble.
+      const { userLocalId } = options
       const localId =
         typeof crypto !== 'undefined' && crypto.randomUUID
           ? crypto.randomUUID()
@@ -2989,11 +3222,21 @@ export function ThumbnailGenerator({
             exact: false,
           })
         }
-        // Drop the optimistic local entry — the server pair will surface
-        // through `buildMessagesFromApi` (next reload) or via the cache
-        // we just hydrated (immediate). Either way, dedup is by server
-        // id so we don't get a stale double.
-        setLocalOnlyMessages((prev) => prev.filter((m) => m.id !== localId))
+        // Drop the optimistic failure entry — the server pair will
+        // surface through `buildMessagesFromApi` (next reload) or via
+        // the cache we just hydrated (immediate). If a `userLocalId`
+        // was provided we ALSO link that preserved optimistic user
+        // bubble to the persisted `user_message` so it dedupes against
+        // the refetch instead of rendering twice.
+        setLocalOnlyMessages((prev) =>
+          prev
+            .filter((m) => m.id !== localId)
+            .map((m) =>
+              userLocalId && m.id === userLocalId && res?.user_message?.id != null
+                ? { ...m, _serverMessageId: res.user_message.id, _optimistic: false }
+                : m
+            )
+        )
       } catch (err) {
         if (typeof console !== 'undefined') {
           console.warn('[thumbnail] failure persist failed:', err)
@@ -3078,6 +3321,15 @@ export function ThumbnailGenerator({
       return
     }
 
+    // Lock the chat surface FIRST — before any state writes that
+    // could otherwise be observed mid-update by wipe-effects / empty
+    // gating. The lock is scoped to the current conversationId; if
+    // the user navigates away from it during the submit (sidebar
+    // click, "New chat"), a separate effect releases the lock so the
+    // destination view renders without obstruction. The lock follows
+    // the expected URL flip when the chat response creates a new
+    // conv (null → respondedId) via `handleConversationCreated`.
+    beginSubmission(conversationId)
     setSendError('')
     setSendErrorMeta(null)
     // In-place pending pattern (matches analyze / titles): push the user
@@ -3102,12 +3354,14 @@ export function ThumbnailGenerator({
     setPendingAssistant(true)
     setDraft('')
 
-    // Eagerly create a conversation the first time the user submits in a
-    // brand-new chat — gives the sidebar a row + URL immediately so the
-    // pending spinner is visible even if they navigate away. Best-effort:
-    // if the create call fails we fall through to the legacy path where
-    // the chat endpoint auto-creates the conversation.
-    const activeConversationId = await ensureConversationId(conversationId)
+    // Submit against the current conversationId — null on a brand-new
+    // chat, a real id once we're inside one. We do NOT eager-create
+    // here anymore (see the removed `createConversationMutation`
+    // comment above for the full rationale): the chat endpoint
+    // auto-creates when `conversation_id` is undefined and returns
+    // the canonical id, so the URL flips exactly once at the end of
+    // the flow rather than twice through different intermediate ids.
+    const activeConversationId = conversationId
     if (activeConversationId) startPending(activeConversationId)
 
     try {
@@ -3193,43 +3447,64 @@ export function ThumbnailGenerator({
         code: code || undefined,
         title: friendlyTitleFor(code),
       })
-      // Drop the in-place placeholders we pushed on submit; the failure
-      // card below replaces them. (Without this, the user bubble +
-      // empty assistant card would linger above the failure card.)
-      setLocalOnlyMessages((prev) =>
-        prev.filter((m) => m.id !== localIds.userId && m.id !== localIds.assistantId)
-      )
+      // Drop ONLY the in-flight assistant placeholder (the loader card).
+      // The user bubble (`localIds.userId`) is preserved — the message
+      // the user typed must stay visible without remount through the
+      // error swap. The failure entry pushed below has `_skipUserBubble`
+      // set so `FailedAttemptBlock` renders only the assistant-side
+      // error card; the existing user bubble in `localOnlyMessages`
+      // continues to render through `ChatMessageItem` with the same
+      // React key it had during the loader phase — zero remount, no
+      // enter animation re-trigger, no content flicker.
+      setLocalOnlyMessages((prev) => prev.filter((m) => m.id !== localIds.assistantId))
       // Persist the failed attempt in the chat thread so the user keeps
       // a visible record of what they asked for and can retry without
-      // re-typing.
-      pushFailureEntry({
-        mode: 'prompt',
-        userText: combined,
-        userImageUrl: userImageAtSubmit,
-        errorCode: code,
-        errorMessage: friendly,
-        retryable,
-        retryAfterSeconds:
-          extra?.retry_after_seconds ?? extra?.eta_seconds ?? err?.retryAfterSeconds ?? null,
-        // Backend retry/queue context (set when the route hit our retry
-        // helper or queue cap). Lets the failed-card render "we tried 4
-        // times" / "you were #6 in line" / countdown UI honestly.
-        attempt: extra?.attempt ?? null,
-        maxAttempts: extra?.max_attempts ?? null,
-        totalWaitedSeconds: extra?.total_waited_seconds ?? null,
-        queueDepth: extra?.queue_depth ?? null,
-        queueMaxDepth: extra?.queue_max_depth ?? null,
-        options: {
-          num_thumbnails: numThumbnails,
-          persona_id: selectedPersonaId || null,
-          style_id: selectedStyleId || null,
-          channel_id: channelId || null,
-          conversation_id: activeConversationId || null,
+      // re-typing. `userLocalId` lets the persist helper link the kept
+      // optimistic user bubble to the server's `user_message` row via
+      // `_serverMessageId`, so when the conversation refetch lands the
+      // canonical user message gets deduped instead of rendering as a
+      // duplicate next to the optimistic one.
+      pushFailureEntry(
+        {
+          mode: 'prompt',
+          userText: combined,
+          userImageUrl: userImageAtSubmit,
+          // Skip the failure card's internal user bubble — the
+          // kept optimistic user_local entry is the visible source
+          // of truth for the user's message.
+          _skipUserBubble: true,
+          errorCode: code,
+          errorMessage: friendly,
+          retryable,
+          retryAfterSeconds:
+            extra?.retry_after_seconds ?? extra?.eta_seconds ?? err?.retryAfterSeconds ?? null,
+          // Backend retry/queue context (set when the route hit our retry
+          // helper or queue cap). Lets the failed-card render "we tried 4
+          // times" / "you were #6 in line" / countdown UI honestly.
+          attempt: extra?.attempt ?? null,
+          maxAttempts: extra?.max_attempts ?? null,
+          totalWaitedSeconds: extra?.total_waited_seconds ?? null,
+          queueDepth: extra?.queue_depth ?? null,
+          queueMaxDepth: extra?.queue_max_depth ?? null,
+          options: {
+            num_thumbnails: numThumbnails,
+            persona_id: selectedPersonaId || null,
+            style_id: selectedStyleId || null,
+            channel_id: channelId || null,
+            conversation_id: activeConversationId || null,
+          },
         },
-      })
+        { userLocalId: localIds.userId }
+      )
       setDraft(combined)
       setPendingAssistant(false)
       if (activeConversationId) clearPending(activeConversationId)
+    } finally {
+      // Release the submission lock — deferred to RAF×2 inside
+      // endSubmission so any in-flight hashchange / setQueryData /
+      // setPendingAssistant updates land BEFORE the wipe-effects and
+      // empty-state gating become unguarded again.
+      endSubmission()
     }
   }
 
@@ -4436,27 +4711,36 @@ export function ThumbnailGenerator({
  * of the file so the chat list can call it as a regular component.
  */
 function FailedAttemptBlock({ entry, onRetry }) {
+  // When `_skipUserBubble` is set the caller is preserving the
+  // optimistic user_local entry separately (so the user's message
+  // never remounts through the error swap) — render only the
+  // assistant-side failure card. Without this flag the block also
+  // owns the user bubble (used by analyze / recreate / titles /
+  // event-retry paths that don't keep a separate user_local).
+  const renderUserBubble = !entry._skipUserBubble && (entry.userImageUrl || entry.userText)
   return (
     <>
-      <article className="coach-message coach-message--user coach-message--enter">
-        <div className="coach-user-message-stack">
-          {entry.userImageUrl ? (
-            <div className="thumb-user-sent-image">
-              <img
-                src={entry.userImageUrl}
-                alt="Sent thumbnail"
-                className="thumb-user-sent-img"
-                decoding="async"
-              />
-            </div>
-          ) : null}
-          {entry.userText ? (
-            <div className="coach-message-bubble">
-              <p>{entry.userText}</p>
-            </div>
-          ) : null}
-        </div>
-      </article>
+      {renderUserBubble ? (
+        <article className="coach-message coach-message--user coach-message--enter">
+          <div className="coach-user-message-stack">
+            {entry.userImageUrl ? (
+              <div className="thumb-user-sent-image">
+                <img
+                  src={entry.userImageUrl}
+                  alt="Sent thumbnail"
+                  className="thumb-user-sent-img"
+                  decoding="async"
+                />
+              </div>
+            ) : null}
+            {entry.userText ? (
+              <div className="coach-message-bubble">
+                <p>{entry.userText}</p>
+              </div>
+            ) : null}
+          </div>
+        </article>
+      ) : null}
       <article className="coach-message coach-message--assistant coach-message--enter">
         <FailedGenerationCard entry={entry} onRetry={onRetry} />
       </article>

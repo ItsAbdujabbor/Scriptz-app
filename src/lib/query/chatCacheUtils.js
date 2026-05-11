@@ -63,32 +63,72 @@ export function patchThumbnailConversationRow(queryClient, conversationId, patch
   if (conversationId == null) return
   const id = Number(conversationId)
   // Lists.
-  queryClient.setQueriesData(
-    { queryKey: ['thumbnails', 'conversations'], exact: false },
-    (old) => {
-      if (!old?.items) return old
-      const idx = old.items.findIndex((c) => Number(c?.id) === id)
-      if (idx < 0) return old
-      const items = [...old.items]
-      items[idx] = { ...items[idx], ...patch }
-      return { ...old, items }
-    }
-  )
+  queryClient.setQueriesData({ queryKey: ['thumbnails', 'conversations'], exact: false }, (old) => {
+    if (!old?.items) return old
+    const idx = old.items.findIndex((c) => Number(c?.id) === id)
+    if (idx < 0) return old
+    const items = [...old.items]
+    items[idx] = { ...items[idx], ...patch }
+    return { ...old, items }
+  })
   // Detail (if cached).
   queryClient.setQueryData(['thumbnails', 'conversation', id], (old) =>
-    old?.conversation
-      ? { ...old, conversation: { ...old.conversation, ...patch } }
-      : old
+    old?.conversation ? { ...old, conversation: { ...old.conversation, ...patch } } : old
   )
 }
 
+/**
+ * Reconcile the cached conversation detail with the latest server truth
+ * AFTER a turn has already been optimistically appended (via
+ * `linkLocalToServer` or the create-conversation seed).
+ *
+ * Important: this MERGES rather than replacing. The first-message flow
+ * relies on the cache containing the user+assistant pair that was just
+ * written optimistically — a wholesale `setQueryData(..., detail)` would
+ * hand the message-list subtree a brand-new items array reference on
+ * every send, which forces every ChatMessageItem to re-reconcile with
+ * fresh prop refs and visually reads as the list "refreshing" the
+ * moment the reply lands. By keeping the existing items array stable
+ * (dedup-by-id, append only new ids in chronological order) we update
+ * the conversation header (title auto-generated on first send,
+ * last_message_at, updated_at) and the sidebar row metadata without
+ * disturbing the rendered thread.
+ *
+ * Falls back to a straight write when the cache was empty (e.g. first
+ * open of an existing conversation), so non-chat callers still get
+ * server-canonical data.
+ */
 export async function refreshThumbnailConversationCache(queryClient, conversationId) {
   if (conversationId == null) return null
   const token = await getAccessTokenOrNull()
   if (!token) return null
   try {
     const detail = await thumbnailsApi.getConversation(token, conversationId)
-    queryClient.setQueryData(queryKeys.thumbnails.conversation(conversationId), detail)
+    queryClient.setQueryData(queryKeys.thumbnails.conversation(conversationId), (prev) => {
+      if (!prev) return detail
+      const prevItems = Array.isArray(prev.messages?.items) ? prev.messages.items : []
+      const incomingItems = Array.isArray(detail?.messages?.items) ? detail.messages.items : []
+      const seen = new Set(prevItems.map((m) => m?.id))
+      const additions = incomingItems.filter((m) => m && !seen.has(m.id))
+      const mergedItems =
+        additions.length === 0
+          ? prevItems
+          : [...prevItems, ...additions].sort((a, b) => {
+              const aid = Number(a?.id)
+              const bid = Number(b?.id)
+              if (Number.isFinite(aid) && Number.isFinite(bid)) return aid - bid
+              return 0
+            })
+      return {
+        ...prev,
+        conversation: detail?.conversation || prev.conversation,
+        messages: {
+          ...(prev.messages || {}),
+          ...(detail?.messages || {}),
+          items: mergedItems,
+        },
+      }
+    })
     mergeThumbnailConversationsListCache(queryClient, conversationId, detail)
     return detail
   } catch {

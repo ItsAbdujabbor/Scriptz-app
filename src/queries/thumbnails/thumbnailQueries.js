@@ -244,10 +244,22 @@ export function useThumbnailChatMutation(onConversationCreated) {
         })
       }
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       if (data?.conversation_id != null) {
-        onConversationCreated?.(data.conversation_id)
-        void refreshThumbnailConversationCache(queryClient, data.conversation_id)
+        // Only notify the caller (which typically rewrites the URL hash)
+        // when the backend actually assigned a NEW conversation — either
+        // because no id was sent, or because the backend ignored our hint
+        // and minted a different one. Echoing the same id we just sent in
+        // would still cause a redundant hashchange-driven re-render cycle
+        // through the parent, which during the first-message flow lands
+        // right in the middle of the optimistic-placeholder rendering and
+        // contributes to the visible "list refreshes" the user reports.
+        const requestedId = variables?.conversation_id
+        const respondedId = data.conversation_id
+        if (requestedId == null || Number(requestedId) !== Number(respondedId)) {
+          onConversationCreated?.(respondedId)
+        }
+        void refreshThumbnailConversationCache(queryClient, respondedId)
       }
       // Thumbnail generations debit credits server-side (20 × num_thumbnails) —
       // refresh the badge so the user sees the drop immediately.
