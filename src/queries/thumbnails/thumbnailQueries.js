@@ -261,6 +261,19 @@ export function useThumbnailChatMutation(onConversationCreated) {
         }
         void refreshThumbnailConversationCache(queryClient, respondedId)
       }
+      // Sidebar list refresh: the conv's `is_pending` flipped server-side
+      // when the job finished, and `last_message_at` advanced to the new
+      // assistant_message's timestamp. Both fields drive the sidebar
+      // row's unread-highlight logic (see `isUnread` in
+      // thumbnailChatActivityStore), so an invalidation here is what
+      // makes a chat the user navigated AWAY from light up in the
+      // history list when its results land. Cheap — chatList query has
+      // a 30s staleTime, so this only triggers a refetch if the list is
+      // older than the threshold OR has active observers.
+      queryClient.invalidateQueries({
+        queryKey: ['thumbnails', 'conversations'],
+        exact: false,
+      })
       // Thumbnail generations debit credits server-side (20 × num_thumbnails) —
       // refresh the badge so the user sees the drop immediately.
       invalidateCredits(queryClient)

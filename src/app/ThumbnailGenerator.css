@@ -3158,6 +3158,275 @@
   }
 }
 
+/* ──────────────────────────────────────────────────────────────────────
+ * ANALYZE STAGE — cinematic in-place scan overlay for analyze mode.
+ *
+ * Rendered by <AnalyzeLoaderCard> via the SAME outer DOM chain that the
+ * eventual ThumbnailImageBlock uses (`.thumb-msg-grid-wrap >
+ * .thumb-batch-grid > .thumb-batch-card-wrap > .thumb-batch-card >
+ * .thumb-batch-card-inner > .thumb-batch-img-wrap`). Because the loader
+ * and the result share that chain, AnimatePresence inside ChatMessageItem
+ * swaps them inside a single slot — the image stays in the exact pixel
+ * position it had during the scan, the overlays just fade out and the
+ * action toolbar fades in. Zero layout shift, true in-place reveal.
+ *
+ * All overlays sit inside .thumb-batch-img-wrap which has `overflow:
+ * hidden` and `border-radius` — animations are clipped to the rounded
+ * 16:9 frame.
+ * ────────────────────────────────────────────────────────────────── */
+
+/* Subtle desaturation on the analyzed image so violet scan overlays
+ * have visual room to breathe. The static post-swap result image uses
+ * default .thumb-batch-img (no filter). */
+.thumb-analyze-stage .thumb-batch-img {
+  filter: saturate(0.85) brightness(0.92);
+}
+
+/* Faint violet grid that breathes — gives the surface an AI-vision
+ * texture without being busy. */
+.thumb-analyze-stage__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(168, 85, 247, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(168, 85, 247, 0.08) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  animation: thumbAnalyzeGridFade 3.6s ease-in-out infinite;
+}
+
+@keyframes thumbAnalyzeGridFade {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/* Ambient radial halo — breathes from the centre, gives the surface
+ * an intelligent violet glow. */
+.thumb-analyze-stage__halo {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(168, 85, 247, 0.22) 0%,
+    rgba(168, 85, 247, 0) 65%
+  );
+  pointer-events: none;
+  animation: thumbAnalyzeHalo 2.8s ease-in-out infinite;
+}
+
+@keyframes thumbAnalyzeHalo {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+/* Sweeping scan beam — bright horizontal line that travels top → bottom
+ * on a 2.6s loop. The ::after layer paints a soft trailing gradient
+ * above the beam for the "scanning past" feel. */
+.thumb-analyze-stage__scan-beam {
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(168, 85, 247, 0.4) 18%,
+    rgba(168, 85, 247, 1) 50%,
+    rgba(168, 85, 247, 0.4) 82%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 12px rgba(168, 85, 247, 0.85),
+    0 0 24px rgba(168, 85, 247, 0.5);
+  pointer-events: none;
+  animation: thumbAnalyzeScan 2.6s ease-in-out infinite;
+}
+
+.thumb-analyze-stage__scan-beam::after {
+  content: '';
+  position: absolute;
+  top: -48px;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: linear-gradient(to top, rgba(168, 85, 247, 0.16) 0%, rgba(168, 85, 247, 0) 100%);
+  pointer-events: none;
+}
+
+@keyframes thumbAnalyzeScan {
+  0% {
+    top: -2px;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    top: calc(100% + 2px);
+    opacity: 0;
+  }
+}
+
+/* Camera-focus corner brackets — four L-shape brackets at the corners
+ * pulsing in staggered sequence. Reads as "AI is locking focus on the
+ * subject". */
+.thumb-analyze-stage__corners {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.thumb-analyze-corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(168, 85, 247, 0.95);
+  filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.7));
+  opacity: 0;
+  animation: thumbAnalyzeCornerPulse 2.6s ease-in-out infinite;
+}
+
+.thumb-analyze-corner--tl {
+  top: 14px;
+  left: 14px;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 4px 0 0 0;
+  animation-delay: 0s;
+}
+
+.thumb-analyze-corner--tr {
+  top: 14px;
+  right: 14px;
+  border-left: none;
+  border-bottom: none;
+  border-radius: 0 4px 0 0;
+  animation-delay: 0.18s;
+}
+
+.thumb-analyze-corner--bl {
+  bottom: 14px;
+  left: 14px;
+  border-right: none;
+  border-top: none;
+  border-radius: 0 0 0 4px;
+  animation-delay: 0.36s;
+}
+
+.thumb-analyze-corner--br {
+  bottom: 14px;
+  right: 14px;
+  border-left: none;
+  border-top: none;
+  border-radius: 0 0 4px 0;
+  animation-delay: 0.54s;
+}
+
+@keyframes thumbAnalyzeCornerPulse {
+  0%,
+  25% {
+    opacity: 0;
+    transform: scale(1.3);
+  }
+  40%,
+  80% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* Bottom-centre frosted-glass pill with three cycling dots — quiet
+ * "still working" indicator that doesn't compete with the scan beam
+ * for attention. */
+.thumb-analyze-stage__status {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(15, 10, 30, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.thumb-analyze-stage__status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(168, 85, 247, 0.95);
+  box-shadow: 0 0 4px rgba(168, 85, 247, 0.8);
+  animation: thumbAnalyzeStatusDot 1.4s ease-in-out infinite;
+}
+
+.thumb-analyze-stage__status-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.thumb-analyze-stage__status-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes thumbAnalyzeStatusDot {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb-analyze-stage__grid,
+  .thumb-analyze-stage__halo,
+  .thumb-analyze-stage__scan-beam,
+  .thumb-analyze-corner,
+  .thumb-analyze-stage__status-dot {
+    animation: none;
+  }
+  .thumb-analyze-stage__halo {
+    opacity: 0.6;
+  }
+  .thumb-analyze-corner {
+    opacity: 1;
+  }
+  .thumb-analyze-stage__status-dot {
+    opacity: 0.8;
+  }
+  .thumb-analyze-stage__scan-beam {
+    opacity: 0;
+  }
+}
+
 /* ── Analysis breakdown ─────────────────────────────────────────────────
  * Single compact card under the analyzed thumbnail. Same width as the
  * thumb card above so the two read as one unit. Grade letter + score
@@ -5423,5 +5692,60 @@
   }
   .coach-chat-shell--empty .coach-composer-wrap {
     margin-top: 0.9rem;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * SERVER-PENDING INDICATOR — quiet "generation in progress" pill that
+ * renders at the end of the message list when the backend's
+ * `conversation.is_pending` flag is true but this tab is NOT the one
+ * driving the chat mutation. Typical scenario: user submitted, the
+ * `/chat/submit` endpoint persisted the user_message + started the
+ * AI job, the user hit hard refresh; the page reloaded, the conv
+ * fetch comes back showing the user_message and is_pending=true,
+ * but no local optimistic loader is in flight on this fresh mount.
+ *
+ * The `pollWhilePending` mechanism on the conversation detail query
+ * keeps polling every 4s; when the job finishes server-side and
+ * persists the assistant_message, the cache catches it and this
+ * indicator unmounts naturally as `is_pending` flips to false.
+ * ────────────────────────────────────────────────────────────────── */
+.thumb-server-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 18px 18px 18px 4px;
+  background: var(--dash-surface-card, #18181c);
+  border: 1px solid var(--dash-surface-border, rgba(255, 255, 255, 0.07));
+  box-shadow: var(--dash-shadow-md, 0 2px 12px rgba(0, 0, 0, 0.3));
+  max-width: 720px;
+}
+
+.thumb-server-pending__spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(168, 85, 247, 0.25);
+  border-top-color: rgba(168, 85, 247, 1);
+  animation: thumbServerPendingSpin 0.9s linear infinite;
+  flex-shrink: 0;
+}
+
+.thumb-server-pending__label {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+@keyframes thumbServerPendingSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb-server-pending__spinner {
+    animation-duration: 2s;
   }
 }

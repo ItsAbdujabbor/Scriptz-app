@@ -22,6 +22,7 @@ import {
   useThumbnailConversationQuery,
   useThumbnailConversationsQuery,
   useThumbnailChatMutation,
+  useCreateThumbnailConversationMutation,
   useLoadOlderThumbnailMessagesMutation,
   useThumbnailRatingQuery,
   seedThumbnailRating,
@@ -48,7 +49,7 @@ import { renderMessageContent } from '../lib/messageRender.jsx'
 import { CostHint } from '../components/CostHint'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 import { toast } from '../lib/toast'
-import { friendlyTitleFor, parseApiError } from '../lib/errorMessages'
+import { parseApiError } from '../lib/errorMessages'
 import FailedGenerationCard from '../components/FailedGenerationCard'
 import { canvasToBase64Png } from '../lib/canvasToBase64'
 import { queryKeys } from '../lib/query/queryKeys'
@@ -1194,6 +1195,73 @@ const ThumbnailAnalyzeLoader = memo(function ThumbnailAnalyzeLoader({ imageUrl }
 })
 
 /**
+ * AnalyzeLoaderCard — cinematic in-place loader for analyze mode.
+ *
+ * Renders using the SAME outer DOM chain as `ThumbnailBatchCard`
+ * (`.thumb-msg-grid-wrap > .thumb-batch-grid > .thumb-batch-card-wrap
+ * > .thumb-batch-card > .thumb-batch-card-inner > .thumb-batch-img-wrap`)
+ * so the loader sits in the identical position + dimensions as the
+ * eventual `ThumbnailImageBlock`. The crossfade in `ChatMessageItem`
+ * swaps them inside a single `AnimatePresence` slot — visually the
+ * image stays put, the scan overlays fade out, the action toolbar
+ * fades in.
+ *
+ * Scan effects (CSS-driven, no per-frame React work):
+ *   • Subtle violet grid that breathes
+ *   • Vertical scan beam that sweeps top → bottom on a 2.6s loop
+ *   • Four camera-focus corner brackets pulsing in staggered sequence
+ *   • Soft radial halo that breathes from the centre
+ *   • Three status dots cycling in a glass pill at the bottom centre
+ *
+ * All overlays sit inside `.thumb-batch-img-wrap`, which has
+ * `overflow: hidden`, so animations are clipped to the rounded
+ * thumbnail frame.
+ */
+const AnalyzeLoaderCard = memo(function AnalyzeLoaderCard({ imageUrl }) {
+  return (
+    <div className="thumb-msg-grid-wrap coach-stream-block">
+      <div className="thumb-batch-grid">
+        <div className="thumb-batch-card-wrap" data-thumb-slot={0}>
+          <div className="thumb-batch-card">
+            <div className="thumb-batch-card-inner">
+              <div
+                className="thumb-batch-img-wrap thumb-analyze-stage"
+                aria-busy="true"
+                aria-label="Analyzing thumbnail"
+              >
+                {imageUrl ? (
+                  <img
+                    src={imageUrl}
+                    alt=""
+                    className="thumb-batch-img"
+                    decoding="async"
+                    aria-hidden="true"
+                  />
+                ) : null}
+                <div className="thumb-analyze-stage__grid" aria-hidden="true" />
+                <div className="thumb-analyze-stage__halo" aria-hidden="true" />
+                <div className="thumb-analyze-stage__scan-beam" aria-hidden="true" />
+                <div className="thumb-analyze-stage__corners" aria-hidden="true">
+                  <span className="thumb-analyze-corner thumb-analyze-corner--tl" />
+                  <span className="thumb-analyze-corner thumb-analyze-corner--tr" />
+                  <span className="thumb-analyze-corner thumb-analyze-corner--bl" />
+                  <span className="thumb-analyze-corner thumb-analyze-corner--br" />
+                </div>
+                <div className="thumb-analyze-stage__status" aria-hidden="true">
+                  <span className="thumb-analyze-stage__status-dot" />
+                  <span className="thumb-analyze-stage__status-dot" />
+                  <span className="thumb-analyze-stage__status-dot" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+})
+
+/**
  * TitlesLoader — placeholder block for the Titles tab. Renders one
  * skeleton card per requested title (4 / 8 / 12) so the layout
  * matches the eventual `<TitleIdeasBlock>` exactly — no jump when
@@ -1442,6 +1510,12 @@ const ChatMessageItem = memo(function ChatMessageItem({
   onEditImage,
   onUseTitle,
 }) {
+  // Skip rendering a user article that has neither content nor a sent
+  // image. Analyze-mode submissions with no title are intentionally
+  // pushed without a userImageUrl now (the assistant card owns the
+  // image), so a blank wrapper would otherwise occupy vertical space
+  // and the chat would look like it had a phantom user turn.
+  if (msg.role === 'user' && !msg.content && !msg.imageUrl) return null
   return (
     <article
       className={`coach-message coach-message--enter ${msg.role === 'user' ? 'coach-message--user' : 'coach-message--assistant'}`}
@@ -1469,7 +1543,60 @@ const ChatMessageItem = memo(function ChatMessageItem({
               {renderMessageContent(msg.content, `thumb-msg-${msg.id}`)}
             </div>
           ) : null}
-          {msg.imageUrl ? (
+          {/* Image area.
+           *
+           * For analyze mode (either pending or analysis populated), the
+           * loader and the final ThumbnailImageBlock are mounted inside
+           * a single AnimatePresence slot — they share the exact same
+           * outer DOM (`.thumb-msg-grid-wrap > .thumb-batch-grid > ...`)
+           * so the swap is a TRUE in-place crossfade: the image stays
+           * put, the scan overlays fade out, the action toolbar fades
+           * in. Zero layout shift.
+           *
+           * For every other mode (prompt / recreate / edit), the image
+           * renders straight through `ThumbnailImageBlock` — those
+           * flows have their own pending UI elsewhere in this card
+           * (`_promptPending` block above), so the analyze swap
+           * machinery is irrelevant. */}
+          {msg._analyzePending || (msg.analysis && msg.imageUrl) ? (
+            <motion.div
+              layout
+              transition={{ duration: 0.42, ease: IOS_EASE }}
+              style={{ width: '100%' }}
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                {msg._analyzePending ? (
+                  <motion.div
+                    key="analyze-image-loader"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0, transition: { duration: 0.28, ease: IOS_EASE } }}
+                    transition={{ duration: 0.36, ease: IOS_EASE }}
+                  >
+                    <AnalyzeLoaderCard imageUrl={msg.imageUrl} />
+                  </motion.div>
+                ) : msg.imageUrl ? (
+                  <motion.div
+                    key="analyze-image-result"
+                    initial={{ opacity: 0, scale: 0.97 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.52, ease: IOS_EASE, delay: 0.06 }}
+                  >
+                    <ThumbnailImageBlock
+                      imageUrl={msg.imageUrl}
+                      userRequest={msg.userRequest}
+                      msgId={msg.id}
+                      onReplaceThumbnail={onReplaceThumbnail}
+                      onRegenerate={onRegenerate}
+                      onViewImage={onViewImage}
+                      onEditImage={onEditImage}
+                      canRegenerate
+                    />
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </motion.div>
+          ) : msg.imageUrl ? (
             <ThumbnailImageBlock
               imageUrl={msg.imageUrl}
               userRequest={msg.userRequest}
@@ -1535,31 +1662,18 @@ const ChatMessageItem = memo(function ChatMessageItem({
            * loader → AnalysisBreakdown within one mounted container, so
            * the loader and the result are NEVER both visible at once
            * (which was the duplicate the user reported). */}
-          {(msg._analyzePending || msg.analysis) && (
-            <motion.div layout style={{ width: '100%' }}>
-              <AnimatePresence mode="wait" initial={false}>
-                {msg._analyzePending ? (
-                  <motion.div
-                    key="analyze-loader"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.22, ease: IOS_EASE }}
-                  >
-                    <ThumbnailAnalyzeLoader imageUrl={msg.userImageUrl || msg.imageUrl} />
-                  </motion.div>
-                ) : msg.analysis ? (
-                  <motion.div
-                    key="analyze-populated"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.28, ease: IOS_EASE }}
-                  >
-                    <AnalysisBreakdown analysis={msg.analysis} />
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
+          {/* AnalysisBreakdown — rises in below the settled image after
+           * the loader → result swap completes above. The `delay`
+           * waits for the image-slot crossfade so the breakdown
+           * arrives as a clear second beat rather than fighting the
+           * image reveal for attention. */}
+          {msg.analysis && (
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: IOS_EASE, delay: 0.28 }}
+            >
+              <AnalysisBreakdown analysis={msg.analysis} />
             </motion.div>
           )}
           {/* Title-card branch: while the in-place pending placeholder
@@ -2235,16 +2349,18 @@ export function ThumbnailGenerator({
     releaseSubmissionLockImmediate()
   }, [conversationId, releaseSubmissionLockImmediate])
   const chatMutation = useThumbnailChatMutation(handleConversationCreated)
-  // NOTE: `useCreateThumbnailConversationMutation` (eager-create) was
-  // removed from this surface. On a brand-new chat we now let the
-  // chat endpoint itself create the conversation and return its
-  // canonical id via the response. Eager-create caused the URL to
-  // double-flip — `null → 55` (eager) → `55 → 56` (chat response,
-  // when the backend ignored our hint and minted a new id) — which
-  // the user could see in the address bar. With one writer the URL
-  // settles `null → 56` exactly once. The sidebar row appears via
-  // `mergeThumbnailConversationsListCache` in the chat mutation's
-  // onSuccess refresh, which writes a stub row keyed on the new id.
+  // Eager-create the conversation the instant the user hits send.
+  // This is what makes the hard-refresh-while-in-flight flow work:
+  // the conv row exists server-side BEFORE the chat job runs, so the
+  // URL `?id=<newId>` is meaningful immediately, the sidebar shows
+  // the row right away, and a refresh into the URL fetches a real
+  // conversation (with the user_message persisted by /chat/submit
+  // moments later). If the user navigates away mid-generation, the
+  // job continues server-side — when it completes the conversation
+  // cache is updated and the sidebar's `isUnread` logic highlights
+  // the row for them to come back to. See `ensureConversationId`
+  // below for the call site.
+  const createConversationMutation = useCreateThumbnailConversationMutation()
   const loadOlderMutation = useLoadOlderThumbnailMessagesMutation()
   const hasMoreOlder = Boolean(conversationQuery.data?.messages?.has_more)
   const isLoadingOlder = loadOlderMutation.isPending
@@ -2301,9 +2417,53 @@ export function ThumbnailGenerator({
     if (conversationId != null) markSeen(conversationId)
   }, [conversationId, markSeen])
 
-  // (Removed `ensureConversationId` — the chat endpoint is now the
-  // sole creator of new thumbnail conversations. See the comment on
-  // the removed `createConversationMutation` declaration above.)
+  /**
+   * Ensure the conversation row exists server-side BEFORE the chat
+   * job runs. On a brand-new chat (no `existingId`) we POST to
+   * `/api/thumbnails/conversations` synchronously, get back the real
+   * conversation row, and:
+   *   1. Add the new id to `locallyCreatedConvIdsRef` so the
+   *      history-loading skeleton stays suppressed for the
+   *      post-create refetch (we already know it's empty).
+   *   2. Push the new id into the parent's URL via
+   *      `handleConversationCreated → onConversationCreated`. The
+   *      hashchange round-trips back as a new `conversationId` prop.
+   *   3. Return the id so `handleSubmit` can pass it to the chat
+   *      mutation.
+   *
+   * Result: from the user's perspective the chat appears in the
+   * sidebar AND the URL the instant they hit send. A hard refresh
+   * preserves the URL, fetches the conversation (which by then has
+   * the user_message persisted by /chat/submit), and shows the
+   * pending state. The chat job continues server-side regardless
+   * of what the client does.
+   *
+   * Best-effort: if the create call fails (network blip, old
+   * backend), `ensureConversationId` falls through to `null` and
+   * the chat endpoint auto-creates the conv on submit — same
+   * outcome, just without the immediate sidebar / URL update.
+   */
+  const ensureConversationId = useCallback(
+    async (existingId) => {
+      if (existingId) return existingId
+      try {
+        const conv = await createConversationMutation.mutateAsync({
+          channel_id: channelId || undefined,
+        })
+        const id = conv?.id
+        if (id != null) {
+          handleConversationCreated(id)
+        }
+        return id
+      } catch (err) {
+        if (typeof console !== 'undefined') {
+          console.warn('[thumbnail] eager conversation create failed, using legacy path:', err)
+        }
+        return null
+      }
+    },
+    [channelId, createConversationMutation, handleConversationCreated]
+  )
 
   useEffect(() => {
     const sync = () => setThumbMode(parseThumbModeFromHash())
@@ -3354,14 +3514,18 @@ export function ThumbnailGenerator({
     setPendingAssistant(true)
     setDraft('')
 
-    // Submit against the current conversationId — null on a brand-new
-    // chat, a real id once we're inside one. We do NOT eager-create
-    // here anymore (see the removed `createConversationMutation`
-    // comment above for the full rationale): the chat endpoint
-    // auto-creates when `conversation_id` is undefined and returns
-    // the canonical id, so the URL flips exactly once at the end of
-    // the flow rather than twice through different intermediate ids.
-    const activeConversationId = conversationId
+    // Make sure the conversation exists server-side BEFORE the chat
+    // job starts. For an existing chat, this is a no-op pass-through.
+    // For a brand-new chat, this fires a synchronous create against
+    // /api/thumbnails/conversations and returns the real id, which
+    // is then propagated to the URL (sidebar row appears, address
+    // bar updates) before the chat mutation submits. The point is
+    // refresh-survival: by the time the user could hit ⌘R, the chat
+    // exists in the backend and the URL is on its real id, so a
+    // refresh fetches the conversation (with the user_message that
+    // /chat/submit has by then persisted) and resumes the pending
+    // state.
+    const activeConversationId = await ensureConversationId(conversationId)
     if (activeConversationId) startPending(activeConversationId)
 
     try {
@@ -3435,18 +3599,17 @@ export function ThumbnailGenerator({
 
       const friendly = codeToFriendlyMessage(code, backendMsg)
       const retryable = isRetryableCode(code, extra)
-      setSendError(friendly)
-      setSendErrorMeta({
-        code,
-        retryable,
-        retryAfterSeconds:
-          extra?.retry_after_seconds ?? extra?.eta_seconds ?? err?.retryAfterSeconds ?? null,
-        draft: combined,
-      })
-      toast.error(backendMsg, {
-        code: code || undefined,
-        title: friendlyTitleFor(code),
-      })
+      // NOTE: the top-of-screen toast and the `sendError` state both
+      // used to fire here in addition to the inline failure card. The
+      // card already shows the error message + a Retry pill and lives
+      // in the message thread alongside the user bubble, so the toast
+      // was a duplicate error UI that surfaced AT THE TOP of the
+      // screen — outside the message list, with no id, ordered by
+      // toast-stack position rather than chat chronology. Removing
+      // both means the thread is the single source of error UI:
+      // every error has a row in the conversation, persisted by
+      // `pushFailureEntry → appendEvent` with a server-assigned id,
+      // ordered chronologically by that id.
       // Drop ONLY the in-flight assistant placeholder (the loader card).
       // The user bubble (`localIds.userId`) is preserved — the message
       // the user typed must stay visible without remount through the
@@ -3643,10 +3806,22 @@ export function ThumbnailGenerator({
         setLocalOnlyMessages((prev) =>
           prev.filter((m) => m.id !== localIds.userId && m.id !== localIds.assistantId)
         )
-        setSendError(message)
-        setSendErrorMeta(null)
         setPendingAssistant(false)
-        toast.error(message, { code: code || undefined, title: friendlyTitleFor(code) })
+        // Persist the failed regenerate as an inline thread card —
+        // same pattern as every other submit handler. The card is
+        // the single source of error UI (no top-of-screen toast,
+        // no `sendError` state); it lives in the message list with
+        // a server-assigned id from appendEvent and orders
+        // chronologically with the rest of the conversation.
+        // mode='prompt' so the retry path re-fires the main
+        // handleSubmit handler with the same userRequest text.
+        pushFailureEntry({
+          mode: 'prompt',
+          userText: userRequest,
+          errorCode: code,
+          errorMessage: message,
+          retryable: true,
+        })
       }
     },
     [
@@ -3659,6 +3834,7 @@ export function ThumbnailGenerator({
       finishLoading,
       pushLocalAssistantMessage,
       patchLocalAssistantMessage,
+      pushFailureEntry,
       linkLocalToServer,
     ]
   )
@@ -3787,7 +3963,10 @@ export function ThumbnailGenerator({
         errorMessage: message,
         retryable: true,
       })
-      toast.error(message, { code: code || undefined, title: friendlyTitleFor(code) })
+      // No top-of-screen toast — the inline failure card above is the
+      // sole error UI for failed recreate attempts. It lives in the
+      // message thread, gets a server-assigned id via appendEvent,
+      // and orders chronologically with the rest of the conversation.
     }
   }
 
@@ -3867,12 +4046,21 @@ export function ThumbnailGenerator({
     // renders INSIDE the assistant card. When the API resolves we
     // patch the same entry with the real `analysis` — the loader and
     // the result share one mounted container, so they can never both
-    // be visible simultaneously (which used to cause the duplicate
-    // the user reported during the `finishLoading` 360 ms tail).
-    // No `pendingAssistant` / `pendingUserMessage` is set for analyze.
+    // be visible simultaneously.
+    //
+    // Note: `userImageUrl` is intentionally NOT set on the local pair.
+    // The previous version put the source image on BOTH the user_local
+    // (rendered as a large user-bubble image) AND the assistant_local
+    // (rendered by `ThumbnailImageBlock` with the action toolbar) —
+    // the user saw two identical full-size thumbnails stacked, which
+    // they reported as the duplicate. The assistant card is the
+    // canonical place for the image: its toolbar lets the user
+    // download / edit / regenerate / one-click-fix without needing a
+    // second copy in the user bubble. The user bubble shows just the
+    // typed title (if any); when the title is empty the bubble is
+    // suppressed entirely by the render guard added below.
     const localIds = pushLocalAssistantMessage(userText, {
       content: '',
-      userImageUrl: imageUrl,
       imageUrl,
       userRequest: '',
       analysis: null,
@@ -3933,7 +4121,9 @@ export function ThumbnailGenerator({
         errorMessage: message,
         retryable: true,
       })
-      toast.error(message, { code: code || undefined, title: friendlyTitleFor(code) })
+      // Inline failure card is the sole error UI — no top-of-screen
+      // toast. Failure persists via appendEvent with a server id;
+      // renders in the message list ordered by that id.
     }
     // No pending* state was set for analyze (in-place pattern), so
     // no `finally` cleanup is needed. The optimistic placeholder is
@@ -3999,9 +4189,11 @@ export function ThumbnailGenerator({
         prev.filter((m) => m.id !== localIds.userId && m.id !== localIds.assistantId)
       )
       // Persist as an inline failure card (mode='titles' so retry
-      // re-fires this same handler with the same topic). Toast still
-      // fires for top-of-screen visibility but the card stays in the
-      // thread.
+      // re-fires this same handler with the same topic). The card is
+      // the sole error UI — no duplicate top-of-screen toast. The
+      // failure event lands in the conversation via appendEvent with
+      // a server id and renders in chronological order alongside the
+      // rest of the thread.
       pushFailureEntry({
         mode: 'titles',
         userText: topic,
@@ -4009,7 +4201,6 @@ export function ThumbnailGenerator({
         errorMessage: message,
         retryable: true,
       })
-      toast.error(message, { code: code || undefined, title: friendlyTitleFor(code) })
     }
     // No `finally` clearing of `pendingUserMessage` — title mode no
     // longer uses the separate pending-bubble flow; the user bubble
@@ -4151,6 +4342,34 @@ export function ThumbnailGenerator({
                 />
               )
             )}
+
+          {/* Server-pending indicator. Shows whenever the conv row's
+           * `is_pending` is true on the server AND this tab is NOT
+           * the one driving the chat mutation (`pendingAssistant`
+           * being false means we don't have local optimistic loader
+           * machinery — typically a hard-refresh into a conv whose
+           * job was started on a previous page load, or a return
+           * visit while a different tab is generating). The
+           * `pollWhilePending` mechanism on the conversation query
+           * picks up the assistant_message when the job finishes
+           * and this indicator unmounts on the next render. */}
+          {!isHistoryLoading && isCurrentConversationPending && !pendingAssistant && (
+            <article
+              className="coach-message coach-message--assistant coach-message--enter"
+              aria-live="polite"
+            >
+              <div
+                className="thumb-server-pending"
+                role="status"
+                aria-label="Generation in progress"
+              >
+                <span className="thumb-server-pending__spinner" aria-hidden="true" />
+                <span className="thumb-server-pending__label">
+                  Generating — feel free to leave; we'll keep the result here when it's ready.
+                </span>
+              </div>
+            </article>
+          )}
 
           {/* The pending user-bubble + loader now live INSIDE the
            * messages list as a single mounted card (`_promptPending`
