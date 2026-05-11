@@ -6,12 +6,11 @@
    zone picks up tier-specific colour (Starter slate / Creator violet /
    Ultimate gold / Trial amber) without breaking the container shape.
 
-   Premium accents:
+   Premium accents (no continuous animation — user feedback was that
+   the previous drifting sheen felt distracting):
      • dual-gradient background (deep glass + violet tint)
      • inner highlight on the top edge (`inset 0 1px 0 …`)
      • outer drop-shadow with a violet glow halo
-     • slow-drifting sheen (8s loop, GPU translate; respects
-       prefers-reduced-motion)
      • hover lifts brightness 6% + tightens the violet halo
 */
 
