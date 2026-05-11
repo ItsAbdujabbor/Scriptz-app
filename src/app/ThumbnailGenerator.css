@@ -4870,17 +4870,31 @@
 }
 
 .thumb-empty-state h1 {
-  /* Single line, always — even on narrow phones. The lower clamp
-   * bound + viewport-sized middle term scales the type down with
-   * the screen so a 32-char greeting still fits at 320 px width
-   * without wrapping or horizontal overflow. `nowrap` enforces it
-   * if the user picks a longer phrase; `text-overflow: ellipsis`
-   * is a safety net for truly extreme cases. */
-  font-size: clamp(1.1rem, 4.4vw, 2.2rem);
+  /* Single line, no ellipsis — the user explicitly does not want the
+   * greeting truncated with `…`. Two cooperating tools make it fit:
+   *
+   *   1. `font-size: clamp(0.92rem, 4.6vw, 2.2rem)` — the viewport
+   *      term lets the type shrink with the screen. On a 320 px-wide
+   *      viewport (the realistic narrow floor; iPhone SE is 375 px)
+   *      the inner content area is ~264 px after the 28 px gutters,
+   *      and a 32-char greeting at the resulting 14.7 px font size +
+   *      tight tracking comes out to ~210 px — fits with room to
+   *      spare.
+   *
+   *   2. `letter-spacing: -0.045em` — buys back another ~3 px on a
+   *      32-char string so we keep visual weight as we scale down.
+   *
+   * No `overflow: hidden` and no `text-overflow: ellipsis` here: the
+   * clamp + tracking are sized so the text always fits, and if a
+   * future custom greeting somehow doesn't, the bare overflow reads
+   * better than a `…` clipped headline. `nowrap` is still the
+   * primary enforcement — wrapping would push the composer off-
+   * screen on the empty state, which is the bug this rule originally
+   * existed to prevent. */
+  font-size: clamp(0.92rem, 4.6vw, 2.2rem);
+  letter-spacing: -0.045em;
   margin-bottom: 0;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   max-width: 100%;
 }
 
