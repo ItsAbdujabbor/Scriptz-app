@@ -1615,7 +1615,87 @@ const ChatMessageItem = memo(function ChatMessageItem({
       )}
     </article>
   )
-})
+}, chatMessageItemPropsEqual)
+
+/**
+ * Custom equality for ChatMessageItem's `memo`.
+ *
+ * Why a custom comparator: `setMessages(...)` runs on every successful
+ * `useThumbnailConversationQuery` response — including the 4-second
+ * polls fired while the conversation is "pending" after a first
+ * message. Each rebuild produces FRESH `msg` object references for
+ * every row in the thread, even when the underlying content is
+ * unchanged. The default shallow `===` comparator then declares every
+ * row "changed" and re-renders the whole list — that's the flicker
+ * the user sees during the response wait.
+ *
+ * The comparator below diffs only the fields the render output depends
+ * on. `extra_data` and `thumbnails` are compared structurally because
+ * they're the heaviest sub-trees and the parent rebuilds them as new
+ * objects on every fetch. Equal → keep the existing render mounted;
+ * unequal → re-render as before (e.g. when `_promptPending` flips
+ * from true to false on AI completion).
+ *
+ * The handler props (`onReplaceThumbnail`, etc.) are wrapped in
+ * `useCallback` in the parent, so their identity is stable across
+ * renders — comparing them with `===` is the right call.
+ */
+function chatMessageItemPropsEqual(prev, next) {
+  if (
+    prev.onReplaceThumbnail !== next.onReplaceThumbnail ||
+    prev.onRegenerate !== next.onRegenerate ||
+    prev.onViewImage !== next.onViewImage ||
+    prev.onEditImage !== next.onEditImage ||
+    prev.onUseTitle !== next.onUseTitle
+  ) {
+    return false
+  }
+  const a = prev.msg
+  const b = next.msg
+  if (a === b) return true
+  if (!a || !b) return false
+  // Identity fields. A change in any of these forces a re-render.
+  if (
+    a.id !== b.id ||
+    a.role !== b.role ||
+    a.content !== b.content ||
+    a.imageUrl !== b.imageUrl ||
+    a.userRequest !== b.userRequest ||
+    a._kind !== b._kind ||
+    a._promptPending !== b._promptPending ||
+    a._promptMode !== b._promptMode ||
+    a._promptCount !== b._promptCount ||
+    a._analyzePending !== b._analyzePending ||
+    a._titlesPending !== b._titlesPending ||
+    a._editPending !== b._editPending ||
+    a._serverMessageId !== b._serverMessageId
+  ) {
+    return false
+  }
+  // Heavy sub-trees: cheap structural compare via JSON. The hot path
+  // (poll-driven re-fetch with no real change) finds equal JSON and
+  // short-circuits the re-render entirely; the rare path (assistant
+  // completion with new thumbnails / analysis / titles) finds a diff
+  // and re-renders once.
+  if (!shallowJsonEqual(a.thumbnails, b.thumbnails)) return false
+  if (!shallowJsonEqual(a.analysis, b.analysis)) return false
+  if (!shallowJsonEqual(a.titles, b.titles)) return false
+  return true
+}
+
+function shallowJsonEqual(a, b) {
+  if (a === b) return true
+  // Both nullish-but-not-identical (e.g. null vs undefined) are treated
+  // as equal — they render the same. Otherwise, only one being nullish
+  // means they differ.
+  if (a == null && b == null) return true
+  if (a == null || b == null) return false
+  try {
+    return JSON.stringify(a) === JSON.stringify(b)
+  } catch {
+    return false
+  }
+}
 
 function buildMessagesFromApi(apiMessages = []) {
   return apiMessages.map((m) => {
