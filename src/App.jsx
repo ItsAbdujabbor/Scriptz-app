@@ -7,6 +7,7 @@ import { AuthDialog } from './auth/AuthDialog'
 import { AuthSuccessSplash } from './auth/AuthSuccessSplash'
 import { prefetchHistoryConversations } from './lib/query/prefetchHistoryConversations'
 import { prefetchSubscription, seedSubscriptionFromCache } from './lib/query/prefetchSubscription'
+import { prefetchCredits } from './queries/billing/creditsQueries'
 import { AppShellLoading } from './components/AppShellLoading'
 import { Splash } from './components/Splash'
 import { useOnboardingStore } from './stores/onboardingStore'
@@ -230,14 +231,18 @@ function App() {
         const st = useAuthStore.getState()
         const token = st.accessToken
         const hash = normalizeHashRoute(window.location.hash || '')
-        // Kick off the subscription network revalidation the moment
-        // auth is settled. This happens IN PARALLEL with the route
-        // flip below, so by the time Sidebar / ThumbnailGenerator
-        // mount, the fresh subscription is either already in cache
-        // (cache hit on the localStorage seed) or about to land
-        // within ~100ms of the network request.
+        // Kick off subscription + credits + history network revalidation
+        // the moment auth is settled. All three fire IN PARALLEL so by
+        // the time Sidebar / ThumbnailGenerator / HeaderCreditsBadge
+        // mount, the data is either already in cache or landing in the
+        // same RTT — no per-component fetch waterfall after the lazy
+        // chunk loads. Critically, credits has no localStorage seed
+        // (unlike subscription), so without this prefetch the badge
+        // first fires only when it mounts inside the lazy chunk.
         if (token && st.user?.role !== 'banned') {
           prefetchSubscription(queryClient).catch(() => {})
+          prefetchCredits(queryClient).catch(() => {})
+          prefetchHistoryConversations(queryClient).catch(() => {})
         }
         if (token && st.user?.role === 'banned') {
           if (hash !== 'banned') {
@@ -284,15 +289,6 @@ function App() {
     if (view === 'auth' && !authDialogOpen) setAuthDialogOpen(true)
     else if (view !== 'auth' && authDialogOpen) setAuthDialogOpen(false)
   }, [view, authDialogOpen])
-
-  useEffect(() => {
-    if (!sessionChecked || !accessToken) return
-    if (useAuthStore.getState().user?.role === 'banned') return
-    const t = window.setTimeout(() => {
-      prefetchHistoryConversations(queryClient).catch(() => {})
-    }, 0)
-    return () => window.clearTimeout(t)
-  }, [sessionChecked, accessToken, queryClient])
 
   useEffect(() => {
     if (!sessionChecked) return

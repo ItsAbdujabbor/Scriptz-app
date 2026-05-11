@@ -9,6 +9,7 @@ import { useStyleStore } from '../stores/styleStore'
 import { useSidebarStore } from '../stores/sidebarStore'
 import { resetPrefetchFlag } from './query/prefetchHistoryConversations'
 import { resetSubscriptionPrefetchFlag } from './query/prefetchSubscription'
+import { resetCreditsPrefetchFlag } from '../queries/billing/creditsQueries'
 import { clearSubscriptionCache } from './query/subscriptionCache'
 import { API_AUTH_STORAGE_KEY } from './authMode'
 
@@ -75,6 +76,7 @@ export function resetClientCachesForDataDelete() {
     queryClientRef?.clear()
     resetPrefetchFlag()
     resetSubscriptionPrefetchFlag()
+    resetCreditsPrefetchFlag()
     clearSubscriptionCache()
   } catch (_) {
     /* ignore */
@@ -131,6 +133,7 @@ export function resetClientCachesForUserChange() {
     queryClientRef?.clear()
     resetPrefetchFlag()
     resetSubscriptionPrefetchFlag()
+    resetCreditsPrefetchFlag()
     clearSubscriptionCache()
   } catch (_) {
     /* ignore */

@@ -79,6 +79,34 @@ export function useSubscriptionQuery() {
 }
 
 /**
+ * Warm the credits balance into the React Query cache before
+ * `HeaderCreditsBadge` (and any other consumer) mounts. Without this the
+ * badge first fires its fetch only after the lazy `AuthenticatedRoutes`
+ * chunk loads and the component renders — adding a visible wait on the
+ * credits number after sign-in. Fire-and-forget; failures are swallowed
+ * so the regular `useCreditsQuery` mount can retry.
+ */
+let _creditsPrefetchedThisSession = false
+export async function prefetchCredits(queryClient) {
+  if (!queryClient || _creditsPrefetchedThisSession) return
+  const token = await getAccessTokenOrNull()
+  if (!token) return
+  _creditsPrefetchedThisSession = true
+  try {
+    await queryClient.fetchQuery({
+      queryKey: queryKeys.billing.credits,
+      queryFn: () => resultOrNullOnAuthFailure(getCredits(token)),
+    })
+  } catch {
+    /* surface via the regular query on mount */
+  }
+}
+
+export function resetCreditsPrefetchFlag() {
+  _creditsPrefetchedThisSession = false
+}
+
+/**
  * Call from any AI mutation's onSuccess/onError so the credits badge reflects
  * the server-side debit (or refund) immediately.
  */
