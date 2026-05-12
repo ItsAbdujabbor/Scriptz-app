@@ -2124,7 +2124,27 @@ export function ThumbnailGenerator({
   // recreate (regenerateWithPersona) and analyze (rate). These don't have
   // a server record so we keep them in a separate bucket — they survive
   // chat refetches and are rendered AFTER the server messages.
+  //
+  // Every entry pushed here carries `_conversationId` pinned at push time
+  // (see `pushLocalAssistantMessage` / `pushFailureEntry`). The render
+  // pipeline (`renderedMessages` below) filters by current `conversationId`
+  // so an in-flight job started in conv X stays bound to X even if the
+  // user navigates to conv Y mid-flight. When X → Y → back-to-X, the
+  // entry is visible again with no re-mount. When a chat is brand-new
+  // (`conversationId == null` at push), `handleConversationCreated`
+  // rebinds those `null`-tagged entries to the freshly-minted id.
   const [localOnlyMessages, setLocalOnlyMessages] = useState([])
+  // Synchronous mirror of `conversationId` for code paths that need to
+  // capture the current value at the moment of a state-write (e.g.
+  // `pushLocalAssistantMessage` runs during a submit handler — reading
+  // React state inside that closure could be stale if the handler was
+  // bound before a recent `conversationId` change). The ref is updated
+  // in the same effect that drives the chat surface so it never lags
+  // behind state.
+  const conversationIdRef = useRef(conversationId)
+  useEffect(() => {
+    conversationIdRef.current = conversationId
+  }, [conversationId])
   const [draft, setDraft] = useState('')
   const [numThumbnails, setNumThumbnails] = useState(1)
   const [numRecreateThumbnails, setNumRecreateThumbnails] = useState(1)
@@ -2375,6 +2395,33 @@ export function ThumbnailGenerator({
       // for non-submission reasons) won't accidentally re-target.
       if (isSubmittingRef.current && id != null) {
         submissionTargetRef.current = Number(id)
+      }
+      // Rebind any local-only entries that were pushed BEFORE the
+      // conversation existed (`_conversationId: null`) to the freshly-
+      // minted id. Without this, the render filter would hide them
+      // forever once `conversationId` transitions null → N — they'd
+      // pile up in memory while the user sees an empty thread.
+      // Only operates on `null`-tagged rows; entries already bound to
+      // a numeric id (jobs that started in a different conversation
+      // and are still in flight) are intentionally untouched.
+      if (id != null) {
+        const numericId = Number(id)
+        setLocalOnlyMessages((prev) => {
+          let changed = false
+          const next = prev.map((m) => {
+            if (m._conversationId == null) {
+              changed = true
+              return { ...m, _conversationId: numericId }
+            }
+            return m
+          })
+          return changed ? next : prev
+        })
+        // Also keep the synchronous ref in sync with the upcoming
+        // conversationId flip so any pushes that happen between this
+        // callback firing and the React state actually updating use
+        // the right id.
+        conversationIdRef.current = numericId
       }
       onConversationCreated?.(id)
     },
@@ -2638,7 +2685,15 @@ export function ThumbnailGenerator({
       // visible.
       if (isSubmittingRef.current && submissionTargetRef.current == null) return
       setMessages([])
-      setLocalOnlyMessages([])
+      // Drop ONLY entries pinned to the brand-new-chat view (null) —
+      // background jobs that started in a real conversation are
+      // tagged with a numeric `_conversationId` and must survive a
+      // "New chat" click so the user can return to that conversation
+      // and still see the in-flight placeholder. The render filter
+      // already hides those entries while we're on null; the wipe
+      // here is purely about clearing per-session draft state for
+      // the new-chat surface.
+      setLocalOnlyMessages((prev) => prev.filter((m) => m && m._conversationId != null))
       setDraft('')
       setSendError('')
       setSendErrorMeta(null)
@@ -2727,7 +2782,17 @@ export function ThumbnailGenerator({
     // by the time this effect runs, so this branch lets the wipe
     // proceed.
     if (isSubmittingRef.current) return
-    setLocalOnlyMessages([])
+    // Don't wipe `localOnlyMessages` on conversation switch. Every
+    // entry carries `_conversationId` pinned at push time and the
+    // `renderedMessages` filter only shows entries matching the
+    // current view, so cross-conversation pollution is impossible.
+    // Wiping here would erase in-flight optimistic placeholders for
+    // background jobs the user just navigated away from — when they
+    // return to that conversation we want the still-loading card to
+    // be exactly where they left it. Entries naturally self-clean
+    // through their handler's success/failure path (patch / filter
+    // / linkLocalToServer); long-running tabs accumulate a small
+    // amount of harmless residue that hard-refresh clears.
     sawMessagesRef.current = false
   }, [conversationId])
 
@@ -2817,9 +2882,25 @@ export function ThumbnailGenerator({
     //      failure card would render above the user bubble — wrong
     //      visual order — because local entries are otherwise
     //      appended after all server entries.
+    // Filter local entries down to ones bound to the conversation
+    // currently in view. Entries with `_conversationId == null` are
+    // pre-rebind (brand-new chat in flight) and only show on the
+    // null view; entries with a numeric id only show when that id
+    // matches `conversationId`. A job started in conv X stays bound
+    // to X across navigations — the user sees its placeholder when
+    // they return, and a different conversation's view is never
+    // polluted by another conversation's in-flight content.
+    const visibleLocalOnly = localOnlyMessages.filter((m) => {
+      if (!m) return false
+      const pinned = m._conversationId
+      if (pinned == null) return conversationId == null
+      if (conversationId == null) return false
+      return Number(pinned) === Number(conversationId)
+    })
+
     const linkedServerIds = new Set()
     const linkedUserMsgToLocal = new Map()
-    for (const m of localOnlyMessages) {
+    for (const m of visibleLocalOnly) {
       if (!m || m._serverMessageId == null) continue
       linkedServerIds.add(m._serverMessageId)
       // Optimistic failure-entry locals (from `pushFailureEntry`) get
@@ -2861,12 +2942,14 @@ export function ThumbnailGenerator({
     // Append any local entries not already consumed by the
     // chronological-slot insertion above (recreate / analyze results,
     // failure cards that haven't yet been linked to a server twin,
-    // etc.). Insertion order preserved.
-    for (const m of localOnlyMessages) {
+    // etc.). Iterates `visibleLocalOnly` so entries pinned to OTHER
+    // conversations are excluded by the same filter that drives the
+    // linked-id map above — keeps the two passes consistent.
+    for (const m of visibleLocalOnly) {
       if (!consumedLocalIds.has(m.id)) result.push(m)
     }
     return result
-  }, [messages, localOnlyMessages])
+  }, [messages, localOnlyMessages, conversationId])
 
   // Latch: once we've EVER rendered a message in this mount, the empty
   // screen never comes back unless the user explicitly switches to a
@@ -3201,6 +3284,13 @@ export function ThumbnailGenerator({
     // server entry that arrives via the conversation refetch.
     const userId = genLocalId('local-user')
     const assistantId = assistant.id ?? genLocalId('local-assistant')
+    // Pin the conversation id at the exact moment of push so a
+    // background job that finishes after the user has navigated away
+    // still maps to the conversation it was started in. `null` means
+    // "brand-new chat — rebind when the server mints the id" (handled
+    // by `handleConversationCreated` further down). Numeric ids are
+    // stable across the rest of the entry's lifetime.
+    const pinnedConvId = conversationIdRef.current
     setLocalOnlyMessages((prev) => [
       ...prev,
       {
@@ -3208,6 +3298,7 @@ export function ThumbnailGenerator({
         role: 'user',
         content: userContent,
         imageUrl: assistant.userImageUrl || null,
+        _conversationId: pinnedConvId,
         _optimistic: true,
       },
       {
@@ -3243,6 +3334,7 @@ export function ThumbnailGenerator({
         _promptPending: !!assistant._promptPending,
         _promptMode: assistant._promptMode || null,
         _promptCount: assistant._promptCount || null,
+        _conversationId: pinnedConvId,
         _optimistic: true,
       },
     ])
@@ -3371,6 +3463,14 @@ export function ThumbnailGenerator({
         _kind: 'failure',
         createdAt: Date.now(),
         ...failure,
+        // Pin to the conversation in view at push time — placed AFTER
+        // the spread so a caller can't accidentally override it via
+        // `failure._conversationId`. Same contract as
+        // `pushLocalAssistantMessage`: the entry stays bound to its
+        // conversation through any subsequent navigation, and the
+        // render filter shows it only when the user is back on this
+        // conversation.
+        _conversationId: conversationIdRef.current,
       }
       setLocalOnlyMessages((prev) => [...prev, localEntry])
 
