@@ -1,14 +1,15 @@
 /**
  * Chat-thread loading state.
  *
- * No skeleton bubbles, no shimmer sweep. A single soft ring spinner
- * centered in the thread area with a small "Loading conversation…"
- * label that fades in. The intent is "we're getting your messages" —
- * not "here's a fake version of your chat for 200ms".
+ * A brand-purple conic-gradient ring around a quietly-pulsing core dot,
+ * centered in the thread area with a "Loading conversation" label and
+ * an animated three-dot trail. The intent is "we're getting your
+ * messages" — premium and intentional, not "here's a fake version of
+ * your chat for 200ms".
  *
  * Component name kept as ChatHistorySkeleton so the import sites in
- * ThumbnailGenerator don't change. The CSS file `ChatHistorySkeleton.css`
- * is rewritten to match.
+ * ThumbnailGenerator don't change. Styling lives in
+ * ./ChatHistorySkeleton.css.
  */
 
 import './ChatHistorySkeleton.css'
@@ -22,8 +23,20 @@ export function ChatHistorySkeleton({ leaving = false, label = 'Loading conversa
       aria-busy="true"
       aria-label={label}
     >
-      <div className="chat-loader__ring" aria-hidden="true" />
-      {label ? <p className="chat-loader__label">{label}</p> : null}
+      <div className="chat-loader__ring" aria-hidden="true">
+        <div className="chat-loader__ring-arc" />
+        <div className="chat-loader__ring-core" />
+      </div>
+      {label ? (
+        <p className="chat-loader__label">
+          <span className="chat-loader__label-text">{label}</span>
+          <span className="chat-loader__dots" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
+        </p>
+      ) : null}
     </div>
   )
 }
