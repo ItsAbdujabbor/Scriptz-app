@@ -5701,9 +5701,28 @@
 @media (max-width: 640px) {
   .coach-chat-shell--empty .thumb-empty-state {
     padding: 0 1.1rem;
+    /* Hold the greeting away from the sticky top tab row and from the
+     * composer below it so neither chrome layer can overlap it on
+     * shorter viewports. Margins live on the empty-state itself rather
+     * than the surrounding shell so they only apply when the greeting
+     * is actually rendered. */
+    margin-bottom: 0.25rem !important;
   }
   .coach-chat-shell--empty .coach-composer-wrap {
     margin-top: 0.9rem;
+  }
+  /* Smaller, calmer greeting on phones. The desktop value caps at
+   * 2.2rem which read as a billboard on a 360-430 px viewport; the
+   * new mobile cap of 1.4rem reads as a friendly subhead instead.
+   * Floor stays at ~0.95rem so the line never disappears on a
+   * 320 px-wide narrow phone. Slightly lighter weight + softer color
+   * so the greeting harmonises with the rest of the chrome instead
+   * of competing with the composer for focus. */
+  .thumb-empty-state h1 {
+    font-size: clamp(0.95rem, 4vw, 1.4rem);
+    letter-spacing: -0.035em;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.88);
   }
 }
 
