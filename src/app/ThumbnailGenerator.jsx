@@ -2194,6 +2194,22 @@ export function ThumbnailGenerator({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const isSubmittingRef = useRef(false)
   const submissionUnlockTimerRef = useRef(null)
+  // Synchronous mutex shared across every submit handler. The
+  // `anyJobInFlight` derived flag from React state can lag a frame
+  // behind a rapid double-Enter (React batches state updates, so two
+  // keydown events fired in the same tick both observe the pre-submit
+  // state and both call the handler). This ref flips synchronously
+  // the moment a handler starts, so the second Enter's guard hits a
+  // `true` and bails before any state writes / network calls fire.
+  //
+  // Set true in EVERY submit handler's entry (chat / regenerate /
+  // recreate / analyze / titles / retry); reset to false in the
+  // matching `finally` block. The textarea onKeyDown handlers also
+  // re-check this ref BEFORE calling their handler so Enter never
+  // wastes a frame on a redundant call. Pairs with the React-state
+  // `anyJobInFlight` (which drives the visual disabled state) — refs
+  // can't trigger renders so we need both layers.
+  const submitGuardRef = useRef(false)
   // The conversationId the active submission is targeting. Initialized
   // to the current conversationId in `beginSubmission` (null for a
   // brand-new chat, or an existing id for a submit inside a chat).
@@ -3598,6 +3614,14 @@ export function ThumbnailGenerator({
   // a new failure entry which lands BELOW the retry's pending bubble.
   const handleRetryFailedAttempt = useCallback((entry) => {
     if (!entry) return
+    // Synchronous spam-guard against Retry-button mashing. Two clicks
+    // in the same frame would otherwise dispatch two retries (both
+    // setTimeout(...) callbacks would observe the same pre-guard
+    // state). The downstream submit handlers themselves also check
+    // this ref before doing anything, so spamming after the dispatch
+    // is also safe — but bailing early here keeps the failure card
+    // removal idempotent (a no-op `.filter` if it's already gone).
+    if (submitGuardRef.current) return
     setLocalOnlyMessages((prev) => prev.filter((m) => m.id !== entry.id))
     const mode = entry.mode || 'prompt'
     // Defer the dispatch to next tick so the relevant draft state has
@@ -3655,11 +3679,16 @@ export function ThumbnailGenerator({
   const handleSubmit = async (e) => {
     e?.preventDefault?.()
     if (!requirePaywall()) return
+    // Synchronous spam-guard — see `submitGuardRef` definition above.
+    // Returns BEFORE any state writes so a rapid double-Enter never
+    // double-pushes an optimistic pair or fires two chat mutations.
+    if (submitGuardRef.current) return
     const combined = draft.trim()
     if (!combined || anyJobInFlight) return
     if (!promptImageDataUrl && combined.length < 5) {
       return
     }
+    submitGuardRef.current = true
 
     // Lock the chat surface FIRST — before any state writes that
     // could otherwise be observed mid-update by wipe-effects / empty
@@ -3843,6 +3872,12 @@ export function ThumbnailGenerator({
       setPendingAssistant(false)
       if (activeConversationId) clearPending(activeConversationId)
     } finally {
+      // Release the synchronous spam-guard the moment the handler
+      // finishes (success or error). The React-state-based gating
+      // (`anyJobInFlight`) still keeps follow-up submits blocked until
+      // `pendingAssistant` / `_promptPending` resolve, which is the
+      // intended one-job-at-a-time semantics.
+      submitGuardRef.current = false
       // Release the submission lock — deferred to RAF×2 inside
       // endSubmission so any in-flight hashchange / setQueryData /
       // setPendingAssistant updates land BEFORE the wipe-effects and
@@ -3949,6 +3984,8 @@ export function ThumbnailGenerator({
   const handleRegenerateOne = useCallback(
     async (userRequest) => {
       if (!userRequest?.trim() || anyJobInFlight) return
+      if (submitGuardRef.current) return
+      submitGuardRef.current = true
       const localIds = pushLocalAssistantMessage(userRequest, {
         content: '',
         userRequest,
@@ -4002,6 +4039,8 @@ export function ThumbnailGenerator({
           errorMessage: message,
           retryable: true,
         })
+      } finally {
+        submitGuardRef.current = false
       }
     },
     [
@@ -4041,6 +4080,7 @@ export function ThumbnailGenerator({
     e?.preventDefault?.()
     if (!requirePaywall()) return
     if (anyJobInFlight) return
+    if (submitGuardRef.current) return
     const instructions = recreateDraft.trim()
     const sourceImageUrl =
       recreateSourceMode === 'upload' ? recreateSourceImage : recreatePreviewUrl
@@ -4059,6 +4099,7 @@ export function ThumbnailGenerator({
     // prose. The backend still receives `prompt: instructions` (the
     // recreate API endpoint encodes the operation, not the prompt).
     const userText = instructions
+    submitGuardRef.current = true
     setSendError('')
     setSendErrorMeta(null)
     // In-place pending: push the placeholder (user bubble + assistant
@@ -4147,6 +4188,8 @@ export function ThumbnailGenerator({
       // sole error UI for failed recreate attempts. It lives in the
       // message thread, gets a server-assigned id via appendEvent,
       // and orders chronologically with the rest of the conversation.
+    } finally {
+      submitGuardRef.current = false
     }
   }
 
@@ -4205,12 +4248,14 @@ export function ThumbnailGenerator({
     e?.preventDefault?.()
     if (!requirePaywall()) return
     if (anyJobInFlight) return
+    if (submitGuardRef.current) return
     const imageUrl = analyzeSourceMode === 'upload' ? analyzeSourceImage : analyzePreviewUrl
     if (!imageUrl) {
       setSendError('Add an image or YouTube link to analyze.')
       setSendErrorMeta(null)
       return
     }
+    submitGuardRef.current = true
     const titleTrim = analyzeTitle.trim()
     // User bubble shows the thumbnail + any title they typed — no
     // hardcoded "Analyze this thumbnail" prose. The backend still
@@ -4305,6 +4350,8 @@ export function ThumbnailGenerator({
       // Inline failure card is the sole error UI — no top-of-screen
       // toast. Failure persists via appendEvent with a server id;
       // renders in the message list ordered by that id.
+    } finally {
+      submitGuardRef.current = false
     }
     // No pending* state was set for analyze (in-place pattern), so
     // no `finally` cleanup is needed. The optimistic placeholder is
@@ -4316,12 +4363,14 @@ export function ThumbnailGenerator({
     e?.preventDefault?.()
     if (!requirePaywall()) return
     if (anyJobInFlight) return
+    if (submitGuardRef.current) return
     const topic = titleTopic.trim()
     if (!topic) {
       setSendError('Type a topic or rough idea so we know what to brainstorm titles for.')
       setSendErrorMeta(null)
       return
     }
+    submitGuardRef.current = true
     const userText = topic
     setSendError('')
     setSendErrorMeta(null)
@@ -4382,6 +4431,8 @@ export function ThumbnailGenerator({
         errorMessage: message,
         retryable: true,
       })
+    } finally {
+      submitGuardRef.current = false
     }
     // No `finally` clearing of `pendingUserMessage` — title mode no
     // longer uses the separate pending-bubble flow; the user bubble
@@ -4641,7 +4692,7 @@ export function ThumbnailGenerator({
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
-                            if (anyJobInFlight) return
+                            if (anyJobInFlight || submitGuardRef.current) return
                             handleSubmit(e)
                           }
                         }}
@@ -4813,7 +4864,7 @@ export function ThumbnailGenerator({
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
-                            if (anyJobInFlight) return
+                            if (anyJobInFlight || submitGuardRef.current) return
                             handleRecreateSubmit(e)
                           }
                         }}
@@ -4903,7 +4954,7 @@ export function ThumbnailGenerator({
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
-                            if (anyJobInFlight) return
+                            if (anyJobInFlight || submitGuardRef.current) return
                             handleAnalyzeFooterSubmit(e)
                           }
                         }}
@@ -4939,7 +4990,7 @@ export function ThumbnailGenerator({
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
-                            if (anyJobInFlight) return
+                            if (anyJobInFlight || submitGuardRef.current) return
                             handleTitleIdeasSubmit(e)
                           }
                         }}
