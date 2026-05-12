@@ -2569,14 +2569,25 @@ export function ThumbnailGenerator({
         const conv = await createConversationMutation.mutateAsync({
           channel_id: channelId || undefined,
         })
-        const id = conv?.id
-        if (id != null) {
-          handleConversationCreated(id)
+        const id = conv?.id ?? conv?.conversation_id
+        if (id == null) {
+          // Server returned a malformed response — treat exactly the
+          // same as a network failure. Falling through to the legacy
+          // "chat endpoint auto-creates" path used to be safe when
+          // there was no eager-create, but now it means we'd send
+          // `conversation_id: undefined` AFTER having silently
+          // succeeded creating a real-but-empty conv server-side
+          // (the row exists, the response shape just lost the id),
+          // which makes the chat endpoint mint a SECOND conv. Caller
+          // aborts on null.
+          console.warn('[thumbnail] /conversations succeeded but response had no id', conv)
+          return null
         }
+        handleConversationCreated(id)
         return id
       } catch (err) {
         if (typeof console !== 'undefined') {
-          console.warn('[thumbnail] eager conversation create failed, using legacy path:', err)
+          console.warn('[thumbnail] eager conversation create failed:', err)
         }
         return null
       }
@@ -3735,7 +3746,29 @@ export function ThumbnailGenerator({
     // /chat/submit has by then persisted) and resumes the pending
     // state.
     const activeConversationId = await ensureConversationId(conversationId)
-    if (activeConversationId) startPending(activeConversationId)
+    if (!activeConversationId) {
+      // Hard-abort: we couldn't materialize a conversation row
+      // server-side. Previously we'd fall through and submit the chat
+      // with `conversation_id: undefined`, which causes the backend to
+      // create a SECOND conversation — leaving the user with one
+      // empty conv (the failed eager-create attempt, if it half-
+      // succeeded) and a second one with the actual chat content. That
+      // is the "two chats with the same message, one has the response"
+      // bug. Stop here, surface a friendly error in the composer, and
+      // drop the optimistic local entries so the chat doesn't get
+      // stuck with a phantom pending bubble.
+      console.warn('[thumbnail] ensureConversationId returned no id — aborting submit')
+      setLocalOnlyMessages((prev) =>
+        prev.filter((m) => m.id !== localIds.userId && m.id !== localIds.assistantId)
+      )
+      setPendingAssistant(false)
+      setSendError("We couldn't start the chat. Please try again.")
+      setDraft(combined)
+      submitGuardRef.current = false
+      endSubmission()
+      return
+    }
+    startPending(activeConversationId)
 
     try {
       if (promptImageDataUrl) {
