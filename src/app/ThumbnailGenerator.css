@@ -4541,14 +4541,14 @@
   height: 32px;
   padding: 0 13px;
   box-sizing: border-box;
-  /* Quieter resting state — hairline border drops from white-14 to
-   * white-08 and the body loses its gradient sheen. Reads as
-   * recessive against the composer's solid card below, so the active
-   * chip becomes the only thing pulling focus. */
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.025);
-  color: rgba(229, 231, 235, 0.7);
+  /* Solid dark surface — matches the composer's `#1c1c24` ladder but
+   * one step lighter so the chips read as buttons sitting ABOVE the
+   * composer card, not as the same surface. The earlier transparent
+   * rgba(255,255,255,0.025) read as ghosted on dark backgrounds. */
+  background: #23232d;
+  color: rgba(229, 231, 235, 0.78);
   font-family:
     'Poppins',
     system-ui,
@@ -4562,9 +4562,9 @@
   white-space: nowrap;
   outline: none;
   -webkit-tap-highlight-color: transparent;
-  /* Single hairline inner highlight — kills the two-line inset that
-   * was making the chip look like a deboss. */
-  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.05);
+  /* Single hairline inner highlight — gives the chip a soft top
+   * bevel without the two-line deboss the previous gradient created. */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   transition:
     background 0.22s cubic-bezier(0.4, 0, 0.2, 1),
     border-color 0.22s cubic-bezier(0.4, 0, 0.2, 1),
@@ -4574,10 +4574,10 @@
 }
 
 .thumb-gen-tab-row .thumb-gen-pill-tab:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: #2c2c38;
+  border-color: rgba(255, 255, 255, 0.2);
   color: #ffffff;
-  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* Active mode chip — actual styling lives in `ThumbPillTabs.css` plus
