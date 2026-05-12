@@ -481,10 +481,19 @@
 
 /* Full-panel centered history load */
 .coach-thread--history-loading {
-  justify-content: center;
-  align-items: center;
-  padding-top: clamp(2rem, 8vh, 4rem);
-  padding-bottom: clamp(2rem, 8vh, 4rem);
+  /* The history-loading skeleton (ChatHistorySkeleton) renders three
+   * placeholder messages that mirror the real chat layout, so we want
+   * them top-anchored exactly where the real messages will land — not
+   * vertically centered like the older spinner-in-the-middle loader.
+   * Keep align-items inherited (center) so the 760px max-width skeleton
+   * sits horizontally centered. */
+  justify-content: flex-start;
+  padding-top: clamp(2rem, 5vh, 3rem);
+  /* Keep enough bottom padding that the floating composer (~120px tall)
+   * doesn't sit on top of the last skeleton element. Matches the base
+   * thread's 6.25rem so the swap to real messages is positionally
+   * identical. */
+  padding-bottom: 6.25rem;
   gap: 0;
 }
 

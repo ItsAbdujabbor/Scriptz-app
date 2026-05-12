@@ -1,40 +1,42 @@
-/* Chat-thread loading state — premium variant.
+/* Chat-thread loading state — skeleton variant.
  *
- * Two upgrades over the original soft-ring spinner:
+ * Three skeleton messages in the same layout as the real chat:
  *
- *  1. The ring is a conic gradient masked into a stroke, drawn over the
- *     brand's deep-purple palette and lit with a drop-shadow glow. A
- *     small inner "core" dot sits at the center to anchor the spin
- *     visually — without it the gradient ring reads as headless.
+ *   - Assistant: full-thread-width rows on a transparent background.
+ *     The first message has three rows of decreasing width to mimic a
+ *     short prose reply; the third has a single row plus a 2-card
+ *     thumbnail-grid placeholder so the user sees the kind of content
+ *     they're about to get.
  *
- *  2. The label has a trailing ellipsis whose three dots pulse in
- *     sequence. Static "Loading conversation" reads as paused; the dot
- *     trail makes it clear something is happening even while the spin
- *     is in your peripheral vision.
+ *   - User: a violet gradient bubble (matches `.coach-message--user`
+ *     in Chat.css exactly: max-width 82%, 18px radius, padding, deep
+ *     purple gradient, soft drop-shadow) with light shimmer rows
+ *     inside.
  *
- * Reduced-motion still gets a slower spin + static dots so the screen
- * never feels frozen but doesn't strobe either.
+ * A single shimmer keyframe drives every row — they share timing so
+ * the wave reads as one sweep across the thread, not random twinkles.
+ *
+ * No centered "Loading conversation" copy — the skeleton itself is
+ * the loading signal. Screen readers get it via the outer
+ * `role="status" aria-label`.
+ *
+ * Reduced-motion swaps the shimmer for a static, slightly elevated
+ * fill so the layout is visible but nothing strobes.
  */
 
 .chat-loader {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  /* Match the chat thread max-width so we sit centered above the composer. */
+  /* Sit inside `.coach-thread`, matching its max-width + horizontal
+   * gutter, so the skeleton bubbles land in exactly the slots the
+   * real messages will land in. */
   width: 100%;
-  max-width: 760px;
+  max-width: min(760px, 100%);
   margin: 0 auto;
-  /* Fill most of the visible thread space so the loader reads as
-   * intentional, not floating in the corner. */
-  min-height: 280px;
-  padding: 32px 0;
+  padding: 28px 16px 16px;
   opacity: 0;
-  animation: chat-loader-fade-in 320ms cubic-bezier(0.25, 1, 0.5, 1) 60ms forwards;
+  animation: chat-loader-fade-in 320ms cubic-bezier(0.25, 1, 0.5, 1) 40ms forwards;
   transition:
-    opacity 200ms ease-out,
-    transform 200ms ease-out;
+    opacity 220ms ease-out,
+    transform 220ms ease-out;
 }
 
 .chat-loader--leaving {
@@ -46,7 +48,7 @@
 @keyframes chat-loader-fade-in {
   from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -54,149 +56,159 @@
   }
 }
 
-/* Ring container — owns the outer glow + provides the spin track.
- * filter: drop-shadow renders the glow after the mask is applied to
- * the child arc, so the halo follows the ring stroke (not a rectangle).
- */
-.chat-loader__ring {
-  position: relative;
-  width: 38px;
-  height: 38px;
-  filter: drop-shadow(0 0 14px rgba(167, 139, 250, 0.35))
-    drop-shadow(0 0 4px rgba(167, 139, 250, 0.45));
+.chat-loader__thread {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
-/* Conic-gradient stroke. The mask carves an annulus out of a full disc
- * so the gradient appears as a ring with smooth color falloff (instead
- * of border-top-color, which can only paint a single solid color). */
-.chat-loader__ring-arc {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    rgba(176, 132, 255, 0) 0deg,
-    rgba(176, 132, 255, 0.08) 60deg,
-    rgba(176, 132, 255, 0.45) 200deg,
-    rgba(196, 153, 255, 0.95) 320deg,
-    rgba(176, 132, 255, 0) 360deg
-  );
-  -webkit-mask: radial-gradient(
-    circle at center,
-    transparent calc(50% - 3px),
-    #000 calc(50% - 2px)
-  );
-  mask: radial-gradient(circle at center, transparent calc(50% - 3px), #000 calc(50% - 2px));
-  animation: chat-loader-spin 1s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite;
+/* Each message — flex row so user/assistant can pin to opposite
+ * sides via justify-content (mirroring `.coach-message--user`
+ * align-items: flex-end). */
+.chat-loader__msg {
+  display: flex;
+  width: 100%;
 }
 
-/* Small inner dot — anchors the eye at the spin's pivot. Pulses
- * gently in opacity so it doesn't compete with the ring motion. */
-.chat-loader__ring-core {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 4px;
-  height: 4px;
-  margin: -2px 0 0 -2px;
-  border-radius: 50%;
-  background: var(--ios-accent-lighter, #b794f6);
-  opacity: 0.55;
-  animation: chat-loader-core-pulse 1.6s ease-in-out infinite;
+.chat-loader__msg--assistant {
+  justify-content: flex-start;
 }
 
-@keyframes chat-loader-spin {
-  to {
-    transform: rotate(360deg);
-  }
+.chat-loader__msg--user {
+  justify-content: flex-end;
 }
 
-@keyframes chat-loader-core-pulse {
-  0%,
-  100% {
-    opacity: 0.4;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.85;
-    transform: scale(1.35);
-  }
+/* Assistant body — full-thread-width, transparent. Matches the
+ * real assistant bubble which has no background. */
+.chat-loader__body {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.25rem 0;
 }
 
-/* Label row — text + animated dot trail. The dots replace a static
- * ellipsis so the label has its own micro-motion when the spin is
- * out of the user's focal point. */
-.chat-loader__label {
-  margin: 0;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.25rem;
-  color: rgba(229, 231, 235, 0.7);
-  font-size: 0.875rem;
-  font-weight: 500;
-  letter-spacing: 0.015em;
-}
-
-.chat-loader__label-text {
-  /* Subtle gradient on the text — keeps it legible on the dark
-   * background but hints at the brand violet without screaming. */
+/* User bubble — mirrors `.coach-message--user .coach-message-bubble`
+ * (Chat.css line ~887). Same gradient, radius, padding, shadow —
+ * with reduced opacity so the bubble reads as a placeholder, not a
+ * fully-painted message. */
+.chat-loader__bubble {
+  max-width: min(640px, 82%);
+  border-radius: 18px;
+  padding: 0.75rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
   background: linear-gradient(
-    90deg,
-    rgba(229, 231, 235, 0.7) 0%,
-    rgba(196, 175, 255, 0.85) 50%,
-    rgba(229, 231, 235, 0.7) 100%
+    135deg,
+    rgba(124, 58, 237, 0.55) 0%,
+    rgba(109, 40, 217, 0.55) 50%,
+    rgba(91, 33, 182, 0.55) 100%
   );
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: chat-loader-label-shimmer 3.6s ease-in-out infinite;
+  box-shadow: 0 2px 10px rgba(109, 40, 217, 0.15);
+  /* Slight border keeps the bubble defined even when the gradient
+   * dims near the edge. */
+  border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-@keyframes chat-loader-label-shimmer {
-  0%,
+/* Shimmer row — used for both assistant rows (dark bg) and user rows
+ * (on-violet variant). The light band is wider than the element and
+ * slides across via background-position. */
+.chat-loader__row {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0.035) 0%,
+    rgba(255, 255, 255, 0.06) 30%,
+    rgba(196, 175, 255, 0.18) 50%,
+    rgba(255, 255, 255, 0.06) 70%,
+    rgba(255, 255, 255, 0.035) 100%
+  );
+  background-size: 220% 100%;
+  animation: chat-loader-shimmer 1.9s ease-in-out infinite;
+}
+
+/* On the violet bubble the same dark gradient would disappear —
+ * brighten the band so it stays visible on the purple field. */
+.chat-loader__row--on-violet {
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 255, 255, 0.24) 30%,
+    rgba(255, 255, 255, 0.42) 50%,
+    rgba(255, 255, 255, 0.24) 70%,
+    rgba(255, 255, 255, 0.18) 100%
+  );
+  background-size: 220% 100%;
+  animation: chat-loader-shimmer 1.9s ease-in-out infinite;
+}
+
+@keyframes chat-loader-shimmer {
+  0% {
+    background-position: 140% 0;
+  }
   100% {
+    background-position: -40% 0;
+  }
+}
+
+/* Thumbnail-card placeholders — 2-up grid. 16:9 aspect-ratio matches
+ * the real thumbnail cards the assistant produces. Each card gets a
+ * diagonal shimmer (different keyframe) so the grid doesn't pulse in
+ * perfect lockstep with the text rows. */
+.chat-loader__thumb-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  max-width: min(560px, 100%);
+}
+
+.chat-loader__thumb-card {
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(167, 139, 250, 0.07) 0%,
+    rgba(167, 139, 250, 0.04) 40%,
+    rgba(167, 139, 250, 0.16) 50%,
+    rgba(167, 139, 250, 0.04) 60%,
+    rgba(167, 139, 250, 0.07) 100%
+  );
+  background-size: 200% 200%;
+  border: 1px solid rgba(255, 255, 255, 0.045);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.12),
+    0 4px 14px rgba(0, 0, 0, 0.18);
+  animation: chat-loader-thumb-shimmer 2.4s ease-in-out infinite;
+}
+
+.chat-loader__thumb-card:nth-child(2) {
+  animation-delay: 0.4s;
+}
+
+@keyframes chat-loader-thumb-shimmer {
+  0% {
     background-position: 0% 50%;
   }
   50% {
     background-position: 100% 50%;
   }
-}
-
-.chat-loader__dots {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  /* Nudge the dots to optical baseline with the text. */
-  transform: translateY(-1px);
-}
-
-.chat-loader__dots > span {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--ios-accent-lighter, #b794f6);
-  opacity: 0.25;
-  animation: chat-loader-dot 1.2s ease-in-out infinite;
-}
-
-.chat-loader__dots > span:nth-child(2) {
-  animation-delay: 0.18s;
-}
-.chat-loader__dots > span:nth-child(3) {
-  animation-delay: 0.36s;
-}
-
-@keyframes chat-loader-dot {
-  0%,
-  70%,
   100% {
-    opacity: 0.2;
-    transform: translateY(0);
+    background-position: 0% 50%;
   }
-  35% {
-    opacity: 0.95;
-    transform: translateY(-2px);
+}
+
+@media (max-width: 520px) {
+  .chat-loader {
+    padding: 20px 12px 12px;
+  }
+  .chat-loader__thread {
+    gap: 1.2rem;
+  }
+  .chat-loader__row {
+    height: 11px;
   }
 }
 
@@ -206,16 +218,18 @@
     opacity: 1;
     transform: none;
   }
-  .chat-loader__ring-arc {
-    animation-duration: 2.4s;
-    animation-timing-function: linear;
-  }
-  .chat-loader__ring-core,
-  .chat-loader__label-text,
-  .chat-loader__dots > span {
+  .chat-loader__row,
+  .chat-loader__row--on-violet,
+  .chat-loader__thumb-card {
     animation: none;
   }
-  .chat-loader__dots > span {
-    opacity: 0.6;
+  .chat-loader__row {
+    background: rgba(255, 255, 255, 0.07);
+  }
+  .chat-loader__row--on-violet {
+    background: rgba(255, 255, 255, 0.28);
+  }
+  .chat-loader__thumb-card {
+    background: rgba(167, 139, 250, 0.08);
   }
 }
