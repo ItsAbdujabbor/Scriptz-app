@@ -239,8 +239,7 @@ export function BillingSettingsPanel({ active, onClose }) {
       // shows up in Recent Invoices.
       refreshBillingState(queryClient)
     },
-    onError: (err) =>
-      setSkipTrialError(friendlyMessage(err) || 'Could not end trial. Try again.'),
+    onError: (err) => setSkipTrialError(friendlyMessage(err) || 'Could not end trial. Try again.'),
   })
 
   const isSubscribed =
@@ -302,11 +301,7 @@ export function BillingSettingsPanel({ active, onClose }) {
                 <span className="bp-plan-period">no plan active</span>
               </div>
             </div>
-            <button
-              type="button"
-              className="bp-btn bp-btn--outline"
-              onClick={goToPlans}
-            >
+            <button type="button" className="bp-btn bp-btn--outline" onClick={goToPlans}>
               See plans
             </button>
           </div>
@@ -368,8 +363,8 @@ export function BillingSettingsPanel({ active, onClose }) {
             <div className="bp-trial-text">
               <strong>You're on a free trial of {planName}</strong>
               <span>
-                Skip the trial to unlock the full plan now — your card is charged today and
-                all your monthly credits are added to your balance instantly.
+                Skip the trial to unlock the full plan now — your card is charged today and all your
+                monthly credits are added to your balance instantly.
               </span>
             </div>
             <button
@@ -406,7 +401,17 @@ export function BillingSettingsPanel({ active, onClose }) {
             title="Refresh from server"
             aria-label="Refresh subscription"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
               <path d="M23 4v6h-6" />
               <path d="M1 20v-6h6" />
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10" />
@@ -509,8 +514,15 @@ export function BillingSettingsPanel({ active, onClose }) {
           </div>
         </div>
 
-        {/* Cancel control */}
-        {!cancelScheduled ? (
+        {/* Cancel control — hidden for admin-granted subs because
+            POST /api/billing/cancel returns 409 ADMIN_GRANTED_NO_CANCEL
+            for them (their plan isn't on Paddle, so there's nothing to
+            cancel via the user flow — admin has to revoke it). */}
+        {subscription.is_admin_granted ? (
+          <p className="bp-footnote">
+            This plan was assigned by an admin. Contact support to have it changed or removed.
+          </p>
+        ) : !cancelScheduled ? (
           <button
             type="button"
             className="bp-cancel-link"
