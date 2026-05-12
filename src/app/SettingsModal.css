@@ -671,6 +671,12 @@
   font-family: inherit;
   font-size: 13px;
   outline: none;
+  /* Without border-box, `width: 100%` + 12px horizontal padding + 1px
+   * border total to `100% + 26px`, which is what's been pushing the
+   * input past the right edge of the ConfirmSheet card (visible on
+   * both the Delete-account and Reset-data dialogs). Keep the input
+   * inside the card by sizing it inclusive of padding + border. */
+  box-sizing: border-box;
   transition:
     background 0.18s ease,
     border-color 0.18s ease,
@@ -896,6 +902,10 @@
   border-radius: 14px;
   background: #0e0e12;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6);
+  /* Keep `width: 100%` + 20px padding inside the overlay's content
+   * box so the card doesn't itself overflow on narrow viewports
+   * before the `max-width: 360px` clamp kicks in. */
+  box-sizing: border-box;
   animation: s-dialog-in 200ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
