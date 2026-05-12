@@ -22,7 +22,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion' // eslint-disable-line no-unused-vars
 import { ArrowLeft, Lock, ShieldCheck, RotateCw, CheckCircle2, Sparkles, Info } from 'lucide-react'
 import { openPaddleInlineCheckout } from '../lib/paddle'
 import { refreshBillingState } from '../queries/billing/creditsQueries'
