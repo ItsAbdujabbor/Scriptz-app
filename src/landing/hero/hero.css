@@ -320,7 +320,14 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  /* Bottom-anchored: both tracks sit in the lower portion of the hero
+   * so the negative space above pairs with the headline + prompt and
+   * the thumbnails read as a foundation, not a background that the
+   * hero copy floats inside. Phones already use this pattern (see
+   * the media-query block below); desktop now mirrors it with a more
+   * generous bottom margin proportional to the hero height. */
+  justify-content: flex-end;
+  padding-bottom: clamp(2rem, 5vh, 3.5rem);
   /* Tight inter-row gap — the two tracks read as one unified grid. */
   gap: 0.55rem;
   /* Marquees themselves don't intercept pointer events (so the prompt
