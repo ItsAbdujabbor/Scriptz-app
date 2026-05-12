@@ -4637,9 +4637,11 @@ export function ThumbnailGenerator({
                         className="coach-composer-input thumb-prompt-textarea"
                         maxLength={2000}
                         placeholder=""
+                        disabled={anyJobInFlight}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
+                            if (anyJobInFlight) return
                             handleSubmit(e)
                           }
                         }}
@@ -4807,9 +4809,11 @@ export function ThumbnailGenerator({
                         rows={1}
                         className="coach-composer-input"
                         maxLength={2000}
+                        disabled={anyJobInFlight}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
+                            if (anyJobInFlight) return
                             handleRecreateSubmit(e)
                           }
                         }}
@@ -4895,9 +4899,11 @@ export function ThumbnailGenerator({
                         rows={1}
                         className="coach-composer-input"
                         maxLength={200}
+                        disabled={anyJobInFlight}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
+                            if (anyJobInFlight) return
                             handleAnalyzeFooterSubmit(e)
                           }
                         }}
@@ -4929,9 +4935,11 @@ export function ThumbnailGenerator({
                         rows={2}
                         className="coach-composer-input"
                         maxLength={600}
+                        disabled={anyJobInFlight}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
+                            if (anyJobInFlight) return
                             handleTitleIdeasSubmit(e)
                           }
                         }}
