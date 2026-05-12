@@ -276,6 +276,13 @@
     width: 36px;
     height: 36px;
   }
+  .pro-screen-scroll {
+    /* On phones the scrollbar is overlay (zero-width) and the gutter
+     * is not needed — explicitly disable it so older Safari (which
+     * ignores `both-edges` and falls back to right-only) doesn't bias
+     * the content off-center on the most common viewport. */
+    scrollbar-gutter: auto;
+  }
 }
 
 /* ── Scroll container ─────────────────────────────────────────────── *
@@ -289,7 +296,17 @@
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  scrollbar-gutter: stable;
+  /* Use `both-edges` so the gutter is reserved on BOTH sides instead
+   * of the default right-only. Right-only reservation made the inner
+   * content center within `(viewport - gutter)` — visually shifted
+   * left of the true viewport center on mobile, which is the off-
+   * center look you'd see on a 390px iPhone viewport.
+   *
+   * With `both-edges` the gutter is symmetric so the content stays
+   * truly centered. Falls back to `stable` for browsers that don't
+   * support the second keyword (older Safari) — same right-only
+   * behavior as before, which is the original baseline anyway. */
+  scrollbar-gutter: stable both-edges;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
