@@ -132,59 +132,69 @@ describe('mergeOpsAndMessages', () => {
   })
 })
 
-describe('mergeOpsAndMessages — ORDERING regression (failure card position)', () => {
-  // The bug the user reported: failure card appearing at the end of
-  // the message list / above unrelated messages while appendEvent
-  // was in flight (or had failed permanently). The fix slots local
-  // entries into their chronological position by created_at, never
-  // appended at the end.
+describe('mergeOpsAndMessages — ORDERING regression (anchor-based)', () => {
+  // The bug the user reported: a failure card landing at the TOP of
+  // the message list instead of the bottom. Root cause was wall-clock
+  // ordering under client/server clock skew — a local entry stamped
+  // with ``Date.now()`` on a client whose clock ran behind the server
+  // had an "older" timestamp than every prior server failure (whose
+  // ``createdAt`` came from server time) and slotted at index 0.
+  //
+  // The fix uses ``anchorAfterServerId`` — the highest server-message
+  // id known when the op was pushed. Server ids are monotone
+  // increasing per conversation, so ordering by anchor never drifts.
 
-  it('op older than every server message slots at index 0', () => {
-    // Server messages with timestamps from id=1..3 (~1.7T epoch+1s).
-    const msgs = [
-      makeMsg(1, 'user', 'one'),
-      makeMsg(2, 'assistant', 'two'),
-      makeMsg(3, 'user', 'three'),
-    ]
-    // Op timestamped BEFORE id=1 (1.7T epoch - 60s).
-    const op = makeOp('older-op', 42, { created_at: 1_700_000_000_000 - 60_000 })
+  it('op with anchor=5 slots immediately after server id=5', () => {
+    const msgs = [makeMsg(1), makeMsg(3), makeMsg(5), makeMsg(10)]
+    const op = makeOp('opA', 42, { anchorAfterServerId: 5 })
     const out = mergeOpsAndMessages(msgs, [op], 42)
-    expect(out).toHaveLength(4)
-    expect(out[0]).toEqual({ kind: 'op', op })
-    expect(out[1].msg.id).toBe(1)
-    expect(out[2].msg.id).toBe(2)
-    expect(out[3].msg.id).toBe(3)
-  })
-
-  it('op timestamped between two server messages slots between them', () => {
-    const msgs = [makeMsg(1), makeMsg(2), makeMsg(3)]
-    // Op timestamped at id=2's time + 100ms (between id=2 and id=3,
-    // which are 1s apart by construction).
-    const opT = 1_700_000_000_000 + 2 * 1000 + 100
-    const op = makeOp('middle-op', 42, { created_at: opT })
-    const out = mergeOpsAndMessages(msgs, [op], 42)
-    expect(out).toHaveLength(4)
+    expect(out).toHaveLength(5)
     expect(out[0].msg.id).toBe(1)
-    expect(out[1].msg.id).toBe(2)
-    expect(out[2]).toEqual({ kind: 'op', op }) // ← slots between, NOT at end
-    expect(out[3].msg.id).toBe(3)
+    expect(out[1].msg.id).toBe(3)
+    expect(out[2].msg.id).toBe(5)
+    expect(out[3]).toEqual({ kind: 'op', op })
+    expect(out[4].msg.id).toBe(10)
   })
 
-  it('op newer than every server message slots at the end', () => {
+  it('op with anchor higher than every server id tail-appends', () => {
     const msgs = [makeMsg(1), makeMsg(2)]
-    const op = makeOp('newer-op', 42, { created_at: 1_700_000_000_000 + 1_000_000 })
+    const op = makeOp('opTail', 42, { anchorAfterServerId: 999 })
     const out = mergeOpsAndMessages(msgs, [op], 42)
+    // Anchor not present → fallback tail-append.
     expect(out).toHaveLength(3)
     expect(out[2]).toEqual({ kind: 'op', op })
   })
 
-  it('multiple ops slot into separate chronological positions', () => {
+  it('orphan op (no anchor) tail-appends, never slots at top', () => {
+    const msgs = [makeMsg(1), makeMsg(2), makeMsg(3)]
+    const op = makeOp('orphan', 42) // no anchorAfterServerId
+    const out = mergeOpsAndMessages(msgs, [op], 42)
+    // No anchor → tail-append. Never index 0.
+    expect(out).toHaveLength(4)
+    expect(out[3].op.op_id).toBe('orphan')
+  })
+
+  it('multiple ops sharing one anchor stack in push order', () => {
+    // Typical chat-error scenario: user_local pushed first, then
+    // failure local pushed. Both anchored after the same server id.
     const msgs = [makeMsg(1), makeMsg(5), makeMsg(10)]
-    // Op A slots between id=1 and id=5, op B between id=5 and id=10.
-    const opA = makeOp('opA', 42, { created_at: 1_700_000_000_000 + 2_500 })
-    const opB = makeOp('opB', 42, { created_at: 1_700_000_000_000 + 7_500 })
+    const userLocal = makeOp('user_local', 42, { anchorAfterServerId: 10 })
+    const failureLocal = makeOp('failure_local', 42, { anchorAfterServerId: 10 })
+    const out = mergeOpsAndMessages(msgs, [userLocal, failureLocal], 42)
+    expect(out.map((e) => (e.kind === 'msg' ? `m${e.msg.id}` : e.op.op_id))).toEqual([
+      'm1',
+      'm5',
+      'm10',
+      'user_local',
+      'failure_local',
+    ])
+  })
+
+  it('multiple ops with different anchors slot independently', () => {
+    const msgs = [makeMsg(1), makeMsg(5), makeMsg(10)]
+    const opA = makeOp('opA', 42, { anchorAfterServerId: 1 })
+    const opB = makeOp('opB', 42, { anchorAfterServerId: 5 })
     const out = mergeOpsAndMessages(msgs, [opA, opB], 42)
-    expect(out).toHaveLength(5)
     expect(out.map((e) => (e.kind === 'msg' ? `m${e.msg.id}` : e.op.op_id))).toEqual([
       'm1',
       'opA',
@@ -194,41 +204,45 @@ describe('mergeOpsAndMessages — ORDERING regression (failure card position)', 
     ])
   })
 
-  it('legacy createdAt (epoch ms number) is honoured for ordering', () => {
-    // The live ThumbnailGenerator's local entries use `createdAt`
-    // (camelCase) instead of `created_at`. The merge function must
-    // accept both so a future migration of ops to the legacy shape
-    // doesn't silently regress ordering.
-    const msgs = [makeMsg(1), makeMsg(10)]
-    const opT = 1_700_000_000_000 + 5_000
-    const op = makeOp('legacy-stamp', 42, { created_at: undefined, createdAt: opT })
+  it('clock-skew immune: anchor wins even if op timestamp would slot it wrong', () => {
+    // Worst-case scenario: client clock is 1 hour BEHIND server clock.
+    // The op's ``created_at`` is hours older than every server entry.
+    // Timestamp-based slotting WOULD put the op at index 0; anchor
+    // slotting puts it where it belongs.
+    const msgs = [makeMsg(100), makeMsg(200), makeMsg(300)]
+    const op = makeOp('skewed', 42, {
+      anchorAfterServerId: 300,
+      created_at: 1_000_000_000_000, // 2001 — wildly behind server clock
+    })
     const out = mergeOpsAndMessages(msgs, [op], 42)
-    expect(out).toHaveLength(3)
-    expect(out[0].msg.id).toBe(1)
-    expect(out[1].op.op_id).toBe('legacy-stamp')
-    expect(out[2].msg.id).toBe(10)
+    expect(out).toHaveLength(4)
+    expect(out[3]).toEqual({ kind: 'op', op })
   })
 
-  it('op with missing timestamp falls through to tail-append (defensive)', () => {
-    const msgs = [makeMsg(1), makeMsg(2)]
-    const op = makeOp('no-stamp', 42, { created_at: undefined })
+  it('snake_case _anchorAfterServerId (legacy ThumbnailGenerator field) accepted', () => {
+    // The live ThumbnailGenerator's local entries use
+    // ``_anchorAfterServerId`` (underscore prefix). The merge function
+    // accepts both shapes so a future migration doesn't regress.
+    const msgs = [makeMsg(1), makeMsg(5)]
+    const op = makeOp('legacy-shape', 42, { _anchorAfterServerId: 1 })
     const out = mergeOpsAndMessages(msgs, [op], 42)
-    // Op has no chronological marker → append at end, matching
-    // legacy behaviour. Real ops always have a created_at.
-    expect(out).toHaveLength(3)
-    expect(out[2].op.op_id).toBe('no-stamp')
+    expect(out.map((e) => (e.kind === 'msg' ? `m${e.msg.id}` : e.op.op_id))).toEqual([
+      'm1',
+      'legacy-shape',
+      'm5',
+    ])
   })
 
-  it('failure folding still wins over timestamp slotting', () => {
+  it('failure folding wins over anchor slotting', () => {
     // When a server failure row matches an op's user_message_id,
     // failure folding takes precedence: the op renders at the
-    // failure's id-based position, NOT at the op's timestamp slot.
-    // This guards against an unintended regression where the new
-    // timestamp slotting overrides the failure-folding match.
+    // failure's id-based position, NOT at the anchor's position.
+    // Guards against the new code accidentally double-rendering an
+    // op that's both anchored AND server-bound.
     const op = makeOp('folded-op', 42, {
       status: 'failed',
       server_user_message_id: 100,
-      created_at: 1_700_000_000_000 - 999_000, // way older than every msg
+      anchorAfterServerId: 999, // would slot at end if anchor took over
     })
     const failure = makeMsg(101, 'assistant', 'sorry', {
       _kind: 'failure',
@@ -236,9 +250,9 @@ describe('mergeOpsAndMessages — ORDERING regression (failure card position)', 
     })
     const msgs = [makeMsg(100, 'user', 'try this'), failure, makeMsg(200, 'user', 'next')]
     const out = mergeOpsAndMessages(msgs, [op], 42)
-    // 100 suppressed (op covers it); op rendered at failure's
-    // position (id=101); failure with _skipUserBubble follows; id=200 last.
-    // Critically: op is NOT slotted at index 0 by its older timestamp.
+    // 100 suppressed (op covers it); op rendered at failure's id=101
+    // slot; failure with _skipUserBubble follows; id=200 last.
+    // Op rendered EXACTLY ONCE.
     expect(out).toHaveLength(3)
     expect(out[0].kind).toBe('op')
     expect(out[0].op.op_id).toBe('folded-op')

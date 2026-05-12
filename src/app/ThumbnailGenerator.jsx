@@ -2012,6 +2012,25 @@ function genLocalId(prefix) {
   return `${prefix}-${Date.now()}-${_localMsgSeq}`
 }
 
+/**
+ * Highest numeric server-message id in ``messages`` (or ``null`` when
+ * the array is empty / all entries have non-numeric ids). Stamped on
+ * local-only entries at push time as ``_anchorAfterServerId`` so the
+ * renderer can slot them immediately after that anchor — clock-skew-
+ * proof ordering because server ids are monotone increasing within
+ * a conversation.
+ */
+function _maxServerIdIn(messages) {
+  if (!Array.isArray(messages) || messages.length === 0) return null
+  let max = null
+  for (const m of messages) {
+    if (!m) continue
+    const id = typeof m.id === 'number' ? m.id : Number(m.id)
+    if (Number.isFinite(id) && (max == null || id > max)) max = id
+  }
+  return max
+}
+
 function ThumbnailLightbox({ url, onClose }) {
   useEffect(() => {
     const onKey = (e) => {
@@ -2127,6 +2146,19 @@ export function ThumbnailGenerator({
   // dedupe. Submit handlers commit the (user_message, assistant_message)
   // pair returned by the chat endpoint atomically.
   const [messages, setMessages] = useState([])
+  // Synchronous mirror of ``messages`` so push helpers (which run
+  // inside ``useCallback`` with empty deps for stability) can read
+  // the latest server-message list WITHOUT taking it as a dep. Used
+  // by ``pushFailureEntry`` and ``pushLocalAssistantMessage`` to
+  // stamp ``_anchorAfterServerId`` at push time — the highest
+  // server-id known at that moment. The renderer uses that anchor
+  // to slot the local entry immediately after the corresponding
+  // server message, never relying on wall-clock time (the previous
+  // timestamp-based slotting broke under client/server clock skew).
+  const messagesRef = useRef(messages)
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
   // Local-only thread for flows that don't write through the chat endpoint:
   // recreate (regenerateWithPersona) and analyze (rate). These don't have
   // a server record so we keep them in a separate bucket — they survive
@@ -2983,62 +3015,70 @@ export function ThumbnailGenerator({
       result.push(m)
     }
     // Hardening pass: place local entries that don't have a server
-    // twin yet into their CHRONOLOGICAL slot, not at the end of the
-    // list. The previous code appended every unconsumed local entry
-    // after every server message — fine for the brand-new-chat case
-    // (no server messages yet), broken the moment a failure card
-    // lands AFTER older server messages. The user reported a
-    // failure card appearing at the bottom of the list / above
-    // unrelated messages while ``appendEvent`` was still in flight
-    // (or had failed permanently). Sorting by timestamp closes that
-    // window — every entry has a chronological marker, so insertion
-    // position is deterministic regardless of which array the
-    // entry came from.
-    const entryTimestamp = (entry) => {
-      if (!entry) return null
-      // Server messages carry an ISO ``created_at`` field.
-      if (entry.created_at != null) {
-        const t = new Date(entry.created_at).getTime()
-        return Number.isFinite(t) ? t : null
-      }
-      // Local optimistic / failure entries carry an epoch-ms
-      // ``createdAt`` field stamped at push time.
-      if (entry.createdAt != null) {
-        const n = Number(entry.createdAt)
-        return Number.isFinite(n) ? n : null
-      }
-      return null
-    }
+    // twin yet into the CHRONOLOGICAL slot determined by their
+    // ``_anchorAfterServerId`` (snapshotted at push time — the
+    // highest server-message id known when the local entry was
+    // pushed). This is the bug-prevention contract:
+    //
+    //   * Server ids are monotone increasing within a conversation.
+    //     If a local entry was pushed when the latest server id was
+    //     N, it MUST render after the server entry with id=N and
+    //     before any server entry with id > N. No exceptions.
+    //
+    //   * Wall-clock time is NOT used. The previous timestamp-based
+    //     slotting broke under client/server clock skew — a local
+    //     failure with ``createdAt = Date.now()`` from a client
+    //     whose clock ran behind the server's would have an
+    //     "older" timestamp than every prior server failure (whose
+    //     ``createdAt`` came from server time), and slot at the
+    //     TOP of the list. This anchor approach uses the server's
+    //     own id sequence, which doesn't drift.
+    //
+    //   * Multiple locals with the same anchor preserve their
+    //     ``localOnlyMessages`` insertion order (user_local then
+    //     local_failure). The grouping below maintains this.
+    //
+    //   * Locals whose anchor isn't in the current result (rare —
+    //     conversation reset, hard-refresh during in-flight push)
+    //     fall through to tail-append. Same safe fallback as the
+    //     defensive path in the old code.
 
+    // Group unconsumed locals by their anchor id, in insertion order.
+    const localsByAnchor = new Map()
+    const orphanLocals = []
     for (const m of visibleLocalOnly) {
       if (consumedLocalIds.has(m.id)) continue
-      const t = entryTimestamp(m)
-      // Walk back from the tail to find the last result entry whose
-      // chronological marker is older-or-equal to this local entry.
-      // The local entry slots immediately after it. Entries without
-      // a timestamp (defensive — shouldn't happen in practice) fall
-      // through to the end-of-list append, matching the legacy
-      // behaviour for that edge case.
-      let insertAt = result.length
-      if (t != null) {
-        for (let i = result.length - 1; i >= 0; i--) {
-          const rt = entryTimestamp(result[i])
-          if (rt == null) continue
-          if (rt <= t) {
-            insertAt = i + 1
-            break
-          }
-          // rt > t — this server entry is NEWER than the local entry,
-          // so the local entry belongs BEFORE this position. Keep
-          // walking back to find the right slot. ``insertAt`` updated
-          // to ``i`` so we land just BEFORE the newer entry if we
-          // never find an older one.
-          insertAt = i
-        }
+      const anchor = m._anchorAfterServerId
+      if (anchor == null) {
+        orphanLocals.push(m)
+        continue
       }
-      result.splice(insertAt, 0, m)
+      if (!localsByAnchor.has(anchor)) localsByAnchor.set(anchor, [])
+      localsByAnchor.get(anchor).push(m)
     }
-    return result
+
+    // Walk the result list once. After emitting each server entry,
+    // append any locals anchored after its id. The result is a
+    // single sweep, O(n), insertion-order preserving.
+    const final = []
+    for (const e of result) {
+      final.push(e)
+      const eid = e && typeof e.id === 'number' ? e.id : null
+      if (eid != null && localsByAnchor.has(eid)) {
+        for (const local of localsByAnchor.get(eid)) final.push(local)
+        localsByAnchor.delete(eid)
+      }
+    }
+    // Locals whose anchor is null (brand-new chat) → tail append.
+    for (const m of orphanLocals) final.push(m)
+    // Locals whose anchor id wasn't found in the result list (the
+    // anchor server message was dropped — e.g. conversation refetch
+    // returned a different slice). Tail append in their insertion
+    // order so they don't get silently lost.
+    for (const arr of localsByAnchor.values()) {
+      for (const m of arr) final.push(m)
+    }
+    return final
   }, [messages, localOnlyMessages, conversationId])
 
   // Latch: once we've EVER rendered a message in this mount, the empty
@@ -3381,6 +3421,15 @@ export function ThumbnailGenerator({
     // by `handleConversationCreated` further down). Numeric ids are
     // stable across the rest of the entry's lifetime.
     const pinnedConvId = conversationIdRef.current
+    // Compute a server-id anchor: the highest numeric id in the
+    // server-canonical message list at this exact moment. The
+    // renderer slots this local entry IMMEDIATELY AFTER that anchor's
+    // position — clock-skew-proof because server ids are monotone
+    // increasing per conversation. ``null`` when no server messages
+    // exist yet (brand-new chat); in that case the renderer
+    // tail-appends, which is the correct position because there's
+    // nothing else in the conversation.
+    const anchorAfter = _maxServerIdIn(messagesRef.current)
     setLocalOnlyMessages((prev) => [
       ...prev,
       {
@@ -3389,6 +3438,7 @@ export function ThumbnailGenerator({
         content: userContent,
         imageUrl: assistant.userImageUrl || null,
         _conversationId: pinnedConvId,
+        _anchorAfterServerId: anchorAfter,
         _optimistic: true,
       },
       {
@@ -3425,6 +3475,7 @@ export function ThumbnailGenerator({
         _promptMode: assistant._promptMode || null,
         _promptCount: assistant._promptCount || null,
         _conversationId: pinnedConvId,
+        _anchorAfterServerId: anchorAfter,
         _optimistic: true,
       },
     ])
@@ -3561,6 +3612,14 @@ export function ThumbnailGenerator({
         // render filter shows it only when the user is back on this
         // conversation.
         _conversationId: conversationIdRef.current,
+        // Server-id anchor: snapshot the highest server message id at
+        // this exact moment. The renderer slots this local failure
+        // immediately after that anchor's position. Clock-skew-proof
+        // (server ids are monotone increasing); replaces the previous
+        // wall-clock-based slotting that could put a failure at the
+        // TOP of the list when the client clock ran behind the
+        // server clock.
+        _anchorAfterServerId: _maxServerIdIn(messagesRef.current),
       }
       setLocalOnlyMessages((prev) => [...prev, localEntry])
 

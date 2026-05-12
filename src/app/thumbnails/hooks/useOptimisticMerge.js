@@ -62,35 +62,6 @@
  */
 
 /**
- * Server messages carry ISO ``created_at`` strings; ops carry epoch-ms
- * ``created_at`` numbers. Normalise both to epoch ms so the
- * chronological-position sort doesn't drift on string-vs-number
- * comparisons. Returns ``null`` when the entry has no usable marker
- * (defensive — every real entry has one in production).
- *
- * @param {ServerMessage|OptimisticOp} entry
- * @returns {number|null}
- */
-function entryTimestamp(entry) {
-  if (!entry) return null
-  if (typeof entry.created_at === 'string') {
-    const t = new Date(entry.created_at).getTime()
-    return Number.isFinite(t) ? t : null
-  }
-  if (entry.created_at != null) {
-    const n = Number(entry.created_at)
-    return Number.isFinite(n) ? n : null
-  }
-  // Legacy `createdAt` field on optimistic ops (matches the live
-  // ThumbnailGenerator's local-entry shape).
-  if (entry.createdAt != null) {
-    const n = Number(entry.createdAt)
-    return Number.isFinite(n) ? n : null
-  }
-  return null
-}
-
-/**
  * Merge `serverMessages` (id-sorted ascending) and `ops` into a single
  * ordered render list, scoped to `conversationId`.
  *
@@ -108,12 +79,25 @@ function entryTimestamp(entry) {
  *      renders the op + failure as a paired entry (drops the
  *      failure card's internal user bubble).
  *
- *   4. Ops that have NO matching server twin yet (still submitting,
- *      or an `appendEvent` for a failure card hasn't returned) slot
- *      into the result list at their CHRONOLOGICAL position by
- *      `created_at`, NOT at the end. This is the fix for the
- *      "failure card appears at the bottom while appendEvent is
- *      in flight" bug.
+ *   4. Ops that have NO matching server twin yet slot into the result
+ *      list IMMEDIATELY AFTER their ``anchorAfterServerId`` — the
+ *      highest server-message id known at the moment the op was
+ *      pushed. Multiple ops with the same anchor stack in their
+ *      push order.
+ *
+ *      Wall-clock timestamps are NOT used for ordering. Server ids
+ *      are monotone increasing per conversation, so they're a
+ *      drift-proof anchor. Timestamp-based slotting broke under
+ *      client/server clock skew — a local op stamped with
+ *      ``Date.now()`` on a client whose clock ran behind the server
+ *      would have an "older" timestamp than every prior server
+ *      entry and slot at the TOP of the list.
+ *
+ *      Ops with no anchor (brand-new chat — no server messages yet)
+ *      tail-append. Ops whose anchor id isn't in the current server
+ *      list (rare — conversation reset) also tail-append. Neither
+ *      fallback can produce an out-of-order render because both
+ *      paths land the op after every visible server entry.
  *
  * @param {ServerMessage[]} serverMessages
  * @param {OptimisticOp[]} ops
@@ -148,7 +132,7 @@ export function mergeOpsAndMessages(serverMessages, ops, conversationId) {
   }
 
   /** @type {RenderEntry[]} */
-  const out = []
+  const intermediate = []
   const consumed = new Set()
 
   for (const m of safeMsgs) {
@@ -168,41 +152,56 @@ export function mergeOpsAndMessages(serverMessages, ops, conversationId) {
     if (m._kind === 'failure' && m._userMessageId != null) {
       const op = userIdToOp.get(Number(m._userMessageId))
       if (op && !consumed.has(op.op_id)) {
-        out.push({ kind: 'op', op })
+        intermediate.push({ kind: 'op', op })
         consumed.add(op.op_id)
-        out.push({ kind: 'msg', msg: { ...m, _skipUserBubble: true } })
+        intermediate.push({ kind: 'msg', msg: { ...m, _skipUserBubble: true } })
         continue
       }
     }
 
-    out.push({ kind: 'msg', msg: m })
+    intermediate.push({ kind: 'msg', msg: m })
   }
 
-  // Slot any remaining ops into their CHRONOLOGICAL position. Walking
-  // back from the tail finds the rightmost result entry whose
-  // timestamp is older-or-equal to this op's timestamp — the op
-  // belongs immediately after it. If every existing result entry is
-  // newer (op predates them all, e.g. brand-new chat surface), the
-  // op slots at index 0. Entries without a usable timestamp fall
-  // through to a tail-append matching the legacy behaviour for that
-  // defensive edge case.
+  // Group unconsumed ops by their anchor id, preserving insertion
+  // order so multiple ops with the same anchor (typical for a
+  // user_local + failure_local pair) stack correctly.
+  const opsByAnchor = new Map()
+  const orphanOps = []
   for (const op of visibleOps) {
     if (consumed.has(op.op_id)) continue
-    const opT = entryTimestamp(op)
-    let insertAt = out.length
-    if (opT != null) {
-      for (let i = out.length - 1; i >= 0; i--) {
-        const entry = out[i].kind === 'op' ? out[i].op : out[i].msg
-        const rt = entryTimestamp(entry)
-        if (rt == null) continue
-        if (rt <= opT) {
-          insertAt = i + 1
-          break
-        }
-        insertAt = i
-      }
+    const anchor =
+      op.anchorAfterServerId != null
+        ? Number(op.anchorAfterServerId)
+        : op._anchorAfterServerId != null
+          ? Number(op._anchorAfterServerId)
+          : null
+    if (anchor == null || !Number.isFinite(anchor)) {
+      orphanOps.push(op)
+      continue
     }
-    out.splice(insertAt, 0, { kind: 'op', op })
+    if (!opsByAnchor.has(anchor)) opsByAnchor.set(anchor, [])
+    opsByAnchor.get(anchor).push(op)
+  }
+
+  // Single-pass merge. After each server entry, emit any ops anchored
+  // after it. Ops never appear between server entries with adjacent
+  // ids — the anchor pin guarantees position determinism.
+  const out = []
+  for (const e of intermediate) {
+    out.push(e)
+    const eid = e.kind === 'msg' && typeof e.msg.id === 'number' ? e.msg.id : null
+    if (eid != null && opsByAnchor.has(eid)) {
+      for (const op of opsByAnchor.get(eid)) out.push({ kind: 'op', op })
+      opsByAnchor.delete(eid)
+    }
+  }
+  // Orphan ops (no anchor — brand-new chat) tail-append in push order.
+  for (const op of orphanOps) out.push({ kind: 'op', op })
+  // Ops whose anchor server id wasn't in the result list (the anchor
+  // row was dropped, e.g. conversation refetch returned a different
+  // slice). Tail-append rather than silently losing them.
+  for (const arr of opsByAnchor.values()) {
+    for (const op of arr) out.push({ kind: 'op', op })
   }
 
   return out
