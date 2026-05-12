@@ -482,18 +482,21 @@
 /* Full-panel centered history load */
 .coach-thread--history-loading {
   /* The history-loading state is a single Lottie animation centered
-   * in the thread area (see ChatHistorySkeleton). Vertically center
-   * the loader along the main axis so the animation sits in the
-   * middle of the visible chat space, with breathing room top/bottom
-   * for the floating composer + sticky tabbar.
+   * in the thread area (see ChatHistorySkeleton). The child loader is
+   * content-sized; `justify-content: center` along the column main
+   * axis places it at the vertical middle of the thread's content
+   * box.
    *
-   * Bottom padding matches the base `.coach-thread` (~6.25rem) so
-   * the centered loader doesn't sit underneath the fixed composer
-   * stack — the visible center, not the geometric center. */
+   * Padding is intentionally balanced (and modest) so the geometric
+   * center of the thread coincides with the visible center of the
+   * chat area. The floating composer overlays the bottom of the
+   * viewport but sits OUTSIDE this scroll container, so we don't
+   * need to inflate `padding-bottom` to clear it — that's what was
+   * pushing the loader off-center upward. */
   justify-content: center;
   align-items: center;
-  padding-top: clamp(1.5rem, 6vh, 3rem);
-  padding-bottom: clamp(6.25rem, 14vh, 8rem);
+  padding-top: clamp(1rem, 3vh, 2rem);
+  padding-bottom: clamp(1rem, 3vh, 2rem);
   gap: 0;
 }
 

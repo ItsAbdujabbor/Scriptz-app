@@ -7,15 +7,14 @@
  */
 
 .chat-loader {
-  display: flex;
+  /* Content-sized box. The parent (`.coach-thread--history-loading`)
+   * uses `justify-content: center; align-items: center;` to place this
+   * small box at the visible center of the chat area — letting flex
+   * do the centering means we don't fight a 50vh min-height or a
+   * flex-grow stretch that would offset the lottie upward. */
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  /* Fill most of the visible thread height so the animation reads as
-   * intentional and centered, not floating in the corner. */
-  flex: 1;
-  min-height: 50vh;
-  margin: 0 auto;
   opacity: 0;
   animation: chat-loader-fade-in 280ms cubic-bezier(0.25, 1, 0.5, 1) 40ms forwards;
   transition:
