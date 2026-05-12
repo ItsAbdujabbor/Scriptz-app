@@ -270,8 +270,13 @@ export function ProPricingContent({ onStartTrial }) {
     const hash = window.location.hash || ''
     if (!hash.includes('checkout=success')) return
     refreshBillingState(queryClient)
-    // Cover the deep-link case where the user lands on this URL without
-    // going through CheckoutScreen (e.g. clicked a Paddle email link).
+    // Call store.start() directly instead of dispatching the window
+    // event — React effect order fires children before parents, so
+    // dispatching here would lose the race against AppShellLayout's
+    // ActivationListener subscribe-effect. start() goes straight to
+    // the Zustand store, which is order-independent. We still
+    // dispatch the event so any other in-tree listener still fires.
+    useSubscriptionActivationStore.getState().start()
     window.dispatchEvent(new CustomEvent('app:checkout-completed'))
     const cleanHash = hash.replace(/[?&]checkout=success/g, '')
     const newHash = cleanHash.endsWith('?') ? cleanHash.slice(0, -1) : cleanHash

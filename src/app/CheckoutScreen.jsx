@@ -28,6 +28,7 @@ import { openPaddleInlineCheckout } from '../lib/paddle'
 import { refreshBillingState } from '../queries/billing/creditsQueries'
 import { queryKeys } from '../lib/query/queryKeys'
 import { friendlyMessage } from '../lib/aiErrors'
+import { useSubscriptionActivationStore } from '../stores/subscriptionActivationStore'
 import './CheckoutScreen.css'
 
 const SESSION_KEY = 'clixa_checkout_session'
@@ -176,10 +177,22 @@ export function CheckoutScreen({ onClose }) {
           // and reconciles the optimistic data with the server's truth.
           refreshBillingState(queryClient)
 
-          // Kick the user app into activation-burst mode so the next
-          // `useSubscriptionQuery` poll runs every 1 s instead of 15 s.
-          // ActivationListener catches this event and starts the burst
-          // + the immediate /sync backstop.
+          // Kick the activation store into burst mode IMMEDIATELY via
+          // the Zustand store, not via a window event. CheckoutScreen
+          // renders without AppShellLayout (see App.jsx ~L496), so
+          // `<ActivationListener>` isn't mounted right now and any
+          // window event we dispatch goes into the void. Calling
+          // store.start() directly bypasses the event listener entirely
+          // — the burst-mode flag + /sync fire-now logic persist in
+          // Zustand state across the redirect to /pro, so when the
+          // splash mounts (inside AppShellLayout on /pro) a moment
+          // later it reads isPending=true and shows "Activating your
+          // subscription…" without the race-y window-event handoff.
+          //
+          // We still dispatch the window event for any in-tree
+          // listener that might exist (PaymentProcessingBanner etc.)
+          // and as defense-in-depth for deep-link cases.
+          useSubscriptionActivationStore.getState().start()
           window.dispatchEvent(new CustomEvent('app:checkout-completed'))
 
           // 400 ms (was 1200 ms) — short enough that the user feels
