@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from './stores/authStore'
 import { BannedScreen } from './auth/BannedScreen'
@@ -201,6 +201,16 @@ function App() {
   // Briefly show a centered welcome screen after auth lands but BEFORE
   // we route to thumbnails. Boolean: true = splash visible.
   const [showWelcomeSplash, setShowWelcomeSplash] = useState(false)
+  // Sticky flag: did we mount on an OAuth callback URL (`?code=...`)?
+  // Captured ONCE at first render so the post-exchange routing in the
+  // ensureSession `.then` block can decide unambiguously whether to show
+  // the welcome splash. We can't rely on `authDialogOpen` for this — the
+  // auto-flip effect that mirrors `authDialogOpen` off `view` (line ~290)
+  // races the ensureSession promise and, in dev StrictMode, the effect's
+  // closure can already see `authDialogOpen=false` by the time `.then`
+  // fires, dropping the user on the landing page instead of routing
+  // them into the thumbnail generator.
+  const wasOAuthCallbackRef = useRef(urlIsOAuthCallback())
   const accessToken = useAuthStore((s) => s.accessToken)
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
@@ -251,15 +261,18 @@ function App() {
           setView('banned')
           return
         }
-        if (token && !hash) {
-          if (authDialogOpen) {
-            // Came from the auth dialog (regular open or OAuth callback).
-            // Hand off to the welcome splash inline — the separate effect
-            // races with the batched setSessionChecked/oauthCallbackPending
-            // updates here and can miss the window when the callback URL
-            // had no hash, leaving the user stranded on the landing page.
+        if (token) {
+          // OAuth round-trip just landed (`?code=...` on initial mount)
+          // — ALWAYS hand off to the welcome splash, which routes the
+          // user into the thumbnail generator. We branch on the sticky
+          // `wasOAuthCallbackRef` rather than `authDialogOpen`, because
+          // the auto-flip effect (line ~290) can have already cleared
+          // `authDialogOpen` by the time this `.then` fires; relying on
+          // it left users on the landing page in dev StrictMode.
+          if (wasOAuthCallbackRef.current) {
+            wasOAuthCallbackRef.current = false
             setShowWelcomeSplash(true)
-          } else {
+          } else if (!hash) {
             // Returning user with a saved session, no dialog, no callback.
             // Skip the splash and route straight in.
             window.location.hash = 'thumbnails'
@@ -347,13 +360,24 @@ function App() {
     }
   }, [sessionChecked, accessToken, view, authDialogOpen, oauthCallbackPending, showWelcomeSplash])
 
-  const completeWelcomeSplash = () => {
-    setShowWelcomeSplash(false)
-    setAuthDialogOpen(false)
-    setOauthCallbackPending(false)
-    window.location.hash = 'thumbnails'
-    setView('thumbnails')
-  }
+  // Stable ref so AuthSuccessSplash's `useEffect([durationMs, onDone])`
+  // doesn't tear down + restart its 1.1s timer every time App re-renders.
+  // A non-stable callback ref was making the timer reset on every
+  // ambient render (subscription cache fill, theme change, etc.) and
+  // the splash could appear "stuck" indefinitely.
+  const completeWelcomeSplashRef = useRef(null)
+  useEffect(() => {
+    completeWelcomeSplashRef.current = () => {
+      setShowWelcomeSplash(false)
+      setAuthDialogOpen(false)
+      setOauthCallbackPending(false)
+      window.location.hash = 'thumbnails'
+      setView('thumbnails')
+    }
+  })
+  const completeWelcomeSplash = useCallback(() => {
+    completeWelcomeSplashRef.current?.()
+  }, [])
 
   useLayoutEffect(() => {
     if (!accessToken || user?.role !== 'banned') return

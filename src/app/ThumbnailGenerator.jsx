@@ -3745,6 +3745,20 @@ export function ThumbnailGenerator({
     const activeConversationId = await ensureConversationId(conversationId)
     if (activeConversationId) startPending(activeConversationId)
 
+    // Mint ONE idempotency key per user submission and pass it through the
+    // mutation. /chat/submit caches its response under this key, so even if
+    // the mutation fires twice for the same intent (StrictMode dev replay,
+    // a transport-layer retry, or any future race we miss), the backend
+    // returns the cached submission instead of minting a second conversation.
+    // Without this every call to `thumbnailsApi.chat` rolled a fresh key and
+    // the duplicate manifested as one "complete" chat + one stub chat that
+    // only had the user_message (its worker job had been queued but the
+    // tab never picked up its result).
+    const submitIdempotencyKey =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `submit-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
+
     try {
       if (promptImageDataUrl) {
         // Whole-image edit doesn't go through the chat endpoint. Patch
@@ -3767,6 +3781,7 @@ export function ThumbnailGenerator({
           persona_id: selectedPersonaId || undefined,
           style_id: selectedStyleId || undefined,
           channel_id: channelId || undefined,
+          _idempotencyKey: submitIdempotencyKey,
         })
         // Patch the in-place placeholder with the server result first
         // (loader → thumbnails crossfade in the same card), then bind
@@ -4002,6 +4017,12 @@ export function ThumbnailGenerator({
         _promptCount: 1,
       })
       setPendingAssistant(true)
+      // Stable per-submit idempotency key — see handleSubmit for the
+      // duplicate-conversation bug this guards against.
+      const submitIdempotencyKey =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `regen-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
       try {
         const result = await chatMutation.mutateAsync({
           message: userRequest,
@@ -4010,6 +4031,7 @@ export function ThumbnailGenerator({
           persona_id: selectedPersonaId || undefined,
           style_id: selectedStyleId || undefined,
           channel_id: channelId || undefined,
+          _idempotencyKey: submitIdempotencyKey,
         })
         const thumbnails = result?.thumbnails || []
         const assistantContent =

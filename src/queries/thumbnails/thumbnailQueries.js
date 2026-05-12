@@ -232,7 +232,18 @@ export function useThumbnailChatMutation(onConversationCreated) {
     mutationFn: async (payload) => {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Not authenticated')
-      return thumbnailsApi.chat(token, payload)
+      // Strip the per-submit idempotency key out of the payload (it's not
+      // a backend field) and forward it to the transport layer so /chat/submit
+      // gets a STABLE Idempotency-Key across any double-invoke of the
+      // mutation. Without this, every call into `thumbnailsApi.chat` minted
+      // a fresh key and the backend's idempotency cache treated retries as
+      // distinct submissions — creating duplicate conversations (one with
+      // a full pair, the second with just the user_message because its
+      // worker either hadn't run yet or got dropped). See handleSubmit
+      // in ThumbnailGenerator.jsx for the call-site contract.
+      const { _idempotencyKey, ...rest } = payload || {}
+      const fetchInit = _idempotencyKey ? { options: { idempotencyKey: _idempotencyKey } } : {}
+      return thumbnailsApi.chat(token, rest, fetchInit)
     },
     onMutate: ({ conversation_id }) => {
       // Optimistically flip the row to is_pending=true so the sidebar
