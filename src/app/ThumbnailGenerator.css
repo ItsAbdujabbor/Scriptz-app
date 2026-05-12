@@ -5211,15 +5211,28 @@
  *      anchored to the top-right corner of the circle.
  * ────────────────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  /* — Top tab row: shrink chips, tighten gap, allow wrap if needed — */
+  /* — Top tab row: stack the two pill groups so Link/Upload sits ABOVE
+   * the mode tabs (Prompt / Recreate / Analyze / Title / Edit) on
+   * phones. Side-by-side with `space-between` either crammed both
+   * groups onto one cramped line or wrapped Link/Upload BELOW the
+   * mode tabs, which read as a footer to the wrong thing. Stacking
+   * with `column-reverse` flips the JSX order so the source sub-tabs
+   * (which are rendered AFTER the mode tabs in markup) land on top,
+   * directly above the composer's prompt field — same pattern the
+   * desktop layout reads as "context for the input below". */
   #coach-panel-thumbnails .thumb-gen-tab-row {
     width: 100%;
-    gap: 0.35rem;
     margin-bottom: 0.4rem;
     padding: 0 0.3rem;
-    flex-wrap: wrap;
+    flex-direction: column-reverse;
+    align-items: center;
+    gap: 0.35rem;
   }
   #coach-panel-thumbnails .thumb-gen-pill-tab-group {
+    /* Each row centers its own chips — was inheriting flex-start /
+     * flex-end from the desktop space-between layout. */
+    justify-content: center;
+    flex-wrap: wrap;
     gap: 0.3rem;
   }
   /* Re-target both copies of the pill rule (one in ThumbPillTabs.css, one
