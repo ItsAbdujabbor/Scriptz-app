@@ -4475,9 +4475,18 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  /* Outer dimensions match the composer below (`.coach-main--thumb
+   * .coach-composer`) so the tabbar sits in the same 780px column.
+   * The inner padding mirrors the composer's `0.85rem` horizontal
+   * padding so the leftmost chip aligns optically with the composer's
+   * placeholder text and the rightmost chip aligns with the send pill
+   * — they read as one stacked component instead of two boxes with
+   * mismatched gutters. */
   width: min(780px, calc(100% - 1.5rem));
   max-width: 100%;
-  margin: 0 auto 0.55rem;
+  margin: 0 auto 0.6rem;
+  padding: 0 0.85rem;
+  box-sizing: border-box;
   background: transparent;
   /* Parent `.thumb-gen-footer-chrome` is pointer-events: none so the
    * empty areas stay click-through; the tabbar needs auto to receive
@@ -4518,26 +4527,34 @@
  *
  * No entrance animation, no shine sweep — the active tab sits still
  * so focus stays on the composer below. */
-.thumb-gen-pill-tab {
+/* Scoped to the thumbnail tab-row only — `.thumb-gen-tab-row` parent
+ * gives the rule specificity 0,2,0 which beats the un-scoped base
+ * style in `ThumbPillTabs.css` (0,1,0) regardless of CSS load order,
+ * AND leaves the Pro screen's monthly/annual toggle (also `ThumbPillTabs`,
+ * but rendered outside `.thumb-gen-tab-row`) untouched. */
+.thumb-gen-tab-row .thumb-gen-pill-tab {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  height: 34px;
-  padding: 0 14px;
+  gap: 0.45rem;
+  height: 32px;
+  padding: 0 13px;
   box-sizing: border-box;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  /* Quieter resting state — hairline border drops from white-14 to
+   * white-08 and the body loses its gradient sheen. Reads as
+   * recessive against the composer's solid card below, so the active
+   * chip becomes the only thing pulling focus. */
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 100%), #23232d;
-  color: rgba(229, 231, 235, 0.78);
+  background: rgba(255, 255, 255, 0.025);
+  color: rgba(229, 231, 235, 0.7);
   font-family:
     'Poppins',
     system-ui,
     -apple-system,
     sans-serif;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: 0;
   line-height: 1;
@@ -4545,27 +4562,22 @@
   white-space: nowrap;
   outline: none;
   -webkit-tap-highlight-color: transparent;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
-    0 1px 0 rgba(0, 0, 0, 0.3);
+  /* Single hairline inner highlight — kills the two-line inset that
+   * was making the chip look like a deboss. */
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.05);
   transition:
-    background 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-    color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+    background 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.14s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.thumb-gen-pill-tab:hover {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 100%), #2c2c38;
-  border-color: rgba(255, 255, 255, 0.24);
+.thumb-gen-tab-row .thumb-gen-pill-tab:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
   color: #ffffff;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
-    0 1px 0 rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* Active mode chip — actual styling lives in `ThumbPillTabs.css` plus
