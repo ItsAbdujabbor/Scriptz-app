@@ -1458,14 +1458,21 @@
   z-index: 20;
   /* Bottom padding lifts the bar off the screen edge so the dark
      fade + violet halo behind it have room to read. Safe-area inset
-     stacks on top for iOS home-bar / notch devices. */
-  /* Bottom padding stack: home-bar safe-area + the visual-viewport
-   * keyboard delta exposed by the visualViewport effect in
-   * ThumbnailGenerator.jsx. When the soft keyboard opens on mobile,
-   * `--clixa-keyboard-px` lifts the composer above it so the textarea
-   * stays visible. The composer's transform isn't touched — only its
-   * padding-bottom — so layout above stays stable. */
-  padding: 0.5rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px) + var(--clixa-keyboard-px, 0px));
+     stacks on top for iOS home-bar / notch devices.
+     Bottom padding stack: home-bar safe-area + the visual-viewport
+     keyboard delta exposed by the visualViewport effect in
+     ThumbnailGenerator.jsx. When the soft keyboard opens on mobile,
+     `--clixa-keyboard-px` lifts the composer above it so the textarea
+     stays visible. The composer's transform isn't touched — only its
+     padding-bottom — so layout above stays stable.
+     Horizontal padding is 0 — the tab row and composer inside both
+     use `min(780px, calc(100% - 1.5rem))` to self-constrain. Adding
+     chrome-level horizontal padding would compound and produce a
+     different rendered width in the populated state vs the empty
+     state (where chrome is overridden to `padding: 0`). Zero here
+     guarantees the input bar + tab row have the SAME width in both
+     states, so the first-message send doesn't visually jump. */
+  padding: 0.5rem 0 calc(1rem + env(safe-area-inset-bottom, 0px) + var(--clixa-keyboard-px, 0px));
   margin: 0;
   pointer-events: none;
   display: flex;
@@ -5219,11 +5226,17 @@
    * with `column-reverse` flips the JSX order so the source sub-tabs
    * (which are rendered AFTER the mode tabs in markup) land on top,
    * directly above the composer's prompt field — same pattern the
-   * desktop layout reads as "context for the input below". */
+   * desktop layout reads as "context for the input below".
+   *
+   * Width + horizontal padding intentionally match the base rule
+   * (`min(780px, calc(100% - 1.5rem))` + `padding: 0 0.85rem`) so the
+   * tab-row's outer edges line up exactly with the composer card
+   * below it AND its inner edges line up with the composer's content
+   * (placeholder + send pill). Same alignment in empty + populated
+   * states — no width jump when the user sends the first message
+   * and the empty cluster collapses to the sticky composer. */
   #coach-panel-thumbnails .thumb-gen-tab-row {
-    width: 100%;
     margin-bottom: 0.4rem;
-    padding: 0 0.3rem;
     flex-direction: column-reverse;
     align-items: center;
     gap: 0.35rem;
