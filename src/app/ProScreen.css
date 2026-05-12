@@ -333,6 +333,18 @@
   display: flex;
   flex-direction: column;
   gap: clamp(2.25rem, 5vh, 3.5rem);
+  /* `box-sizing: border-box` so the declared 100% width is INCLUSIVE
+   * of the horizontal padding — without it, the inner box paints
+   * `100% + padding*2` wide and the rightmost rem or two extends
+   * past the viewport, which is what was making the FAQ items hang
+   * off the right edge on mobile. */
+  box-sizing: border-box;
+  /* Defensive overflow clip — any descendant that tries to be wider
+   * than the inner (e.g. a long unbreakable string, an image without
+   * max-width) gets cut off cleanly instead of pushing the whole
+   * column right of viewport center. */
+  min-width: 0;
+  overflow-x: clip;
 }
 
 /* ── Hero ─────────────────────────────────────────────────────────── */
@@ -1274,10 +1286,24 @@
  * the canonical landing styles. */
 .pro-faq-wrap {
   margin-top: 2.5rem;
+  /* Flex item defaults to `min-width: auto`, so its width is dictated
+   * by its content's intrinsic min size. Without overriding that, a
+   * single un-breakable line inside the landing FAQ could push this
+   * wrapper wider than `.pro-screen-inner`'s content area, dragging
+   * the whole FAQ section off the right edge of the viewport. */
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .pro-faq-wrap .faq-section {
   padding: 0;
   background: transparent;
+  /* Match the wrapper's constraints so the landing FAQ section
+   * doesn't introduce its own width contributions. */
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 .pro-faq-wrap .faq-section::before {
   display: none;
@@ -1285,7 +1311,21 @@
 .pro-faq-wrap .faq-inner {
   padding: 0;
   max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
 }
 .pro-faq-wrap .faq-header {
   margin-bottom: 1.75rem;
+}
+/* Accordion items: explicit `box-sizing` + `max-width: 100%` so the
+ * 1px border + 1.4rem horizontal padding don't push their painted
+ * width past the parent and clip off the right side of the screen
+ * on phones. */
+.pro-faq-wrap .faq-list,
+.pro-faq-wrap .faq-item,
+.pro-faq-wrap .faq-q,
+.pro-faq-wrap .faq-a {
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
