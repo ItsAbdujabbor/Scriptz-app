@@ -296,12 +296,21 @@ export function ProPricingContent({ onStartTrial }) {
     if (checkoutLoading === plan.tier) return 'Loading…'
     if (isCurrentTier(plan.tier)) return 'Current plan'
     if (!user) return 'Start free trial'
-    if (hasActiveSub) {
+    // Admin-granted users get the no-active-sub copy because their plan
+    // isn't on Paddle — clicking "Upgrade" actually runs a fresh checkout,
+    // not a change-plan PATCH.
+    const onPaddleSub = hasActiveSub && !subscription?.is_admin_granted
+    if (onPaddleSub) {
       const rank = { starter: 0, creator: 1, ultimate: 2 }
       const isUpgrade = (rank[plan.tier] ?? 0) > (rank[activeTier] ?? 0)
       return isUpgrade ? `Upgrade to ${plan.name}` : `Switch to ${plan.name}`
     }
-    return `Choose ${plan.name}`
+    // No real subscription yet (free user OR admin-granted). If the
+    // backend says they've never had a Paddle sub, the plan still
+    // offers a free trial; otherwise they're a returning user who's
+    // already used their trial allowance, so we skip the trial copy.
+    if (subscription?.trial_eligible !== false) return 'Start free trial'
+    return `Subscribe to ${plan.name}`
   }
 
   const handleCta = async (plan) => {
@@ -322,7 +331,13 @@ export function ProPricingContent({ onStartTrial }) {
     setCheckoutLoading(plan.tier)
     try {
       const token = await getValidAccessToken()
-      if (hasActiveSub) {
+      // change-plan only works against Paddle-managed subs. Admin-granted
+      // users (paddle_subscription_id = "admin_grant:*") have to run a
+      // fresh checkout — the backend's /change-plan returns 409
+      // ADMIN_GRANTED_NEEDS_CHECKOUT for them, and even if it didn't,
+      // PATCHing a non-existent Paddle subscription id would 404.
+      const onPaddleSub = hasActiveSub && !subscription?.is_admin_granted
+      if (onPaddleSub) {
         const rank = { starter: 0, creator: 1, ultimate: 2 }
         const isUpgrade = (rank[plan.tier] ?? 0) > (rank[activeTier] ?? 0)
         const timing = isUpgrade ? 'immediate' : 'next_period'
