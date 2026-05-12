@@ -5738,16 +5738,34 @@
   }
   /* Smaller, calmer greeting on phones. The desktop value caps at
    * 2.2rem which read as a billboard on a 360-430 px viewport; the
-   * new mobile cap of 1.4rem reads as a friendly subhead instead.
+   * new mobile cap of 1.25rem reads as a friendly subhead instead.
    * Floor stays at ~0.95rem so the line never disappears on a
    * 320 px-wide narrow phone. Slightly lighter weight + softer color
    * so the greeting harmonises with the rest of the chrome instead
-   * of competing with the composer for focus. */
+   * of competing with the composer for focus.
+   *
+   * Also drop `white-space: nowrap` and `letter-spacing: -0.045em`
+   * inherited from the base rule. Long greetings ("Time to make
+   * something clickable.") on a 360-430 px viewport were running off
+   * BOTH edges of the screen because the base rule forced a single
+   * line at a font size that couldn't actually shrink small enough
+   * to fit. Allowing the line to wrap to two centered lines is the
+   * right call on phones — `text-wrap: balance` keeps the wrap from
+   * orphaning a single trailing word. */
   .thumb-empty-state h1 {
-    font-size: clamp(0.95rem, 4vw, 1.4rem);
-    letter-spacing: -0.035em;
+    font-size: clamp(0.95rem, 4vw, 1.25rem);
+    letter-spacing: -0.025em;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.88);
+    white-space: normal;
+    text-wrap: balance;
+    line-height: 1.25;
+    /* Cap the wrapping width so the greeting can't push past the
+     * inner padding even with an unbreakable-but-narrow display
+     * width fallback. */
+    max-width: min(28ch, 100%);
+    margin-left: auto;
+    margin-right: auto;
   }
 }
 
