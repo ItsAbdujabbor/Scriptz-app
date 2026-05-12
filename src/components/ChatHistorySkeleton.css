@@ -45,8 +45,10 @@
  * on desktop. The dotLottie renderer fits its content into whatever
  * box it's given, so a fixed-aspect square works for either layout. */
 .chat-loader__lottie {
-  width: clamp(120px, 18vw, 200px);
-  height: clamp(120px, 18vw, 200px);
+  /* Tightened from clamp(120, 18vw, 200) so the animation reads as
+   * a subtle hint rather than dominating the empty thread. */
+  width: clamp(88px, 13vw, 144px);
+  height: clamp(88px, 13vw, 144px);
   pointer-events: none;
 }
 

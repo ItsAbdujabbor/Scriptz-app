@@ -485,11 +485,15 @@
    * in the thread area (see ChatHistorySkeleton). Vertically center
    * the loader along the main axis so the animation sits in the
    * middle of the visible chat space, with breathing room top/bottom
-   * for the floating composer + sticky tabbar. */
+   * for the floating composer + sticky tabbar.
+   *
+   * Bottom padding matches the base `.coach-thread` (~6.25rem) so
+   * the centered loader doesn't sit underneath the fixed composer
+   * stack — the visible center, not the geometric center. */
   justify-content: center;
   align-items: center;
-  padding-top: clamp(2rem, 8vh, 4rem);
-  padding-bottom: clamp(2rem, 8vh, 4rem);
+  padding-top: clamp(1.5rem, 6vh, 3rem);
+  padding-bottom: clamp(6.25rem, 14vh, 8rem);
   gap: 0;
 }
 
