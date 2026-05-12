@@ -438,6 +438,12 @@
   background: rgba(127, 29, 29, 0.35);
   border: 1px solid rgba(248, 113, 113, 0.4);
   border-radius: 12px;
+  /* Self-center inside `.pro-hero`'s flex column so the error doesn't
+   * stretch to the full inner width — long messages now wrap inside a
+   * comfortable column instead of becoming a full-width red bar. */
+  max-width: 32rem;
+  align-self: center;
+  text-align: center;
 }
 
 .pro-activating {
@@ -829,12 +835,23 @@
 @media (max-width: 900px) {
   .pro-perks {
     grid-template-columns: repeat(2, 1fr);
+    /* Slight cap so the 2-up grid doesn't sprawl edge-to-edge on a
+     * narrow tablet — the perks become rectangles sized close to the
+     * pricing cards above. */
+    max-width: 36rem;
+    margin: 0 auto;
+    width: 100%;
   }
 }
 
 @media (max-width: 480px) {
   .pro-perks {
     grid-template-columns: 1fr;
+    /* Match the pricing cards' phone width so the perks column lines
+     * up visually with the cards above instead of running the full
+     * screen width (which made the perks look like a different
+     * section, not a continuation). */
+    max-width: 22rem;
   }
 }
 
@@ -1090,7 +1107,10 @@
 
 @media (max-width: 420px) {
   .pro-cards {
-    max-width: 100%;
+    /* Keep a small horizontal margin so the card edges don't touch
+     * the viewport rule — earlier `max-width: 100%` made the cards
+     * go full-bleed and look like they were clipping on phones. */
+    max-width: 22rem;
   }
   .pro-card {
     padding: 1.15rem 1rem;
@@ -1098,6 +1118,20 @@
   .pro-card-feat {
     font-size: 0.8rem;
     gap: 0.5rem;
+  }
+  .pro-perks {
+    /* Mirror — the perks column should breathe by the same amount
+     * the pricing cards do above it. */
+    max-width: 22rem;
+  }
+  .pro-screen-inner {
+    /* Tighten horizontal padding on the smallest viewports so the
+     * centred 22rem column actually has room to breathe inside the
+     * inner shell. clamp(1.25rem, 4vw, 2.5rem) was rounding to 20px
+     * on a 360px viewport, which combined with the cards' own border
+     * radius made the section read as wall-to-wall. */
+    padding-left: clamp(1rem, 4vw, 1.75rem);
+    padding-right: clamp(1rem, 4vw, 1.75rem);
   }
 }
 
