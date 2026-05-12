@@ -2850,6 +2850,25 @@ export function ThumbnailGenerator({
   //     same call that triggers the hash update, so by the time
   //     `conversationId` flips here it is already in the set.
   const hasInFlightOrLocalContent = pendingAssistant || localOnlyMessages.length > 0
+  // Single-job lock: every submit handler — chat, regenerate, persona
+  // regen, analyze, titles, edit — gates on this flag and blocks while
+  // ANY job (in this conversation OR another) is in flight. Earlier
+  // versions tracked chat-mode separately from the in-place pending
+  // modes (titles / analyze), which let the user kick off titles while
+  // a thumbnail generation was running — that scenario exposed real
+  // race conditions in the optimistic-state pipeline. Until the
+  // parallel-job machinery is fully reworked, the safe behavior is
+  // one-job-at-a-time across the board: composer disabled, submit
+  // handlers no-op'd, retry buttons grayed.
+  //
+  // Sources of "in flight":
+  //   • `pendingAssistant`            — chat / regenerate / persona regen
+  //   • `_promptPending` placeholder  — same modes (redundant but safe)
+  //   • `_titlesPending` placeholder  — title-ideas mode
+  //   • `_analyzePending` placeholder — analyze-score mode
+  const anyJobInFlight =
+    pendingAssistant ||
+    localOnlyMessages.some((m) => m && (m._promptPending || m._titlesPending || m._analyzePending))
   const isLocallyCreatedConversation =
     conversationId != null && locallyCreatedConvIdsRef.current.has(Number(conversationId))
   // The submission lock force-suppresses the history-loading skeleton
@@ -3643,7 +3662,7 @@ export function ThumbnailGenerator({
     e?.preventDefault?.()
     if (!requirePaywall()) return
     const combined = draft.trim()
-    if (!combined || pendingAssistant) return
+    if (!combined || anyJobInFlight) return
     if (!promptImageDataUrl && combined.length < 5) {
       return
     }
@@ -3935,7 +3954,7 @@ export function ThumbnailGenerator({
 
   const handleRegenerateOne = useCallback(
     async (userRequest) => {
-      if (!userRequest?.trim() || pendingAssistant) return
+      if (!userRequest?.trim() || anyJobInFlight) return
       const localIds = pushLocalAssistantMessage(userRequest, {
         content: '',
         userRequest,
@@ -3997,7 +4016,7 @@ export function ThumbnailGenerator({
       selectedPersonaId,
       selectedStyleId,
       channelId,
-      pendingAssistant,
+      anyJobInFlight,
       finishLoading,
       pushLocalAssistantMessage,
       patchLocalAssistantMessage,
@@ -4027,7 +4046,7 @@ export function ThumbnailGenerator({
   const handleRecreateSubmit = async (e) => {
     e?.preventDefault?.()
     if (!requirePaywall()) return
-    if (pendingAssistant) return
+    if (anyJobInFlight) return
     const instructions = recreateDraft.trim()
     const sourceImageUrl =
       recreateSourceMode === 'upload' ? recreateSourceImage : recreatePreviewUrl
@@ -4191,6 +4210,7 @@ export function ThumbnailGenerator({
   const handleAnalyzeFooterSubmit = async (e) => {
     e?.preventDefault?.()
     if (!requirePaywall()) return
+    if (anyJobInFlight) return
     const imageUrl = analyzeSourceMode === 'upload' ? analyzeSourceImage : analyzePreviewUrl
     if (!imageUrl) {
       setSendError('Add an image or YouTube link to analyze.')
@@ -4301,7 +4321,7 @@ export function ThumbnailGenerator({
   const handleTitleIdeasSubmit = async (e) => {
     e?.preventDefault?.()
     if (!requirePaywall()) return
-    if (pendingAssistant) return
+    if (anyJobInFlight) return
     const topic = titleTopic.trim()
     if (!topic) {
       setSendError('Type a topic or rough idea so we know what to brainstorm titles for.')
@@ -4732,14 +4752,14 @@ export function ThumbnailGenerator({
                         <ThumbBatchCirclePicker
                           value={numThumbnails}
                           onChange={(v) => setNumThumbnails(Number(v))}
-                          disabled={pendingAssistant}
+                          disabled={anyJobInFlight}
                         />
                       </div>
                       <div className="thumb-gen-submit-group">
                         <ThumbSendPill
                           featureKey="thumbnail_generate"
                           count={numThumbnails}
-                          disabled={pendingAssistant || (!draft.trim() && !promptImageDataUrl)}
+                          disabled={anyJobInFlight || (!draft.trim() && !promptImageDataUrl)}
                           ariaLabel="Generate thumbnails"
                         />
                       </div>
@@ -4811,7 +4831,7 @@ export function ThumbnailGenerator({
                         <ThumbBatchCirclePicker
                           value={numRecreateThumbnails}
                           onChange={(v) => setNumRecreateThumbnails(Number(v))}
-                          disabled={pendingAssistant}
+                          disabled={anyJobInFlight}
                         />
                       </div>
                       <div className="thumb-gen-submit-group">
@@ -4819,7 +4839,7 @@ export function ThumbnailGenerator({
                           featureKey="thumbnail_recreate"
                           count={1}
                           disabled={
-                            pendingAssistant ||
+                            anyJobInFlight ||
                             !(recreateSourceMode === 'upload'
                               ? recreateSourceImage
                               : recreatePreviewUrl)
@@ -4896,7 +4916,7 @@ export function ThumbnailGenerator({
                       <ThumbSendPill
                         featureKey="thumbnail_analyze"
                         disabled={
-                          pendingAssistant ||
+                          anyJobInFlight ||
                           !(analyzeSourceMode === 'upload' ? analyzeSourceImage : analyzePreviewUrl)
                         }
                         ariaLabel="Analyze thumbnail"
@@ -4931,14 +4951,14 @@ export function ThumbnailGenerator({
                         <ThumbTitleCountPicker
                           value={titleCount}
                           onChange={setTitleCount}
-                          disabled={pendingAssistant}
+                          disabled={anyJobInFlight}
                         />
                       </div>
                       <div className="thumb-gen-submit-group">
                         <ThumbSendPill
                           featureKey="thumbnail_title_ideas"
                           count={titleCount}
-                          disabled={pendingAssistant || !titleTopic.trim()}
+                          disabled={anyJobInFlight || !titleTopic.trim()}
                           ariaLabel="Brainstorm titles"
                         />
                       </div>
