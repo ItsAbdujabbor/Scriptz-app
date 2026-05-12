@@ -1,0 +1,237 @@
+/* SubscriptionActivationSplash — full-viewport overlay shown during the
+   post-checkout activation window. */
+
+.sub-splash-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(8, 10, 14, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.sub-splash-card {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  padding: 36px 32px 32px;
+  background: var(--color-surface, #14171c);
+  border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 20px;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    0 2px 6px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  color: var(--color-text, #f5f6f8);
+}
+
+.sub-splash-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-muted, rgba(255, 255, 255, 0.6));
+  cursor: pointer;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease;
+}
+.sub-splash-close:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text, #f5f6f8);
+}
+
+/* ── Spinner (activating state) ─────────────────────────────────── */
+.sub-splash-spinner {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 22px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.08);
+  border-top-color: var(--color-accent, #7a5cff);
+  animation: sub-splash-spin 0.9s linear infinite;
+}
+@keyframes sub-splash-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Success check ──────────────────────────────────────────────── */
+.sub-splash-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 18px;
+  color: #4ade80;
+}
+
+/* ── Warn glyph (timeout state) ─────────────────────────────────── */
+.sub-splash-warn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 22px;
+  border-radius: 50%;
+  background: rgba(250, 204, 21, 0.12);
+  color: #facc15;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ── Typography ─────────────────────────────────────────────────── */
+.sub-splash-title {
+  margin: 0 0 10px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-text, #f5f6f8);
+}
+
+.sub-splash-sub {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-text-muted, rgba(255, 255, 255, 0.65));
+}
+
+/* ── Progress steps (activating state) ──────────────────────────── */
+.sub-splash-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 22px auto 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+  font-size: 13px;
+  color: var(--color-text-muted, rgba(255, 255, 255, 0.55));
+}
+.sub-splash-step {
+  position: relative;
+  padding-left: 26px;
+}
+.sub-splash-step::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+}
+.sub-splash-step--done {
+  color: var(--color-text, #f5f6f8);
+}
+.sub-splash-step--done::before {
+  border-color: #4ade80;
+  background: #4ade80;
+  box-shadow: inset 0 0 0 3px var(--color-surface, #14171c);
+}
+.sub-splash-step--active {
+  color: var(--color-text, #f5f6f8);
+}
+.sub-splash-step--active::before {
+  border-color: var(--color-accent, #7a5cff);
+  border-top-color: transparent;
+  animation: sub-splash-spin 0.9s linear infinite;
+}
+
+/* ── Action row (timeout state) ─────────────────────────────────── */
+.sub-splash-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.sub-splash-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    transform 0.08s ease;
+}
+.sub-splash-btn:active {
+  transform: scale(0.98);
+}
+
+.sub-splash-btn--primary {
+  background: var(--color-accent, #7a5cff);
+  color: #ffffff;
+}
+.sub-splash-btn--primary:hover {
+  filter: brightness(1.08);
+}
+
+.sub-splash-btn--ghost {
+  background: transparent;
+  border-color: var(--color-border-subtle, rgba(255, 255, 255, 0.12));
+  color: var(--color-text, #f5f6f8);
+}
+.sub-splash-btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ── Light theme ────────────────────────────────────────────────── */
+body.theme-light .sub-splash-backdrop {
+  background: rgba(255, 255, 255, 0.78);
+}
+body.theme-light .sub-splash-card {
+  background: #ffffff;
+  border-color: rgba(15, 18, 23, 0.08);
+  box-shadow:
+    0 24px 60px rgba(15, 18, 23, 0.18),
+    0 2px 6px rgba(15, 18, 23, 0.06);
+}
+body.theme-light .sub-splash-spinner {
+  border-color: rgba(15, 18, 23, 0.08);
+  border-top-color: var(--color-accent, #6248d6);
+}
+body.theme-light .sub-splash-step::before {
+  border-color: rgba(15, 18, 23, 0.2);
+}
+
+/* ── Small screens ──────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .sub-splash-card {
+    padding: 28px 22px 24px;
+  }
+  .sub-splash-title {
+    font-size: 19px;
+  }
+  .sub-splash-actions {
+    flex-direction: column;
+  }
+  .sub-splash-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

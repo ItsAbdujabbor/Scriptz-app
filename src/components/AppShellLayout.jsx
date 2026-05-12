@@ -4,6 +4,7 @@ import { CelebrationOverlay } from './CelebrationOverlay'
 import { HeaderCreditsBadge } from './HeaderCreditsBadge' // kept as an optional override; no longer mounted by default
 import ActivationListener from './ActivationListener'
 import { PaymentProcessingBanner } from './PaymentProcessingBanner'
+import { SubscriptionActivationSplash } from './SubscriptionActivationSplash'
 
 /**
  * Single authenticated layout: left `Sidebar` + main column.
@@ -53,9 +54,17 @@ export function AppShellLayout({
           into the activation burst-poll mode so Pro lights up the moment
           the webhook lands. */}
       <ActivationListener />
-      {/* Slim banner that surfaces when the 60-s burst times out without
-          an active subscription showing up — fail-loud feedback for
-          delayed webhooks (Paddle outage, our queue backlog, etc.). */}
+      {/* Full-viewport overlay during the post-checkout activation
+          window. Renders three phases: "activating" while the webhook /
+          /sync are in flight, a brief "Welcome to {plan}" success
+          ribbon the moment subscription flips active, and a
+          "still confirming" actionable state if the 60-s burst times
+          out. Replaces the prior slim activation strip — the highest-
+          anxiety post-payment moment deserves an unambiguous overlay,
+          not a banner below the fold. */}
+      <SubscriptionActivationSplash />
+      {/* Slim warning banner — kept as a secondary surface for stale
+          activation states the user has dismissed from the splash. */}
       <PaymentProcessingBanner />
       {/* `<ToastStack />` lives at the AuthenticatedRoutes level so it's
           mounted on every authenticated page, including ones (like the
