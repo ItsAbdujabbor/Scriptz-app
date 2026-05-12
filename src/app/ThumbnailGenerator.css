@@ -2490,17 +2490,21 @@
   text-shadow: none;
 }
 
-/* Batch-count popover — plain dark panel floating just above the
- * trigger circle. No speech-bubble tail; consistent with the persona /
- * style dropdowns. */
+/* Batch-count popover — pill-shaped dark panel floating just above
+ * the trigger circle. No speech-bubble tail, no header. Just a
+ * vertical stack of number rows. Narrow because there's no label
+ * anymore — just the digit. */
 .thumb-batch-circle-popover {
   position: absolute;
   bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
-  width: 160px;
+  width: 72px;
   padding: 6px;
-  border-radius: 12px;
+  /* Pill: 9999px so the top + bottom of the panel are perfect
+   * semicircles. Works because the panel is narrower than it is tall
+   * (72px wide × ~144-180px tall). */
+  border-radius: 9999px;
   z-index: 120;
   background: #1c1c24;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -2692,35 +2696,24 @@
   background: rgba(239, 68, 68, 0.7);
 }
 
-/* Popover title — compact uppercase header, no divider. Matches
- * the persona / style header pattern. */
-.thumb-batch-circle-popover-title {
-  margin: 0;
-  padding: 6px 10px 8px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.5);
-  text-align: left;
-}
-
-/* Compact option row — number-only picker. Shares row height +
- * selected recipe with persona / style options so the three pickers
- * read as one component family. */
+/* Number-only option row. With the panel pill-shaped and the per-row
+ * label removed, the row is just a centered digit + an optional check
+ * on the right. `position: relative` anchors the absolutely-positioned
+ * check so the digit stays perfectly centered regardless of selection
+ * state (no horizontal jitter as the user clicks through). */
 .thumb-batch-circle-option {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
   width: 100%;
   min-height: 36px;
   padding: 6px 12px;
   border: none;
-  border-radius: 8px;
+  border-radius: 9999px;
   background: transparent;
   color: rgba(229, 231, 235, 0.78);
   font-family: inherit;
-  text-align: left;
   cursor: pointer;
   transition:
     background 0.18s ease,
@@ -2790,17 +2783,13 @@
   flex-shrink: 0;
 }
 
-.thumb-batch-circle-option-label {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.8rem;
-  font-weight: 500;
-}
-
 /* Check mark on the right of any selected picker option. Shared
- * across batch / persona / style so the affordance is identical. */
+ * across batch / persona / style so the affordance is identical.
+ * For persona / style the row has leading content (avatar / swatch)
+ * + label, so `margin-left: auto` floats it to the right naturally.
+ * For batch the digit is centered (number-only row), so the check
+ * is absolutely positioned to keep the digit perfectly centered
+ * regardless of selection state — see override below. */
 .thumb-picker-check {
   display: inline-flex;
   align-items: center;
@@ -2813,6 +2802,16 @@
 .thumb-picker-check svg {
   width: 14px;
   height: 14px;
+}
+
+/* Batch-row check is anchored to the right edge rather than flowing
+ * after the digit — keeps the digit pinned to the row centre. */
+.thumb-batch-circle-option .thumb-picker-check {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 0;
 }
 
 /* Prompt / recreate: full-bleed thread so thumbnail grids can use the full

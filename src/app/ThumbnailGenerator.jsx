@@ -561,7 +561,6 @@ function ThumbBatchCirclePicker({ value, onChange, disabled }) {
             aria-label="Concept count"
             style={popoverStyle}
           >
-            <p className="thumb-batch-circle-popover-title">Concepts</p>
             {[1, 2, 3, 4].map((n) => (
               <button
                 key={n}
@@ -576,9 +575,6 @@ function ThumbBatchCirclePicker({ value, onChange, disabled }) {
                 }}
               >
                 <span className="thumb-batch-circle-option-n">{n}</span>
-                <span className="thumb-batch-circle-option-label">
-                  {n === 1 ? '1 concept' : `${n} concepts`}
-                </span>
                 {n === value && (
                   <span className="thumb-picker-check" aria-hidden>
                     <LucideCheck strokeWidth={2.6} />
@@ -647,7 +643,6 @@ function ThumbTitleCountPicker({ value, onChange, disabled }) {
             aria-label="Title count"
             style={popoverStyle}
           >
-            <p className="thumb-batch-circle-popover-title">Titles</p>
             {[4, 8, 12].map((n) => (
               <button
                 key={n}
@@ -662,7 +657,6 @@ function ThumbTitleCountPicker({ value, onChange, disabled }) {
                 }}
               >
                 <span className="thumb-batch-circle-option-n">{n}</span>
-                <span className="thumb-batch-circle-option-label">{`${n} ideas`}</span>
                 {n === value && (
                   <span className="thumb-picker-check" aria-hidden>
                     <LucideCheck strokeWidth={2.6} />

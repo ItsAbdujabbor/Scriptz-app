@@ -90,9 +90,12 @@
   max-width: 90px;
 }
 
-/* Dropdown surface — plain dark panel floating just above the trigger.
- * No speech-bubble tail; matches the batch / style dropdowns so the
- * three pickers read as one component family. */
+/* Dropdown surface — pill-shaped dark panel floating just above the
+ * trigger. No speech-bubble tail; matches the batch / style dropdowns
+ * so the three pickers read as one component family. The large
+ * border-radius rounds the top + bottom into soft pill caps; the
+ * extra top/bottom padding keeps the first and last rows from
+ * sitting inside the curve. */
 .persona-selector-dropdown {
   position: absolute;
   bottom: 100%;
@@ -100,10 +103,10 @@
   transform: translateX(-50%);
   margin-bottom: 8px;
   width: 220px;
-  padding: 6px;
+  padding: 14px 8px;
   background: #1c1c24;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
+  border-radius: 22px;
   box-shadow:
     0 10px 30px rgba(0, 0, 0, 0.5),
     0 2px 8px rgba(0, 0, 0, 0.32);
