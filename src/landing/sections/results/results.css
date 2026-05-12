@@ -213,13 +213,18 @@
 .res-poster-stat {
   position: absolute;
   z-index: 3;
-  bottom: 1.6rem;
-  left: 1.7rem;
-  right: 1.7rem;
+  /* Bumped inset so the giant numeral + caption breathe away from the
+   * card's edges instead of hugging them. Earlier values (~1.6/1.7rem)
+   * made the leading glyph of "+40%" / "3×" / "8" optically touch the
+   * left rule of the card, especially with the numeral's negative
+   * letter-spacing pulling the first character outward. */
+  bottom: 2.4rem;
+  left: 2.4rem;
+  right: 2.4rem;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .res-poster-num {
@@ -635,5 +640,13 @@
   }
   .res-poster-title {
     font-size: 1.18rem;
+  }
+  /* Hold a slightly tighter — but still visible — inset on phones so
+   * the stat doesn't dominate the smaller card. */
+  .res-poster-stat {
+    bottom: 1.6rem;
+    left: 1.6rem;
+    right: 1.6rem;
+    gap: 0.6rem;
   }
 }
