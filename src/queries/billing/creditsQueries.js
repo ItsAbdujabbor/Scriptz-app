@@ -20,6 +20,11 @@ import { cacheSubscription } from '../../lib/query/subscriptionCache'
 import { useSubscriptionActivationStore } from '../../stores/subscriptionActivationStore'
 
 export function useCreditsQuery(options = {}) {
+  // Same burst pattern as useSubscriptionQuery: when a credit-pack
+  // purchase is in flight, poll every 1s instead of the 30s baseline
+  // so the splash detects the post-webhook balance increase fast
+  // enough to flip to the "+200 credits added!" success ribbon.
+  const isActivating = useSubscriptionActivationStore((s) => s.isPending)
   return useQuery({
     queryKey: queryKeys.billing.credits,
     queryFn: async () => {
@@ -30,7 +35,7 @@ export function useCreditsQuery(options = {}) {
     staleTime: queryFreshness.short,
     gcTime: queryFreshness.long,
     refetchOnWindowFocus: true,
-    refetchInterval: 30_000,
+    refetchInterval: isActivating ? 1_000 : 30_000,
     ...options,
   })
 }

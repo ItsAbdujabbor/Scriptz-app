@@ -26,8 +26,8 @@ import { useAuthStore } from '../stores/authStore'
 import { useCreditsQuery, refreshBillingState } from '../queries/billing/creditsQueries'
 import { queryKeys } from '../lib/query/queryKeys'
 import { getPlans, startCheckout } from '../api/billing'
-import { openPaddleCheckout } from '../lib/paddle'
-import { celebrate } from '../lib/celebrate'
+import { openPaddleCheckout, subscribePaddleEvents } from '../lib/paddle'
+import { useSubscriptionActivationStore } from '../stores/subscriptionActivationStore'
 import './CreditPacksModal.css'
 
 const fmtCredits = (n) => {
@@ -118,6 +118,55 @@ export function CreditPacksModal({ open, onClose }) {
     }
     setError(null)
     setLoadingPack(pack.slug)
+    // Snapshot the user's current permanent_credits BEFORE opening
+    // checkout — the splash will compare against this baseline to
+    // detect "the webhook landed and balance increased".
+    const baselinePermanent = Number(
+      queryClient.getQueryData(queryKeys.billing.credits)?.permanent_credits || 0
+    )
+    const expectedCredits = Number(pack?.credits || 0)
+
+    // Subscribe to Paddle's global event stream BEFORE opening
+    // checkout so we don't miss `checkout.completed`. The overlay
+    // dispatches events through `subscribePaddleEvents` (see paddle.js
+    // `paddleDispatch`). When the user finishes paying we kick the
+    // activation store into pack-burst mode — the splash mounted in
+    // AppShellLayout reads that and renders "Adding your credits…",
+    // then transitions to "+X credits added!" once
+    // useCreditsQuery sees the balance increase past the baseline.
+    let alreadyHandled = false
+    const unsubscribe = subscribePaddleEvents((ev) => {
+      const name = ev?.name || ev?.event_name
+      if (alreadyHandled) return
+      if (name === 'checkout.completed') {
+        alreadyHandled = true
+        useSubscriptionActivationStore.getState().start({
+          kind: 'pack',
+          pack: { name: pack.name, credits: expectedCredits },
+          packBaseline: baselinePermanent,
+        })
+        // Optimistic bump — gives the badge an instant tick. The
+        // splash's success detection still relies on the SERVER-side
+        // balance crossing the baseline (the credits query refetches
+        // every 1s during the burst), so we set the baseline BEFORE
+        // mutating the cache so the comparison stays correct.
+        if (expectedCredits > 0) {
+          queryClient.setQueryData(queryKeys.billing.credits, (current) => {
+            if (!current || typeof current !== 'object') return current
+            const permanent = Number(current.permanent_credits || 0) + expectedCredits
+            const total = Number(current.subscription_credits || 0) + permanent
+            return { ...current, permanent_credits: permanent, total }
+          })
+        }
+        refreshBillingState(queryClient)
+        onClose?.()
+      } else if (name === 'checkout.closed') {
+        // User dismissed the overlay without paying — clean up the
+        // listener so a future purchase doesn't double-fire.
+        unsubscribe()
+      }
+    })
+
     try {
       const token = await getValidAccessToken()
       const resp = await startCheckout(token, {
@@ -130,36 +179,8 @@ export function CreditPacksModal({ open, onClose }) {
         checkoutUrl: resp?.checkout_url,
         clientToken: resp?.client_token,
       })
-      // Optimistic credit-balance bump — the user just paid, the
-      // webhook will land within ~2-5s and the actual fetch will
-      // overwrite this anyway. Bumping the cache here means the
-      // sidebar credits badge updates IMMEDIATELY on close instead
-      // of waiting for the webhook + 30s poll. If the webhook diverges
-      // (e.g. stuck pending), the next refetch reconciles to truth.
-      const expectedCredits = Number(pack?.credits || 0)
-      if (expectedCredits > 0) {
-        queryClient.setQueryData(queryKeys.billing.credits, (current) => {
-          if (!current || typeof current !== 'object') return current
-          const permanent = Number(current.permanent_credits || 0) + expectedCredits
-          const total = Number(current.subscription_credits || 0) + permanent
-          return { ...current, permanent_credits: permanent, total }
-        })
-      }
-      // Then full fan-out invalidate so the actual fetch hits the
-      // server within ~150ms — overwrites the optimistic bump with
-      // the true post-webhook balance.
-      refreshBillingState(queryClient)
-      // Close + celebrate. The webhook lands within seconds; the
-      // optimistic bump above means the sidebar badge already shows
-      // the new total when the celebration toast appears.
-      onClose?.()
-      celebrate({
-        emoji: '⚡',
-        title: `+${fmtCredits(pack.credits)} credits!`,
-        subtitle: 'Permanent credits added. These never expire.',
-        variant: 'celebrate',
-      })
     } catch (e) {
+      unsubscribe()
       setError(e?.message || 'Checkout could not start. Try again.')
     } finally {
       setLoadingPack(null)

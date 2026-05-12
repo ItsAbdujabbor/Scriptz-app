@@ -35,30 +35,52 @@ export const useSubscriptionActivationStore = create((set, get) => ({
   startedAt: 0,
   _timeoutId: null,
 
-  start() {
+  /** What's being activated: 'subscription' or 'pack'. Drives the
+   * splash's copy ("Activating your subscription…" vs "Adding credits…")
+   * and the success-detection strategy (subscription status flip vs
+   * credits-balance increase past `packBaseline`). */
+  kind: null,
+  /** Metadata for a pack purchase: { name, credits }. Used in the
+   * splash's "+200 credits added!" success ribbon. */
+  pack: null,
+  /** Snapshot of `credits.permanent_credits` at the moment the pack
+   * burst started. The splash watches the live credits query and
+   * declares success once the balance exceeds this baseline. */
+  packBaseline: 0,
+
+  start(opts = {}) {
     const existing = get()._timeoutId
     if (existing) clearTimeout(existing)
 
-    // Fire /api/billing/sync RIGHT NOW (not just on timeout) — Paddle
-    // webhook delivery can take 1-5 s and our background-task processing
-    // adds another ~200 ms; meanwhile we're forcing the UI to wait for
-    // the next poll. /sync skips the webhook entirely and pulls truth
-    // from Paddle's API, so the second poll (~1 s later) sees the
-    // freshly-reconciled state. If Paddle's API is also slow, the
-    // existing 60 s timeout backstop still runs.
-    ;(async () => {
-      try {
-        const [{ syncSubscription }, { getAccessTokenOrNull }] =
-          await Promise.all([
+    const isSubKind = (opts.kind || 'subscription') === 'subscription'
+
+    // For subscription purchases: fire /api/billing/sync RIGHT NOW
+    // (not just on timeout) — Paddle webhook delivery can take 1-5 s
+    // and our background-task processing adds another ~200 ms;
+    // meanwhile we're forcing the UI to wait for the next poll.
+    // /sync skips the webhook entirely and pulls truth from Paddle's
+    // API, so the second poll (~1 s later) sees the freshly-reconciled
+    // state. If Paddle's API is also slow, the existing 60 s timeout
+    // backstop still runs.
+    //
+    // For pack purchases /sync doesn't apply (it only reconciles
+    // subscriptions, not one-time transactions). Pack activation is
+    // detected by the splash watching the credits query for a
+    // balance increase past `packBaseline`.
+    if (isSubKind) {
+      ;(async () => {
+        try {
+          const [{ syncSubscription }, { getAccessTokenOrNull }] = await Promise.all([
             import('../api/billing'),
             import('../lib/query/authToken'),
           ])
-        const token = await getAccessTokenOrNull()
-        if (token) await syncSubscription(token)
-      } catch {
-        /* surfaced by the timeout banner if it never lands */
-      }
-    })()
+          const token = await getAccessTokenOrNull()
+          if (token) await syncSubscription(token)
+        } catch {
+          /* surfaced by the timeout banner if it never lands */
+        }
+      })()
+    }
 
     const timeoutId = setTimeout(async () => {
       // Burst hit the wall without flipping active. Try a one-shot
@@ -69,19 +91,16 @@ export const useSubscriptionActivationStore = create((set, get) => ({
       // avoid a circular dep with the api/auth modules.
       set({ isPending: false, _timeoutId: null, timeoutFired: true })
       try {
-        const [{ syncSubscription }, { getAccessTokenOrNull }] =
-          await Promise.all([
-            import('../api/billing'),
-            import('../lib/query/authToken'),
-          ])
+        const [{ syncSubscription }, { getAccessTokenOrNull }] = await Promise.all([
+          import('../api/billing'),
+          import('../lib/query/authToken'),
+        ])
         const token = await getAccessTokenOrNull()
         if (!token) return
         const fresh = await syncSubscription(token)
         if (
           fresh &&
-          (fresh.status === 'active' ||
-            fresh.status === 'trialing' ||
-            fresh.status === 'past_due')
+          (fresh.status === 'active' || fresh.status === 'trialing' || fresh.status === 'past_due')
         ) {
           // Sync rescued us — clear the banner state. The
           // ActivationListener's next poll will see the active state
@@ -98,10 +117,28 @@ export const useSubscriptionActivationStore = create((set, get) => ({
       startedAt: Date.now(),
       timeoutFired: false,
       _timeoutId: timeoutId,
+      kind: opts.kind || 'subscription',
+      pack: opts.pack || null,
+      packBaseline: typeof opts.packBaseline === 'number' ? opts.packBaseline : 0,
     })
   },
 
   stop() {
+    const existing = get()._timeoutId
+    if (existing) clearTimeout(existing)
+    // Note: kind/pack/packBaseline are intentionally kept so the splash
+    // can still render the "+200 credits added!" / "You're on Starter!"
+    // success ribbon after stop() fires. They're cleared on the next
+    // start() (new purchase) or by reset() (after success display ends).
+    set({
+      isPending: false,
+      startedAt: 0,
+      timeoutFired: false,
+      _timeoutId: null,
+    })
+  },
+
+  reset() {
     const existing = get()._timeoutId
     if (existing) clearTimeout(existing)
     set({
@@ -109,6 +146,9 @@ export const useSubscriptionActivationStore = create((set, get) => ({
       startedAt: 0,
       timeoutFired: false,
       _timeoutId: null,
+      kind: null,
+      pack: null,
+      packBaseline: 0,
     })
   },
 }))

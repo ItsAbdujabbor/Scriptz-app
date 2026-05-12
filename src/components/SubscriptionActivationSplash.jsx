@@ -23,7 +23,7 @@ import { CheckCircle2, RefreshCw, Mail, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars
 
 import { useSubscriptionActivationStore } from '../stores/subscriptionActivationStore'
-import { useSubscriptionQuery } from '../queries/billing/creditsQueries'
+import { useCreditsQuery, useSubscriptionQuery } from '../queries/billing/creditsQueries'
 import './SubscriptionActivationSplash.css'
 
 const ACTIVE_STATUSES = new Set(['active', 'trialing', 'past_due'])
@@ -34,13 +34,38 @@ function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
+function fmtCredits(n) {
+  const v = Number(n)
+  if (!Number.isFinite(v)) return '—'
+  if (v >= 1000) {
+    const k = v / 1000
+    return k % 1 === 0 ? `${k}K` : `${k.toFixed(1)}K`
+  }
+  return v.toLocaleString('en-US')
+}
+
 export function SubscriptionActivationSplash() {
   const isPending = useSubscriptionActivationStore((s) => s.isPending)
   const timeoutFired = useSubscriptionActivationStore((s) => s.timeoutFired)
+  const kind = useSubscriptionActivationStore((s) => s.kind)
+  const pack = useSubscriptionActivationStore((s) => s.pack)
+  const packBaseline = useSubscriptionActivationStore((s) => s.packBaseline)
   const stopActivation = useSubscriptionActivationStore((s) => s.stop)
+  const resetActivation = useSubscriptionActivationStore((s) => s.reset)
   const { data: subscription } = useSubscriptionQuery()
+  const { data: credits } = useCreditsQuery()
 
   const hasActiveSub = !!(subscription?.status && ACTIVE_STATUSES.has(subscription.status))
+  const isPack = kind === 'pack'
+  // Pack success = permanent_credits balance now exceeds the snapshot
+  // taken at start(). Any positive delta is enough — we know a purchase
+  // is in flight (isPending was true) and the user can only have one
+  // pack purchase open at a time.
+  const packBalanceIncreased = !!(
+    isPack &&
+    credits &&
+    Number(credits.permanent_credits || 0) > Number(packBaseline || 0)
+  )
 
   // 'hidden' | 'activating' | 'success' | 'timeout'
   const [phase, setPhase] = useState('hidden')
@@ -59,26 +84,54 @@ export function SubscriptionActivationSplash() {
     // success ribbon (instead of unmounting silently).
     if (isPending) {
       wasActivatingRef.current = true
+      // For pack mode: if the credits balance has ALREADY landed past
+      // the baseline (webhook arrived faster than the splash could
+      // render the activating UI), skip straight to success.
+      if (isPack && packBalanceIncreased && phase !== 'success') {
+        setPhase('success')
+        if (successTimerRef.current) clearTimeout(successTimerRef.current)
+        successTimerRef.current = setTimeout(() => {
+          setPhase('hidden')
+          wasActivatingRef.current = false
+          stopActivation()
+          resetActivation()
+        }, SUCCESS_HOLD_MS)
+        return
+      }
       setPhase((prev) => (prev === 'success' ? prev : 'activating'))
       return
     }
 
-    // Burst ended (stop() was called by ActivationListener) AND we have
-    // an active sub — celebrate inside the splash before unmounting.
-    if (wasActivatingRef.current && hasActiveSub && phase !== 'success') {
+    // Burst ended AND we have evidence of success — show the success
+    // ribbon before unmounting. Two paths:
+    //   * subscription: ActivationListener calls stop() on the
+    //     inactive→active transition.
+    //   * pack: credit balance increased past the baseline. We call
+    //     stopActivation() ourselves once we detect it.
+    const subSucceeded = !isPack && wasActivatingRef.current && hasActiveSub
+    const packSucceeded = isPack && wasActivatingRef.current && packBalanceIncreased
+
+    if ((subSucceeded || packSucceeded) && phase !== 'success') {
       setPhase('success')
       if (successTimerRef.current) clearTimeout(successTimerRef.current)
       successTimerRef.current = setTimeout(() => {
         setPhase('hidden')
         wasActivatingRef.current = false
+        // For pack mode, ActivationListener doesn't call stop() for us
+        // (it only watches subscription transitions). Reset here so the
+        // store is fully clean for the next purchase.
+        if (isPack) {
+          stopActivation()
+        }
+        resetActivation()
       }, SUCCESS_HOLD_MS)
       return
     }
 
-    // 60s backstop fired without an active sub — show the actionable
-    // delayed-payment state. The user can refresh, contact support, or
-    // dismiss.
-    if (timeoutFired && !hasActiveSub) {
+    // 60s backstop fired without a successful activation — show the
+    // actionable delayed-payment state. The user can refresh, contact
+    // support, or dismiss.
+    if (timeoutFired && !subSucceeded && !packSucceeded) {
       setPhase('timeout')
       return
     }
@@ -87,7 +140,16 @@ export function SubscriptionActivationSplash() {
     if (phase !== 'success') {
       setPhase('hidden')
     }
-  }, [isPending, hasActiveSub, timeoutFired, phase])
+  }, [
+    isPending,
+    isPack,
+    hasActiveSub,
+    packBalanceIncreased,
+    timeoutFired,
+    phase,
+    stopActivation,
+    resetActivation,
+  ])
 
   if (phase === 'hidden') return null
 
@@ -113,7 +175,28 @@ export function SubscriptionActivationSplash() {
           exit={{ opacity: 0, y: 8, scale: 0.98 }}
           transition={{ duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
         >
-          {phase === 'activating' && (
+          {phase === 'activating' && isPack && (
+            <>
+              <div className="sub-splash-spinner" aria-hidden="true" />
+              <h2 className="sub-splash-title">Adding your credits…</h2>
+              <p className="sub-splash-sub">
+                Paddle confirmed your payment. Crediting{' '}
+                {pack?.credits ? (
+                  <strong>{fmtCredits(pack.credits)} credits</strong>
+                ) : (
+                  'your purchase'
+                )}{' '}
+                to your balance now — usually under a couple of seconds.
+              </p>
+              <ul className="sub-splash-steps" aria-hidden="true">
+                <li className="sub-splash-step sub-splash-step--done">Payment received</li>
+                <li className="sub-splash-step sub-splash-step--active">Adding credits</li>
+                <li className="sub-splash-step">Updating balance</li>
+              </ul>
+            </>
+          )}
+
+          {phase === 'activating' && !isPack && (
             <>
               <div className="sub-splash-spinner" aria-hidden="true" />
               <h2 className="sub-splash-title">Activating your subscription…</h2>
@@ -129,7 +212,27 @@ export function SubscriptionActivationSplash() {
             </>
           )}
 
-          {phase === 'success' && (
+          {phase === 'success' && isPack && (
+            <>
+              <motion.div
+                className="sub-splash-check"
+                initial={{ scale: 0.5, rotate: -10 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 240, damping: 16 }}
+                aria-hidden="true"
+              >
+                <CheckCircle2 size={64} strokeWidth={1.6} />
+              </motion.div>
+              <h2 className="sub-splash-title">
+                +{pack?.credits ? fmtCredits(pack.credits) : ''} credits added!
+              </h2>
+              <p className="sub-splash-sub">
+                Permanent credits — they never expire. Your new balance is live in the sidebar.
+              </p>
+            </>
+          )}
+
+          {phase === 'success' && !isPack && (
             <>
               <motion.div
                 className="sub-splash-check"
@@ -167,8 +270,10 @@ export function SubscriptionActivationSplash() {
               <h2 className="sub-splash-title">Still confirming with Paddle…</h2>
               <p className="sub-splash-sub">
                 Your payment may still be processing on Paddle&apos;s side, or it didn&apos;t
-                complete. If you don&apos;t see your plan within a minute, try again — you
-                won&apos;t be double-charged.
+                complete.{' '}
+                {isPack
+                  ? 'If your credits don’t appear within a minute, try again — you won’t be double-charged.'
+                  : 'If you don’t see your plan within a minute, try again — you won’t be double-charged.'}
               </p>
               <div className="sub-splash-actions">
                 <button
