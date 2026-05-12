@@ -2490,21 +2490,18 @@
   text-shadow: none;
 }
 
-/* Batch-count popover — pill-shaped dark panel floating just above
- * the trigger circle. No speech-bubble tail, no header. Just a
- * vertical stack of number rows. Narrow because there's no label
- * anymore — just the digit. */
+/* Batch-count popover — same shape as the persona / style dropdowns
+ * (220px wide, soft pill-rounded corners, 14px top/bottom padding so
+ * the first and last rows clear the curve). The three popovers now
+ * share one silhouette and only differ in row content. */
 .thumb-batch-circle-popover {
   position: absolute;
   bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
-  width: 72px;
-  padding: 6px;
-  /* Pill: 9999px so the top + bottom of the panel are perfect
-   * semicircles. Works because the panel is narrower than it is tall
-   * (72px wide × ~144-180px tall). */
-  border-radius: 9999px;
+  width: 220px;
+  padding: 14px 8px;
+  border-radius: 22px;
   z-index: 120;
   background: #1c1c24;
   border: 1px solid rgba(255, 255, 255, 0.12);
