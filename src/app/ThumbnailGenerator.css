@@ -5237,29 +5237,59 @@
    * and the empty cluster collapses to the sticky composer. */
   #coach-panel-thumbnails .thumb-gen-tab-row {
     margin-bottom: 0.4rem;
+    /* Trim the desktop inherited `0 0.85rem` to `0 0.4rem` on mobile
+     * so the inner content area gains ~14 px of width — that buys
+     * room for the five mode chips to fit on a single line without
+     * needing horizontal scroll on most phones. */
+    padding: 0 0.4rem;
     flex-direction: column-reverse;
-    align-items: center;
+    align-items: stretch;
     gap: 0.35rem;
   }
   #coach-panel-thumbnails .thumb-gen-pill-tab-group {
-    /* Each row centers its own chips — was inheriting flex-start /
-     * flex-end from the desktop space-between layout. */
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 0.3rem;
+    /* Five mode chips (Prompt / Recreate / Analyze / Titles / Edit)
+     * stay on one line — the previous `flex-wrap: wrap` let Edit
+     * orphan onto a second row. `nowrap` forces a single line; if a
+     * narrow viewport can't fit them all, `overflow-x: auto` lets
+     * the row scroll horizontally instead of clipping. Scrollbar
+     * hidden so the row reads as a clean strip; touch scroll still
+     * works on iOS/Android.
+     *
+     * `justify-content: flex-start` for scrollable groups means the
+     * first chip stays pinned to the left edge so the active chip
+     * is reachable without scrolling on first paint. */
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    gap: 0.25rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    /* Stretch the group to the full row width so flex-start anchors
+     * to the actual left edge of the tab-row instead of collapsing
+     * to fit-content. */
+    width: 100%;
+    min-width: 0;
+  }
+  #coach-panel-thumbnails .thumb-gen-pill-tab-group::-webkit-scrollbar {
+    display: none;
   }
   /* Re-target both copies of the pill rule (one in ThumbPillTabs.css, one
    * inlined into this file's earlier block) by selecting the class itself.
-   * Inside the @media block the cascade order resolves naturally. */
+   * Inside the @media block the cascade order resolves naturally.
+   *
+   * Sized to fit all five mode chips (Prompt / Recreate / Analyze /
+   * Titles / Edit) on one row at the smallest realistic phone width
+   * (~360 px). Going below this size makes the labels feel cramped;
+   * keeping above it lets the chips overflow + wrap. */
   #coach-panel-thumbnails .thumb-gen-pill-tab {
-    height: 30px;
-    padding: 0 10px;
-    font-size: 0.74rem;
-    gap: 0.35rem;
+    height: 28px;
+    padding: 0 8px;
+    font-size: 0.7rem;
+    gap: 0.28rem;
   }
   #coach-panel-thumbnails .thumb-gen-pill-tab svg {
-    width: 12px;
-    height: 12px;
+    width: 11px;
+    height: 11px;
   }
   /* Active mode chip — has to be wrapped in `#coach-panel-thumbnails`
    * to match the specificity of the base rule above; otherwise the
