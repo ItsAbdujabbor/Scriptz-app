@@ -22,7 +22,6 @@ import {
   useThumbnailConversationQuery,
   useThumbnailConversationsQuery,
   useThumbnailChatMutation,
-  useCreateThumbnailConversationMutation,
   useLoadOlderThumbnailMessagesMutation,
   useThumbnailRatingQuery,
   seedThumbnailRating,
@@ -1526,7 +1525,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
   if (msg.role === 'user' && !msg.content && !msg.imageUrl) return null
   return (
     <article
-      className={`coach-message coach-message--enter ${msg.role === 'user' ? 'coach-message--user' : 'coach-message--assistant'}`}
+      className={`coach-message ${msg.role === 'user' ? 'coach-message--user' : 'coach-message--assistant'}`}
     >
       {msg.role === 'user' ? (
         <div className="coach-user-message-stack">
@@ -2468,18 +2467,10 @@ export function ThumbnailGenerator({
     releaseSubmissionLockImmediate()
   }, [conversationId, releaseSubmissionLockImmediate])
   const chatMutation = useThumbnailChatMutation(handleConversationCreated)
-  // Eager-create the conversation the instant the user hits send.
-  // This is what makes the hard-refresh-while-in-flight flow work:
-  // the conv row exists server-side BEFORE the chat job runs, so the
-  // URL `?id=<newId>` is meaningful immediately, the sidebar shows
-  // the row right away, and a refresh into the URL fetches a real
-  // conversation (with the user_message persisted by /chat/submit
-  // moments later). If the user navigates away mid-generation, the
-  // job continues server-side — when it completes the conversation
-  // cache is updated and the sidebar's `isUnread` logic highlights
-  // the row for them to come back to. See `ensureConversationId`
-  // below for the call site.
-  const createConversationMutation = useCreateThumbnailConversationMutation()
+  // (Removed: eager `useCreateThumbnailConversationMutation()` call.
+  // The conv is now created exclusively by /chat/submit and the id
+  // returned in chatMutation's response — see ensureConversationId
+  // below for the full rationale.)
   const loadOlderMutation = useLoadOlderThumbnailMessagesMutation()
   const hasMoreOlder = Boolean(conversationQuery.data?.messages?.has_more)
   const isLoadingOlder = loadOlderMutation.isPending
@@ -2562,37 +2553,35 @@ export function ThumbnailGenerator({
    * the chat endpoint auto-creates the conv on submit — same
    * outcome, just without the immediate sidebar / URL update.
    */
+  // ensureConversationId — formerly an eager-create against POST
+  // /api/thumbnails/conversations, now a thin pass-through.
+  //
+  // Why the rewrite: eagerly creating an empty conversation before the
+  // chat job ran was the source of the "two chats with the same
+  // message, one has the response" bug. /chat/submit's
+  // create_or_get_conversation either:
+  //   * uses the conv_id we sent (one row, happy path), OR
+  //   * silently creates a NEW conv when our id can't be resolved (any
+  //     transient lookup failure, ownership mismatch, malformed
+  //     response payload, etc.) — and then the empty conv we pre-created
+  //     is left orphaned in the sidebar alongside the real one.
+  //
+  // Conversations are now created EXCLUSIVELY by POST /chat/submit.
+  // For new chats the frontend submits with conversation_id=null/undefined
+  // and the backend mints the row, persists the user_message, and
+  // returns the canonical id atomically — which is then propagated to
+  // the URL via the chatMutation's onSuccess → handleConversationCreated
+  // wiring (see thumbnailQueries.js useThumbnailChatMutation).
+  //
+  // Tradeoff: a hard refresh DURING the ~sub-second window between the
+  // user pressing send and /chat/submit returning loses the URL state.
+  // Acceptable — the conversation still completes server-side and
+  // appears in the sidebar after the worker finishes. The previous
+  // refresh-survival was paid for by the duplicate-conversation bug,
+  // which the user reports as far worse.
   const ensureConversationId = useCallback(
-    async (existingId) => {
-      if (existingId) return existingId
-      try {
-        const conv = await createConversationMutation.mutateAsync({
-          channel_id: channelId || undefined,
-        })
-        const id = conv?.id ?? conv?.conversation_id
-        if (id == null) {
-          // Server returned a malformed response — treat exactly the
-          // same as a network failure. Falling through to the legacy
-          // "chat endpoint auto-creates" path used to be safe when
-          // there was no eager-create, but now it means we'd send
-          // `conversation_id: undefined` AFTER having silently
-          // succeeded creating a real-but-empty conv server-side
-          // (the row exists, the response shape just lost the id),
-          // which makes the chat endpoint mint a SECOND conv. Caller
-          // aborts on null.
-          console.warn('[thumbnail] /conversations succeeded but response had no id', conv)
-          return null
-        }
-        handleConversationCreated(id)
-        return id
-      } catch (err) {
-        if (typeof console !== 'undefined') {
-          console.warn('[thumbnail] eager conversation create failed:', err)
-        }
-        return null
-      }
-    },
-    [channelId, createConversationMutation, handleConversationCreated]
+    async (existingId) => (existingId ? existingId : null),
+    []
   )
 
   useEffect(() => {
@@ -3745,30 +3734,16 @@ export function ThumbnailGenerator({
     // refresh fetches the conversation (with the user_message that
     // /chat/submit has by then persisted) and resumes the pending
     // state.
+    // For a NEW chat `activeConversationId` is null — that's the
+    // expected shape now. /chat/submit will mint the conversation
+    // and return its id in the response, at which point
+    // chatMutation.onSuccess → handleConversationCreated flips the URL
+    // and rebinds the optimistic local entries (`_conversationId:
+    // null` → the freshly-minted numeric id). For an EXISTING chat
+    // activeConversationId === conversationId and we mark the sidebar
+    // row as pending up-front for the spinner.
     const activeConversationId = await ensureConversationId(conversationId)
-    if (!activeConversationId) {
-      // Hard-abort: we couldn't materialize a conversation row
-      // server-side. Previously we'd fall through and submit the chat
-      // with `conversation_id: undefined`, which causes the backend to
-      // create a SECOND conversation — leaving the user with one
-      // empty conv (the failed eager-create attempt, if it half-
-      // succeeded) and a second one with the actual chat content. That
-      // is the "two chats with the same message, one has the response"
-      // bug. Stop here, surface a friendly error in the composer, and
-      // drop the optimistic local entries so the chat doesn't get
-      // stuck with a phantom pending bubble.
-      console.warn('[thumbnail] ensureConversationId returned no id — aborting submit')
-      setLocalOnlyMessages((prev) =>
-        prev.filter((m) => m.id !== localIds.userId && m.id !== localIds.assistantId)
-      )
-      setPendingAssistant(false)
-      setSendError("We couldn't start the chat. Please try again.")
-      setDraft(combined)
-      submitGuardRef.current = false
-      endSubmission()
-      return
-    }
-    startPending(activeConversationId)
+    if (activeConversationId) startPending(activeConversationId)
 
     try {
       if (promptImageDataUrl) {
@@ -4619,10 +4594,7 @@ export function ThumbnailGenerator({
            * picks up the assistant_message when the job finishes
            * and this indicator unmounts on the next render. */}
           {!isHistoryLoading && isCurrentConversationPending && !pendingAssistant && (
-            <article
-              className="coach-message coach-message--assistant coach-message--enter"
-              aria-live="polite"
-            >
+            <article className="coach-message coach-message--assistant" aria-live="polite">
               <div
                 className="thumb-server-pending"
                 role="status"
@@ -5213,7 +5185,7 @@ function FailedAttemptBlock({ entry, onRetry }) {
   return (
     <>
       {renderUserBubble ? (
-        <article className="coach-message coach-message--user coach-message--enter">
+        <article className="coach-message coach-message--user">
           <div className="coach-user-message-stack">
             {entry.userImageUrl ? (
               <div className="thumb-user-sent-image">
@@ -5233,7 +5205,7 @@ function FailedAttemptBlock({ entry, onRetry }) {
           </div>
         </article>
       ) : null}
-      <article className="coach-message coach-message--assistant coach-message--enter">
+      <article className="coach-message coach-message--assistant">
         <FailedGenerationCard entry={entry} onRetry={onRetry} />
       </article>
     </>
