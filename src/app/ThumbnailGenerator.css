@@ -2759,8 +2759,49 @@
 
 .thumb-batch-circle-option.is-active,
 .thumb-batch-circle-option.is-active:hover {
-  background: var(--accent-gradient);
+  /* Unified selected-pill look — same recipe used by the persona /
+   * style picker option rules below in the override block. Single
+   * gradient family + violet hairline rim (via inset box-shadow so
+   * the option doesn't grow 2px when selected) + soft inner top
+   * highlight. Reads as the same "selected" affordance regardless
+   * of which picker the user is in. */
+  background: linear-gradient(
+    135deg,
+    rgba(144, 97, 240, 0.45) 0%,
+    rgba(124, 58, 237, 0.32) 50%,
+    rgba(91, 33, 182, 0.42) 100%
+  );
   color: #ffffff;
+  box-shadow:
+    inset 0 0 0 1px rgba(196, 181, 253, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+/* ── Unified picker-option SELECTED state ────────────────────────────
+ * Persona, style, and batch share a coordinated visual contract: same
+ * violet gradient, same hairline rim, same inner highlight, so when
+ * a user looks at any of the three pickers the "this is selected"
+ * affordance is identical. Scoped to `.coach-main--thumb` so it
+ * applies only inside the thumbnail composer (not the rest of the
+ * app, where these components could in future render differently).
+ *
+ * `box-shadow: inset 0 0 0 1px` draws a 1px rim INSIDE the existing
+ * padding so the option doesn't physically grow when selected —
+ * no layout jump as the user clicks through choices. */
+.coach-main--thumb .persona-selector-option.is-selected,
+.coach-main--thumb .persona-selector-option.is-selected:hover,
+.coach-main--thumb .style-selector-option.is-selected,
+.coach-main--thumb .style-selector-option.is-selected:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(144, 97, 240, 0.45) 0%,
+    rgba(124, 58, 237, 0.32) 50%,
+    rgba(91, 33, 182, 0.42) 100%
+  );
+  color: #ffffff;
+  box-shadow:
+    inset 0 0 0 1px rgba(196, 181, 253, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
 .thumb-batch-circle-option-n {
