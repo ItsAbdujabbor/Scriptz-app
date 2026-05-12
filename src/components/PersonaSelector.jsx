@@ -67,6 +67,22 @@ function IconPlus() {
   )
 }
 
+function IconCheck() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  )
+}
+
 export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' }) {
   const { data, isPending } = usePersonasQuery()
   const { selectedPersonaId, selectedPersona, setSelectedPersona, clearSelectedPersona } =
@@ -298,6 +314,11 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
                     {pinnedIds.has(p.id) && (
                       <span className="persona-selector-pin" aria-hidden>
                         ★
+                      </span>
+                    )}
+                    {p.id === selectedPersonaId && (
+                      <span className="thumb-picker-check" aria-hidden>
+                        <IconCheck />
                       </span>
                     )}
                   </button>

@@ -90,54 +90,26 @@
   max-width: 90px;
 }
 
-/* Dropdown surface — matches the Optimize-screen SelectPill menu exactly so
- * every dropdown in the app reads as one component family. Background,
- * border, radius, shadow, and backdrop-filter all lifted from
- * `.pill-dd-menu`. */
-/* Speech-bubble surface — solid #1c1c24, soft drop shadow, with a
- * downward-pointing diamond tail painted by `::before` so the panel
- * reads as anchored to the trigger circle below. The outer container
- * keeps `overflow: visible` so the tail isn't clipped; the scrolling
- * list lives in `.persona-selector-dropdown-inner`. */
+/* Dropdown surface — plain dark panel floating just above the trigger.
+ * No speech-bubble tail; matches the batch / style dropdowns so the
+ * three pickers read as one component family. */
 .persona-selector-dropdown {
   position: absolute;
   bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   width: 220px;
   padding: 6px;
   background: #1c1c24;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 16px;
+  border-radius: 12px;
   box-shadow:
     0 10px 30px rgba(0, 0, 0, 0.5),
     0 2px 8px rgba(0, 0, 0, 0.32);
   z-index: 100;
   transform-origin: bottom center;
   animation: persona-selector-pop-in 0.2s cubic-bezier(0.4, 0, 0.2, 1) both;
-  overflow: visible;
-}
-
-/* Diamond tail. A 10×10 square rotated 45° anchored half-out the
- * bottom edge, with two of its sides carrying the popover's border so
- * the visible point gets a proper outline. `z-index: -1` tucks it
- * behind the popover body so the top half disappears under the
- * rounded corner and the bottom half becomes the arrow. */
-.persona-selector-dropdown::before {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  left: 50%;
-  width: 12px;
-  height: 12px;
-  transform: translateX(-50%) rotate(45deg);
-  background: #1c1c24;
-  border-right: 1px solid rgba(255, 255, 255, 0.12);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  border-bottom-right-radius: 3px;
-  z-index: -1;
-  pointer-events: none;
 }
 
 /* Section label at the top of the panel. Compact, uppercase, soft
@@ -151,8 +123,7 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
-/* Inner scroll area. Holds the option list; the outer keeps
- * overflow: visible for the tail. */
+/* Inner scroll area for the option list. */
 .persona-selector-dropdown-inner {
   max-height: 280px;
   overflow-y: auto;
@@ -175,26 +146,16 @@
  * so the inline coordinates take over. z-index bumped well above the
  * composer so it never sits behind the input field.
  *
- * Message-bubble offset — the floating hook anchors the popover's LEFT
- * edge to the trigger's left edge (`top-start`). Push the popover right
- * by half the 34px glass-circle pill so its left edge sits over the
- * pill's CENTRE; combined with the tail override below the panel reads
- * like a chat bubble speaking from the pill. translateX also overrides
- * the base `translateX(-50%)` left over from the pre-floating layout. */
+ * The floating hook anchors the popover's LEFT edge to the trigger's left
+ * edge (`top-start`). Shift right by half the 34px glass-circle pill so
+ * the panel sits over the pill's centre. translateX also overrides the
+ * base `translateX(-50%)` left over from the pre-floating layout. */
 .persona-selector-dropdown--floating {
   position: fixed;
   bottom: auto;
   margin-bottom: 0;
   z-index: 2000;
   transform: translateX(17px);
-}
-
-/* Tail moved to the LEFT of the bubble (chat-message style) — sits a
- * hair inside the rounded corner so it visually points down at the
- * pill below, instead of floating in dead-centre of a wide panel. */
-.persona-selector-dropdown--floating::before {
-  left: 14px;
-  transform: rotate(45deg);
 }
 
 .persona-selector-loading,
@@ -330,18 +291,18 @@
   }
 }
 
-/* Option language — matches SelectPill `.pill-dd-option` (border-radius,
- * hover/active tint, focus ring) but keeps 40px height + 28px image slot
- * since persona rows show a face crop, which the SelectPill doesn't. */
+/* Option language — 36px row to match `.sidebar-history-row`, plus
+ * the chat-history-style white-wash selected state. Shared with the
+ * style / batch picker rows so all three pickers feel identical. */
 .persona-selector-option {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: 38px;
+  min-height: 36px;
   padding: 6px 12px;
   border: none;
-  border-radius: 999px;
+  border-radius: 8px;
   background: transparent;
   color: rgba(229, 231, 235, 0.78);
   font-size: 0.8rem;
@@ -368,13 +329,39 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* Selected — simple accent-tinted pill with white text. No solid
- * gradient fill, no thick border — just enough purple to read as
- * "this is the active choice" without dominating the list. */
-.persona-selector-option.is-selected,
-.persona-selector-option.is-selected:hover {
-  background: rgba(167, 139, 250, 0.14);
+/* Selected — neutral white wash, matches `.sidebar-history-row.is-active`
+ * so the picker's selection affordance matches the rest of the app's
+ * list-row recipe. The thumbnail-screen override in ThumbnailGenerator.css
+ * carries the same recipe so persona / style / batch stay aligned. */
+.persona-selector-option.is-selected {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
   color: #ffffff;
+}
+
+.persona-selector-option.is-selected:hover {
+  background: rgba(255, 255, 255, 0.11);
+}
+
+/* Right-aligned check on the selected row. Shared class name with the
+ * batch / style pickers (`.thumb-picker-check`) so all three pickers
+ * carry an identical affordance. Defined locally too so the rule still
+ * applies when the persona picker is used outside the thumbnail
+ * composer (e.g. EditThumbnailDialog). */
+.persona-selector-option .thumb-picker-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  color: currentColor;
+  flex-shrink: 0;
+}
+
+.persona-selector-option .thumb-picker-check svg {
+  width: 14px;
+  height: 14px;
 }
 
 .persona-selector-option-img {

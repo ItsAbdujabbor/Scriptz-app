@@ -66,6 +66,22 @@ function IconPlus() {
   )
 }
 
+function IconCheck() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  )
+}
+
 export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
   const { data, isPending } = useStylesQuery()
   const { selectedStyleId, selectedStyle, setSelectedStyle, clearSelectedStyle } = useStyleStore()
@@ -270,6 +286,11 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
                     <span className="style-selector-option-name">{s.name}</span>
                     {s.visibility !== 'personal' && (
                       <span className="style-selector-badge">{s.visibility}</span>
+                    )}
+                    {s.id === selectedStyleId && (
+                      <span className="thumb-picker-check" aria-hidden>
+                        <IconCheck />
+                      </span>
                     )}
                   </button>
                 ))}

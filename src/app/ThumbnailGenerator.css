@@ -2490,16 +2490,17 @@
   text-shadow: none;
 }
 
-/* Batch-count popover — speech-bubble surface anchored to the
- * trigger circle. Same recipe as the persona / style dropdowns. */
+/* Batch-count popover — plain dark panel floating just above the
+ * trigger circle. No speech-bubble tail; consistent with the persona /
+ * style dropdowns. */
 .thumb-batch-circle-popover {
   position: absolute;
-  bottom: calc(100% + 10px);
+  bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
-  width: 132px;
+  width: 160px;
   padding: 6px;
-  border-radius: 16px;
+  border-radius: 12px;
   z-index: 120;
   background: #1c1c24;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -2508,25 +2509,6 @@
     0 2px 8px rgba(0, 0, 0, 0.32);
   transform-origin: bottom center;
   animation: thumb-batch-circle-pop-in 0.2s cubic-bezier(0.4, 0, 0.2, 1) both;
-  overflow: visible;
-}
-
-/* Diamond tail — 12×12 rotated square, half tucked behind the body
- * so its bottom-right corner becomes a properly outlined arrow. */
-.thumb-batch-circle-popover::before {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  left: 50%;
-  width: 12px;
-  height: 12px;
-  transform: translateX(-50%) rotate(45deg);
-  background: #1c1c24;
-  border-right: 1px solid rgba(255, 255, 255, 0.12);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  border-bottom-right-radius: 3px;
-  z-index: -1;
-  pointer-events: none;
 }
 
 @keyframes thumb-batch-circle-pop-in {
@@ -2714,29 +2696,31 @@
  * the persona / style header pattern. */
 .thumb-batch-circle-popover-title {
   margin: 0;
-  padding: 4px 10px 8px;
+  padding: 6px 10px 8px;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.5);
-  text-align: center;
+  text-align: left;
 }
 
-/* Compact option row — number-only picker. Pill-shaped to match
- * persona / style options. */
+/* Compact option row — number-only picker. Shares row height +
+ * selected recipe with persona / style options so the three pickers
+ * read as one component family. */
 .thumb-batch-circle-option {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 10px;
   width: 100%;
-  min-height: 30px;
-  padding: 4px 10px;
+  min-height: 36px;
+  padding: 6px 12px;
   border: none;
-  border-radius: 999px;
+  border-radius: 8px;
   background: transparent;
   color: rgba(229, 231, 235, 0.78);
   font-family: inherit;
+  text-align: left;
   cursor: pointer;
   transition:
     background 0.18s ease,
@@ -2757,58 +2741,78 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
+/* Unified selected state — neutral white wash matching
+ * `.sidebar-history-row.is-active`. Same recipe is applied to the
+ * persona / style picker options via the override block below so all
+ * three pickers share a single "this is selected" affordance. The
+ * inset box-shadow draws the 1px rim INSIDE the row so selection
+ * doesn't shift layout. */
 .thumb-batch-circle-option.is-active,
 .thumb-batch-circle-option.is-active:hover {
-  /* Unified selected-pill look — same recipe used by the persona /
-   * style picker option rules below in the override block. Single
-   * gradient family + violet hairline rim (via inset box-shadow so
-   * the option doesn't grow 2px when selected) + soft inner top
-   * highlight. Reads as the same "selected" affordance regardless
-   * of which picker the user is in. */
-  background: linear-gradient(
-    135deg,
-    rgba(144, 97, 240, 0.45) 0%,
-    rgba(124, 58, 237, 0.32) 50%,
-    rgba(91, 33, 182, 0.42) 100%
-  );
-  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
   box-shadow:
-    inset 0 0 0 1px rgba(196, 181, 253, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  color: #ffffff;
 }
 
-/* ── Unified picker-option SELECTED state ────────────────────────────
- * Persona, style, and batch share a coordinated visual contract: same
- * violet gradient, same hairline rim, same inner highlight, so when
- * a user looks at any of the three pickers the "this is selected"
- * affordance is identical. Scoped to `.coach-main--thumb` so it
- * applies only inside the thumbnail composer (not the rest of the
- * app, where these components could in future render differently).
- *
- * `box-shadow: inset 0 0 0 1px` draws a 1px rim INSIDE the existing
- * padding so the option doesn't physically grow when selected —
- * no layout jump as the user clicks through choices. */
+.thumb-batch-circle-option.is-active:hover {
+  background: rgba(255, 255, 255, 0.11);
+}
+
+/* Persona / style picker selected state — overridden inside the
+ * thumbnail composer to match the chat-history row recipe. Single
+ * source of truth so all three pickers stay in lockstep. */
 .coach-main--thumb .persona-selector-option.is-selected,
-.coach-main--thumb .persona-selector-option.is-selected:hover,
-.coach-main--thumb .style-selector-option.is-selected,
-.coach-main--thumb .style-selector-option.is-selected:hover {
-  background: linear-gradient(
-    135deg,
-    rgba(144, 97, 240, 0.45) 0%,
-    rgba(124, 58, 237, 0.32) 50%,
-    rgba(91, 33, 182, 0.42) 100%
-  );
-  color: #ffffff;
+.coach-main--thumb .style-selector-option.is-selected {
+  background: rgba(255, 255, 255, 0.08);
   box-shadow:
-    inset 0 0 0 1px rgba(196, 181, 253, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+.coach-main--thumb .persona-selector-option.is-selected:hover,
+.coach-main--thumb .style-selector-option.is-selected:hover {
+  background: rgba(255, 255, 255, 0.11);
 }
 
 .thumb-batch-circle-option-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
   font-size: 0.82rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  flex-shrink: 0;
+}
+
+.thumb-batch-circle-option-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* Check mark on the right of any selected picker option. Shared
+ * across batch / persona / style so the affordance is identical. */
+.thumb-picker-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  color: currentColor;
+  flex-shrink: 0;
+}
+
+.thumb-picker-check svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* Prompt / recreate: full-bleed thread so thumbnail grids can use the full

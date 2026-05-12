@@ -576,6 +576,14 @@ function ThumbBatchCirclePicker({ value, onChange, disabled }) {
                 }}
               >
                 <span className="thumb-batch-circle-option-n">{n}</span>
+                <span className="thumb-batch-circle-option-label">
+                  {n === 1 ? '1 concept' : `${n} concepts`}
+                </span>
+                {n === value && (
+                  <span className="thumb-picker-check" aria-hidden>
+                    <LucideCheck strokeWidth={2.6} />
+                  </span>
+                )}
               </button>
             ))}
           </div>,
@@ -654,6 +662,12 @@ function ThumbTitleCountPicker({ value, onChange, disabled }) {
                 }}
               >
                 <span className="thumb-batch-circle-option-n">{n}</span>
+                <span className="thumb-batch-circle-option-label">{`${n} ideas`}</span>
+                {n === value && (
+                  <span className="thumb-picker-check" aria-hidden>
+                    <LucideCheck strokeWidth={2.6} />
+                  </span>
+                )}
               </button>
             ))}
           </div>,

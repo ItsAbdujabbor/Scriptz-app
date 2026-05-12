@@ -85,44 +85,26 @@
   max-width: 80px;
 }
 
-/* Dropdown surface — matches the Optimize-screen SelectPill menu exactly so
- * every dropdown in the app reads as one component family. See
- * PersonaSelector.css for the same block. */
+/* Dropdown surface — plain dark panel floating just above the trigger.
+ * No speech-bubble tail; matches the batch / persona dropdowns so the
+ * three pickers read as one component family. */
 .style-selector-dropdown {
   position: absolute;
   bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   width: 220px;
   padding: 6px;
   background: #1c1c24;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 16px;
+  border-radius: 12px;
   box-shadow:
     0 10px 30px rgba(0, 0, 0, 0.5),
     0 2px 8px rgba(0, 0, 0, 0.32);
   z-index: 100;
   transform-origin: bottom center;
   animation: style-selector-pop-in 0.2s cubic-bezier(0.4, 0, 0.2, 1) both;
-  overflow: visible;
-}
-
-/* Diamond tail — same recipe as the persona popover. */
-.style-selector-dropdown::before {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  left: 50%;
-  width: 12px;
-  height: 12px;
-  transform: translateX(-50%) rotate(45deg);
-  background: #1c1c24;
-  border-right: 1px solid rgba(255, 255, 255, 0.12);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  border-bottom-right-radius: 3px;
-  z-index: -1;
-  pointer-events: none;
 }
 
 .style-selector-header {
@@ -151,22 +133,15 @@
   background: rgba(255, 255, 255, 0.16);
 }
 
-/* Floating variant — portaled + JS-positioned. Same message-bubble
- * offset as `.persona-selector-dropdown--floating`: shift right by half
- * the 34px glass-circle pill so the panel's left edge sits over the
- * pill's centre, and move the tail to the left so it points down at
- * the pill below. */
+/* Floating variant — portaled + JS-positioned. Same horizontal nudge
+ * as `.persona-selector-dropdown--floating` so the panel sits over the
+ * 34px glass-circle pill's centre. */
 .style-selector-dropdown--floating {
   position: fixed;
   bottom: auto;
   margin-bottom: 0;
   z-index: 2000;
   transform: translateX(17px);
-}
-
-.style-selector-dropdown--floating::before {
-  left: 14px;
-  transform: rotate(45deg);
 }
 
 .style-selector-loading,
@@ -293,18 +268,18 @@
   }
 }
 
-/* Option language — matches SelectPill `.pill-dd-option` (radius, hover,
- * active tint). Keeps a roomier padding than the 0.45rem SelectPill since
- * style rows carry a 20px thumbnail crop. */
+/* Option language — 36px row to match `.sidebar-history-row`, plus
+ * the chat-history-style white-wash selected state. Shared with the
+ * persona / batch picker rows so all three pickers feel identical. */
 .style-selector-option {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: 38px;
+  min-height: 36px;
   padding: 6px 12px;
   border: none;
-  border-radius: 999px;
+  border-radius: 8px;
   background: transparent;
   color: rgba(229, 231, 235, 0.78);
   font-size: 0.8rem;
@@ -331,13 +306,39 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* Selected — simple accent-tinted pill with white text. No solid
- * gradient fill so the list reads as quiet and the picker feels
- * uncluttered, even with a long history of styles. */
-.style-selector-option.is-selected,
-.style-selector-option.is-selected:hover {
-  background: rgba(167, 139, 250, 0.14);
+/* Selected — neutral white wash, matches `.sidebar-history-row.is-active`
+ * so the picker's selection affordance matches the rest of the app's
+ * list-row recipe. The thumbnail-screen override in ThumbnailGenerator.css
+ * carries the same recipe so persona / style / batch stay aligned. */
+.style-selector-option.is-selected {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
   color: #ffffff;
+}
+
+.style-selector-option.is-selected:hover {
+  background: rgba(255, 255, 255, 0.11);
+}
+
+/* Right-aligned check on the selected row. Shared class name with the
+ * batch / persona pickers (`.thumb-picker-check`) so all three pickers
+ * carry an identical affordance. Defined locally too so the rule still
+ * applies when the style picker is used outside the thumbnail composer
+ * (e.g. EditThumbnailDialog). */
+.style-selector-option .thumb-picker-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  color: currentColor;
+  flex-shrink: 0;
+}
+
+.style-selector-option .thumb-picker-check svg {
+  width: 14px;
+  height: 14px;
 }
 
 .style-selector-option-img {
