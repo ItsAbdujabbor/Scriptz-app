@@ -19,6 +19,7 @@
  * and query-param transport.
  */
 import { getApiBaseUrl } from '../lib/env.js'
+import { useJobStore } from '../stores/useJobStore.js'
 import { useThumbnailJobStatusStore } from '../stores/thumbnailJobStatusStore.js'
 import { showJobDoneNotification } from '../lib/browserNotification.js'
 
@@ -27,6 +28,14 @@ let _reconnectTimer = null
 let _reconnectAttempt = 0
 let _currentToken = null
 let _disposed = false
+// Highest ``stream_event_id`` observed on the current connection.
+// Sent as ``?last_event_id=`` on forced reconnects so the backend's
+// durable-replay path (Phase 1.4 SSE handler) catches us up on
+// anything published while the connection was down. The browser's
+// auto-reconnect also sends ``Last-Event-ID`` via header, but we
+// force-close on every error to apply our own backoff, so the
+// EventSource forgets the cursor unless we plumb it through.
+let _lastEventId = null
 
 const MAX_RECONNECT_DELAY_MS = 30_000
 const BASE_RECONNECT_DELAY_MS = 1_000
@@ -56,17 +65,35 @@ function scheduleReconnect() {
 }
 
 function handleStatusEvent(payload) {
-  // Reuse the SAME store the polling adapter writes to — consumers
-  // (loader hint, etc.) don't need to know whether the latest update
-  // arrived via push or pull. This keeps the UI logic single-sourced.
-  useThumbnailJobStatusStore.getState().update({
+  // Phase 3.6: write to the per-job_id `useJobStore` so multiple
+  // jobs in flight (recreate + chat + analyze running concurrently)
+  // each get their own status without overwriting each other.
+  // The legacy singleton `useThumbnailJobStatusStore` is updated as
+  // well during the migration window so components that haven't
+  // moved to the new store yet keep working.
+  const status = {
     job_id: payload.job_id,
     status: payload.status,
     progress: payload.progress,
     status_message: payload.status_message,
     attempt_count: payload.attempt_count,
     max_attempts: payload.max_attempts,
-  })
+    conversation_id: payload.conversation_id,
+    stream_event_id: payload.stream_event_id,
+  }
+  if (payload.job_id) {
+    useJobStore.getState().setStatus(payload.job_id, status)
+  }
+  useThumbnailJobStatusStore.getState().update(status)
+  // Track the highest stream_event_id we've actually consumed so a
+  // forced reconnect can request "everything after this" from the
+  // durable replay log.
+  if (payload.stream_event_id != null) {
+    const next = Number(payload.stream_event_id)
+    if (Number.isFinite(next) && (_lastEventId == null || next > _lastEventId)) {
+      _lastEventId = next
+    }
+  }
 }
 
 function handleTerminalEvent(payload, isSuccess) {
@@ -101,8 +128,17 @@ function openStream(token) {
     _eventSource = null
   }
 
-  const url =
-    getApiBaseUrl() + '/api/thumbnails/jobs/stream?access_token=' + encodeURIComponent(token)
+  // Resume from the last stream_event_id we observed so the backend's
+  // durable-replay path streams missed events before tailing live.
+  // Browsers also send ``Last-Event-ID`` via header on native
+  // auto-reconnects, but since we force-close + reopen on every
+  // error path the new EventSource forgets the cursor; pass it
+  // explicitly.
+  const params = new URLSearchParams({ access_token: token })
+  if (_lastEventId != null) {
+    params.set('last_event_id', String(_lastEventId))
+  }
+  const url = `${getApiBaseUrl()}/api/thumbnails/jobs/stream?${params.toString()}`
 
   let es
   try {
@@ -110,7 +146,7 @@ function openStream(token) {
   } catch (err) {
     // Browser doesn't support EventSource — fall back to polling
     // (which is always on). Don't retry; SSE will never work here.
-     
+
     console.warn('[jobEventStream] EventSource not available:', err)
     return
   }
@@ -174,6 +210,12 @@ function openStream(token) {
  */
 export function connectJobEventStream(accessToken) {
   if (!accessToken) return
+  // A token change is a different identity — drop the per-user
+  // event cursor so we don't accidentally surface user A's events
+  // to user B on the next reconnect. Cleared on login transitions.
+  if (accessToken !== _currentToken) {
+    _lastEventId = null
+  }
   _disposed = false
   _currentToken = accessToken
   _reconnectAttempt = 0
@@ -187,6 +229,9 @@ export function connectJobEventStream(accessToken) {
 export function disconnectJobEventStream() {
   _disposed = true
   _currentToken = null
+  // Reset the durable-replay cursor on logout so the next login
+  // doesn't bleed events across users.
+  _lastEventId = null
   clearReconnect()
   if (_eventSource) {
     try {
