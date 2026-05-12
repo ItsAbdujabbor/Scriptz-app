@@ -86,7 +86,25 @@ export function preloadPaddle() {
   })
 }
 
-export async function openPaddleCheckout({ transactionId, checkoutUrl, clientToken } = {}) {
+export async function openPaddleCheckout({
+  transactionId,
+  checkoutUrl,
+  clientToken,
+  onEvent,
+} = {}) {
+  // Mirror openPaddleInlineCheckout's onEvent plumbing — callers should
+  // pass their listener HERE rather than calling subscribePaddleEvents
+  // from their own module. paddle.js can end up in a different
+  // code-split chunk than the caller, in which case importing
+  // subscribePaddleEvents from there returns a function bound to a
+  // _different_ `_eventListeners` Set than the one Paddle's eventCallback
+  // (paddleDispatch) actually iterates — so the caller's subscriber
+  // would silently never fire. Subscribing from inside paddle.js
+  // guarantees both sides resolve to the same module instance.
+  let unsubscribe = () => {}
+  if (typeof onEvent === 'function') {
+    unsubscribe = subscribePaddleEvents(onEvent)
+  }
   // If backend returned a hosted checkout_url, use it as a fallback.
   try {
     const Paddle = await loadPaddle(clientToken)
@@ -98,12 +116,17 @@ export async function openPaddleCheckout({ transactionId, checkoutUrl, clientTok
       },
     })
   } catch (e) {
+    unsubscribe()
     if (checkoutUrl) {
       window.location.href = checkoutUrl
       return
     }
     throw e
   }
+  // Return a dispose handle so callers can detach the listener
+  // (mirrors openPaddleInlineCheckout). Best-effort — if the caller
+  // ignores it, the listener stays until checkout.closed comes through.
+  return { dispose: unsubscribe }
 }
 
 /** Mount Paddle Inline Checkout into the DOM element carrying

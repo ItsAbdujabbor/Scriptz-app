@@ -26,7 +26,7 @@ import { useAuthStore } from '../stores/authStore'
 import { useCreditsQuery, refreshBillingState } from '../queries/billing/creditsQueries'
 import { queryKeys } from '../lib/query/queryKeys'
 import { getPlans, startCheckout } from '../api/billing'
-import { openPaddleCheckout, subscribePaddleEvents } from '../lib/paddle'
+import { openPaddleCheckout } from '../lib/paddle'
 import { useSubscriptionActivationStore } from '../stores/subscriptionActivationStore'
 import './CreditPacksModal.css'
 
@@ -126,17 +126,17 @@ export function CreditPacksModal({ open, onClose }) {
     )
     const expectedCredits = Number(pack?.credits || 0)
 
-    // Subscribe to Paddle's global event stream BEFORE opening
-    // checkout so we don't miss `checkout.completed`. The overlay
-    // dispatches events through `subscribePaddleEvents` (see paddle.js
-    // `paddleDispatch`). When the user finishes paying we kick the
-    // activation store into pack-burst mode — the splash mounted in
-    // AppShellLayout reads that and renders "Adding your credits…",
-    // then transitions to "+X credits added!" once
-    // useCreditsQuery sees the balance increase past the baseline.
+    // Local flag so the listener only fires once even if Paddle
+    // dispatches `checkout.completed` multiple times (it can fire
+    // again on retries / page transitions).
     let alreadyHandled = false
-    const unsubscribe = subscribePaddleEvents((ev) => {
+    let disposeHandle = null
+
+    const onPaddleEvent = (ev) => {
       const name = ev?.name || ev?.event_name
+      if (!name) return
+      // eslint-disable-next-line no-console
+      console.info('[CreditPacksModal:paddle-event]', name)
       if (alreadyHandled) return
       if (name === 'checkout.completed') {
         alreadyHandled = true
@@ -146,10 +146,10 @@ export function CreditPacksModal({ open, onClose }) {
           packBaseline: baselinePermanent,
         })
         // Optimistic bump — gives the badge an instant tick. The
-        // splash's success detection still relies on the SERVER-side
-        // balance crossing the baseline (the credits query refetches
-        // every 1s during the burst), so we set the baseline BEFORE
-        // mutating the cache so the comparison stays correct.
+        // splash's success detection compares the SERVER credits
+        // against `packBaseline`, which we captured BEFORE mutating
+        // the cache, so the comparison still sees a true server-side
+        // increase once the webhook lands.
         if (expectedCredits > 0) {
           queryClient.setQueryData(queryKeys.billing.credits, (current) => {
             if (!current || typeof current !== 'object') return current
@@ -160,12 +160,14 @@ export function CreditPacksModal({ open, onClose }) {
         }
         refreshBillingState(queryClient)
         onClose?.()
+        // Listener can be cleaned up — we got what we needed.
+        disposeHandle?.dispose?.()
       } else if (name === 'checkout.closed') {
-        // User dismissed the overlay without paying — clean up the
+        // User dismissed the overlay without paying. Clean up the
         // listener so a future purchase doesn't double-fire.
-        unsubscribe()
+        disposeHandle?.dispose?.()
       }
-    })
+    }
 
     try {
       const token = await getValidAccessToken()
@@ -174,13 +176,17 @@ export function CreditPacksModal({ open, onClose }) {
         successUrl: window.location.origin + '/#credits?checkout=success',
         cancelUrl: window.location.origin + '/#credits?checkout=canceled',
       })
-      await openPaddleCheckout({
+      // Pass onEvent through openPaddleCheckout so the listener gets
+      // registered inside paddle.js's own module instance (avoids
+      // cross-chunk subscriber-set drift — see paddle.js comment).
+      disposeHandle = await openPaddleCheckout({
         transactionId: resp?.transaction_id,
         checkoutUrl: resp?.checkout_url,
         clientToken: resp?.client_token,
+        onEvent: onPaddleEvent,
       })
     } catch (e) {
-      unsubscribe()
+      disposeHandle?.dispose?.()
       setError(e?.message || 'Checkout could not start. Try again.')
     } finally {
       setLoadingPack(null)
