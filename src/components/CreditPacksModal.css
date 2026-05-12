@@ -1,9 +1,7 @@
-/* Credit packs modal — outer chrome (overlay, framing, animation) lives
- * in Dialog.css. This file adds the credits-specific surface treatment
- * on top of the base panel: solid dark panel matching the rest of the
- * app (Pro pricing cards, thumbnail batch card, Personas modal), Poppins
- * type, accent-gradient on the primary CTA. No sheens, no busy washes —
- * the cards are the focal point. */
+/* Credit packs modal — three-zone layout (header / scroll body / footer)
+ * so the inner pack grid scrolls cleanly on phones while the title and
+ * footer stay locked in place. Outer chrome (overlay, framing, animation)
+ * lives in Dialog.css — this file styles the content and the cards. */
 
 .credits-modal-card {
   position: relative;
@@ -24,24 +22,26 @@
     system-ui,
     -apple-system,
     sans-serif;
+  /* `.ui-dialog-panel` already sets `display:flex; flex-direction:column;
+   * overflow:hidden; max-height:88vh;`. With our three direct children
+   * (head / scroll / foot), the scroll child is the only one allowed to
+   * grow + scroll — chrome stays put. */
 }
 
-.credits-modal-body {
-  padding: 1.6rem 1.6rem 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-/* ─── Header ─────────────────────────────────────────────────────── */
+/* ─── Header — fixed, never scrolls ──────────────────────────────── */
 
 .credits-modal-head {
+  flex-shrink: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  padding-bottom: 1rem;
+  padding: 1.5rem 1.6rem 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.credits-modal-head-text {
+  min-width: 0;
 }
 
 .credits-modal-title {
@@ -55,12 +55,19 @@
   color: #ffffff;
 }
 
+.credits-modal-title-icon {
+  width: 22px;
+  height: 22px;
+  color: #c4b5fd;
+  flex-shrink: 0;
+}
+
 .credits-modal-sub {
   margin: 0;
   font-size: 0.86rem;
   line-height: 1.5;
   color: rgba(229, 231, 235, 0.6);
-  max-width: 520px;
+  max-width: 540px;
 }
 
 .credits-modal-sub strong {
@@ -98,6 +105,45 @@
   transform: scale(0.92);
 }
 
+/* ─── Scroll body — the mobile-overflow fix ──────────────────────── */
+
+.credits-modal-scroll {
+  flex: 1 1 auto;
+  /* `min-height: 0` is the magic incantation: without it, the flex item
+   * inherits its content's intrinsic height and ignores `overflow-y`,
+   * so the modal grows past the panel's `max-height` and the bottom
+   * cards clip behind the rounded corner instead of scrolling. */
+  min-height: 0;
+  overflow-y: auto;
+  /* Top padding accounts for the "Best value" badge that sits at the
+   * top edge of the first row of cards — without it, the badge gets
+   * clipped at the scroll viewport's top edge. */
+  padding: 1rem 1.6rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  /* Custom scrollbar — subtle, matches the rest of the app. */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.credits-modal-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.credits-modal-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.credits-modal-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.credits-modal-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
+  background-clip: padding-box;
+}
+
 /* ─── Inline error / loading / empty states ─────────────────────── */
 
 .credits-modal-error {
@@ -112,10 +158,30 @@
 
 .credits-modal-loading,
 .credits-modal-empty {
-  padding: 2.5rem 1rem;
+  padding: 3rem 1rem;
   text-align: center;
-  color: rgba(229, 231, 235, 0.5);
+  color: rgba(229, 231, 235, 0.55);
   font-size: 0.88rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.credits-modal-spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.08);
+  border-top-color: #a78bfa;
+  animation: credits-spin 0.85s linear infinite;
+  box-shadow: 0 0 16px rgba(167, 139, 250, 0.18);
+}
+
+@keyframes credits-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ─── Pack grid ─────────────────────────────────────────────────── */
@@ -127,6 +193,10 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.85rem;
+  /* Account for the "Best value" badge that pokes above its card by
+   * 10px. Without this top margin the badge gets visually clipped at
+   * the top of the scroll viewport on first render. */
+  margin-top: 8px;
 }
 
 .credits-pack-card {
@@ -135,7 +205,7 @@
   flex-direction: column;
   align-items: stretch;
   gap: 0.5rem;
-  padding: 1.2rem 1rem 1rem;
+  padding: 1.25rem 1rem 1rem;
   border-radius: 16px;
   background: #181820;
   border: 1px solid rgba(255, 255, 255, 0.07);
@@ -217,13 +287,13 @@
   flex-direction: column;
   align-items: center;
   gap: 0.15rem;
-  padding: 0.4rem 0;
+  padding: 0.4rem 0 0.2rem;
 }
 
 .credits-pack-credits-num {
-  font-size: 1.85rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
   color: #ffffff;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -232,13 +302,13 @@
 .credits-pack-credits-label {
   font-size: 0.62rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(229, 231, 235, 0.5);
 }
 
 .credits-pack-price {
-  font-size: 1.05rem;
+  font-size: 1.08rem;
   font-weight: 600;
   text-align: center;
   color: #ffffff;
@@ -247,11 +317,39 @@
 }
 
 .credits-pack-rate {
-  font-size: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
   text-align: center;
   color: rgba(229, 231, 235, 0.45);
   font-variant-numeric: tabular-nums;
   margin-bottom: 0.25rem;
+  min-height: 2rem;
+}
+
+/* "Save X%" chip — soft accent so it draws the eye on bigger packs
+ * without competing with the "Best value" badge. Only renders when
+ * savings >= 15% (see decoratePacks in the JSX). */
+.credits-pack-savings {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #c4b5fd;
+  background: rgba(167, 139, 250, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.28);
+  white-space: nowrap;
+}
+
+.credits-pack-card--best .credits-pack-savings {
+  color: #ffffff;
+  background: rgba(167, 139, 250, 0.22);
+  border-color: rgba(167, 139, 250, 0.45);
 }
 
 /* ─── CTA buttons ───────────────────────────────────────────────── */
@@ -261,16 +359,16 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 36px;
+  height: 40px;
   padding: 0 14px;
+  margin-top: 0.25rem;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 100%),
-    #23232d;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 100%), #23232d;
   color: #ffffff;
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 600;
   letter-spacing: 0.005em;
   cursor: pointer;
@@ -288,8 +386,7 @@
 
 .credits-pack-cta:hover:not(:disabled) {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 100%),
-    #2c2c38;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 100%), #2c2c38;
   border-color: rgba(255, 255, 255, 0.22);
 }
 
@@ -322,19 +419,26 @@
   cursor: not-allowed;
 }
 
-/* ─── Footer ────────────────────────────────────────────────────── */
+/* ─── Footer — fixed, never scrolls ─────────────────────────────── */
 
 .credits-modal-foot {
+  flex-shrink: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding-top: 0.85rem;
+  padding: 0.95rem 1.6rem 1.1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   font-size: 0.74rem;
   color: rgba(229, 231, 235, 0.5);
   line-height: 1.45;
+  background: rgba(28, 28, 36, 0.6);
+}
+
+.credits-modal-foot-note {
+  flex: 1 1 220px;
+  min-width: 0;
 }
 
 .credits-modal-link {
@@ -347,34 +451,55 @@
   font-weight: 600;
   font-size: 0.8rem;
   transition: color 0.16s ease;
+  flex-shrink: 0;
 }
 
 .credits-modal-link:hover {
   color: #ffffff;
 }
 
-/* ─── Mobile tightening ────────────────────────────────────────── */
+/* ─── Mobile (≤640px) ───────────────────────────────────────────── */
 
-@media (max-width: 560px) {
-  .credits-modal-body {
-    padding: 1.2rem 1.1rem 1rem;
-    gap: 1rem;
-  }
+@media (max-width: 640px) {
   .credits-modal-head {
-    padding-bottom: 0.8rem;
+    padding: 1.15rem 1.1rem 0.85rem;
+    gap: 0.6rem;
   }
   .credits-modal-title {
     font-size: 1.05rem;
   }
+  .credits-modal-sub {
+    font-size: 0.8rem;
+  }
+  .credits-modal-scroll {
+    padding: 0.85rem 1.1rem 1rem;
+    gap: 0.85rem;
+  }
   .credits-modal-grid {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    /* Single column on phones so the cards become tall, scannable
+     * rows instead of cramped tiles. The inner scroll handles the
+     * rest. */
+    grid-template-columns: 1fr;
     gap: 0.7rem;
   }
   .credits-pack-card {
-    padding: 1.05rem 0.85rem 0.85rem;
+    padding: 1.1rem 1rem 1rem;
   }
   .credits-pack-credits-num {
-    font-size: 1.55rem;
+    font-size: 1.8rem;
+  }
+  .credits-pack-cta {
+    height: 44px; /* larger touch target */
+    font-size: 0.9rem;
+  }
+  .credits-modal-foot {
+    padding: 0.85rem 1.1rem 1rem;
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+  .credits-modal-foot-note {
+    flex: 0 0 auto;
   }
 }
 
@@ -385,5 +510,8 @@
   .credits-pack-cta,
   .credits-modal-close {
     transition: none;
+  }
+  .credits-modal-spinner {
+    animation-duration: 1.8s;
   }
 }
