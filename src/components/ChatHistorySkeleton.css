@@ -1,39 +1,23 @@
-/* Chat-thread loading state — skeleton variant.
+/* Chat-thread loading state — Lottie variant.
  *
- * Three skeleton messages in the same layout as the real chat:
- *
- *   - Assistant: full-thread-width rows on a transparent background.
- *     The first message has three rows of decreasing width to mimic a
- *     short prose reply; the third has a single row plus a 2-card
- *     thumbnail-grid placeholder so the user sees the kind of content
- *     they're about to get.
- *
- *   - User: a violet gradient bubble (matches `.coach-message--user`
- *     in Chat.css exactly: max-width 82%, 18px radius, padding, deep
- *     purple gradient, soft drop-shadow) with light shimmer rows
- *     inside.
- *
- * A single shimmer keyframe drives every row — they share timing so
- * the wave reads as one sweep across the thread, not random twinkles.
- *
- * No centered "Loading conversation" copy — the skeleton itself is
- * the loading signal. Screen readers get it via the outer
- * `role="status" aria-label`.
- *
- * Reduced-motion swaps the shimmer for a static, slightly elevated
- * fill so the layout is visible but nothing strobes.
+ * A single dotLottie animation (src/assets/loading.lottie) centered
+ * in the chat thread while messages are fetched. The wrapper fades
+ * in gently so the asset doesn't appear with a snap when the page
+ * transitions, and fades out when the real messages take over.
  */
 
 .chat-loader {
-  /* Sit inside `.coach-thread`, matching its max-width + horizontal
-   * gutter, so the skeleton bubbles land in exactly the slots the
-   * real messages will land in. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
-  max-width: min(760px, 100%);
+  /* Fill most of the visible thread height so the animation reads as
+   * intentional and centered, not floating in the corner. */
+  flex: 1;
+  min-height: 50vh;
   margin: 0 auto;
-  padding: 28px 16px 16px;
   opacity: 0;
-  animation: chat-loader-fade-in 320ms cubic-bezier(0.25, 1, 0.5, 1) 40ms forwards;
+  animation: chat-loader-fade-in 280ms cubic-bezier(0.25, 1, 0.5, 1) 40ms forwards;
   transition:
     opacity 220ms ease-out,
     transform 220ms ease-out;
@@ -48,7 +32,7 @@
 @keyframes chat-loader-fade-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -56,160 +40,14 @@
   }
 }
 
-.chat-loader__thread {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-/* Each message — flex row so user/assistant can pin to opposite
- * sides via justify-content (mirroring `.coach-message--user`
- * align-items: flex-end). */
-.chat-loader__msg {
-  display: flex;
-  width: 100%;
-}
-
-.chat-loader__msg--assistant {
-  justify-content: flex-start;
-}
-
-.chat-loader__msg--user {
-  justify-content: flex-end;
-}
-
-/* Assistant body — full-thread-width, transparent. Matches the
- * real assistant bubble which has no background. */
-.chat-loader__body {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  padding: 0.25rem 0;
-}
-
-/* User bubble — mirrors `.coach-message--user .coach-message-bubble`
- * (Chat.css line ~887). Same gradient, radius, padding, shadow —
- * with reduced opacity so the bubble reads as a placeholder, not a
- * fully-painted message. */
-.chat-loader__bubble {
-  max-width: min(640px, 82%);
-  border-radius: 18px;
-  padding: 0.75rem 0.9rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  background: linear-gradient(
-    135deg,
-    rgba(124, 58, 237, 0.55) 0%,
-    rgba(109, 40, 217, 0.55) 50%,
-    rgba(91, 33, 182, 0.55) 100%
-  );
-  box-shadow: 0 2px 10px rgba(109, 40, 217, 0.15);
-  /* Slight border keeps the bubble defined even when the gradient
-   * dims near the edge. */
-  border: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-/* Shimmer row — used for both assistant rows (dark bg) and user rows
- * (on-violet variant). The light band is wider than the element and
- * slides across via background-position. */
-.chat-loader__row {
-  height: 12px;
-  border-radius: 6px;
-  background: linear-gradient(
-    100deg,
-    rgba(255, 255, 255, 0.035) 0%,
-    rgba(255, 255, 255, 0.06) 30%,
-    rgba(196, 175, 255, 0.18) 50%,
-    rgba(255, 255, 255, 0.06) 70%,
-    rgba(255, 255, 255, 0.035) 100%
-  );
-  background-size: 220% 100%;
-  animation: chat-loader-shimmer 1.9s ease-in-out infinite;
-}
-
-/* On the violet bubble the same dark gradient would disappear —
- * brighten the band so it stays visible on the purple field. */
-.chat-loader__row--on-violet {
-  background: linear-gradient(
-    100deg,
-    rgba(255, 255, 255, 0.18) 0%,
-    rgba(255, 255, 255, 0.24) 30%,
-    rgba(255, 255, 255, 0.42) 50%,
-    rgba(255, 255, 255, 0.24) 70%,
-    rgba(255, 255, 255, 0.18) 100%
-  );
-  background-size: 220% 100%;
-  animation: chat-loader-shimmer 1.9s ease-in-out infinite;
-}
-
-@keyframes chat-loader-shimmer {
-  0% {
-    background-position: 140% 0;
-  }
-  100% {
-    background-position: -40% 0;
-  }
-}
-
-/* Thumbnail-card placeholders — 2-up grid. 16:9 aspect-ratio matches
- * the real thumbnail cards the assistant produces. Each card gets a
- * diagonal shimmer (different keyframe) so the grid doesn't pulse in
- * perfect lockstep with the text rows. */
-.chat-loader__thumb-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-  margin-top: 0.35rem;
-  max-width: min(560px, 100%);
-}
-
-.chat-loader__thumb-card {
-  aspect-ratio: 16 / 9;
-  border-radius: 12px;
-  background: linear-gradient(
-    135deg,
-    rgba(167, 139, 250, 0.07) 0%,
-    rgba(167, 139, 250, 0.04) 40%,
-    rgba(167, 139, 250, 0.16) 50%,
-    rgba(167, 139, 250, 0.04) 60%,
-    rgba(167, 139, 250, 0.07) 100%
-  );
-  background-size: 200% 200%;
-  border: 1px solid rgba(255, 255, 255, 0.045);
-  box-shadow:
-    inset 0 0 0 1px rgba(0, 0, 0, 0.12),
-    0 4px 14px rgba(0, 0, 0, 0.18);
-  animation: chat-loader-thumb-shimmer 2.4s ease-in-out infinite;
-}
-
-.chat-loader__thumb-card:nth-child(2) {
-  animation-delay: 0.4s;
-}
-
-@keyframes chat-loader-thumb-shimmer {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-@media (max-width: 520px) {
-  .chat-loader {
-    padding: 20px 12px 12px;
-  }
-  .chat-loader__thread {
-    gap: 1.2rem;
-  }
-  .chat-loader__row {
-    height: 11px;
-  }
+/* The Lottie canvas. Cap the size so it scales gracefully on phones
+ * (where the chat thread is narrower) without dominating the screen
+ * on desktop. The dotLottie renderer fits its content into whatever
+ * box it's given, so a fixed-aspect square works for either layout. */
+.chat-loader__lottie {
+  width: clamp(120px, 18vw, 200px);
+  height: clamp(120px, 18vw, 200px);
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -217,19 +55,5 @@
     animation: none;
     opacity: 1;
     transform: none;
-  }
-  .chat-loader__row,
-  .chat-loader__row--on-violet,
-  .chat-loader__thumb-card {
-    animation: none;
-  }
-  .chat-loader__row {
-    background: rgba(255, 255, 255, 0.07);
-  }
-  .chat-loader__row--on-violet {
-    background: rgba(255, 255, 255, 0.28);
-  }
-  .chat-loader__thumb-card {
-    background: rgba(167, 139, 250, 0.08);
   }
 }
