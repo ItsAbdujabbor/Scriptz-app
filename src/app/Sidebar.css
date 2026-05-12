@@ -3033,8 +3033,11 @@
   /* Mobile drawer — slides in from the left edge. Width is the
    * same expanded value as desktop so the rail looks identical
    * once open: header + new-chat pill + nav + history + account.
-   * Solid card surface (matches the screen container's colour)
-   * with a thin right hairline + soft drop shadow. */
+   * Solid BLACK surface (was `--dash-surface-card`, a dark grey
+   * that read as washed-out behind the white text on phones). Pure
+   * black makes the drawer feel like an OS-level overlay and
+   * defaults the contrast of every nav item, history row, and
+   * account block to maximum legibility on a phone screen. */
   .app-sidebar {
     position: fixed;
     top: 0;
@@ -3045,7 +3048,7 @@
     transform: translateX(-100%);
     transition: transform 0.32s cubic-bezier(0.33, 1, 0.68, 1) !important;
     width: var(--sidebar-width) !important;
-    background: var(--dash-surface-card, #18181c);
+    background: #000000;
     border-right: 1px solid rgba(255, 255, 255, 0.07);
     padding: 0;
     /* Drop the dim drop-shadow when closed so it doesn't bleed
