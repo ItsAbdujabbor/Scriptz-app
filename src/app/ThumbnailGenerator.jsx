@@ -2982,14 +2982,61 @@ export function ThumbnailGenerator({
       }
       result.push(m)
     }
-    // Append any local entries not already consumed by the
-    // chronological-slot insertion above (recreate / analyze results,
-    // failure cards that haven't yet been linked to a server twin,
-    // etc.). Iterates `visibleLocalOnly` so entries pinned to OTHER
-    // conversations are excluded by the same filter that drives the
-    // linked-id map above — keeps the two passes consistent.
+    // Hardening pass: place local entries that don't have a server
+    // twin yet into their CHRONOLOGICAL slot, not at the end of the
+    // list. The previous code appended every unconsumed local entry
+    // after every server message — fine for the brand-new-chat case
+    // (no server messages yet), broken the moment a failure card
+    // lands AFTER older server messages. The user reported a
+    // failure card appearing at the bottom of the list / above
+    // unrelated messages while ``appendEvent`` was still in flight
+    // (or had failed permanently). Sorting by timestamp closes that
+    // window — every entry has a chronological marker, so insertion
+    // position is deterministic regardless of which array the
+    // entry came from.
+    const entryTimestamp = (entry) => {
+      if (!entry) return null
+      // Server messages carry an ISO ``created_at`` field.
+      if (entry.created_at != null) {
+        const t = new Date(entry.created_at).getTime()
+        return Number.isFinite(t) ? t : null
+      }
+      // Local optimistic / failure entries carry an epoch-ms
+      // ``createdAt`` field stamped at push time.
+      if (entry.createdAt != null) {
+        const n = Number(entry.createdAt)
+        return Number.isFinite(n) ? n : null
+      }
+      return null
+    }
+
     for (const m of visibleLocalOnly) {
-      if (!consumedLocalIds.has(m.id)) result.push(m)
+      if (consumedLocalIds.has(m.id)) continue
+      const t = entryTimestamp(m)
+      // Walk back from the tail to find the last result entry whose
+      // chronological marker is older-or-equal to this local entry.
+      // The local entry slots immediately after it. Entries without
+      // a timestamp (defensive — shouldn't happen in practice) fall
+      // through to the end-of-list append, matching the legacy
+      // behaviour for that edge case.
+      let insertAt = result.length
+      if (t != null) {
+        for (let i = result.length - 1; i >= 0; i--) {
+          const rt = entryTimestamp(result[i])
+          if (rt == null) continue
+          if (rt <= t) {
+            insertAt = i + 1
+            break
+          }
+          // rt > t — this server entry is NEWER than the local entry,
+          // so the local entry belongs BEFORE this position. Keep
+          // walking back to find the right slot. ``insertAt`` updated
+          // to ``i`` so we land just BEFORE the newer entry if we
+          // never find an older one.
+          insertAt = i
+        }
+      }
+      result.splice(insertAt, 0, m)
     }
     return result
   }, [messages, localOnlyMessages, conversationId])

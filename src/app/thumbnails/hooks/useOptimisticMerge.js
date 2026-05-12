@@ -62,8 +62,58 @@
  */
 
 /**
+ * Server messages carry ISO ``created_at`` strings; ops carry epoch-ms
+ * ``created_at`` numbers. Normalise both to epoch ms so the
+ * chronological-position sort doesn't drift on string-vs-number
+ * comparisons. Returns ``null`` when the entry has no usable marker
+ * (defensive — every real entry has one in production).
+ *
+ * @param {ServerMessage|OptimisticOp} entry
+ * @returns {number|null}
+ */
+function entryTimestamp(entry) {
+  if (!entry) return null
+  if (typeof entry.created_at === 'string') {
+    const t = new Date(entry.created_at).getTime()
+    return Number.isFinite(t) ? t : null
+  }
+  if (entry.created_at != null) {
+    const n = Number(entry.created_at)
+    return Number.isFinite(n) ? n : null
+  }
+  // Legacy `createdAt` field on optimistic ops (matches the live
+  // ThumbnailGenerator's local-entry shape).
+  if (entry.createdAt != null) {
+    const n = Number(entry.createdAt)
+    return Number.isFinite(n) ? n : null
+  }
+  return null
+}
+
+/**
  * Merge `serverMessages` (id-sorted ascending) and `ops` into a single
  * ordered render list, scoped to `conversationId`.
+ *
+ * Ordering contract (the bug-prevention spec):
+ *
+ *   1. Server messages preserve their input order (already id-sorted
+ *      by the caller).
+ *
+ *   2. Server twins of ops are suppressed in-place. The op is rendered
+ *      at the same logical position — same stable React key from
+ *      pending through completed → no remount during status flips.
+ *
+ *   3. Failure folding: a server `_kind='failure'` row whose
+ *      `_userMessageId` matches an op's `server_user_message_id`
+ *      renders the op + failure as a paired entry (drops the
+ *      failure card's internal user bubble).
+ *
+ *   4. Ops that have NO matching server twin yet (still submitting,
+ *      or an `appendEvent` for a failure card hasn't returned) slot
+ *      into the result list at their CHRONOLOGICAL position by
+ *      `created_at`, NOT at the end. This is the fix for the
+ *      "failure card appears at the bottom while appendEvent is
+ *      in flight" bug.
  *
  * @param {ServerMessage[]} serverMessages
  * @param {OptimisticOp[]} ops
@@ -128,12 +178,31 @@ export function mergeOpsAndMessages(serverMessages, ops, conversationId) {
     out.push({ kind: 'msg', msg: m })
   }
 
-  // Append any ops that didn't get folded in alongside a server row.
-  // These are the "pure" optimistic placeholders — submission in
-  // flight, or terminal-error ops still showing a Retry card.
+  // Slot any remaining ops into their CHRONOLOGICAL position. Walking
+  // back from the tail finds the rightmost result entry whose
+  // timestamp is older-or-equal to this op's timestamp — the op
+  // belongs immediately after it. If every existing result entry is
+  // newer (op predates them all, e.g. brand-new chat surface), the
+  // op slots at index 0. Entries without a usable timestamp fall
+  // through to a tail-append matching the legacy behaviour for that
+  // defensive edge case.
   for (const op of visibleOps) {
     if (consumed.has(op.op_id)) continue
-    out.push({ kind: 'op', op })
+    const opT = entryTimestamp(op)
+    let insertAt = out.length
+    if (opT != null) {
+      for (let i = out.length - 1; i >= 0; i--) {
+        const entry = out[i].kind === 'op' ? out[i].op : out[i].msg
+        const rt = entryTimestamp(entry)
+        if (rt == null) continue
+        if (rt <= opT) {
+          insertAt = i + 1
+          break
+        }
+        insertAt = i
+      }
+    }
+    out.splice(insertAt, 0, { kind: 'op', op })
   }
 
   return out
