@@ -1892,40 +1892,103 @@ function stitchPersistedUserImages(messages) {
 // then drop the user row so the chat doesn't render two siblings
 // (the FailedAttemptBlock already shows the user bubble inside the
 // same block as the error card).
+//
+// CRITICAL: the merge is id-based, not adjacency-based.
+//
+// Earlier implementation walked the input array and folded against
+// `next[next.length - 1]` (the previously-emitted item). That only
+// works when the input is already in chronological id-ascending
+// order, which the backend doesn't formally guarantee — partial
+// pages, parallel writes, or any future tweak to the conversation
+// route could land messages in a different order, and the failure
+// row would silently end up unfolded. The user then sees TWO user
+// bubbles around the error card (the standalone server-side one +
+// the FailedAttemptBlock's internal copy), with the unmerged
+// failure card potentially landing in the wrong chronological slot
+// after the downstream id-based render order.
+//
+// The new logic:
+//   1. Sort by numeric id ascending — chronological, monotonic,
+//      server-issued (Postgres SERIAL).
+//   2. The failure entry's matching user row is the user-role
+//      message with the GREATEST id that is STILL LESS THAN the
+//      failure entry's id. That's the user message immediately
+//      preceding the failure in the chronological sequence,
+//      regardless of how the array was originally ordered.
+//   3. Fold, drop the user row, carry `_userMessageId` so
+//      `renderedMessages` can dedup against an optimistic user-bubble
+//      local entry linked to the same server id.
 function mergeFailurePairs(messages) {
-  const next = []
-  for (let i = 0; i < messages.length; i++) {
-    const cur = messages[i]
-    if (cur._kind === 'failure') {
-      const prior = next[next.length - 1]
-      if (prior && prior._isUser) {
-        // Pull user content into the failure entry, then remove the
-        // user row from the rendered list — FailedAttemptBlock owns
-        // the user bubble for failure rows BY DEFAULT.
-        //
-        // `_userMessageId` records the id of the folded user row so a
-        // downstream dedup pass (see `renderedMessages`) can detect the
-        // case where an optimistic user-bubble local entry has been
-        // linked to that same user_message (via `_serverMessageId`).
-        // In that case the failure entry's internal user bubble is
-        // suppressed via `_skipUserBubble` and the local entry is
-        // inserted at this chronological position — so the user
-        // bubble stays mounted (same React key as the loader phase)
-        // without rendering twice.
-        const folded = {
+  const sorted = [...messages].sort((a, b) => {
+    const ai = typeof a?.id === 'number' ? a.id : Number.MAX_SAFE_INTEGER
+    const bi = typeof b?.id === 'number' ? b.id : Number.MAX_SAFE_INTEGER
+    return ai - bi
+  })
+
+  // Indices of user-role messages in the sorted array, in id order.
+  // Used to find the matching user row for each failure entry by
+  // looking backwards from the failure's position. A failure may
+  // appear without a partner user row (e.g. the backend wrote only
+  // the assistant row, or a future failure-without-user variant) —
+  // in that case `pop()` returns nothing and the failure is rendered
+  // as-is (its internal user bubble stays hidden behind the empty
+  // `userText` check inside FailedAttemptBlock).
+  const userIndicesById = []
+  for (let i = 0; i < sorted.length; i++) {
+    if (sorted[i]?._isUser) userIndicesById.push(i)
+  }
+
+  const droppedIndices = new Set()
+  const result = []
+  let userCursor = 0
+
+  for (let i = 0; i < sorted.length; i++) {
+    if (droppedIndices.has(i)) continue
+    const cur = sorted[i]
+
+    if (cur?._kind === 'failure') {
+      // Advance `userCursor` to the LAST user-message index that is
+      // still less than `i` (i.e. the most recent user message
+      // before this failure in the chronological sequence).
+      let matchedUserIdx = -1
+      while (userCursor < userIndicesById.length && userIndicesById[userCursor] < i) {
+        if (!droppedIndices.has(userIndicesById[userCursor])) {
+          matchedUserIdx = userIndicesById[userCursor]
+        }
+        userCursor += 1
+      }
+
+      if (matchedUserIdx >= 0) {
+        const prior = sorted[matchedUserIdx]
+        // Pull user content into the failure entry, drop the user
+        // row by remembering its index. FailedAttemptBlock owns the
+        // user bubble for failure rows BY DEFAULT (via internal
+        // `userText` / `userImageUrl`).
+        result.push({
           ...cur,
           userText: cur.userText || prior.content || '',
           userImageUrl: cur.userImageUrl || prior.imageUrl || null,
           _userMessageId: prior.id,
+        })
+        droppedIndices.add(matchedUserIdx)
+        // Also remove the just-emitted user row from `result` if it
+        // was already pushed in an earlier iteration. Walking the
+        // array linearly means a user row sorted BEFORE the failure
+        // has already been emitted; pop it back out.
+        for (let j = result.length - 2; j >= 0; j--) {
+          if (result[j] === prior) {
+            result.splice(j, 1)
+            break
+          }
         }
-        next.pop()
-        next.push(folded)
         continue
       }
     }
-    next.push(cur)
+
+    result.push(cur)
   }
-  return next
+
+  return result
 }
 
 // Monotonic counter so IDs minted in the same millisecond are still unique.
@@ -1940,21 +2003,6 @@ let _localMsgSeq = 0
 function genLocalId(prefix) {
   _localMsgSeq += 1
   return `${prefix}-${Date.now()}-${_localMsgSeq}`
-}
-
-/**
- * Sort messages strictly by their server-assigned numeric id. Server ids
- * are monotonic (Postgres SERIAL), so ascending id == chronological order
- * with no ambiguity. Non-numeric ids (local-only recreate / analyze
- * messages, see `localOnlyMessages` state) sort to the end in insertion
- * order — those don't intermix with chat-mode messages anyway.
- */
-function sortByServerId(messages) {
-  return [...messages].sort((a, b) => {
-    const ai = typeof a.id === 'number' ? a.id : Number.MAX_SAFE_INTEGER
-    const bi = typeof b.id === 'number' ? b.id : Number.MAX_SAFE_INTEGER
-    return ai - bi
-  })
 }
 
 function ThumbnailLightbox({ url, onClose }) {
@@ -2784,7 +2832,12 @@ export function ThumbnailGenerator({
 
     const result = []
     const consumedLocalIds = new Set()
-    for (const m of sortByServerId(messages)) {
+    // `messages` is already id-sorted by `mergeFailurePairs` on every
+    // write, so the natural iteration order here IS chronological —
+    // no extra sort needed. Iterating in id order is the contract that
+    // makes failure rows land in their correct chronological slot
+    // (highest id = newest = bottom of the list).
+    for (const m of messages) {
       // Server entry has an optimistic twin keyed on its own id — skip;
       // the local entry will render in its own slot below.
       if (linkedServerIds.has(m.id)) continue
