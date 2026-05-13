@@ -135,15 +135,20 @@ export default function ThumbnailTopBar() {
     return () => document.body.classList.remove('clixa-thumb-screen')
   }, [])
 
-  // Topbar spans the full viewport with symmetric 24 px margins —
-  // the chat content is centred against the viewport (the sidebar
-  // overlays the left side rather than pushing the chat right), so
-  // the topbar's flex-centred Go Pro pill naturally lands above
-  // the chat heading regardless of sidebar state. No more sidebar
-  // tracking class needed.
+  // Track sidebar collapsed state so the topbar can offset its
+  // `left` to start AFTER the sidebar. The chat content is in flex
+  // flow next to the sidebar (not overlay), so its centre shifts
+  // when the sidebar collapses — the topbar must track that shift
+  // to keep the Go Pro pill aligned with the chat heading.
+  const sidebarCollapsed = useSidebarStore((s) => s.collapsed)
 
   return (
-    <header className="clixa-topbar" role="banner">
+    <header
+      className={`clixa-topbar ${
+        sidebarCollapsed ? 'clixa-topbar--sidebar-collapsed' : 'clixa-topbar--sidebar-expanded'
+      }`}
+      role="banner"
+    >
       <MenuButton />
       <div className="clixa-topbar__spacer" aria-hidden />
       <TrialPill />
