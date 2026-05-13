@@ -8,9 +8,9 @@
  *   - `invalidateCredits(queryClient)` is the single helper AI mutations call
  *     in their `onSuccess` / `onError` handlers to refresh the sidebar badge.
  */
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { getCredits, getFeatureCosts, getSubscription } from '../../api/billing'
+import { getCredits, getFeatureCosts, getSubscription, skipTrial } from '../../api/billing'
 import { useModelTierStateQuery } from '../modelTier/modelTierQueries'
 import { getAccessTokenOrNull } from '../../lib/query/authToken'
 import { queryFreshness } from '../../lib/query/queryConfig'
@@ -178,4 +178,62 @@ export function useCostOf(featureKey, count = 1) {
     unit = entry[tier] ?? entry['SRX-2'] ?? entry['SRX-3'] ?? 0
   }
   return { unit, total: unit * Math.max(1, Number(count) || 1), tier }
+}
+
+/**
+ * Centralised skip-trial mutation hook.
+ *
+ * Owns the full success / failure / loading semantics so every CTA in the
+ * app (top-bar Skip Trial pill, billing-panel button, pro-pricing strip)
+ * behaves identically:
+ *
+ *   • Triggers `subscriptionActivationStore.start('subscription')` on
+ *     success — this fires `/api/billing/sync` immediately as a backstop,
+ *     flips `useSubscriptionQuery` into 1s burst-poll mode, and shows the
+ *     "Activating…" splash if the screen has one. The 60s timeout banner
+ *     guards against webhook delivery never landing.
+ *   • `refreshBillingState(queryClient)` fans out invalidations across
+ *     subscription / credits / ledger so the trial pill, credits badge,
+ *     and invoice list all refetch together.
+ *   • React Query's mutation `isPending` prevents double-click via the
+ *     CTA's `disabled` binding — no need for per-component locks.
+ *
+ * Returns the React Query mutation object directly so callers can read
+ * `isPending`, `error`, `mutate`, `mutateAsync`, etc.
+ */
+export function useSkipTrialMutation(options = {}) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const token = await getAccessTokenOrNull()
+      if (!token) throw new Error('Not authenticated')
+      return skipTrial(token)
+    },
+    onSuccess: (data) => {
+      // Kick the activation store: immediately POSTs /api/billing/sync
+      // (server-side Paddle reconcile), flips queries to 1s burst poll,
+      // arms the 60s timeout backstop. If the user refreshes the page
+      // mid-activation the store survives via React's render cycle —
+      // the next mount picks up the pending state and keeps polling.
+      try {
+        useSubscriptionActivationStore.getState().start({ kind: 'subscription' })
+      } catch {
+        /* store unavailable in tests / SSR — proceed without burst */
+      }
+      refreshBillingState(queryClient)
+      options.onSuccess?.(data)
+    },
+    onError: (err) => {
+      // Always refetch on error too — server-side state may have changed
+      // even on failure (e.g. status already flipped by a concurrent call
+      // and the 2nd request got NOT_TRIALING).
+      refreshBillingState(queryClient)
+      options.onError?.(err)
+    },
+    // Don't auto-retry — the server is idempotent at the row-lock level
+    // (concurrent calls serialize, second one 400s), but auto-retry on
+    // network errors masks real billing issues. The user sees a clear
+    // error message and decides whether to retry manually.
+    retry: false,
+  })
 }

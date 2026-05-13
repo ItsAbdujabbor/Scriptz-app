@@ -312,6 +312,96 @@
 .clixa-trial__cta-label {
   position: relative;
   z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Pending state — disables click, dims pill, shows spinner inside the CTA.
+ * The whole pill (not just the CTA) becomes non-interactive so a stray
+ * tap on the tag area doesn't re-fire the mutation. */
+.clixa-pill--trial.is-pending {
+  cursor: progress;
+  pointer-events: none;
+  opacity: 0.92;
+}
+.clixa-trial__cta:disabled {
+  cursor: progress;
+  /* Keep the visual weight close to the active state so the pill
+   * doesn't suddenly look broken — just a hint of dimming. */
+  filter: brightness(0.92) saturate(0.85);
+}
+
+.clixa-trial__cta-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
+  animation: clixa-trial-spin 0.72s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes clixa-trial-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Vertical stack so the error toast docks directly below the pill. */
+.clixa-pill__wrap {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  pointer-events: auto;
+}
+
+/* Inline error toast — small chip docked below the trial pill when the
+ * mutation fails. Reads the structured error message from the API
+ * (PADDLE_API_ERROR, STATE_TRANSITION_FAILED, etc.) so the user knows
+ * what went wrong and whether to retry. */
+.clixa-trial__error {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: stretch;
+  padding: 6px 8px 6px 12px;
+  border-radius: 12px;
+  background: rgba(127, 29, 29, 0.55);
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  color: #fecaca;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  line-height: 1.3;
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.34);
+}
+.clixa-trial__error-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.clixa-trial__error-dismiss {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: none;
+  background: rgba(248, 113, 113, 0.16);
+  color: #fecaca;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+.clixa-trial__error-dismiss:hover {
+  background: rgba(248, 113, 113, 0.3);
+  color: #ffffff;
 }
 
 .clixa-pill--trial:hover .clixa-trial__cta-shine {

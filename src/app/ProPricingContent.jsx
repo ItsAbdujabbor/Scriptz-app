@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
-import { getPlans, startCheckout, changePlan, skipTrial } from '../api/billing'
+import { getPlans, startCheckout, changePlan } from '../api/billing'
 import { preloadPaddle } from '../lib/paddle'
-import { useSubscriptionQuery, refreshBillingState } from '../queries/billing/creditsQueries'
+import {
+  useSubscriptionQuery,
+  useSkipTrialMutation,
+  refreshBillingState,
+} from '../queries/billing/creditsQueries'
 import { celebrate } from '../lib/celebrate'
 import { friendlyMessage } from '../lib/aiErrors'
 import { ThumbPillTabs } from '../components/ThumbPillTabs'
@@ -578,21 +582,14 @@ function ActivatingProStrip({ hasActiveSub }) {
  * tempted to click twice while the subscription query refetches.
  */
 function TrialActiveStrip({ subscription }) {
-  const queryClient = useQueryClient()
-  const { getValidAccessToken } = useAuthStore()
   const [errMsg, setErrMsg] = useState(null)
 
-  const mut = useMutation({
-    mutationFn: async () => {
-      const token = await getValidAccessToken()
-      return skipTrial(token)
-    },
-    onSuccess: () => {
-      setErrMsg(null)
-      // Refresh both subscription + credits so the UI flips out of
-      // trial state immediately without waiting for the polling cycle.
-      refreshBillingState(queryClient)
-    },
+  // Centralised mutation — same hook the top-bar + billing-panel use.
+  // Owns the activation-store burst poll, the /sync backstop, and the
+  // billing-state invalidation fan-out so all three CTAs behave
+  // identically (single source of truth for the skip-trial UX).
+  const mut = useSkipTrialMutation({
+    onSuccess: () => setErrMsg(null),
     onError: (err) =>
       setErrMsg(friendlyMessage(err) || 'Could not end the trial. Please try again.'),
   })

@@ -23,10 +23,12 @@
  * `.sidebar-open-btn` (still rendered for other screens) is
  * suppressed on this screen via a single CSS rule.
  */
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { useSidebarStore } from '../stores/sidebarStore'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
+import { useSkipTrialMutation } from '../queries/billing/creditsQueries'
+import { friendlyMessage } from '../lib/aiErrors'
 import { HeaderCreditsBadge } from './HeaderCreditsBadge'
 import './ThumbnailTopBar.css'
 
@@ -47,44 +49,120 @@ function IconMenu() {
  * state | what to do about it" — no ambiguous icons that look like
  * loading spinners (a problem in the previous design).
  *
- *   Trialing user → [TRIAL · Skip Trial]   amber tag, violet CTA
- *   Free user     → [FREE  · Go Pro]       slate tag, violet CTA
+ *   Trialing user → [TRIAL · Skip Trial]   amber tag, amber CTA, in-place mutate
+ *   Free user     → [FREE  · Go Pro]       slate tag, violet CTA, routes to /pro
  *   Paid Creator  → renders null (top-bar shows menu + credits only)
+ *
+ * Behaviour:
+ *
+ *   * Trial state → clicking "Skip Trial" calls /api/billing/skip-trial
+ *     IN PLACE through the shared `useSkipTrialMutation` hook. The
+ *     button shows a spinner while the request is in flight; double-
+ *     taps are no-ops because React Query's `isPending` flag locks
+ *     the button. On success the activation store fires
+ *     `/api/billing/sync` and starts a 1s burst-poll so the trial
+ *     state flips to active within seconds. On failure a small toast
+ *     under the pill renders the structured error message and stays
+ *     until the user re-tries or dismisses.
+ *
+ *   * Free state → clicking "Go Pro" routes to `#pro` so the user
+ *     picks a plan + completes Paddle checkout. No in-place mutation
+ *     here because there's no existing subscription to end — the
+ *     full pricing screen is the right surface.
  */
 function TrialPill() {
   const { isSubscribed, isTrial } = usePlanEntitlements()
-  const handleClick = useCallback(() => {
+  const [error, setError] = useState('')
+
+  const skipTrialMutation = useSkipTrialMutation({
+    onSuccess: () => {
+      setError('')
+      // Refresh-recovery is owned by `subscriptionActivationStore`
+      // (kicked inside the hook's onSuccess) — it survives a reload
+      // and keeps polling until the webhook arrives or the 60s
+      // backstop fires /sync. Nothing else to do here.
+    },
+    onError: (err) => {
+      const msg = friendlyMessage(err) || 'Could not end trial. Please try again in a moment.'
+      setError(msg)
+    },
+  })
+
+  const goPro = useCallback(() => {
     if (typeof window !== 'undefined') window.location.hash = 'pro'
   }, [])
+
+  const handleSkipTrial = useCallback(
+    (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (skipTrialMutation.isPending) return
+      setError('')
+      skipTrialMutation.mutate()
+    },
+    [skipTrialMutation]
+  )
 
   // Paid Pro (active subscription, not a trial) — nothing to upsell.
   if (isSubscribed && !isTrial) return null
 
   const onTrial = !!isTrial
   const tagText = onTrial ? 'Trial' : 'Free'
-  const ctaText = onTrial ? 'Skip Trial' : 'Go Pro'
   const variant = onTrial ? 'clixa-pill--trial-on' : 'clixa-pill--trial-free'
+  const pending = skipTrialMutation.isPending
 
   return (
-    <div
-      className={`clixa-pill clixa-pill--trial ${variant}`}
-      role="status"
-      aria-live="polite"
-      onClick={handleClick}
-    >
-      <span className="clixa-trial__tag">{tagText}</span>
-      <span className="clixa-trial__divider" aria-hidden />
-      <button
-        type="button"
-        className="clixa-trial__cta"
-        onClick={(e) => {
-          e.stopPropagation()
-          handleClick()
-        }}
+    <div className="clixa-pill__wrap">
+      <div
+        className={`clixa-pill clixa-pill--trial ${variant} ${pending ? 'is-pending' : ''}`}
+        role="status"
+        aria-live="polite"
+        onClick={onTrial ? handleSkipTrial : goPro}
       >
-        <span className="clixa-trial__cta-shine" aria-hidden />
-        <span className="clixa-trial__cta-label">{ctaText}</span>
-      </button>
+        <span className="clixa-trial__tag">{tagText}</span>
+        <span className="clixa-trial__divider" aria-hidden />
+        <button
+          type="button"
+          className="clixa-trial__cta"
+          onClick={
+            onTrial
+              ? handleSkipTrial
+              : (e) => {
+                  e.stopPropagation()
+                  goPro()
+                }
+          }
+          disabled={pending}
+          aria-busy={pending}
+        >
+          <span className="clixa-trial__cta-shine" aria-hidden />
+          <span className="clixa-trial__cta-label">
+            {pending ? (
+              <>
+                <span className="clixa-trial__cta-spinner" aria-hidden />
+                Activating…
+              </>
+            ) : onTrial ? (
+              'Skip Trial'
+            ) : (
+              'Go Pro'
+            )}
+          </span>
+        </button>
+      </div>
+      {error ? (
+        <div className="clixa-trial__error" role="alert">
+          <span className="clixa-trial__error-text">{error}</span>
+          <button
+            type="button"
+            className="clixa-trial__error-dismiss"
+            onClick={() => setError('')}
+            aria-label="Dismiss error"
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }

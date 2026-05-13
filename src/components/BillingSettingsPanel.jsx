@@ -31,9 +31,10 @@ import { useAuthStore } from '../stores/authStore'
 import {
   useCreditsQuery,
   useSubscriptionQuery,
+  useSkipTrialMutation,
   refreshBillingState,
 } from '../queries/billing/creditsQueries'
-import { cancelSubscription, getLedger, skipTrial } from '../api/billing'
+import { cancelSubscription, getLedger } from '../api/billing'
 import { queryKeys } from '../lib/query/queryKeys'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { resultOrNullOnAuthFailure } from '../lib/query/safeApi'
@@ -225,20 +226,11 @@ export function BillingSettingsPanel({ active, onClose }) {
     onError: (err) => setCancelError(friendlyMessage(err) || 'Could not cancel. Try again.'),
   })
 
-  const skipTrialMutation = useMutation({
-    mutationFn: async () => {
-      const token = await getValidAccessToken()
-      if (!token) throw new Error('Not authenticated')
-      return skipTrial(token)
-    },
-    onSuccess: () => {
-      setSkipTrialError(null)
-      // Skip-trial bills immediately + grants full plan credits via the
-      // webhook. Refresh everything so the trial banner disappears, the
-      // credits badge bumps to the full plan amount, and the new invoice
-      // shows up in Recent Invoices.
-      refreshBillingState(queryClient)
-    },
+  // Centralised mutation — owns the activation-store burst poll +
+  // billing-state refresh fan-out. See useSkipTrialMutation in
+  // queries/billing/creditsQueries.js for the full semantics.
+  const skipTrialMutation = useSkipTrialMutation({
+    onSuccess: () => setSkipTrialError(null),
     onError: (err) => setSkipTrialError(friendlyMessage(err) || 'Could not end trial. Try again.'),
   })
 
