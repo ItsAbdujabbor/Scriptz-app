@@ -225,9 +225,11 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
         {/* Crown badge — visible to free users so the persona trigger
          * carries the same "Pro feature" signpost as the Create
          * button inside the popover. Doesn't gate the trigger itself
-         * (free users can still browse the demo characters). */}
+         * (free users can still browse the demo characters).
+         * Uses the shared `.clixa-pro-crown` recipe from index.css
+         * so every premium signpost in the app reads as one family. */}
         {locked && !selectedPersona && (
-          <span className="persona-selector-trigger__crown" aria-hidden>
+          <span className="clixa-pro-crown" aria-hidden>
             <IconCrown />
           </span>
         )}
