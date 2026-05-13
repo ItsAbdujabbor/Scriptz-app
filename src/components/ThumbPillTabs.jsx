@@ -46,7 +46,7 @@ function ThumbPillTabsImpl({ options, value, onChange, ariaLabel, align = 'left'
             {opt.icon}
             <span>{opt.label}</span>
             {opt.premium ? (
-              <span className="clixa-pro-crown clixa-pro-crown--sm" aria-hidden>
+              <span className="clixa-pro-crown" aria-hidden>
                 <IconCrown />
               </span>
             ) : null}
