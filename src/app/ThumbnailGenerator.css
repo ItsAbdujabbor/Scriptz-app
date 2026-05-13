@@ -106,30 +106,44 @@
   left: 12px;
   right: 12px;
   z-index: 30;
-  display: grid;
-  /* Reserve room for the right column at least the credits' natural
-   * width; the 1fr left mirrors it so the auto centre column lands at
-   * the visual centre of the toolbar. */
-  grid-template-columns: 1fr auto auto;
+  /* Flex toolbar with `justify-content: space-between` — three
+   * children distribute as [left spacer] [centre trial pill] [right
+   * credits]. With a left spacer that mirrors the credits' natural
+   * width, the centre item ends up visually centred without grid's
+   * column-stretch quirks (which were stretching the trial pill to
+   * fill its `auto` column and making it visually crowd the credits
+   * on tablet/laptop viewports). */
+  display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 16px;
   pointer-events: none;
 }
 
 .thumb-top-bar > * {
   pointer-events: auto;
-  min-width: 0;
 }
 
 .thumb-top-bar__spacer {
-  /* Empty 1fr cell — exists purely to balance the right column so the
-   * centre pill renders at the visual centre of the toolbar. */
+  /* Invisible left-side balancer — flex-basis matches the typical
+   * credits-badge natural width so the centre trial pill sits at the
+   * visual centre of the toolbar. flex-shrink: 1 lets it collapse
+   * first when space is tight, before the visible pills shrink. */
+  flex: 0 1 130px;
   min-width: 0;
   height: 1px;
 }
 
 .thumb-top-bar__credits {
-  justify-self: end;
+  flex: 0 0 auto;
+}
+
+/* Trial pill keeps its natural width and can shrink only after the
+ * left spacer has collapsed. Prevents it from spilling into the
+ * credits' zone on narrow viewports. */
+.thumb-top-bar .thumb-plan-callout {
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 /* Reserve room for the mobile hamburger (rendered separately by the
@@ -572,18 +586,21 @@
   box-shadow: var(--accent-focus-ring);
 }
 
-/* Tight viewports — collapse the sub-line so the chip doesn't overflow
- * on narrow phones, but keep the OUTER shell at 40px so the three top
- * pills (hamburger, trial pill, credits) all read at the same height
- * across the screen. With the grid toolbar (`.thumb-top-bar`) the
- * pill can no longer overlap the credits halo — these rules just
- * compress its contents so the label remains readable inside the
- * narrower centre grid cell. */
-@media (max-width: 560px) {
+/* ──────────────────────────────────────────────────────────────────────
+ * Compact trial pill on mobile (≤ 640 px).
+ *
+ * The "TRIAL" tag on the credits badge already signals trial status, so
+ * the explicit "Trial active" label here would be redundant on phones
+ * and would crowd the credits badge in the toolbar. We collapse the
+ * pill to JUST the sparkle icon + the Skip Trial CTA so it reads as a
+ * tight upgrade button — height stays 40px so it lines up with the
+ * other two pills.
+ * ────────────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
   .thumb-plan-callout {
     /* Height stays 40px — matches the hamburger + credits badge. */
     gap: 0.4rem;
-    padding: 5px 5px 5px 12px;
+    padding: 5px 5px 5px 10px;
     font-size: 0.78rem;
   }
   .thumb-plan-callout__icon {
@@ -594,43 +611,27 @@
     width: 14px;
     height: 14px;
   }
-  .thumb-plan-callout__sub {
-    display: none;
-  }
   .thumb-plan-callout__text {
-    /* Clip the label cleanly if there isn't space for it — the CTA
-     * stays prominent at every viewport so the upgrade path is never
-     * lost. */
-    overflow: hidden;
-    text-overflow: ellipsis;
+    /* Hide the "Trial active" label + sub-text on phones — credits
+     * badge's "TRIAL" tag already covers status. CTA + icon remain. */
+    display: none;
   }
   .thumb-plan-callout__cta {
     height: 30px;
     padding: 0 12px;
     font-size: 0.76rem;
-    /* Prevent the CTA from shrinking — the label clips before the CTA
-     * does. */
     flex-shrink: 0;
   }
 }
 
-/* Extra-narrow phones (≤ 400 px) — drop the icon and shorten the
- * label so the trial pill fits next to the hamburger and credits in
- * the toolbar grid without truncation. */
-@media (max-width: 400px) {
+/* Extra-narrow phones (≤ 380 px) — drop the icon too so just the
+ * Skip Trial CTA remains. Reads as a single accent button. */
+@media (max-width: 380px) {
   .thumb-plan-callout {
-    gap: 0.35rem;
-    padding: 5px 5px 5px 10px;
+    padding: 5px;
+    gap: 0;
   }
   .thumb-plan-callout__icon {
-    display: none;
-  }
-  .thumb-plan-callout__label,
-  .thumb-plan-callout__text {
-    /* On the narrowest phones (~360px), hide the "Trial active" label
-     * — the credits badge already shows "TRIAL" status, so the label
-     * is redundant. Just the sparkle-less compact pill with the Skip
-     * Trial CTA remains; reads as a tight upgrade button. */
     display: none;
   }
   .thumb-plan-callout__cta {
