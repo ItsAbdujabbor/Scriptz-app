@@ -133,48 +133,81 @@
     transform 0.22s cubic-bezier(0.34, 1.2, 0.6, 1);
 }
 
-/* ── Trial / upgrade pill ───────────────────────────────────── */
+/* ── Trial / upgrade pill ───────────────────────────────────── *
+ * Mirrors the credits-badge structure: state tag | divider | CTA.
+ * Reads at a glance as "current plan state | what to do about it".
+ *
+ *   Trial state → amber TRIAL tag (matches credits badge's --trial)
+ *   Free state  → slate FREE tag (signals no upgrade yet)
+ *
+ * The state tag uses the same typography as the credits badge's
+ * `.header-credits-badge__plan` so the two pills feel like
+ * siblings from the same family. */
 
 .clixa-pill--trial {
-  padding: 4px 4px 4px 14px;
-  gap: 10px;
-  font-size: 0.82rem;
+  padding: 4px 4px 4px 12px;
+  gap: 8px;
   flex: 0 0 auto;
-  /* Subtle violet wash at the top so the label reads as sitting
-   * on a faint brand glow, not a flat dark bar. */
+  cursor: pointer;
+  /* Subtle violet wash at the top so the chip reads as sitting on
+   * a faint brand glow, not a flat dark bar. */
   background:
-    radial-gradient(120% 80% at 50% 0%, rgba(124, 58, 237, 0.18) 0%, transparent 70%),
+    radial-gradient(120% 80% at 50% 0%, rgba(124, 58, 237, 0.16) 0%, transparent 70%),
     var(--clixa-pill-bg);
 }
 
-.clixa-trial__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  color: #c4b5fd;
-  filter: drop-shadow(0 0 6px rgba(196, 181, 253, 0.45));
+/* Amber accent for the trial state — matches the credits badge's
+ * --trial variant so a trialing user sees the same warm-gold cue on
+ * both pills. */
+.clixa-pill--trial-on {
+  border-color: rgba(253, 224, 71, 0.34);
 }
-.clixa-trial__icon svg {
-  width: 14px;
-  height: 14px;
+.clixa-pill--trial-on:hover {
+  border-color: rgba(253, 224, 71, 0.55);
 }
 
-.clixa-trial__text {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0;
-  padding-right: 4px;
+.clixa-trial__tag {
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1;
+  padding: 0 2px;
+  white-space: nowrap;
 }
-.clixa-trial__label {
-  color: rgba(248, 246, 255, 0.96);
-  font-weight: 600;
+
+/* State-specific tag colour. */
+.clixa-pill--trial-on .clixa-trial__tag {
+  color: #fde68a;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
 }
-.clixa-trial__sub {
-  color: rgba(229, 229, 231, 0.55);
-  font-weight: 500;
+.clixa-pill--trial-free .clixa-trial__tag {
+  color: rgba(226, 232, 240, 0.92);
+}
+
+/* Vertical hairline that separates the tag from the CTA — the same
+ * shape the credits badge uses between its count and plan tag, so
+ * the two pills read as part of one family. */
+.clixa-trial__divider {
+  width: 1px;
+  height: 16px;
+  flex-shrink: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(196, 181, 253, 0.4) 25%,
+    rgba(196, 181, 253, 0.4) 75%,
+    transparent 100%
+  );
+}
+.clixa-pill--trial-on .clixa-trial__divider {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(253, 224, 71, 0.5) 25%,
+    rgba(253, 224, 71, 0.5) 75%,
+    transparent 100%
+  );
 }
 
 /* CTA — the ONE loud element in the toolbar. Accent gradient,
@@ -281,53 +314,41 @@
   border-color: rgba(253, 224, 71, 0.55);
 }
 
-/* ── Responsive collapse ───────────────────────────────────── */
+/* ── Responsive collapse ───────────────────────────────────── *
+ * The new tag-style trial pill is compact at every viewport, so
+ * the responsive ladder is mild — tighten paddings on narrow
+ * phones, drop the credits' plan tag on the very narrowest. */
 
-/* Phones in landscape / small tablets — drop the trial pill's
- * sub-text so the chip reads tightly. */
-@media (max-width: 720px) {
-  .clixa-trial__sub {
-    display: none;
-  }
-}
-
-/* Phones (≤ 560 px) — hide the trial pill's label so the chip
- * collapses to icon + CTA. The credits badge's "TRIAL" tag
- * still carries the status signal. */
 @media (max-width: 560px) {
   .clixa-pill--trial {
     padding: 4px 4px 4px 10px;
-    gap: 6px;
-  }
-  .clixa-trial__text {
-    display: none;
+    gap: 7px;
   }
   .clixa-trial__cta {
     height: 30px;
     padding: 0 12px;
     font-size: 0.78rem;
   }
+  .clixa-trial__tag {
+    font-size: 0.6rem;
+  }
 }
 
-/* Tighten the credits badge below 680 px so the three pills
- * sit cleanly on a 360–414 px phone. */
+/* Tighten the credits badge below 680 px so the three pills sit
+ * cleanly on a 360–414 px phone. */
 @media (max-width: 680px) {
   .clixa-topbar .header-credits-badge {
     padding: 0 0.6rem 0 0.5rem;
   }
 }
 
-/* Tiny phones (≤ 380 px) — drop the trial pill's icon AND the
- * credits' plan tag so each pill fits inside ~ 70 px and the
- * three controls fit on a 320 px viewport with ample breathing
- * room. */
+/* Tiny phones (≤ 380 px) — drop the credits' plan tag and divider
+ * (the trial pill carries the state signal in its own tag, no
+ * redundancy needed). */
 @media (max-width: 380px) {
   .clixa-pill--trial {
-    padding: 4px;
-    gap: 0;
-  }
-  .clixa-trial__icon {
-    display: none;
+    padding: 4px 4px 4px 9px;
+    gap: 6px;
   }
   .clixa-trial__cta {
     padding: 0 11px;

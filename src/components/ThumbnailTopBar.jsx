@@ -38,31 +38,18 @@ function IconMenu() {
   )
 }
 
-function IconSparkles() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      focusable="false"
-    >
-      <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" />
-    </svg>
-  )
-}
-
 /**
  * Internal trial / upgrade pill.
  *
- * Trialing users see "Trial active · finish setup" + Skip Trial CTA.
- * Free users (no subscription, no trial) see "Unlock Pro · unlimited
- * thumbnails" + Go Pro CTA. Paid Creator / Ultimate / Starter users
- * see nothing — the pill returns null so the top-bar reads as just
- * menu + credits for them.
+ * Mirrors the credits-badge pattern: a small state tag on the left
+ * (TRIAL in amber / FREE in slate), a hairline divider, then the
+ * accent-gradient CTA on the right. Reads at a glance as "current
+ * state | what to do about it" — no ambiguous icons that look like
+ * loading spinners (a problem in the previous design).
+ *
+ *   Trialing user → [TRIAL · Skip Trial]   amber tag, violet CTA
+ *   Free user     → [FREE  · Go Pro]       slate tag, violet CTA
+ *   Paid Creator  → renders null (top-bar shows menu + credits only)
  */
 function TrialPill() {
   const { isSubscribed, isTrial } = usePlanEntitlements()
@@ -74,29 +61,19 @@ function TrialPill() {
   if (isSubscribed && !isTrial) return null
 
   const onTrial = !!isTrial
+  const tagText = onTrial ? 'Trial' : 'Free'
+  const ctaText = onTrial ? 'Skip Trial' : 'Go Pro'
+  const variant = onTrial ? 'clixa-pill--trial-on' : 'clixa-pill--trial-free'
+
   return (
     <div
-      className="clixa-pill clixa-pill--trial"
+      className={`clixa-pill clixa-pill--trial ${variant}`}
       role="status"
       aria-live="polite"
       onClick={handleClick}
     >
-      <span className="clixa-trial__icon" aria-hidden>
-        <IconSparkles />
-      </span>
-      <span className="clixa-trial__text">
-        {onTrial ? (
-          <>
-            <span className="clixa-trial__label">Trial active</span>
-            <span className="clixa-trial__sub">&nbsp;·&nbsp;finish setup</span>
-          </>
-        ) : (
-          <>
-            <span className="clixa-trial__label">Unlock Pro</span>
-            <span className="clixa-trial__sub">&nbsp;·&nbsp;unlimited thumbnails</span>
-          </>
-        )}
-      </span>
+      <span className="clixa-trial__tag">{tagText}</span>
+      <span className="clixa-trial__divider" aria-hidden />
       <button
         type="button"
         className="clixa-trial__cta"
@@ -106,7 +83,7 @@ function TrialPill() {
         }}
       >
         <span className="clixa-trial__cta-shine" aria-hidden />
-        <span className="clixa-trial__cta-label">{onTrial ? 'Skip Trial' : 'Go Pro'}</span>
+        <span className="clixa-trial__cta-label">{ctaText}</span>
       </button>
     </div>
   )
