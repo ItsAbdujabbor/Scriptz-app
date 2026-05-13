@@ -213,26 +213,19 @@ body.zoom-settling *::after {
   height: 10px;
 }
 
-/* On mobile / narrow viewports the badge's negative overhang spills
- * above whatever the host pill is sitting inside (composer footer
- * chrome, tab row, etc.) and reads as clipped — especially when the
- * soft keyboard is open and the footer rides high on the screen.
- *
- * Fix: on touch-class breakpoints, fully tuck the badge INSIDE the
- * pill bounds. Shrink it a touch (14 px) and position it inset
- * from the corner. The badge can't be clipped if it never crosses
- * the pill's own border. */
+/* Mobile tweak — slightly smaller badge so it sits cleanly on the
+ * smaller pills, but STILL overhangs the top-right corner (user
+ * explicitly asked: "It must not be inside of the buttons"). The
+ * overhang itself is fine; the original clipping screenshot was a
+ * viewport edge issue, not a CSS-clip issue. Parent containers
+ * carry `overflow: visible` so the overhang renders normally. */
 @media (max-width: 1024px) {
   .clixa-pro-crown:not(.clixa-pro-crown--inline) {
-    top: 2px;
-    right: 2px;
-    width: 14px;
-    height: 14px;
+    top: -5px;
+    right: -5px;
+    width: 15px;
+    height: 15px;
     border-width: 1px;
-    box-shadow:
-      inset 0 0.5px 0 rgba(255, 255, 255, 0.55),
-      0 1px 2px rgba(0, 0, 0, 0.4),
-      0 0 6px -1px rgba(252, 191, 36, 0.5);
   }
   .clixa-pro-crown:not(.clixa-pro-crown--inline) svg {
     width: 9px;

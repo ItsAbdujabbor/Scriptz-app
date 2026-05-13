@@ -4399,25 +4399,10 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-/* Premium pill — extra right padding gives the crown badge its own
- * dedicated slot so it doesn't sit on top of the label ("Edit" →
- * "Edi" before). Specificity matched to the base scoped rule so this
- * actually wins for `padding-right`. The crown sits inside the
- * reserved slot, centred vertically. */
-.thumb-gen-tab-row .thumb-gen-pill-tab--premium {
-  padding-right: 28px;
-}
-.thumb-gen-tab-row .thumb-gen-pill-tab--premium .clixa-pro-crown {
-  top: 50%;
-  right: 5px;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-}
-.thumb-gen-tab-row .thumb-gen-pill-tab--premium .clixa-pro-crown svg {
-  width: 10px;
-  height: 10px;
-}
+/* Premium pill — crown overhangs the top-right corner (see the
+ * global `.clixa-pro-crown` rule in src/index.css for the recipe).
+ * No special padding here — the badge sits OUTSIDE the pill, not
+ * inside, per design feedback. */
 
 /* Active mode chip — actual styling lives in `ThumbPillTabs.css` plus
  * the matched-specificity rules inside the @media blocks further down

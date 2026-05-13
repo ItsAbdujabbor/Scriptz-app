@@ -121,12 +121,8 @@
  * tab itself signals "Pro feature" beyond just the crown badge.
  * Applied when the tab is NOT active (active state stays the
  * unified violet gradient so the click feedback is consistent).
- *
- * Extra right-padding makes room for the gold crown badge so it
- * never sits on top of the tab label (was clipping "Edit" → "Edi"). */
-.thumb-gen-pill-tab--premium {
-  padding-right: 26px;
-}
+ * Crown overhangs at top-right via the global `.clixa-pro-crown`
+ * recipe (no special padding here). */
 .thumb-gen-pill-tab--premium:not(.thumb-gen-pill-tab--active) {
   border-color: rgba(252, 211, 77, 0.38);
   background:
@@ -146,20 +142,4 @@
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
     0 0 18px -4px rgba(252, 211, 77, 0.4);
-}
-
-/* The crown sits in the reserved right-padding zone — fully inside
- * the pill (no overhang), centred vertically, never overlaps the
- * label. Override the global `.clixa-pro-crown` defaults scoped to
- * the tab pill context. */
-.thumb-gen-pill-tab--premium .clixa-pro-crown {
-  top: 50%;
-  right: 5px;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-}
-.thumb-gen-pill-tab--premium .clixa-pro-crown svg {
-  width: 10px;
-  height: 10px;
 }
