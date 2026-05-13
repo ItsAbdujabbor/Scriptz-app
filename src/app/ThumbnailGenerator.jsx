@@ -5240,20 +5240,12 @@ export function ThumbnailGenerator({
                         ) : (
                           <button
                             type="button"
-                            className={`coach-composer-tool coach-composer-tool--circle thumb-gen-toolbar-attach${canUseEdit ? '' : ' thumb-gen-toolbar-attach--premium'}`}
+                            className="coach-composer-tool coach-composer-tool--circle thumb-gen-toolbar-attach"
                             onClick={() => promptFileInputRef.current?.click()}
                             aria-label="Add image"
                             title="Add image"
                           >
                             <IconPaperclip />
-                            {!canUseEdit ? (
-                              <span className="thumb-gen-toolbar-attach__crown" aria-hidden>
-                                <svg viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M3 8.5l3.5 3 3-5 2.5 4 2.5-4 3 5L21 8.5l-1.5 8.5h-15L3 8.5z" />
-                                  <path d="M4.5 18.5h15v1.5h-15z" />
-                                </svg>
-                              </span>
-                            ) : null}
                           </button>
                         )}
                         <PersonaSelector onOpenLibrary={onOpenPersonas} variant="glassCircle" />
@@ -5523,7 +5515,9 @@ export function ThumbnailGenerator({
                         </>
                       )}
                     </div>
-                    <div className="thumb-gen-analyze-submit-row">
+                    <div
+                      className={`thumb-gen-analyze-submit-row${canUseEdit ? '' : ' thumb-gen-analyze-submit-row--premium'}`}
+                    >
                       <ThumbSendPill
                         type="button"
                         disabled={editSourceMode === 'upload' ? !editDataUrl : !editPreviewUrl}
@@ -5540,6 +5534,14 @@ export function ThumbnailGenerator({
                           </svg>
                         }
                       />
+                      {!canUseEdit ? (
+                        <span className="thumb-gen-edit-submit__crown" aria-hidden>
+                          <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M3 8.5l3.5 3 3-5 2.5 4 2.5-4 3 5L21 8.5l-1.5 8.5h-15L3 8.5z" />
+                            <path d="M4.5 18.5h15v1.5h-15z" />
+                          </svg>
+                        </span>
+                      ) : null}
                     </div>
                   </form>
                 )}

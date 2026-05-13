@@ -296,6 +296,31 @@
   filter: drop-shadow(0 0 6px rgba(252, 211, 77, 0.45));
 }
 
+/* Crown badge on the trigger button itself (visible to free users
+ * when no persona is selected). Small amber crown stamped at the
+ * top-right corner of the circle. Pointer-events: none so it can't
+ * intercept clicks intended for the trigger. */
+.persona-selector-trigger {
+  position: relative;
+}
+.persona-selector-trigger__crown {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  color: #fcd34d;
+  filter: drop-shadow(0 0 4px rgba(252, 211, 77, 0.55));
+  pointer-events: none;
+}
+.persona-selector-trigger__crown svg {
+  width: 11px;
+  height: 11px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .persona-selector-create::before {
     display: none;

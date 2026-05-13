@@ -203,6 +203,14 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
             </span>
           </>
         )}
+        {/* Crown badge — visible to free users so the style trigger
+         * carries the same "Pro feature" signpost as the Create
+         * button inside the popover. */}
+        {locked && !selectedStyle && (
+          <span className="style-selector-trigger__crown" aria-hidden>
+            <IconCrown />
+          </span>
+        )}
       </button>
 
       {/* One-click reset — same pattern as PersonaSelector. */}

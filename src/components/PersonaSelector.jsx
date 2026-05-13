@@ -222,6 +222,15 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
             </span>
           </>
         )}
+        {/* Crown badge — visible to free users so the persona trigger
+         * carries the same "Pro feature" signpost as the Create
+         * button inside the popover. Doesn't gate the trigger itself
+         * (free users can still browse the demo characters). */}
+        {locked && !selectedPersona && (
+          <span className="persona-selector-trigger__crown" aria-hidden>
+            <IconCrown />
+          </span>
+        )}
       </button>
 
       {/* One-click reset. Sits on top of the trigger so the user can clear

@@ -267,6 +267,29 @@
   filter: drop-shadow(0 0 6px rgba(252, 211, 77, 0.45));
 }
 
+/* Crown badge on the trigger button itself (visible to free users
+ * when no style is selected). Matches PersonaSelector recipe. */
+.style-selector-trigger {
+  position: relative;
+}
+.style-selector-trigger__crown {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  color: #fcd34d;
+  filter: drop-shadow(0 0 4px rgba(252, 211, 77, 0.55));
+  pointer-events: none;
+}
+.style-selector-trigger__crown svg {
+  width: 11px;
+  height: 11px;
+}
+
 .style-selector-create:focus-visible {
   outline: none;
   box-shadow:
