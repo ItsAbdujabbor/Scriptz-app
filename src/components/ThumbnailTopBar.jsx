@@ -135,8 +135,19 @@ export default function ThumbnailTopBar() {
     return () => document.body.classList.remove('clixa-thumb-screen')
   }, [])
 
+  // Track sidebar collapsed state so the topbar can offset its
+  // `left` to start AFTER the sidebar instead of floating over it.
+  // Reactive via Zustand — the topbar re-aligns whenever the user
+  // toggles the sidebar rail.
+  const sidebarCollapsed = useSidebarStore((s) => s.collapsed)
+
   return (
-    <header className="clixa-topbar" role="banner">
+    <header
+      className={`clixa-topbar ${
+        sidebarCollapsed ? 'clixa-topbar--sidebar-collapsed' : 'clixa-topbar--sidebar-expanded'
+      }`}
+      role="banner"
+    >
       <MenuButton />
       <div className="clixa-topbar__spacer" aria-hidden />
       <TrialPill />

@@ -96,7 +96,7 @@
     0 8px 22px -8px rgba(124, 58, 237, 0.65);
 }
 
-/* ── Bolt icon — disc with a glow ─────────────────────────────── */
+/* ── Bolt icon — disc with a lavender glow (no gold) ─────────── */
 .header-credits-badge__icon {
   position: relative;
   z-index: 1;
@@ -107,18 +107,18 @@
   height: 18px;
   flex-shrink: 0;
   border-radius: 999px;
-  color: #fde68a;
+  color: #ddd6fe;
   background:
     radial-gradient(
       circle at 30% 28%,
-      rgba(254, 240, 138, 0.55) 0%,
-      rgba(253, 224, 71, 0.32) 45%,
+      rgba(221, 214, 254, 0.55) 0%,
+      rgba(167, 139, 250, 0.32) 45%,
       rgba(0, 0, 0, 0) 70%
     ),
     rgba(0, 0, 0, 0.22);
   box-shadow:
     inset 0 0.5px 0 rgba(255, 255, 255, 0.4),
-    0 0 8px -1px rgba(253, 224, 71, 0.6);
+    0 0 8px -1px rgba(167, 139, 250, 0.6);
 }
 .header-credits-badge__icon svg {
   width: 11px;
@@ -151,12 +151,15 @@
   color: rgba(245, 243, 255, 0.78);
 }
 
-/* ── Balance-state overrides on the bolt only ─────────────────── */
+/* ── Balance-state overrides on the bolt only ─────────────────── *
+ * Low / empty re-tint the icon glow ONLY (the body stays violet so
+ * the pill keeps reading as the credits control). Coral covers both
+ * states — no amber, no gold. */
 .header-credits-badge--low .header-credits-badge__icon {
-  color: #fde68a;
+  color: #fda4af;
   box-shadow:
     inset 0 0.5px 0 rgba(255, 255, 255, 0.4),
-    0 0 10px -1px rgba(251, 191, 36, 0.7);
+    0 0 10px -1px rgba(251, 113, 133, 0.7);
 }
 
 .header-credits-badge--empty .header-credits-badge__icon {
@@ -180,32 +183,24 @@
 /* ── Tier accents — subtle border tint only, body stays violet ──
  * The plan name lives in the sidebar now, but power users may still
  * want a hint that they're on a premium tier when they glance at the
- * top-bar. The accents are deliberately quiet — a hair brighter border
- * for ultimate/creator, nothing visible for free/starter. */
+ * top-bar. The accents are deliberately quiet — a brighter lavender
+ * border for ultimate/creator, nothing visible for free/starter. */
 .header-credits-badge--tier-ultimate {
-  border-color: rgba(253, 224, 71, 0.62);
+  border-color: rgba(221, 214, 254, 0.7);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.26),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.36),
-    0 2px 4px rgba(0, 0, 0, 0.28),
-    0 8px 22px -8px rgba(217, 119, 6, 0.55);
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 2px 8px rgba(0, 0, 0, 0.32),
+    0 10px 28px -10px rgba(139, 92, 246, 0.45);
 }
 .header-credits-badge--tier-ultimate .header-credits-badge__icon {
-  color: #fff7c2;
+  color: #ede9fe;
   box-shadow:
     inset 0 0.5px 0 rgba(255, 255, 255, 0.45),
-    0 0 12px -1px rgba(253, 224, 71, 0.75);
+    0 0 12px -1px rgba(196, 181, 253, 0.8);
 }
 
 .header-credits-badge--tier-creator {
-  border-color: rgba(196, 181, 253, 0.7);
-}
-
-/* Trial — amber halo override (rare with the new flow but kept for
- * any legacy trialing rows that survive). */
-.header-credits-badge--trial {
-  border-color: rgba(253, 224, 71, 0.6);
-  background: linear-gradient(180deg, #b45309 0%, #92400e 100%);
+  border-color: rgba(196, 181, 253, 0.55);
 }
 
 /* ── Compact on small viewports ──────────────────────────────── */
