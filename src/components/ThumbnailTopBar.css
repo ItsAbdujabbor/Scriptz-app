@@ -160,39 +160,78 @@
   gap: 0.5rem;
   height: var(--clixa-pill-h);
   padding: 0 18px;
-  border: 1.5px solid transparent;
+  border: 2px solid transparent;
   border-radius: var(--clixa-pill-radius);
   font-family: inherit;
   color: #ffffff;
   cursor: pointer;
   white-space: nowrap;
   outline: none;
+  /* Two-layer background:
+   *   • padding-box  → near-black inner body (#0e0e14)
+   *   • border-box   → conic-gradient ring with two bright hot
+   *     spots (white-peaked lavender + magenta-peaked pink) on a
+   *     dark-violet base. As --clixa-trial-angle sweeps the hot
+   *     spots rotate around the perimeter. */
   background:
-    linear-gradient(#15151c, #15151c) padding-box,
+    linear-gradient(#0e0e14, #0e0e14) padding-box,
     conic-gradient(
         from var(--clixa-trial-angle),
-        #5b21b6 0deg,
+        #2a1f4d 0deg,
+        #c4b5fd 30deg,
+        #ffffff 50deg,
         #c4b5fd 70deg,
-        #ffffff 140deg,
-        #ddd6fe 210deg,
-        #8b5cf6 280deg,
-        #5b21b6 360deg
+        #2a1f4d 120deg,
+        #2a1f4d 220deg,
+        #f0abfc 250deg,
+        #ffffff 270deg,
+        #c4b5fd 290deg,
+        #2a1f4d 360deg
       )
       border-box;
-  box-shadow:
-    0 2px 10px rgba(0, 0, 0, 0.32),
-    0 8px 22px -8px rgba(124, 58, 237, 0.32);
   -webkit-tap-highlight-color: transparent;
-  animation: clixa-trial-border-spin 4s linear infinite;
+  animation: clixa-trial-border-spin 3.5s linear infinite;
   transition:
     box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.18s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
+/* Blurred halo behind the pill — same rotating conic so the glow
+ * matches the moving border in real time. Sits BEHIND the pill via
+ * z-index: -1 + isolation: isolate above. */
+.clixa-pill--trial::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  z-index: -1;
+  background: conic-gradient(
+    from var(--clixa-trial-angle),
+    transparent 0deg,
+    rgba(196, 181, 253, 0.6) 30deg,
+    rgba(255, 255, 255, 0.7) 50deg,
+    rgba(196, 181, 253, 0.6) 70deg,
+    transparent 120deg,
+    transparent 220deg,
+    rgba(240, 171, 252, 0.55) 250deg,
+    rgba(255, 255, 255, 0.7) 270deg,
+    rgba(196, 181, 253, 0.55) 290deg,
+    transparent 360deg
+  );
+  filter: blur(8px);
+  opacity: 0.85;
+  pointer-events: none;
+  animation: clixa-trial-border-spin 3.5s linear infinite;
+}
+
+/* Establish a stacking context so the ::before halo's `z-index: -1`
+ * stays scoped to this pill and doesn't sink behind other elements. */
+.clixa-pill__wrap {
+  isolation: isolate;
+}
+
 .clixa-pill--trial:hover {
-  box-shadow:
-    0 4px 14px rgba(0, 0, 0, 0.4),
-    0 12px 32px -10px rgba(139, 92, 246, 0.55);
+  filter: brightness(1.1);
 }
 
 .clixa-pill--trial:active {
@@ -200,9 +239,7 @@
 }
 
 .clixa-pill--trial:focus-visible {
-  box-shadow:
-    0 0 0 3px rgba(167, 139, 250, 0.45),
-    0 8px 22px -8px rgba(124, 58, 237, 0.55);
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.45);
 }
 
 /* Star icon — small static sparkle to the left of the label,
@@ -282,9 +319,10 @@
   .clixa-pill--trial {
     transition: none;
   }
-  /* Stop the rotating border — pin the angle so the gradient still
-   * shows but doesn't spin. */
-  .clixa-pill--trial {
+  /* Stop the rotating border + halo — pin the angle so the gradient
+   * still shows but doesn't spin. */
+  .clixa-pill--trial,
+  .clixa-pill--trial::before {
     animation: none;
   }
   .clixa-pill--trial:hover,
