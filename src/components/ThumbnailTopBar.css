@@ -38,12 +38,14 @@
    * stays visually pinned to the top of the chat area. */
   position: absolute;
   top: calc(env(safe-area-inset-top, 0px) + 18px);
-  /* Clear the sidebar avatar / expander button when the sidebar is
-   * in its collapsed rail state. 40 px wasn't enough — the avatar
-   * has its own padding + box-shadow that visually pushes its right
-   * edge into the chat shell area, so the pill's conic border was
-   * touching the avatar. 68 px gives the pill a real gutter from
-   * the sidebar's right edge in both collapsed and expanded states. */
+  /* Desktop default: clear the sidebar avatar / expander button when
+   * the sidebar is in its collapsed rail state. The 68 px gutter
+   * leaves the pill clear of the avatar's box-shadow + padding in
+   * both collapsed and expanded sidebar states.
+   *
+   * Mobile override below switches this to a 16 px edge gutter
+   * because the sidebar is off-canvas on mobile and 68 px just
+   * looks like dead space at the left edge. */
   left: 68px;
   right: 24px;
   z-index: 60;
@@ -117,6 +119,19 @@
 @media (min-width: 1025px) {
   .clixa-topbar .clixa-pill--menu {
     display: none;
+  }
+}
+
+/* Mobile — sidebar is off-canvas, so the desktop's 68 px left
+ * gutter (which exists to clear the collapsed sidebar avatar)
+ * becomes pure dead space and pushes the hamburger + Unlock Pro
+ * away from the left edge of the screen. Pull the topbar back to
+ * a 16 px edge gutter so the controls sit naturally flush-left. */
+@media (max-width: 1024px) {
+  .clixa-topbar {
+    left: 16px;
+    right: 16px;
+    gap: 10px;
   }
 }
 
