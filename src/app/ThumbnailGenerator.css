@@ -5632,66 +5632,28 @@
  * ────────────────────────────────────────────────────────────────────── */
 @media (min-width: 641px) {
   /* Floating elements share the same vertical baseline so they line up
-   * as a single header band. The shell sets a CSS var that toggles
-   * smaller values when scrolled. */
+   * as a single header band. 40px is the canonical pill height for the
+   * whole top toolbar (hamburger + trial pill + credits + model
+   * dropdown) — everything reads as one balanced row instead of three
+   * different sizes. */
   .coach-chat-shell {
-    --thumb-header-top: 0.7rem;
-    --thumb-header-height: 32px;
-    /* Lower the stage's reference top-padding so the chat content
-     * doesn't leave a large empty band under the smaller header. */
+    --thumb-header-top: 12px;
+    --thumb-header-height: 40px;
     --thumb-header-stage-top: 1.25rem;
-    transition:
-      --thumb-header-top 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-      --thumb-header-height 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  /* Smaller plan callout — lighter background fill, accent border kept
-   * so it still reads as the brand-tinted center pill. The CTA pill
-   * inside shrinks too so the whole chip clamps to the same height. */
-  .thumb-plan-callout {
-    top: var(--thumb-header-top);
-    height: var(--thumb-header-height);
-    padding: 3px 4px 3px 11px;
-    gap: 0.45rem;
-    font-size: 0.78rem;
-    border-radius: 999px;
-    transition:
-      top 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-      height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-      padding 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-      background 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-      border-color 0.22s ease,
-      box-shadow 0.22s ease,
-      transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .thumb-plan-callout__icon {
-    width: 18px;
-    height: 18px;
-  }
-  .thumb-plan-callout__icon svg {
-    width: 13px;
-    height: 13px;
-  }
-  .thumb-plan-callout__cta {
-    height: 26px;
-    padding: 0 11px;
-    font-size: 0.74rem;
-  }
+  /* (Trial pill keeps its 40px base height — the earlier 32px shrink
+   * was intentionally removed so the pill matches the credits badge
+   * and the mobile hamburger. No override needed here.) */
 
-  /* Credits badge top vertical alignment ties to the same shared var. */
-  .thumb-screen-credits {
-    top: var(--thumb-header-top);
-    transition: top 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  /* Model picker also docks at the same top offset so the three
-   * elements form a single header line. */
+  /* Model picker docks at the same vertical baseline as the toolbar
+   * so the chrome reads as a single header band. */
   .thumb-model-dropdown {
     top: var(--thumb-header-top);
     transition: top 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .thumb-model-trigger {
-    padding: 0.32rem 0.5rem 0.32rem 0.6rem;
+    padding: 0.42rem 0.55rem 0.42rem 0.65rem;
     height: var(--thumb-header-height);
     box-sizing: border-box;
   }
@@ -5752,17 +5714,11 @@
   }
 }
 
-/* — Scrolled state: tighter further, dimmer background — only on
- *   ≥ 641 px. Mobile keeps its own breakpoint behavior. */
+/* — Scrolled state: dim the background slightly so the chrome recedes
+ *   while reading, but DON'T shrink the heights — the toolbar must stay
+ *   visually balanced (hamburger / trial / credits all 40px). */
 @media (min-width: 641px) {
-  .coach-chat-shell--scrolled {
-    --thumb-header-top: 0.4rem;
-    --thumb-header-height: 28px;
-  }
   .coach-chat-shell--scrolled .thumb-plan-callout {
-    padding: 2px 3px 2px 9px;
-    gap: 0.35rem;
-    font-size: 0.74rem;
     /* Dim the body so the chip recedes from the foreground while the
      * user is reading. The CTA stays full-strength so users can still
      * convert without hunting. */
@@ -5774,45 +5730,14 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.04),
       0 4px 14px rgba(0, 0, 0, 0.28);
   }
-  .coach-chat-shell--scrolled .thumb-plan-callout__icon {
-    width: 16px;
-    height: 16px;
-  }
-  .coach-chat-shell--scrolled .thumb-plan-callout__icon svg {
-    width: 11px;
-    height: 11px;
-  }
-  .coach-chat-shell--scrolled .thumb-plan-callout__cta {
-    height: 22px;
-    padding: 0 9px;
-    font-size: 0.7rem;
-  }
-  /* Hide the long sub-text once compacted so the chip doesn't get
-   * squeezed into ellipsis. The headline stays. */
-  .coach-chat-shell--scrolled .thumb-plan-callout__sub {
-    display: none;
-  }
-
-  /* Model picker shrinks slightly — same vertical rhythm as the rest. */
-  .coach-chat-shell--scrolled .thumb-model-trigger {
-    padding: 0.28rem 0.45rem 0.28rem 0.55rem;
-    height: 28px;
-  }
-  .coach-chat-shell--scrolled .thumb-model-trigger-code {
-    font-size: 0.7rem;
-  }
-  .coach-chat-shell--scrolled .thumb-model-trigger-tag {
-    font-size: 0.46rem;
-    padding: 0.1rem 0.34rem;
-  }
 }
 
-/* On scroll the credits badge body itself gets a subtle dim too, but
- * only on desktop. The badge owns the rule via its own selector so its
- * hover/active states still take precedence. */
+/* On scroll the credits badge body gets a subtle dim too, but only on
+ * desktop. The badge owns the rule via its own selector so its
+ * hover/active states still take precedence. Height is intentionally
+ * unchanged — the toolbar must stay aligned. */
 @media (min-width: 641px) {
   .coach-chat-shell--scrolled .header-credits-badge {
-    padding: 0.3rem 0.6rem;
     font-size: 0.74rem;
   }
   .coach-chat-shell--scrolled .header-credits-badge-icon svg {
