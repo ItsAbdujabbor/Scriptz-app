@@ -38,12 +38,13 @@
    * stays visually pinned to the top of the chat area. */
   position: absolute;
   top: calc(env(safe-area-inset-top, 0px) + 18px);
-  /* Generous left padding so the Unlock Pro pill doesn't crowd the
-   * sidebar avatar / expander button when the sidebar is collapsed
-   * to its 60 px rail. With 40 px left, the pill sits ~28 px clear
-   * of the avatar in collapsed state — enough breathing room to
-   * read as a separate control. */
-  left: 40px;
+  /* Clear the sidebar avatar / expander button when the sidebar is
+   * in its collapsed rail state. 40 px wasn't enough — the avatar
+   * has its own padding + box-shadow that visually pushes its right
+   * edge into the chat shell area, so the pill's conic border was
+   * touching the avatar. 68 px gives the pill a real gutter from
+   * the sidebar's right edge in both collapsed and expanded states. */
+  left: 68px;
   right: 24px;
   z-index: 60;
   display: flex;
