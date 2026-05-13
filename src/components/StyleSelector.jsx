@@ -4,7 +4,6 @@ import { useStylesQuery } from '../queries/styles/styleQueries'
 import { useStyleStore } from '../stores/styleStore'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 import { useFloatingPosition } from '../lib/useFloatingPosition'
-import { toast } from '../lib/toast'
 import { Skeleton, SkeletonGroup } from './ui'
 import './StyleSelector.css'
 
@@ -62,6 +61,15 @@ function IconPlus() {
       aria-hidden
     >
       <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
+function IconCrown() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M3 8.5l3.5 3 3-5 2.5 4 2.5-4 3 5L21 8.5l-1.5 8.5h-15L3 8.5z" />
+      <path d="M4.5 18.5h15v1.5h-15z" />
     </svg>
   )
 }
@@ -140,42 +148,17 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
 
   const isGlassCircle = variant === 'glassCircle'
 
-  // Free tier: render the trigger looking identical to the unlocked
-  // version — no violet "locked" tint, no lock badge. Click sends the
-  // user to the Pro upgrade screen with a brief toast.
-  if (locked) {
-    const handleLockedClick = () => {
-      toast.info('Styles are a Pro feature. Upgrade to unlock.', {
-        title: 'Upgrade required',
-      })
+  // Free-tier policy mirrors PersonaSelector: the picker opens
+  // normally and demo styles are selectable. Only the "Create"
+  // footer button is premium-locked — it shows a crown and routes
+  // to /pro instead of opening the editor.
+  const handleCreateClick = () => {
+    setOpen(false)
+    if (locked) {
       if (typeof window !== 'undefined') window.location.hash = 'pro'
+      return
     }
-    return (
-      <div
-        ref={ref}
-        className={`style-selector ${compact ? 'style-selector--compact' : ''} ${isGlassCircle ? 'style-selector--glass-circle' : ''}`}
-      >
-        <button
-          type="button"
-          className={`style-selector-trigger ${isGlassCircle ? 'style-selector-trigger--circle' : ''}`}
-          onClick={handleLockedClick}
-          aria-label="Styles"
-          title="Style — a reusable visual treatment for your thumbnails"
-        >
-          <span className="style-selector-icon">
-            <IconStyle />
-          </span>
-          {!isGlassCircle && (
-            <>
-              <span className="style-selector-label">Style</span>
-              <span className="style-selector-chevron">
-                <IconChevronDown />
-              </span>
-            </>
-          )}
-        </button>
-      </div>
-    )
+    onOpenLibrary?.()
   }
 
   return (
@@ -300,14 +283,12 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
               <div className="style-selector-footer">
                 <button
                   type="button"
-                  className="style-selector-create"
-                  onClick={() => {
-                    setOpen(false)
-                    onOpenLibrary()
-                  }}
+                  className={`style-selector-create ${locked ? 'style-selector-create--locked' : ''}`}
+                  onClick={handleCreateClick}
+                  title={locked ? 'Create your own style — Clixa Pro' : 'Create a new style'}
                 >
-                  <IconPlus />
-                  Create
+                  {locked ? <IconCrown /> : <IconPlus />}
+                  {locked ? 'Create — Pro' : 'Create'}
                 </button>
               </div>
             )}

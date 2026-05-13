@@ -4,7 +4,6 @@ import { usePersonasQuery } from '../queries/personas/personaQueries'
 import { usePersonaStore } from '../stores/personaStore'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 import { useFloatingPosition } from '../lib/useFloatingPosition'
-import { toast } from '../lib/toast'
 import { Skeleton, SkeletonGroup } from './ui'
 import './PersonaSelector.css'
 
@@ -83,6 +82,17 @@ function IconCheck() {
   )
 }
 
+// Crown — the Pro-feature signpost. Used on Create buttons inside
+// the persona / style pickers when the user is on the free tier.
+function IconCrown() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M3 8.5l3.5 3 3-5 2.5 4 2.5-4 3 5L21 8.5l-1.5 8.5h-15L3 8.5z" />
+      <path d="M4.5 18.5h15v1.5h-15z" />
+    </svg>
+  )
+}
+
 export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' }) {
   const { data, isPending } = usePersonasQuery()
   const { selectedPersonaId, selectedPersona, setSelectedPersona, clearSelectedPersona } =
@@ -148,42 +158,22 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
 
   const isGlassCircle = variant === 'glassCircle'
 
-  // Free tier: render the trigger looking identical to the unlocked
-  // version — no violet "locked" tint, no lock badge. Click sends the
-  // user to the Pro upgrade screen with a brief toast.
-  if (locked) {
-    const handleLockedClick = () => {
-      toast.info('Characters are a Pro feature. Upgrade to unlock.', {
-        title: 'Upgrade required',
-      })
+  // Free-tier policy:
+  //   * Trigger opens the popover normally — they can see + select
+  //     demo characters.
+  //   * Selecting a persona still works (server backs off if a free
+  //     user actually submits with a persona; the gate lives on the
+  //     specific persona-aware generation routes).
+  //   * The "Create" footer button shows a crown icon and routes to
+  //     /pro instead of opening the library. Persona creation is the
+  //     part that's actually premium-only.
+  const handleCreateClick = () => {
+    setOpen(false)
+    if (locked) {
       if (typeof window !== 'undefined') window.location.hash = 'pro'
+      return
     }
-    return (
-      <div
-        ref={ref}
-        className={`persona-selector ${compact ? 'persona-selector--compact' : ''} ${isGlassCircle ? 'persona-selector--glass-circle' : ''}`}
-      >
-        <button
-          type="button"
-          className={`persona-selector-trigger ${isGlassCircle ? 'persona-selector-trigger--circle' : ''}`}
-          onClick={handleLockedClick}
-          aria-label="Characters"
-          title="Character — a reusable on-brand look for your thumbnails"
-        >
-          <span className="persona-selector-icon">
-            <IconPersona />
-          </span>
-          {!isGlassCircle && (
-            <>
-              <span className="persona-selector-label">Character</span>
-              <span className="persona-selector-chevron">
-                <IconChevronDown />
-              </span>
-            </>
-          )}
-        </button>
-      </div>
-    )
+    onOpenLibrary?.()
   }
 
   return (
@@ -329,14 +319,14 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
               <div className="persona-selector-footer">
                 <button
                   type="button"
-                  className="persona-selector-create"
-                  onClick={() => {
-                    setOpen(false)
-                    onOpenLibrary()
-                  }}
+                  className={`persona-selector-create ${locked ? 'persona-selector-create--locked' : ''}`}
+                  onClick={handleCreateClick}
+                  title={
+                    locked ? 'Create your own character — Clixa Pro' : 'Create a new character'
+                  }
                 >
-                  <IconPlus />
-                  Create
+                  {locked ? <IconCrown /> : <IconPlus />}
+                  {locked ? 'Create — Pro' : 'Create'}
                 </button>
               </div>
             )}
