@@ -165,11 +165,21 @@ function friendlyMessageFor({ code, status, serverMessage, retryAfterSeconds }) 
       if (looksLikeProviderBilling) {
         return "We're having trouble connecting to our AI provider right now. We're on it — please try again shortly. Thanks for your patience."
       }
+      // Network-level failure — fetch() itself threw, never reached the
+      // server. The browser produces ``TypeError: Failed to fetch`` /
+      // ``Failed to fetch`` / ``NetworkError when attempting to fetch``
+      // for: CORS preflight failure, DNS / TLS error, request aborted,
+      // server unreachable. Surface a single friendly message in all
+      // those cases instead of leaking the raw browser string into the
+      // UI toast.
+      const looksLikeNetwork =
+        typeof serverMessage === 'string' &&
+        /failed to fetch|network ?error|networkerror|load failed/i.test(serverMessage)
+      if (looksLikeNetwork || status === 0 || status == null) {
+        return "Couldn't reach the server. Check your connection and try again in a moment."
+      }
       if (status >= 500) {
         return "Something on our side broke. We're looking into it — please try again. Thanks for your patience."
-      }
-      if (status === 0) {
-        return "Looks like there's a network issue. Check your connection and try again."
       }
       // Last resort — surface the server message only if it's short and
       // doesn't look like internal/debug noise.
