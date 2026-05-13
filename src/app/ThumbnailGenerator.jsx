@@ -5043,31 +5043,6 @@ export function ThumbnailGenerator({
               )
             )}
 
-          {/* Server-pending indicator. Shows whenever the conv row's
-           * `is_pending` is true on the server AND this tab is NOT
-           * the one driving the chat mutation (`pendingAssistant`
-           * being false means we don't have local optimistic loader
-           * machinery — typically a hard-refresh into a conv whose
-           * job was started on a previous page load, or a return
-           * visit while a different tab is generating). The
-           * `pollWhilePending` mechanism on the conversation query
-           * picks up the assistant_message when the job finishes
-           * and this indicator unmounts on the next render. */}
-          {!isHistoryLoading && isCurrentConversationPending && !pendingAssistant && (
-            <article className="coach-message coach-message--assistant" aria-live="polite">
-              <div
-                className="thumb-server-pending"
-                role="status"
-                aria-label="Generation in progress"
-              >
-                <span className="thumb-server-pending__spinner" aria-hidden="true" />
-                <span className="thumb-server-pending__label">
-                  Generating — feel free to leave; we'll keep the result here when it's ready.
-                </span>
-              </div>
-            </article>
-          )}
-
           {/* The pending user-bubble + loader now live INSIDE the
            * messages list as a single mounted card (`_promptPending`
            * on the local placeholder) — see ChatMessageItem. The old
