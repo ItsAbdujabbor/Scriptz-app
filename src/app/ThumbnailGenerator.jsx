@@ -1066,47 +1066,107 @@ const ThumbnailGenFill = memo(function ThumbnailGenFill({
     pctRef.current = pct
   }, [pct])
 
-  // Live backend progress wins when available — driven by the SSE job
-  // stream (`/api/thumbnails/chat-jobs/...` events) → updates
-  // `useThumbnailJobStatusStore` → here. Ranges 0..1 in the store; the
-  // bar animates smoothly toward whatever the worker last reported.
-  // Falls back to the estimated curve when the worker hasn't started
-  // emitting progress yet (queued / very fresh submission).
-  const livePct = useThumbnailJobStatusStore((s) => {
-    const p = s.status?.progress
+  // Monotone-rising clamp. Every frame writes Math.max(prev, target)
+  // so the bar can never visually rewind, even when the backend
+  // reports a stale lower number or the curve formula transitions
+  // between phases.
+  const maxReachedRef = useRef(0)
+
+  // Per-instance jitter — every generation feels slightly different
+  // (ChatGPT / Claude style). The randomness is captured once at
+  // mount and stays constant for the lifetime of the loader. Without
+  // this, two batches of the same size paced identically; with it,
+  // each generation has its own slight rhythm.
+  const [jitter] = useState(() => {
+    const rand = () => Math.random() - 0.5 // [-0.5, +0.5]
+    return {
+      // Phase 1 curve steepness — controls how quickly the bar
+      // approaches 0.92. Default 2.55 ± ~10 %.
+      k1: 2.55 * (1 + rand() * 0.2),
+      // Phase 2 creep speed — slow asymptote 0.92 → 0.99. Lower
+      // value = lazier creep. Default 0.45 ± ~25 %.
+      k2: 0.45 * (1 + rand() * 0.5),
+      // Per-instance duration fuzz — stretches or compresses the
+      // estimated runtime by up to ±8 %. Both batches of the same
+      // size now reach milestones at slightly different times.
+      fuzz: 1 + rand() * 0.16,
+    }
+  })
+
+  // Live backend progress — read INSIDE the rAF tick via
+  // ``useThumbnailJobStatusStore.getState()``. Pulling the value
+  // through the React subscription (``useThumbnailJobStatusStore((s) => ...)``)
+  // would trigger a component re-render every time the worker
+  // emitted progress, which is wasteful — the tick already polls
+  // the latest value on each animation frame. The previous code
+  // also had ``livePct`` in the useEffect deps, which meant every
+  // backend progress event re-ran the effect → reset ``setPct(0)``
+  // and restarted ``startRef`` from now → bar visibly RESTARTED at
+  // 0 every time the worker emitted progress. Reading via
+  // ``getState()`` inside the tick has neither problem: no
+  // subscription, no effect dep, the loop just reads the latest
+  // snapshot each frame.
+  const readLivePct = () => {
+    const status = useThumbnailJobStatusStore.getState().status
+    const p = status?.progress
     if (typeof p !== 'number' || !Number.isFinite(p)) return null
     // Backend may emit 0..1 OR 0..100 depending on worker; normalize.
     const normalized = p > 1 ? p / 100 : p
-    return Math.max(0, Math.min(0.99, normalized))
-  })
+    return Math.max(0, Math.min(0.999, normalized))
+  }
 
   useEffect(() => {
     doneRef.current = false
-    /* eslint-disable react-hooks/set-state-in-effect */
+    maxReachedRef.current = 0
+
     setPct(0)
-    /* eslint-enable react-hooks/set-state-in-effect */
+
     startRef.current = performance.now()
+
+    const { k1, k2, fuzz } = jitter
+    const effectiveDuration = Math.max(2000, estimatedDurationMs * fuzz)
 
     const tick = (now) => {
       if (doneRef.current) return
       const elapsed = now - startRef.current
-      const t = Math.max(0, Math.min(1, elapsed / estimatedDurationMs))
-      // 1 - e^(-k*t) reaches ~0.92 at t=1 when k=2.55. Same curve the
-      // shared GenerationProgress uses, kept consistent so percentages
-      // feel the same speed across the app.
-      const k = 2.55
-      const v = ((1 - Math.exp(-k * t)) / (1 - Math.exp(-k))) * 0.92
-      // If the backend has reported real progress, snap the floor to
-      // that number so we never visually rewind below truth, then keep
-      // the smooth curve animating forward from whichever is higher.
-      const curveValue = Math.min(0.92, v)
-      const target = livePct != null ? Math.max(curveValue, livePct) : curveValue
-      setPct(Math.round(target * 100))
+      const t = elapsed / effectiveDuration
+
+      let curve
+      if (t <= 1) {
+        // Phase 1: 0 → ~0.92 over [0, effectiveDuration]. Asymptotic
+        // ease — fast early, slows naturally as it approaches 92 %.
+        curve = ((1 - Math.exp(-k1 * t)) / (1 - Math.exp(-k1))) * 0.92
+      } else {
+        // Phase 2: 0.92 → 0.99 over the next ``effectiveDuration * 3``
+        // (so a 25 s estimate gives ~75 s of slow creep before
+        // maxing out near 99 %). This is the "never freezes" fix —
+        // even if generation runs 3× longer than expected, the bar
+        // keeps moving at ~1 %/15 s of natural creep instead of
+        // sitting frozen at 92 %.
+        const t2 = Math.min(1, (t - 1) / 3)
+        curve = 0.92 + 0.07 * (1 - Math.exp(-k2 * t2))
+      }
+
+      // If the backend reports a higher number, snap to it — never
+      // visually rewind. The curve continues forward from whichever
+      // is greater.
+      const live = readLivePct()
+      const target = live != null ? Math.max(curve, live) : curve
+
+      // Monotone clamp — the displayed percentage can only ever go
+      // UP. Belt-and-suspenders for transitions between phases and
+      // for jittery SSE updates.
+      const next = Math.max(maxReachedRef.current, target)
+      maxReachedRef.current = next
+
+      setPct(Math.round(next * 100))
       rafRef.current = requestAnimationFrame(tick)
     }
     rafRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafRef.current)
-  }, [estimatedDurationMs, livePct])
+    // NOTE: ``livePctValue`` deliberately NOT in deps. See the
+    // ``livePctRef`` block above for why.
+  }, [estimatedDurationMs])
 
   // On `done` flip, the parent's `finishLoading` now drops
   // `pendingAssistant` immediately (single-frame swap with the result
@@ -2787,9 +2847,33 @@ export function ThumbnailGenerator({
       // Run stitch FIRST so user-row images get folded into their
       // user bubbles, then fold (user, failure) pairs into single
       // failure entries for FailedAttemptBlock to render.
-      setMessages(mergeFailurePairs(stitchPersistedUserImages(built)))
+      const next = mergeFailurePairs(stitchPersistedUserImages(built))
+      // Silent-reconciliation guard: skip the setMessages call if the
+      // computed list has the SAME id sequence as the current state.
+      // Otherwise React Query's reference-equality identity flips on
+      // every successful refetch (even a no-op poll tick), which
+      // triggers a setMessages → re-render → renderedMessages recompute
+      // → message-list reconciliation → scroll-to-bottom even though
+      // nothing visible changed. With this guard, only NEW data ever
+      // causes a re-render — refetches that find no diff are no-ops.
+      setMessages((prev) => {
+        if (prev.length === next.length) {
+          let same = true
+          for (let i = 0; i < prev.length; i++) {
+            if (prev[i] !== next[i] && prev[i]?.id !== next[i]?.id) {
+              same = false
+              break
+            }
+          }
+          if (same) return prev
+        }
+        return next
+      })
     } else if (!matchesCurrent || !conversationQuery.data) {
-      setMessages([])
+      // Defensive wipe: only fire if the current state isn't already
+      // empty. Otherwise a brief React Query placeholder window causes
+      // setMessages([]) → re-render with no actual change.
+      setMessages((prev) => (prev.length === 0 ? prev : []))
     }
   }, [conversationId, conversationQuery.data])
 
@@ -3134,9 +3218,18 @@ export function ThumbnailGenerator({
   // height changes are absorbed by the ResizeObserver below that
   // updates `--coach-composer-stack-px`, so the bottom of the list
   // remains visible even as the toolbar grows/shrinks.
+  //
+  // Hardening: depend on ``renderedMessages.length`` (the VISIBLE row
+  // count) rather than the raw ``messages`` / ``localOnlyMessages``
+  // arrays. The reconciliation pass that runs when server messages
+  // land after ``linkLocalToServer`` adds rows to ``messages`` that
+  // are dedup'd away — visible row count unchanged but the old
+  // dep array fired a phantom scroll. This dep tracks the actual
+  // user-visible delta only, so the chat surface no longer jumps
+  // during background cache updates.
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [messages.length, localOnlyMessages.length, pendingAssistant])
+  }, [renderedMessages.length, pendingAssistant])
 
   // Mobile soft-keyboard handling. When the keyboard opens, the visual
   // viewport shrinks but the layout viewport (window.innerHeight) does

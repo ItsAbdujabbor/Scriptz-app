@@ -2,22 +2,29 @@
  * GenerationProgress — premium AI / YouTube-style loading indicator.
  *
  * Single bar + integer percentage. No text labels. No dots. The fill
- * eases in fast, then slows asymptotically toward ~92 % so the user
- * sees real movement early but the bar never hits 100 % before the
- * parent clears it. When the parent unmounts the component (or sets
- * `done`) the bar snaps to 100 % and the wrapper fades out.
+ * eases in fast, then slows asymptotically through a two-phase curve
+ * (fast to ~92 %, slow creep to ~99 %), so the user sees real
+ * movement early and the bar never freezes if generation runs long.
+ * When the parent unmounts the component (or sets `done`) the bar
+ * snaps to 100 % and the wrapper fades out.
  *
- * The animation is **decoupled from the backend** — we have no real
- * progress signal. This is a confidence-building animation, tuned per
- * estimated path duration via `estimatedDurationMs`.
+ * The animation is **decoupled from the backend** — when there's no
+ * live progress signal it falls back to a confidence-building curve
+ * tuned by `estimatedDurationMs`. When a backend signal arrives via
+ * the optional ``livePct`` prop (0..1), the bar takes the MAX of the
+ * curve and the live value — so it can leap forward but never
+ * rewind.
  *
- * Defaults:
- *   - 25 000 ms for a single thumbnail
- *   - 35 000 ms for a batch (caller should pass it explicitly)
+ * Per-instance jitter: each mount captures slightly randomised
+ * curve constants so two generations never pace identically. The
+ * randomness is fixed at mount time, so within one generation the
+ * curve is deterministic (no per-frame noise on screen).
  *
  * Implementation notes:
  *   - The fill uses transform: scaleX (compositor-only, 60 fps).
  *   - rAF tween, so the % counter and the bar fill always agree.
+ *   - Monotone-rising clamp: every frame writes Math.max(prev,
+ *     target), so the bar can never visually rewind.
  *   - prefers-reduced-motion: skip shimmer, switch to a linear (slightly
  *     faster) tween. Bar still fills, just no easing curve.
  */
@@ -26,27 +33,40 @@ import { useEffect, useRef, useState } from 'react'
 
 import './GenerationProgress.css'
 
-/** Asymptotic ease toward ~92 %, then snap-finish on done.
- *  t in [0, 1] → progress in [0, ~0.92]. The constant 2.4 controls how
- *  hard it brakes — bigger = faster early, slower late. */
-function asymptoticEase(t) {
-  // 1 - e^(-k*t) reaches ~0.92 at t=1 when k=2.55.
-  const k = 2.55
-  const v = 1 - Math.exp(-k * Math.max(0, Math.min(1, t)))
-  // Clamp the ceiling to 0.92 so we never accidentally race past 92.
-  return Math.min(0.92, (v / (1 - Math.exp(-k))) * 0.92)
+/** Two-phase asymptotic curve.
+ *
+ *  Phase 1 (t ≤ 1, normalised against effectiveDuration):
+ *    0 → 0.92, sharp asymptote — fast early, naturally slows near 92 %.
+ *
+ *  Phase 2 (t > 1): 0.92 → 0.99 over the next ``effectiveDuration * 3``
+ *    so a 25 s estimate gives 75 s of slow creep past 92 %. This is
+ *    the "never freezes" guarantee — even if generation runs 3× longer
+ *    than expected, the bar keeps moving at ~1 %/15 s of natural
+ *    creep instead of sitting stuck at 92.
+ */
+function progressCurve(t, k1, k2) {
+  if (t <= 1) {
+    return ((1 - Math.exp(-k1 * Math.max(0, t))) / (1 - Math.exp(-k1))) * 0.92
+  }
+  const t2 = Math.min(1, (t - 1) / 3)
+  return 0.92 + 0.07 * (1 - Math.exp(-k2 * t2))
 }
 
 export default function GenerationProgress({
   estimatedDurationMs = 25000,
   done = false,
   className = '',
+  /** Optional live progress signal in [0, 1] from a backend channel.
+   *  When set, the bar takes the max of (curve, live) every frame —
+   *  so backend reports leap the bar forward but never rewind. */
+  livePct = null,
 }) {
   const [pct, setPct] = useState(0)
   const [fadingOut, setFadingOut] = useState(false)
   const rafRef = useRef(0)
   const startRef = useRef(0)
   const doneRef = useRef(false)
+  const maxReachedRef = useRef(0)
 
   // Honour prefers-reduced-motion. Read once on mount — this should never
   // change mid-loading and we don't want a layout effect on every render.
@@ -56,30 +76,66 @@ export default function GenerationProgress({
       window.matchMedia('(prefers-reduced-motion: reduce)').matches
   )
 
+  // Per-instance jitter — captured ONCE at mount via useState's
+  // initializer (which React permits to be impure, unlike render-time
+  // ref initialization). Two generations never pace identically; the
+  // values stay constant for the lifetime of this mount so within
+  // one generation the curve is smooth and deterministic.
+  const [jitter] = useState(() => {
+    const rand = () => Math.random() - 0.5
+    return {
+      k1: 2.55 * (1 + rand() * 0.2), // phase-1 steepness ±10 %
+      k2: 0.45 * (1 + rand() * 0.5), // phase-2 creep speed ±25 %
+      fuzz: 1 + rand() * 0.16, // effective-duration ±8 %
+    }
+  })
+
+  // Read latest livePct via a ref so updates don't reset the rAF
+  // loop. The ref is synced via a separate useEffect (not during
+  // render — react-hooks/refs forbids that).
+  const livePctRef = useRef(livePct)
+  useEffect(() => {
+    livePctRef.current = livePct
+  }, [livePct])
+
   useEffect(() => {
     doneRef.current = false
-    // Reset visual state when the component remounts or the duration
-    // changes — these setStates only fire once per generation session,
-    // not in a loop, so the cascading-render concern doesn't apply.
-    /* eslint-disable react-hooks/set-state-in-effect */
+    maxReachedRef.current = 0
+
     setFadingOut(false)
     setPct(0)
-    /* eslint-enable react-hooks/set-state-in-effect */
+
     startRef.current = performance.now()
+
+    const { k1, k2, fuzz } = jitter
+    const effectiveDuration = Math.max(2000, estimatedDurationMs * fuzz)
 
     const tick = (now) => {
       if (doneRef.current) return
       const elapsed = now - startRef.current
-      const t = Math.max(0, Math.min(1, elapsed / estimatedDurationMs))
-      const v = reducedMotion.current
-        ? // Linear, slightly faster, still capped at 0.92.
-          Math.min(0.92, t * 1.1)
-        : asymptoticEase(t)
-      setPct(Math.round(v * 100))
+      const t = elapsed / effectiveDuration
+
+      const curve = reducedMotion.current
+        ? // Linear, slightly faster, still capped at 0.92 in phase 1
+          // then matches the standard phase-2 creep.
+          t <= 1
+          ? Math.min(0.92, t * 1.1)
+          : progressCurve(t, k1, k2)
+        : progressCurve(t, k1, k2)
+
+      const live = livePctRef.current
+      const target = live != null ? Math.max(curve, live) : curve
+
+      // Monotone-rising clamp — the bar can only ever advance.
+      const next = Math.max(maxReachedRef.current, target)
+      maxReachedRef.current = next
+
+      setPct(Math.round(next * 100))
       rafRef.current = requestAnimationFrame(tick)
     }
     rafRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafRef.current)
+    // NOTE: ``livePct`` deliberately NOT in deps; read via ref.
   }, [estimatedDurationMs])
 
   // Snap to 100 % when the parent signals completion, then fade out.
@@ -89,7 +145,7 @@ export default function GenerationProgress({
     cancelAnimationFrame(rafRef.current)
     // Intentional snap-to-100 on completion signal. Only fires once per
     // generation, so cascading-render concern doesn't apply.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+
     setPct(100)
     const t = setTimeout(() => setFadingOut(true), 220)
     return () => clearTimeout(t)

@@ -267,10 +267,24 @@ export function useThumbnailChatMutation(onConversationCreated) {
         // contributes to the visible "list refreshes" the user reports.
         const requestedId = variables?.conversation_id
         const respondedId = data.conversation_id
-        if (requestedId == null || Number(requestedId) !== Number(respondedId)) {
+        const wasNewConversation =
+          requestedId == null || Number(requestedId) !== Number(respondedId)
+        if (wasNewConversation) {
           onConversationCreated?.(respondedId)
         }
-        void refreshThumbnailConversationCache(queryClient, respondedId)
+        // Skip the explicit detail-refetch for brand-new conversations.
+        // ``handleSubmit`` calls ``linkLocalToServer`` AFTER mutateAsync
+        // returns, which writes both server messages directly into the
+        // conversation cache via setQueryData — the cache is already
+        // identical to what this GET would fetch. Without this guard,
+        // first-message flows show a brief visible refresh of the
+        // thread when the redundant fetch's response merges into the
+        // cache and React Query re-renders observers. For an EXISTING
+        // conversation we still refresh because there may be other
+        // messages we don't know about (multi-tab edits, etc.).
+        if (!wasNewConversation) {
+          void refreshThumbnailConversationCache(queryClient, respondedId)
+        }
       }
       // Sidebar list refresh: the conv's `is_pending` flipped server-side
       // when the job finished, and `last_message_at` advanced to the new
