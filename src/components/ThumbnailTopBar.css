@@ -149,21 +149,40 @@
   gap: 8px;
   flex: 0 0 auto;
   cursor: pointer;
-  /* Subtle violet wash at the top so the chip reads as sitting on
-   * a faint brand glow, not a flat dark bar. */
-  background:
-    radial-gradient(120% 80% at 50% 0%, rgba(124, 58, 237, 0.16) 0%, transparent 70%),
-    var(--clixa-pill-bg);
 }
 
-/* Amber accent for the trial state — matches the credits badge's
- * --trial variant so a trialing user sees the same warm-gold cue on
- * both pills. */
+/* Free / non-trial state — violet wash inside the pill. */
+.clixa-pill--trial-free {
+  background:
+    linear-gradient(135deg, rgba(139, 92, 246, 0.22) 0%, rgba(76, 29, 149, 0.18) 100%),
+    var(--clixa-pill-bg);
+  border-color: rgba(167, 139, 250, 0.36);
+}
+.clixa-pill--trial-free:hover {
+  border-color: rgba(196, 181, 253, 0.55);
+}
+
+/* Trial state — amber/gold wash inside the pill AND amber border.
+ * The colour radiates throughout the chip (background + border +
+ * divider + tag + CTA) so a trialing user gets a single coherent
+ * gold signal across the whole pill. Matches the credits badge's
+ * --trial variant so both top-bar pills feel like a pair. */
 .clixa-pill--trial-on {
-  border-color: rgba(253, 224, 71, 0.34);
+  background:
+    linear-gradient(135deg, rgba(253, 224, 71, 0.24) 0%, rgba(217, 119, 6, 0.22) 100%),
+    var(--clixa-pill-bg);
+  border-color: rgba(253, 224, 71, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 6px 22px rgba(0, 0, 0, 0.34),
+    0 0 22px rgba(217, 119, 6, 0.28);
 }
 .clixa-pill--trial-on:hover {
-  border-color: rgba(253, 224, 71, 0.55);
+  border-color: rgba(253, 224, 71, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 8px 26px rgba(0, 0, 0, 0.4),
+    0 0 28px rgba(217, 119, 6, 0.42);
 }
 
 .clixa-trial__tag {
@@ -210,8 +229,12 @@
   );
 }
 
-/* CTA — the ONE loud element in the toolbar. Accent gradient,
- * white label, internal shine sweep on hover. */
+/* CTA — the loud action element. Background swaps based on state:
+ *   • Free  → brand violet (drives upgrade to Pro)
+ *   • Trial → warm amber/gold (matches the trialing state visually
+ *             across the whole pill so the action and the context
+ *             share one colour family)
+ * Internal shine sweep on hover regardless of state. */
 .clixa-trial__cta {
   position: relative;
   display: inline-flex;
@@ -221,13 +244,6 @@
   padding: 0 14px;
   border: none;
   border-radius: 999px;
-  background: var(
-    --accent-gradient,
-    linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    0 2px 8px rgba(76, 29, 149, 0.35);
   color: #ffffff;
   font: inherit;
   font-size: 0.8rem;
@@ -241,6 +257,41 @@
     filter 0.18s ease,
     box-shadow 0.18s ease,
     transform 0.15s ease;
+}
+
+/* Free-state CTA — brand violet. */
+.clixa-pill--trial-free .clixa-trial__cta {
+  background: var(
+    --accent-gradient,
+    linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 2px 8px rgba(76, 29, 149, 0.35);
+}
+.clixa-pill--trial-free:hover .clixa-trial__cta {
+  filter: brightness(1.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 4px 14px rgba(76, 29, 149, 0.5);
+}
+
+/* Trial-state CTA — amber / gold gradient. Same shape as the free
+ * CTA, just retinted so the whole trial pill (background, border,
+ * tag, divider, CTA) speaks one colour. Text stays white with a
+ * darker drop-shadow so it's legible on the warm gradient. */
+.clixa-pill--trial-on .clixa-trial__cta {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 55%, #b45309 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 2px 8px rgba(180, 83, 9, 0.4);
+  text-shadow: 0 1px 1px rgba(120, 53, 15, 0.45);
+}
+.clixa-pill--trial-on:hover .clixa-trial__cta {
+  filter: brightness(1.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    0 4px 14px rgba(180, 83, 9, 0.55);
 }
 
 .clixa-trial__cta-shine {
@@ -263,25 +314,19 @@
   z-index: 1;
 }
 
-.clixa-pill--trial:hover .clixa-trial__cta {
-  filter: brightness(1.06);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    0 4px 14px rgba(76, 29, 149, 0.5);
-}
 .clixa-pill--trial:hover .clixa-trial__cta-shine {
   transform: translateX(110%);
 }
-
 .clixa-pill--trial:focus-visible .clixa-trial__cta-shine {
   transform: translateX(110%);
 }
 
 /* ── Credits-badge container override ────────────────────────
- * The credits badge renders its own internal markup; here we
- * just normalise its outer shell so it matches the `.clixa-pill`
- * family. The badge's tier-accent on the plan tag stays
- * intact — that's its one point of identity. */
+ * Normalise the outer shell so it matches the `.clixa-pill` family,
+ * then layer the tier-specific colour wash on top so a trialing /
+ * Ultimate / Creator user sees the SAME colour signal inside the
+ * pill that the trial pill carries — both pills speak the same
+ * colour language. */
 
 .clixa-topbar .header-credits-badge {
   height: var(--clixa-pill-h);
@@ -296,23 +341,74 @@
   flex: 0 0 auto;
   transition:
     border-color 0.22s ease,
-    box-shadow 0.22s ease;
+    box-shadow 0.22s ease,
+    background 0.22s ease;
 }
 .clixa-topbar .header-credits-badge:hover {
   border: var(--clixa-pill-border-hover);
   box-shadow: var(--clixa-pill-shadow-hover);
 }
-/* Trial / Ultimate variants still get their warm-gold accent on
- * the BORDER, but only ~30% strength so the toolbar still reads
- * as a unified family. */
-.clixa-topbar .header-credits-badge--trial,
-.clixa-topbar .header-credits-badge--tier-ultimate {
-  border-color: rgba(253, 224, 71, 0.34);
-}
-.clixa-topbar .header-credits-badge--trial:hover,
-.clixa-topbar .header-credits-badge--tier-ultimate:hover {
+
+/* Trial — amber wash inside the pill, matching .clixa-pill--trial-on
+ * so the credits and trial pills look like a colour-coordinated pair. */
+.clixa-topbar .header-credits-badge--trial {
+  background:
+    linear-gradient(135deg, rgba(253, 224, 71, 0.24) 0%, rgba(217, 119, 6, 0.22) 100%),
+    var(--clixa-pill-bg);
   border-color: rgba(253, 224, 71, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 6px 22px rgba(0, 0, 0, 0.34),
+    0 0 22px rgba(217, 119, 6, 0.28);
 }
+.clixa-topbar .header-credits-badge--trial:hover {
+  border-color: rgba(253, 224, 71, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 8px 26px rgba(0, 0, 0, 0.4),
+    0 0 28px rgba(217, 119, 6, 0.42);
+}
+
+/* Ultimate — gold + violet wash (premium feel). */
+.clixa-topbar .header-credits-badge--tier-ultimate {
+  background:
+    linear-gradient(135deg, rgba(251, 191, 36, 0.22) 0%, rgba(124, 58, 237, 0.22) 100%),
+    var(--clixa-pill-bg);
+  border-color: rgba(253, 224, 71, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 6px 22px rgba(0, 0, 0, 0.34),
+    0 0 22px rgba(217, 119, 6, 0.28);
+}
+.clixa-topbar .header-credits-badge--tier-ultimate:hover {
+  border-color: rgba(253, 224, 71, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 8px 26px rgba(0, 0, 0, 0.4),
+    0 0 28px rgba(217, 119, 6, 0.42);
+}
+
+/* Creator — brand-violet wash inside the pill. */
+.clixa-topbar .header-credits-badge--tier-creator {
+  background:
+    linear-gradient(135deg, rgba(139, 92, 246, 0.24) 0%, rgba(76, 29, 149, 0.2) 100%),
+    var(--clixa-pill-bg);
+  border-color: rgba(196, 181, 253, 0.5);
+}
+.clixa-topbar .header-credits-badge--tier-creator:hover {
+  border-color: rgba(196, 181, 253, 0.72);
+}
+
+/* Starter — restrained slate wash (no premium colour cue). */
+.clixa-topbar .header-credits-badge--tier-starter {
+  background:
+    linear-gradient(135deg, rgba(148, 163, 184, 0.16) 0%, rgba(71, 85, 105, 0.14) 100%),
+    var(--clixa-pill-bg);
+  border-color: rgba(167, 139, 250, 0.3);
+}
+
+/* Low / empty balance — coral / amber overrides on the icon only,
+ * the outer pill keeps its tier wash. */
 
 /* ── Responsive collapse ───────────────────────────────────── *
  * The new tag-style trial pill is compact at every viewport, so
