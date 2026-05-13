@@ -232,10 +232,15 @@ export function BillingSettingsPanel({ active, onClose }) {
   const skipTrialMutation = useSkipTrialMutation({
     onSuccess: () => setSkipTrialError(null),
     onError: (err) => {
-      // PAYMENT_METHOD_REQUIRED → Paddle rejected because no card on
-      // file. Route to /pro where Paddle's checkout overlay captures
-      // the card + ends the trial in one flow.
-      if (err?.code === 'PAYMENT_METHOD_REQUIRED') {
+      // Any non-retryable Paddle rejection (no payment method,
+      // subscription disabled, wrong plan id, state mismatch, ...)
+      // → route to /pro where the user can re-subscribe via Paddle
+      // checkout. Strictly better than a dead-end error toast.
+      const paddleExtra = err?.body?.error?.extra || err?.extra || {}
+      const isPaddleBlocker =
+        err?.code === 'PAYMENT_METHOD_REQUIRED' ||
+        (err?.code === 'PADDLE_API_ERROR' && paddleExtra?.retryable === false)
+      if (isPaddleBlocker) {
         if (typeof window !== 'undefined') window.location.hash = 'pro'
         setSkipTrialError(null)
         return

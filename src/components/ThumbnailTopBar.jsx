@@ -88,12 +88,20 @@ function TrialPill() {
     },
     onError: (err) => {
       // PAYMENT_METHOD_REQUIRED → Paddle rejected the immediate bill
-      // because the subscription has no card on file. Route the user
-      // straight to /pro where Paddle's checkout overlay captures the
-      // card AND ends the trial in one flow (same end-state as
-      // skip-trial). No error toast in this case — the redirect IS
-      // the resolution.
-      if (err?.code === 'PAYMENT_METHOD_REQUIRED') {
+      // because the subscription has no card on file. Route to /pro
+      // where Paddle's checkout overlay captures the card AND ends
+      // the trial in one flow.
+      //
+      // PADDLE_API_ERROR with retryable=false → any other permanent
+      // Paddle rejection (state mismatch, subscription disabled,
+      // wrong plan id, etc.). The user can't fix this from the chat
+      // screen — sending them to /pro where they can re-subscribe is
+      // strictly better than a dead-end error toast.
+      const paddleExtra = err?.body?.error?.extra || err?.extra || {}
+      const isPaddleBlocker =
+        err?.code === 'PAYMENT_METHOD_REQUIRED' ||
+        (err?.code === 'PADDLE_API_ERROR' && paddleExtra?.retryable === false)
+      if (isPaddleBlocker) {
         goPro()
         return
       }
