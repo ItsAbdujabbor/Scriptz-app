@@ -3,11 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
 import { getPlans, startCheckout, changePlan } from '../api/billing'
 import { preloadPaddle } from '../lib/paddle'
-import {
-  useSubscriptionQuery,
-  useSkipTrialMutation,
-  refreshBillingState,
-} from '../queries/billing/creditsQueries'
+import { useSubscriptionQuery, refreshBillingState } from '../queries/billing/creditsQueries'
 import { celebrate } from '../lib/celebrate'
 import { friendlyMessage } from '../lib/aiErrors'
 import { ThumbPillTabs } from '../components/ThumbPillTabs'
@@ -372,7 +368,6 @@ export function ProPricingContent({ onStartTrial }) {
       }
       const resp = await startCheckout(token, {
         priceId,
-        skipTrial: false,
         successUrl: window.location.origin + '/#pro?checkout=success',
         cancelUrl: window.location.origin + '/#pro?checkout=canceled',
       })
@@ -431,7 +426,6 @@ export function ProPricingContent({ onStartTrial }) {
         </p>
 
         <ActivatingProStrip hasActiveSub={hasActiveSub} />
-        <TrialActiveStrip subscription={subscription} />
 
         {checkoutError ? (
           <p role="alert" className="pro-checkout-error">
@@ -569,107 +563,6 @@ function ActivatingProStrip({ hasActiveSub }) {
     <div className="pro-activating" role="status" aria-live="polite">
       <span className="pro-activating-spinner" aria-hidden="true" />
       <span>Finalizing your payment — Pro will unlock in a few seconds…</span>
-    </div>
-  )
-}
-
-/**
- * Surfaces the Skip-Trial CTA inline at the top of the Pro pricing
- * screen while the user is on a free trial. Same backend mutation
- * BillingSettingsPanel uses (`POST /api/billing/skip-trial`) — billing
- * gets charged today, full plan credits land instantly. The button
- * disappears the moment the mutation resolves so the user isn't
- * tempted to click twice while the subscription query refetches.
- */
-function TrialActiveStrip({ subscription }) {
-  const [errMsg, setErrMsg] = useState(null)
-
-  // Centralised mutation — same hook the top-bar + billing-panel use.
-  // Owns the activation-store burst poll, the /sync backstop, and the
-  // billing-state invalidation fan-out so all three CTAs behave
-  // identically (single source of truth for the skip-trial UX).
-  const mut = useSkipTrialMutation({
-    onSuccess: () => setErrMsg(null),
-    onError: (err) => {
-      // PAYMENT_METHOD_REQUIRED → user is on the Pro screen already,
-      // so we can render guidance inline instead of redirecting in
-      // a loop. Surface the structured message verbatim — it already
-      // tells them to add a payment method on this page.
-      if (err?.code === 'PAYMENT_METHOD_REQUIRED') {
-        setErrMsg(err?.serverMessage || 'Add a payment method below to activate your plan.')
-        return
-      }
-      // NOT_TRIALING → already active. Silently clear; the strip
-      // returns null on the next render when `is_trial` is false.
-      if (err?.code === 'NOT_TRIALING') {
-        setErrMsg(null)
-        return
-      }
-      setErrMsg(friendlyMessage(err) || 'Could not end the trial. Please try again.')
-    },
-  })
-
-  // Days remaining in the trial. Backend reports `trial_ends_at` as
-  // an ISO timestamp; we cache `now` in state so the impure
-  // `Date.now()` reference lives in an effect (re-fired hourly), not
-  // in the render body. Defaults gracefully when the field is
-  // missing (older sessions). Hooks declared BEFORE the early return
-  // so the rules-of-hooks order is stable across renders.
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 60 * 60 * 1000)
-    return () => window.clearInterval(id)
-  }, [])
-  const daysLeft = useMemo(() => {
-    const end = subscription?.trial_ends_at || subscription?.trial_end_at
-    if (!end) return null
-    const ms = Date.parse(end) - now
-    if (!Number.isFinite(ms)) return null
-    if (ms <= 0) return 0
-    return Math.max(1, Math.ceil(ms / (1000 * 60 * 60 * 24)))
-  }, [subscription?.trial_ends_at, subscription?.trial_end_at, now])
-
-  if (!subscription?.is_trial || mut.isSuccess) return null
-  const planName = subscription.plan_name || subscription.tier || 'Pro'
-  const daysLabel =
-    daysLeft == null
-      ? null
-      : daysLeft === 0
-        ? 'ends today'
-        : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`
-
-  return (
-    <div className="pro-trial-strip" role="status" aria-live="polite">
-      <div className="pro-trial-strip__body">
-        <strong className="pro-trial-strip__title">
-          You're on a free trial of {planName}
-          {daysLabel ? <span className="pro-trial-strip__days"> · {daysLabel}</span> : null}
-        </strong>
-        <span className="pro-trial-strip__sub">
-          Skip the trial to unlock the full plan now — your card is charged today and all your
-          monthly credits are added instantly.
-        </span>
-      </div>
-      <button
-        type="button"
-        className="pro-trial-strip__cta"
-        onClick={() => mut.mutate()}
-        disabled={mut.isPending}
-      >
-        {mut.isPending ? (
-          <>
-            <span className="pro-trial-strip__spinner" aria-hidden="true" />
-            Processing…
-          </>
-        ) : (
-          'Skip trial — pay now'
-        )}
-      </button>
-      {errMsg ? (
-        <p className="pro-trial-strip__error" role="alert">
-          {errMsg}
-        </p>
-      ) : null}
     </div>
   )
 }

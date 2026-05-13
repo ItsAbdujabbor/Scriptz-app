@@ -31,7 +31,6 @@ import { useAuthStore } from '../stores/authStore'
 import {
   useCreditsQuery,
   useSubscriptionQuery,
-  useSkipTrialMutation,
   refreshBillingState,
 } from '../queries/billing/creditsQueries'
 import { cancelSubscription, getLedger } from '../api/billing'
@@ -244,7 +243,6 @@ export function BillingSettingsPanel({ active, onClose }) {
   // the user closes and re-opens later, the freshness is recomputed.
   const [confirmRecentlyPaid, setConfirmRecentlyPaid] = useState(false)
   const [cancelError, setCancelError] = useState(null)
-  const [skipTrialError, setSkipTrialError] = useState(null)
 
   const cancelMutation = useMutation({
     mutationFn: async () => {
@@ -260,36 +258,6 @@ export function BillingSettingsPanel({ active, onClose }) {
       refreshBillingState(queryClient)
     },
     onError: (err) => setCancelError(friendlyMessage(err) || 'Could not cancel. Try again.'),
-  })
-
-  // Centralised mutation — owns the activation-store burst poll +
-  // billing-state refresh fan-out. See useSkipTrialMutation in
-  // queries/billing/creditsQueries.js for the full semantics.
-  const skipTrialMutation = useSkipTrialMutation({
-    onSuccess: () => setSkipTrialError(null),
-    onError: (err) => {
-      // Any non-retryable Paddle rejection (no payment method,
-      // subscription disabled, wrong plan id, state mismatch, ...)
-      // → route to /pro where the user can re-subscribe via Paddle
-      // checkout. Strictly better than a dead-end error toast.
-      const paddleExtra = err?.body?.error?.extra || err?.extra || {}
-      const isPaddleBlocker =
-        err?.code === 'PAYMENT_METHOD_REQUIRED' ||
-        (err?.code === 'PADDLE_API_ERROR' && paddleExtra?.retryable === false)
-      if (isPaddleBlocker) {
-        if (typeof window !== 'undefined') window.location.hash = 'pro'
-        setSkipTrialError(null)
-        return
-      }
-      // NOT_TRIALING → already active (concurrent call / webhook
-      // already landed). Refresh silently — billing state queries
-      // re-fetch and the panel re-renders on the new shape.
-      if (err?.code === 'NOT_TRIALING') {
-        setSkipTrialError(null)
-        return
-      }
-      setSkipTrialError(friendlyMessage(err) || 'Could not end trial. Try again.')
-    },
   })
 
   const isSubscribed =
@@ -395,51 +363,8 @@ export function BillingSettingsPanel({ active, onClose }) {
     queryClient.invalidateQueries({ queryKey: queryKeys.billing.credits })
   }
 
-  // Optimistic dismiss: hide the banner the moment the skip-trial
-  // mutation resolves successfully, without waiting for the React
-  // Query refetch + 2s polling cycle to surface `is_trial=false`.
-  // If the mutation later errors out, `isSuccess` is false and we
-  // re-show the banner. This trades a few ms of UI inconsistency
-  // (banner gone, query data still says trial) for instant feedback —
-  // the next refetch reconciles within 1-2s.
-  const isTrial = !!subscription.is_trial && !skipTrialMutation.isSuccess
-
   return (
     <div className="bp-root">
-      {/* ─────────── Trial banner (only while trialing) ─────────── */}
-      {isTrial ? (
-        <section className="bp-card bp-card--trial">
-          <div className="bp-trial-row">
-            <div className="bp-trial-text">
-              <strong>You're on a free trial of {planName}</strong>
-              <span>
-                Skip the trial to unlock the full plan now — your card is charged today and all your
-                monthly credits are added to your balance instantly.
-              </span>
-            </div>
-            <button
-              type="button"
-              className="bp-btn bp-btn--primary"
-              onClick={() => skipTrialMutation.mutate()}
-              disabled={skipTrialMutation.isPending}
-            >
-              {skipTrialMutation.isPending ? (
-                <>
-                  <InlineSpinner /> Processing…
-                </>
-              ) : (
-                'Skip trial — pay now'
-              )}
-            </button>
-          </div>
-          {skipTrialError ? (
-            <p className="bp-trial-error" role="alert">
-              {skipTrialError}
-            </p>
-          ) : null}
-        </section>
-      ) : null}
-
       {/* ─────────── Subscription Details ─────────── */}
       <section className="bp-card">
         <div className="bp-card-header bp-card-header--with-action">

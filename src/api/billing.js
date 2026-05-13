@@ -46,26 +46,19 @@ export function getLedger(accessToken, { limit = 50, beforeId = null } = {}) {
   return request('GET', `/api/billing/ledger?${params.toString()}`, accessToken)
 }
 
-export function startCheckout(accessToken, { priceId, successUrl, cancelUrl, skipTrial } = {}) {
+export function startCheckout(accessToken, { priceId, successUrl, cancelUrl } = {}) {
+  // The server forces skip_trial=True on every checkout — the field is
+  // sent for backwards compat with older backend builds but is ignored.
   return request('POST', '/api/billing/checkout', accessToken, {
     price_id: priceId,
     success_url: successUrl,
     cancel_url: cancelUrl,
-    skip_trial: !!skipTrial,
+    skip_trial: true,
   })
 }
 
 export function cancelSubscription(accessToken) {
   return request('POST', '/api/billing/cancel', accessToken)
-}
-
-/**
- * End the user's free trial early. Bills immediately via Paddle and the
- * webhook then flips status `trialing → active`, granting the full plan
- * credits (vs. the 100-credit trial amount).
- */
-export function skipTrial(accessToken) {
-  return request('POST', '/api/billing/skip-trial', accessToken)
 }
 
 /**
