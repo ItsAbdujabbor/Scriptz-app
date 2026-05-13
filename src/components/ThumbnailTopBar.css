@@ -149,12 +149,13 @@
   height: var(--clixa-pill-h);
   padding: 0 14px 0 12px;
   border-radius: var(--clixa-pill-radius);
-  border: 1px solid rgba(167, 139, 250, 0.32);
-  /* Dark glass + soft violet wash. Same material as the credits pill
-   * so the two read as one family instead of competing solids. */
-  background:
-    linear-gradient(135deg, rgba(139, 92, 246, 0.18) 0%, rgba(76, 29, 149, 0.12) 100%),
-    linear-gradient(180deg, rgba(24, 20, 36, 0.94) 0%, rgba(15, 12, 26, 0.94) 100%);
+  /* Match the hero composer recipe exactly: solid #1c1c24 body +
+   * subtle white border + soft inner highlight. The Go Pro pill is
+   * the topbar's primary action so it lifts to the same material
+   * the prompt input is built from — two surfaces, one design
+   * language. */
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #1c1c24;
   color: #f5f3ff;
   font: inherit;
   font-weight: 600;
@@ -163,44 +164,22 @@
   overflow: hidden;
   isolation: isolate;
   white-space: nowrap;
-  backdrop-filter: blur(22px) saturate(140%);
-  -webkit-backdrop-filter: blur(22px) saturate(140%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 2px 8px rgba(0, 0, 0, 0.28),
-    0 8px 24px -12px rgba(124, 58, 237, 0.28);
+    0 1px 0 rgba(0, 0, 0, 0.25);
   transition:
-    border-color 0.22s ease,
-    box-shadow 0.22s ease,
-    background 0.22s ease,
+    border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    background 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.14s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
-/* Subtle inner highlight at the top. */
-.clixa-pill--trial::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.06) 0%,
-    rgba(255, 255, 255, 0.01) 45%,
-    transparent 65%
-  );
-  pointer-events: none;
-  z-index: 0;
-}
-
 .clixa-pill--trial:hover {
-  border-color: rgba(196, 181, 253, 0.5);
-  background:
-    linear-gradient(135deg, rgba(139, 92, 246, 0.26) 0%, rgba(76, 29, 149, 0.18) 100%),
-    linear-gradient(180deg, rgba(28, 24, 40, 0.95) 0%, rgba(18, 14, 30, 0.95) 100%);
+  border-color: rgba(255, 255, 255, 0.24);
+  background: #1f1f28;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 4px 14px rgba(0, 0, 0, 0.36),
-    0 12px 32px -10px rgba(139, 92, 246, 0.42);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .clixa-pill--trial:hover .clixa-trial__arrow {
