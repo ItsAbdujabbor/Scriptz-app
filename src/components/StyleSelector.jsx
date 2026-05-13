@@ -296,7 +296,13 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
                   onClick={handleCreateClick}
                   title={locked ? 'Create your own style — Clixa Pro' : 'Create a new style'}
                 >
-                  {locked ? <IconCrown /> : <IconPlus />}
+                  {locked ? (
+                    <span className="clixa-pro-crown clixa-pro-crown--inline" aria-hidden>
+                      <IconCrown />
+                    </span>
+                  ) : (
+                    <IconPlus />
+                  )}
                   Create
                 </button>
               </div>

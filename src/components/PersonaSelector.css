@@ -288,13 +288,10 @@
     var(--accent-focus-ring, 0 0 0 3px rgba(167, 139, 250, 0.32));
 }
 
-/* Premium-locked Create button — keeps the violet body but tints
- * the crown amber so it reads as "Pro feature" at a glance. The
- * "Pro" suffix in the label carries the explicit copy. */
-.persona-selector-create--locked svg {
-  color: #fcd34d;
-  filter: drop-shadow(0 0 6px rgba(252, 211, 77, 0.45));
-}
+/* The locked Create button wears a `.clixa-pro-crown--inline`
+ * badge in place of the leading `+`. All gold-stamp styling lives
+ * on that shared class (see index.css). No scoped override needed
+ * here — keeping this stub for future locked-state tweaks. */
 
 /* `.persona-selector-trigger` needs to be a positioning anchor so
  * the shared `.clixa-pro-crown` badge (defined in index.css)

@@ -258,14 +258,10 @@
     box-shadow 0.06s ease;
 }
 
-/* Premium-locked Create button — same body recipe as the unlocked
- * version, but the crown icon tints amber/lavender so it reads as
- * "Pro feature" at a glance without changing the button silhouette
- * (no double-state). Tooltip + label carry the explicit "Pro" text. */
-.style-selector-create--locked svg {
-  color: #fcd34d;
-  filter: drop-shadow(0 0 6px rgba(252, 211, 77, 0.45));
-}
+/* The locked Create button wears a `.clixa-pro-crown--inline`
+ * badge in place of the leading `+`. All gold-stamp styling lives
+ * on that shared class (see index.css). No scoped override needed
+ * here — keeping this stub for future locked-state tweaks. */
 
 /* `.style-selector-trigger` needs to be a positioning anchor so
  * the shared `.clixa-pro-crown` badge (defined in index.css)

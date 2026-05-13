@@ -194,3 +194,21 @@ body.zoom-settling *::after {
    * the gold disc rather than a flat overlay. */
   filter: drop-shadow(0 0.5px 0 rgba(255, 255, 255, 0.35));
 }
+
+/* Inline variant — used where the crown sits *inside* a button's
+ * content row (e.g. the locked "Create" footer button in the
+ * Persona / Style pickers, where the crown replaces the leading
+ * "+" icon). Same gold-coin recipe as the overlay badge, just
+ * statically positioned so it flows with the text. */
+.clixa-pro-crown--inline {
+  position: static;
+  top: auto;
+  right: auto;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.clixa-pro-crown--inline svg {
+  width: 10px;
+  height: 10px;
+}

@@ -336,7 +336,13 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
                     locked ? 'Create your own character — Clixa Pro' : 'Create a new character'
                   }
                 >
-                  {locked ? <IconCrown /> : <IconPlus />}
+                  {locked ? (
+                    <span className="clixa-pro-crown clixa-pro-crown--inline" aria-hidden>
+                      <IconCrown />
+                    </span>
+                  ) : (
+                    <IconPlus />
+                  )}
                   Create
                 </button>
               </div>
