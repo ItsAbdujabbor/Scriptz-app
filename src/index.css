@@ -213,16 +213,29 @@ body.zoom-settling *::after {
   height: 10px;
 }
 
-/* On mobile / narrow viewports the soft keyboard pushes the footer
- * chrome (which owns the tab row + premium-tab badges) right up
- * to the top of the visible area. The badge's -6px overhang then
- * spills above the viewport and reads as "clipped". Tighten the
- * overhang on small screens so the badge stays inside the pill's
- * own bounds. The pill itself is 34px tall; an 18px badge with a
- * -2px top offset still reads as a corner stamp without spilling. */
-@media (max-width: 768px) {
+/* On mobile / narrow viewports the badge's negative overhang spills
+ * above whatever the host pill is sitting inside (composer footer
+ * chrome, tab row, etc.) and reads as clipped — especially when the
+ * soft keyboard is open and the footer rides high on the screen.
+ *
+ * Fix: on touch-class breakpoints, fully tuck the badge INSIDE the
+ * pill bounds. Shrink it a touch (14 px) and position it inset
+ * from the corner. The badge can't be clipped if it never crosses
+ * the pill's own border. */
+@media (max-width: 1024px) {
   .clixa-pro-crown:not(.clixa-pro-crown--inline) {
-    top: -2px;
-    right: -2px;
+    top: 2px;
+    right: 2px;
+    width: 14px;
+    height: 14px;
+    border-width: 1px;
+    box-shadow:
+      inset 0 0.5px 0 rgba(255, 255, 255, 0.55),
+      0 1px 2px rgba(0, 0, 0, 0.4),
+      0 0 6px -1px rgba(252, 191, 36, 0.5);
+  }
+  .clixa-pro-crown:not(.clixa-pro-crown--inline) svg {
+    width: 9px;
+    height: 9px;
   }
 }
