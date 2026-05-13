@@ -72,6 +72,16 @@
    * otherwise that 8px gutter shows as a thin black strip below the
    * shadow on this screen. */
   padding-bottom: 0;
+  /* Remove the inherited `.coach-main` TOP padding too. The top toolbar
+   * (.thumb-top-bar) is position: absolute inside .coach-chat-shell —
+   * its `top: 12px` is relative to the shell. The global mobile
+   * hamburger is position: fixed at the viewport's `top: 12px`. With
+   * 0.5rem (8px) of padding-top on .coach-main, the shell starts 8px
+   * below the viewport so the toolbar ends up 8px LOWER than the
+   * hamburger. Zeroing the padding here puts the shell at viewport
+   * y=0 so both anchor at the same `top: 12px` and the three pills
+   * sit on one line. */
+  padding-top: 0;
 }
 
 /* Both background-FX layers manage their own positioning + z-index,
