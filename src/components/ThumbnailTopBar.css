@@ -115,14 +115,36 @@
 }
 
 /* ── Go Pro pill ─────────────────────────────────────────────
- * Mirrors the hero `.thumb-send-pill` (the Generate button on the
- * composer) verbatim: accent-gradient body, white-ish border, soft
- * violet halo, hover lifts the pill 1 px + brightens the body, a
- * diagonal shine sweeps L → R on hover. No internal icons / arrows /
- * nudges — the pill text + body animation IS the affordance.
- * Same recipe → one design language across the topbar's primary CTA
- * and the composer's Send button.
+ * Dark body with an animated conic-gradient border ring rotating
+ * around the perimeter — mirrors the Generate button shown in the
+ * user's screenshot. The "live border" is built with:
+ *
+ *   1. @property --clixa-trial-angle  →  a CSS-registered <angle>
+ *      so we can animate a single value across @keyframes (you
+ *      can't animate raw `conic-gradient(from N deg, ...)` without
+ *      this — N would jump, not tween).
+ *   2. Two-layer background-clip:
+ *        linear-gradient(dark, dark) padding-box   →  inner body
+ *        conic-gradient(from --angle, ...) border-box  →  the ring
+ *      The pill's border is `1.5 px solid transparent`, so the
+ *      conic gradient shows through ONLY in that 1.5 px band.
+ *   3. @keyframes spin 0deg → 360deg, linear, 4 s loop.
+ *
+ * No shine sweep, no hover translate, no internal moving widgets.
+ * The rotating border IS the animation.
  * ──────────────────────────────────────────────────────────── */
+
+@property --clixa-trial-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes clixa-trial-border-spin {
+  to {
+    --clixa-trial-angle: 360deg;
+  }
+}
 
 .clixa-pill__wrap {
   display: inline-flex;
@@ -132,89 +154,76 @@
 
 .clixa-pill--trial {
   position: relative;
-  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.45rem;
+  gap: 0.5rem;
   height: var(--clixa-pill-h);
-  padding: 0 16px;
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  padding: 0 18px;
+  border: 1.5px solid transparent;
   border-radius: var(--clixa-pill-radius);
   font-family: inherit;
   color: #ffffff;
   cursor: pointer;
   white-space: nowrap;
   outline: none;
-  background: var(
-    --accent-gradient,
-    linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)
-  );
+  background:
+    linear-gradient(#15151c, #15151c) padding-box,
+    conic-gradient(
+        from var(--clixa-trial-angle),
+        #5b21b6 0deg,
+        #c4b5fd 70deg,
+        #ffffff 140deg,
+        #ddd6fe 210deg,
+        #8b5cf6 280deg,
+        #5b21b6 360deg
+      )
+      border-box;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.32),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
-    0 2px 10px rgba(0, 0, 0, 0.3);
+    0 2px 10px rgba(0, 0, 0, 0.32),
+    0 8px 22px -8px rgba(124, 58, 237, 0.32);
   -webkit-tap-highlight-color: transparent;
+  animation: clixa-trial-border-spin 4s linear infinite;
   transition:
-    filter 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
     box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.18s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
-/* Diagonal shine sweep — same recipe as `.thumb-send-pill::before`.
- * A 65 deg white gradient parks at translateX(-130 %) and slides to
- * +130 % on hover. Clipped by the pill's own `overflow: hidden`. */
-.clixa-pill--trial::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    65deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.18) 45%,
-    rgba(255, 255, 255, 0.32) 50%,
-    rgba(255, 255, 255, 0.18) 55%,
-    transparent 100%
-  );
-  transform: translateX(-130%);
-  transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
-  pointer-events: none;
-}
-
 .clixa-pill--trial:hover {
-  filter: brightness(1.08);
-  transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.7);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.42),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
-    0 6px 22px rgba(124, 58, 237, 0.42);
-}
-
-.clixa-pill--trial:hover::before {
-  transform: translateX(130%);
+    0 4px 14px rgba(0, 0, 0, 0.4),
+    0 12px 32px -10px rgba(139, 92, 246, 0.55);
 }
 
 .clixa-pill--trial:active {
-  transform: translateY(0) scale(0.97);
-  filter: brightness(0.97);
+  transform: scale(0.97);
 }
 
 .clixa-pill--trial:focus-visible {
-  outline: none;
-  border-color: rgba(255, 255, 255, 0.65);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.36),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
-    0 0 0 3px rgba(255, 255, 255, 0.1);
+    0 0 0 3px rgba(167, 139, 250, 0.45),
+    0 8px 22px -8px rgba(124, 58, 237, 0.55);
+}
+
+/* Star icon — small static sparkle to the left of the label,
+ * matches the icon on the Generate button in the user's reference
+ * shot. White, not animated — the animation is on the border. */
+.clixa-trial__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #ffffff;
+}
+.clixa-trial__icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* Label — primary phrase + dot divider + secondary phrase. */
 .clixa-trial__label {
-  position: relative;
-  z-index: 1;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -226,13 +235,12 @@
   font-weight: 700;
   letter-spacing: -0.005em;
   color: #ffffff;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
 }
 
 .clixa-trial__label-divider {
   font-size: 0.7rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.45);
   margin: 0 -2px;
 }
 
@@ -240,7 +248,7 @@
   font-size: 0.74rem;
   font-weight: 500;
   letter-spacing: 0;
-  color: rgba(255, 255, 255, 0.88);
+  color: rgba(255, 255, 255, 0.78);
 }
 
 /* ── Compact below 560 px — drop the secondary label so the pill
@@ -274,12 +282,12 @@
   .clixa-pill--trial {
     transition: none;
   }
-  .clixa-pill--trial::before {
-    transition: none;
+  /* Stop the rotating border — pin the angle so the gradient still
+   * shows but doesn't spin. */
+  .clixa-pill--trial {
+    animation: none;
   }
-  .clixa-pill--trial:hover {
-    transform: none;
-  }
+  .clixa-pill--trial:hover,
   .clixa-pill--trial:active {
     transform: none;
   }

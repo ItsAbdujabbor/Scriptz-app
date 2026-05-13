@@ -69,6 +69,12 @@ function TrialPill() {
         onClick={goPro}
         aria-label="Unlock Pro — full access, unlimited renders"
       >
+        <span className="clixa-trial__icon" aria-hidden>
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2l1.8 5.4L19 9l-5.2 1.6L12 16l-1.8-5.4L5 9l5.2-1.6L12 2z" />
+            <path d="M19 14l.8 2.4L22 17l-2.2.6L19 20l-.8-2.4L16 17l2.2-.6L19 14z" />
+          </svg>
+        </span>
         <span className="clixa-trial__label">
           <span className="clixa-trial__label-primary">Unlock Pro</span>
           <span className="clixa-trial__label-divider" aria-hidden>
