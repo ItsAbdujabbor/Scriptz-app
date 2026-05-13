@@ -87,7 +87,7 @@ export function HeaderCreditsBadge({ onClick }) {
   const isEmpty = total === 0
   const isTrial = !!subscription?.is_trial
   const planCredits = subscription?.plan_credits || 0
-  const { tier, label: planLabel } = planTierAndLabel(subscription, isTrial, isSubscribed)
+  const { tier } = planTierAndLabel(subscription, isTrial, isSubscribed)
 
   const handleClick = (e) => {
     if (onClick) return onClick(e)
@@ -115,16 +115,13 @@ export function HeaderCreditsBadge({ onClick }) {
               ? `Trial: ${total} credits remaining — upgrade to get the full plan`
               : `${total.toLocaleString('en-US')} credits remaining${planCredits ? ` / ${planCredits.toLocaleString('en-US')} monthly` : ''}`
         }
-        aria-label={
-          total == null ? 'Credits loading' : `${total} credits remaining, ${planLabel} plan`
-        }
+        aria-label={total == null ? 'Credits loading' : `${total} credits remaining`}
       >
         <span className="header-credits-badge__icon" aria-hidden>
           <IconZap />
         </span>
         <span className="header-credits-badge__count">{formatCount(total)}</span>
-        <span className="header-credits-badge__divider" aria-hidden />
-        <span className="header-credits-badge__plan">{planLabel}</span>
+        <span className="header-credits-badge__label">credits</span>
       </button>
 
       <CreditPacksModal open={dialogOpen} onClose={() => setDialogOpen(false)} />

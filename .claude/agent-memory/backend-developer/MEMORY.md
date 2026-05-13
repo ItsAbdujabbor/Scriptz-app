@@ -1,0 +1,2 @@
+- [Deploy mechanism](deploy_mechanism.md) — prod deploys via `scripts/deploy.sh` to EC2, GitHub Actions ECS workflow is dead; push-to-main does NOT update prod.
+- [Test suite state](test_suite_state.md) — global pytest fixture in tests/conftest.py is broken on main; build isolated engines for new tests.

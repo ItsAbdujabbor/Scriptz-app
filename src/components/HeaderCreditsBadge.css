@@ -1,44 +1,35 @@
-/* HeaderCreditsBadge — one premium pill, two visible zones.
-
-   Layout: [bolt][count] · [PLAN] inline in a single rounded container.
-   No notched chevron, no stacked sub-card — the divider is a single
-   1px vertical line so the whole thing reads as ONE object. The plan
-   zone picks up tier-specific colour (Starter slate / Creator violet /
-   Ultimate gold / Trial amber) without breaking the container shape.
-
-   Premium accents (no continuous animation — user feedback was that
-   the previous drifting sheen felt distracting):
-     • dual-gradient background (deep glass + violet tint)
-     • inner highlight on the top edge (`inset 0 1px 0 …`)
-     • outer drop-shadow with a violet glow halo
-     • hover lifts brightness 6% + tightens the violet halo
-*/
+/* HeaderCreditsBadge — solid violet primary pill: ⚡ count credits
+ *
+ * Plan tier display has moved out (it now lives in the sidebar user
+ * profile, where it doubles as the "Upgrade" navigation chip — see
+ * Sidebar.css `.sidebar-plan-chip`). The credits pill is left with one
+ * job: show the user how many credits they have, and open the credit
+ * packs modal on click.
+ *
+ * Design intent:
+ *   • Solid violet primary background — NOT translucent glass. Reads as
+ *     a confident product control, not a chrome accent.
+ *   • Smaller height (36px) — matches the new compact pill family.
+ *   • Light pulse on the bolt icon to draw the eye on first paint.
+ *   • Empty / low states swap the bolt to coral/amber but the body
+ *     stays violet (the colour signals "credits", state changes the
+ *     icon).
+ */
 
 .header-credits-badge {
   position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  /* 1:1 height with .sidebar-open-btn (mobile hamburger) and
-   * .thumb-plan-callout (centre trial chip) — 40px across the board so
-   * the three top affordances read as a balanced toolbar instead of
-   * three differently-sized pills competing for attention. */
-  height: 40px;
+  height: 36px;
   box-sizing: border-box;
-  padding: 0 0.7rem 0 0.55rem;
+  padding: 0 0.85rem 0 0.6rem;
   border-radius: 999px;
-  border: 1px solid rgba(167, 139, 250, 0.36);
-  background:
-    linear-gradient(
-      135deg,
-      rgba(139, 92, 246, 0.32) 0%,
-      rgba(109, 40, 217, 0.22) 50%,
-      rgba(76, 29, 149, 0.28) 100%
-    ),
-    linear-gradient(180deg, rgba(28, 24, 40, 0.96) 0%, rgba(13, 11, 24, 0.96) 100%);
-  color: #f5f3ff;
+  border: 1px solid rgba(167, 139, 250, 0.55);
+  background: linear-gradient(180deg, #7c3aed 0%, #6d28d9 100%);
+  color: #ffffff;
   font-family: inherit;
-  font-size: 0.74rem;
+  font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.01em;
   white-space: nowrap;
@@ -46,254 +37,181 @@
   pointer-events: auto;
   overflow: hidden;
   isolation: isolate;
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-    0 1px 2px rgba(0, 0, 0, 0.25),
-    0 6px 22px -10px rgba(124, 58, 237, 0.55),
-    0 0 0 0 rgba(167, 139, 250, 0);
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.32),
+    0 2px 4px rgba(0, 0, 0, 0.28),
+    0 8px 22px -8px rgba(124, 58, 237, 0.65);
   transition:
     border-color 0.22s ease,
-    background 0.22s ease,
     box-shadow 0.28s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.14s cubic-bezier(0.33, 1, 0.68, 1),
     filter 0.22s ease;
 }
 
+/* Glossy highlight band across the top half so the solid violet
+ * doesn't read flat. */
+.header-credits-badge::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(255, 255, 255, 0.04) 45%,
+    transparent 65%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
 .header-credits-badge:hover {
-  border-color: rgba(196, 181, 253, 0.5);
-  filter: brightness(1.06);
+  border-color: rgba(221, 214, 254, 0.7);
+  filter: brightness(1.08);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
-    0 2px 4px rgba(0, 0, 0, 0.28),
-    0 12px 32px -10px rgba(139, 92, 246, 0.7),
-    0 0 0 4px rgba(167, 139, 250, 0.08);
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.36),
+    0 4px 8px rgba(0, 0, 0, 0.32),
+    0 14px 36px -10px rgba(139, 92, 246, 0.78);
 }
 
 .header-credits-badge:active {
   transform: scale(0.97);
 }
 
-/* ── Left zone: bolt icon + credit count ───────────────────────── */
+.header-credits-badge:focus-visible {
+  outline: none;
+  border-color: rgba(221, 214, 254, 0.85);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 0 0 3px rgba(167, 139, 250, 0.45),
+    0 8px 22px -8px rgba(124, 58, 237, 0.65);
+}
+
+/* ── Bolt icon — disc with a glow ─────────────────────────────── */
 .header-credits-badge__icon {
   position: relative;
   z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
   border-radius: 999px;
-  color: #c4b5fd;
-  background: radial-gradient(
-    circle at 35% 30%,
-    rgba(196, 181, 253, 0.28) 0%,
-    rgba(124, 58, 237, 0.18) 50%,
-    rgba(76, 29, 149, 0.18) 100%
-  );
+  color: #fde68a;
+  background:
+    radial-gradient(
+      circle at 30% 28%,
+      rgba(254, 240, 138, 0.55) 0%,
+      rgba(253, 224, 71, 0.32) 45%,
+      rgba(0, 0, 0, 0) 70%
+    ),
+    rgba(0, 0, 0, 0.22);
   box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.16),
-    0 0 6px -2px rgba(167, 139, 250, 0.45);
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.4),
+    0 0 8px -1px rgba(253, 224, 71, 0.6);
 }
 .header-credits-badge__icon svg {
-  width: 10px;
-  height: 10px;
+  width: 11px;
+  height: 11px;
   fill: currentColor;
-  /* Filled bolt reads stronger than stroke-only at 10px. */
   stroke: none;
 }
 
+/* ── Count — bold numerals, tabular for clean width ───────────── */
 .header-credits-badge__count {
   position: relative;
   z-index: 1;
   font-variant-numeric: tabular-nums;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   color: #ffffff;
   line-height: 1;
 }
 
-/* ── Divider — single hairline between the two zones ───────────── */
-.header-credits-badge__divider {
+/* ── 'credits' label — small all-caps tag after the count ─────── */
+.header-credits-badge__label {
   position: relative;
   z-index: 1;
-  width: 1px;
-  height: 12px;
-  margin: 0 0.12rem;
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(196, 181, 253, 0.45) 25%,
-    rgba(196, 181, 253, 0.45) 75%,
-    transparent 100%
-  );
-  flex-shrink: 0;
-}
-
-/* ── Right zone: plan tag, tier-tinted ─────────────────────────── */
-.header-credits-badge__plan {
-  position: relative;
-  z-index: 1;
-  font-size: 0.575rem;
-  font-weight: 800;
-  letter-spacing: 0.13em;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   line-height: 1;
-  padding: 0.05rem 0;
-  color: rgba(245, 243, 255, 0.92);
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+  color: rgba(245, 243, 255, 0.78);
 }
 
-/* ── Tier-specific accents — each plan gets its own colour ramp ──
-   The container background stays the violet base; the plan label and
-   border/halo shift to give an at-a-glance signal of which plan the
-   user is on. Starter is restrained; Creator is the vibrant default;
-   Ultimate is the gold-violet premium feel; Trial is warm amber. */
-
-.header-credits-badge--tier-starter .header-credits-badge__plan {
-  color: #e2e8f0;
-}
-.header-credits-badge--tier-starter {
-  border-color: rgba(167, 139, 250, 0.3);
-}
-
-.header-credits-badge--tier-creator .header-credits-badge__plan {
-  color: #f3eaff;
-  text-shadow:
-    0 1px 1px rgba(0, 0, 0, 0.5),
-    0 0 8px rgba(196, 181, 253, 0.45);
-}
-.header-credits-badge--tier-creator {
-  border-color: rgba(196, 181, 253, 0.5);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
-    0 1px 2px rgba(0, 0, 0, 0.25),
-    0 10px 32px -10px rgba(139, 92, 246, 0.65);
-}
-
-.header-credits-badge--tier-ultimate {
-  border-color: rgba(253, 224, 71, 0.55);
-  background:
-    linear-gradient(
-      135deg,
-      rgba(251, 191, 36, 0.28) 0%,
-      rgba(217, 119, 6, 0.22) 35%,
-      rgba(124, 58, 237, 0.32) 100%
-    ),
-    linear-gradient(180deg, rgba(28, 24, 40, 0.96) 0%, rgba(13, 11, 24, 0.96) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
-    0 1px 2px rgba(0, 0, 0, 0.28),
-    0 10px 32px -8px rgba(217, 119, 6, 0.55);
-}
-.header-credits-badge--tier-ultimate .header-credits-badge__plan {
-  color: #fff7ed;
-  text-shadow:
-    0 1px 1px rgba(0, 0, 0, 0.55),
-    0 0 10px rgba(253, 224, 71, 0.6);
-}
-.header-credits-badge--tier-ultimate .header-credits-badge__icon {
-  color: #fde68a;
-  background: radial-gradient(
-    circle at 35% 30%,
-    rgba(253, 224, 71, 0.4) 0%,
-    rgba(217, 119, 6, 0.28) 60%,
-    rgba(76, 29, 149, 0.2) 100%
-  );
-}
-.header-credits-badge--tier-ultimate .header-credits-badge__divider {
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(253, 224, 71, 0.55) 25%,
-    rgba(253, 224, 71, 0.55) 75%,
-    transparent 100%
-  );
-}
-
-.header-credits-badge--tier-pro {
-  border-color: rgba(167, 139, 250, 0.42);
-}
-.header-credits-badge--tier-pro .header-credits-badge__plan {
-  color: #f3eaff;
-}
-
-/* Trial — amber container override so it can't be mistaken for a
-   paid plan at a glance. Wins over the tier-pro/starter rule via
-   later specificity (same number of class hits, declared after). */
-.header-credits-badge--trial {
-  border-color: rgba(253, 224, 71, 0.55);
-  background:
-    linear-gradient(135deg, rgba(253, 224, 71, 0.24) 0%, rgba(217, 119, 6, 0.22) 100%),
-    linear-gradient(180deg, rgba(28, 24, 40, 0.96) 0%, rgba(13, 11, 24, 0.96) 100%);
-}
-.header-credits-badge--trial .header-credits-badge__plan {
-  color: #fef3c7;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
-}
-.header-credits-badge--trial .header-credits-badge__icon {
-  color: #fde68a;
-  background: radial-gradient(
-    circle at 35% 30%,
-    rgba(253, 224, 71, 0.36) 0%,
-    rgba(217, 119, 6, 0.26) 100%
-  );
-}
-.header-credits-badge--trial .header-credits-badge__divider {
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(253, 224, 71, 0.55) 25%,
-    rgba(253, 224, 71, 0.55) 75%,
-    transparent 100%
-  );
-}
-
-/* ── Balance-state overrides on the LEFT zone only ──────────────
-   These re-tint just the bolt + the icon background so the plan
-   colour on the right stays intact. Low = amber bolt; empty =
-   coral bolt. */
+/* ── Balance-state overrides on the bolt only ─────────────────── */
 .header-credits-badge--low .header-credits-badge__icon {
-  color: #fbbf24;
-  background: radial-gradient(
-    circle at 35% 30%,
-    rgba(251, 191, 36, 0.36) 0%,
-    rgba(245, 158, 11, 0.22) 100%
-  );
+  color: #fde68a;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.4),
+    0 0 10px -1px rgba(251, 191, 36, 0.7);
 }
+
 .header-credits-badge--empty .header-credits-badge__icon {
-  color: #f87171;
-  background: radial-gradient(
-    circle at 35% 30%,
-    rgba(248, 113, 113, 0.4) 0%,
-    rgba(220, 38, 38, 0.28) 100%
-  );
+  color: #fecaca;
+  background:
+    radial-gradient(
+      circle at 30% 28%,
+      rgba(254, 202, 202, 0.55) 0%,
+      rgba(248, 113, 113, 0.32) 45%,
+      rgba(0, 0, 0, 0) 70%
+    ),
+    rgba(0, 0, 0, 0.22);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.4),
+    0 0 10px -1px rgba(248, 113, 113, 0.7);
 }
 .header-credits-badge--empty .header-credits-badge__count {
   color: #fecaca;
 }
 
-/* ── Compact on small viewports ─────────────────────────────────
-   Height is already 40px across the board (matches the hamburger +
-   trial pill); this query just tightens the padding + numerals so
-   the pill reads compactly enough to leave room for the trial pill
-   in the centre and the hamburger on the left on a 360px phone. */
-@media (max-width: 680px) {
+/* ── Tier accents — subtle border tint only, body stays violet ──
+ * The plan name lives in the sidebar now, but power users may still
+ * want a hint that they're on a premium tier when they glance at the
+ * top-bar. The accents are deliberately quiet — a hair brighter border
+ * for ultimate/creator, nothing visible for free/starter. */
+.header-credits-badge--tier-ultimate {
+  border-color: rgba(253, 224, 71, 0.62);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.36),
+    0 2px 4px rgba(0, 0, 0, 0.28),
+    0 8px 22px -8px rgba(217, 119, 6, 0.55);
+}
+.header-credits-badge--tier-ultimate .header-credits-badge__icon {
+  color: #fff7c2;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.45),
+    0 0 12px -1px rgba(253, 224, 71, 0.75);
+}
+
+.header-credits-badge--tier-creator {
+  border-color: rgba(196, 181, 253, 0.7);
+}
+
+/* Trial — amber halo override (rare with the new flow but kept for
+ * any legacy trialing rows that survive). */
+.header-credits-badge--trial {
+  border-color: rgba(253, 224, 71, 0.6);
+  background: linear-gradient(180deg, #b45309 0%, #92400e 100%);
+}
+
+/* ── Compact on small viewports ──────────────────────────────── */
+@media (max-width: 560px) {
   .header-credits-badge {
-    padding: 0 0.6rem 0 0.5rem;
+    height: 34px;
+    padding: 0 0.7rem 0 0.55rem;
     gap: 0.4rem;
     font-size: 0.74rem;
   }
   .header-credits-badge__icon {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
   .header-credits-badge__icon svg {
     width: 10px;
@@ -302,26 +220,12 @@
   .header-credits-badge__count {
     font-size: 0.8rem;
   }
-  .header-credits-badge__plan {
-    font-size: 0.56rem;
-    letter-spacing: 0.12em;
-  }
-  .header-credits-badge__divider {
-    height: 14px;
-  }
 }
 
-/* Extra-narrow phones (≤ 400 px) — drop the plan tag so the badge
- * compresses to just the bolt + count and the trial pill in the centre
- * has room for its full label + CTA without the credits halo bleeding
- * into the CTA on the right. */
-@media (max-width: 400px) {
-  .header-credits-badge {
-    padding: 0 0.55rem 0 0.5rem;
-    gap: 0.35rem;
-  }
-  .header-credits-badge__divider,
-  .header-credits-badge__plan {
+/* Tiny phones (≤ 380 px) — drop the 'credits' label so just the bolt
+ * + count remain. */
+@media (max-width: 380px) {
+  .header-credits-badge__label {
     display: none;
   }
 }

@@ -1,52 +1,40 @@
 /* ============================================================
-   ThumbnailTopBar — the single top-bar that owns the menu
-   button, the trial / upgrade pill, and the credits badge as
-   three equally-sized siblings on the thumbnail screen.
+   ThumbnailTopBar — compact pill family on the thumbnail screen.
 
-   Goals encoded here:
+   Layout:
 
-     1. ONE positioning system. The bar is position: fixed at
-        the viewport's top so the menu button (which the global
-        Sidebar also rendered as position: fixed) lines up with
-        the other two pills without depending on any parent's
-        padding-top.
-     2. ONE visual recipe. Every pill extends `.clixa-pill` —
-        same height, same dark-glass body, same violet hairline,
-        same drop-shadow. Each variant adds ONE differentiator
-        (the CTA inside the trial pill, the tier accent on the
-        credits' plan tag).
-     3. ONE responsive ladder. All mobile / narrow-screen rules
-        live in this file. No more cross-file media queries
-        fighting each other.
+     Desktop  (≥ 1025 px)         [ grow ][ Go Pro centered ][ grow ][ Credits ]
+                                  ↑ permanent sidebar handles navigation
+                                  ↑ hamburger is hidden — sidebar is always visible
 
-   Token: `--clixa-pill-h` controls the height. Bump it in one
-   place if the design ever changes.
+     Mobile   (< 1025 px)         [ Menu ][ grow ][ Go Pro ][ grow ][ Credits ]
+                                  ↑ hamburger opens the off-canvas sidebar
+
+   The three controls share `--clixa-pill-h` (36 px) so they read as
+   a balanced toolbar. Pill bodies have ONE visual recipe via
+   `.clixa-pill`; variants change CTA colour but never the shape.
+
+   The credits pill body lives in `HeaderCreditsBadge.css` so it can
+   be reused on other screens. This file only positions it inside the
+   topbar and overrides its body when it needs to feel like part of
+   the topbar family.
    ============================================================ */
 
 .clixa-topbar {
-  --clixa-pill-h: 40px;
+  --clixa-pill-h: 36px;
   --clixa-pill-radius: 999px;
-  --clixa-pill-border: 1px solid rgba(196, 181, 253, 0.22);
-  --clixa-pill-border-hover: 1px solid rgba(196, 181, 253, 0.42);
-  --clixa-pill-bg: linear-gradient(180deg, rgba(28, 24, 40, 0.92) 0%, rgba(13, 11, 24, 0.92) 100%);
-  --clixa-pill-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 6px 22px rgba(0, 0, 0, 0.34),
-    0 0 22px rgba(124, 58, 237, 0.16);
-  --clixa-pill-shadow-hover:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 26px rgba(0, 0, 0, 0.4),
-    0 0 28px rgba(124, 58, 237, 0.28);
 
   position: fixed;
-  top: 12px;
-  left: 12px;
-  right: 12px;
+  top: 14px;
+  left: 16px;
+  right: 16px;
   z-index: 60;
   display: flex;
   align-items: center;
   gap: 12px;
-  /* Container itself doesn't catch clicks — only the pills do.
-   * Lets the chat content underneath remain interactive in the
-   * gaps between pills. */
+  /* Container itself doesn't catch clicks — only the pills do. Lets
+   * the chat content underneath remain interactive in the gaps
+   * between pills. */
   pointer-events: none;
 }
 
@@ -54,64 +42,43 @@
   pointer-events: auto;
 }
 
-/* Flex spacers around the trial pill so the middle child lands
- * visually centred between the menu button and the credits. */
+/* Flex spacers push the trial pill into the visual centre on mobile
+ * and to the right group on desktop. */
 .clixa-topbar__spacer {
   flex: 1 1 0;
   min-width: 0;
 }
 
-/* ── Shared pill base ───────────────────────────────────────── */
+/* ── Menu button (mobile-only) ──────────────────────────────── */
 
-.clixa-pill {
+.clixa-pill--menu {
+  width: var(--clixa-pill-h);
   height: var(--clixa-pill-h);
-  box-sizing: border-box;
+  padding: 0;
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--clixa-pill-radius);
-  border: var(--clixa-pill-border);
-  background: var(--clixa-pill-bg);
-  box-shadow: var(--clixa-pill-shadow);
-  backdrop-filter: blur(22px) saturate(1.5);
-  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  border: 1px solid rgba(196, 181, 253, 0.32);
+  background: linear-gradient(180deg, rgba(28, 24, 40, 0.94) 0%, rgba(13, 11, 24, 0.94) 100%);
   color: rgba(245, 243, 255, 0.94);
-  font: inherit;
-  font-weight: 500;
-  letter-spacing: -0.005em;
   cursor: pointer;
-  white-space: nowrap;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 4px 14px rgba(0, 0, 0, 0.32);
   transition:
     border-color 0.22s ease,
     box-shadow 0.22s ease,
-    background 0.22s ease;
+    opacity 0.2s ease,
+    transform 0.22s cubic-bezier(0.34, 1.2, 0.6, 1);
 }
 
-.clixa-pill:hover {
-  border: var(--clixa-pill-border-hover);
-  box-shadow: var(--clixa-pill-shadow-hover);
-  color: #ffffff;
-}
-
-.clixa-pill:focus-visible {
-  outline: none;
-  border-color: rgba(196, 181, 253, 0.6);
+.clixa-pill--menu:hover {
+  border-color: rgba(196, 181, 253, 0.55);
   box-shadow:
-    var(--clixa-pill-shadow-hover),
-    0 0 0 3px rgba(167, 139, 250, 0.32);
-}
-
-.clixa-pill:active {
-  transform: scale(0.97);
-  transition: transform 0.12s cubic-bezier(0.4, 0, 0.6, 1);
-}
-
-/* ── Menu button ────────────────────────────────────────────── */
-
-.clixa-pill--menu {
-  width: var(--clixa-pill-h);
-  padding: 0;
-  flex: 0 0 auto;
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 6px 18px rgba(0, 0, 0, 0.4);
 }
 
 .clixa-pill--menu svg {
@@ -128,475 +95,257 @@
   opacity: 0;
   pointer-events: none;
   transform: scale(0.85);
-  transition:
-    opacity 0.2s ease,
-    transform 0.22s cubic-bezier(0.34, 1.2, 0.6, 1);
 }
 
-/* Desktop layout — the global Sidebar becomes a permanent left column
- * at ≥ 1025px (matches the Sidebar.css breakpoint), so:
- *   • Hide the in-bar hamburger (the sidebar is already visible).
- *   • Hide the spacer BETWEEN the trial pill and the credits badge so
- *     the two right-hand pills sit flush against each other.
- *   • Keep the leading spacer (the one before the trial pill) so the
- *     remaining group is pushed to the right edge of the chat area.
- *
- * Net effect on desktop:
- *   [               grow                ][Go Pro][Credits]
- * Net effect on mobile (unchanged):
- *   [Menu]          [Go Pro]          [Credits]
- */
+/* Desktop — sidebar is permanent, hide the in-bar hamburger. */
 @media (min-width: 1025px) {
   .clixa-topbar .clixa-pill--menu {
     display: none;
   }
-  /* The two spacers are identical DOM nodes — target the second one
-   * (the one after the trial pill's wrap, before the credits badge). */
-  .clixa-topbar .clixa-pill__wrap + .clixa-topbar__spacer {
-    display: none;
-  }
-  /* Slim gap between the trial pill and credits so they breathe but
-   * stay grouped. */
-  .clixa-topbar .clixa-pill__wrap {
-    margin-right: 10px;
-  }
 }
 
-/* ── Trial / upgrade pill ───────────────────────────────────── *
- * Mirrors the credits-badge structure: state tag | divider | CTA.
- * Reads at a glance as "current plan state | what to do about it".
+/* ── Go Pro pill ─────────────────────────────────────────────
+ * Single button with: [sparkle][primary label · secondary label][arrow]
  *
- *   Trial state → amber TRIAL tag (matches credits badge's --trial)
- *   Free state  → slate FREE tag (signals no upgrade yet)
+ * The whole pill is the clickable target — no nested CTA button
+ * (the previous tag/divider/CTA combo was visually noisy at this
+ * height and required two tap targets that did the same thing).
  *
- * The state tag uses the same typography as the credits badge's
- * `.header-credits-badge__plan` so the two pills feel like
- * siblings from the same family. */
+ * Body: solid violet with a subtle gradient + glossy top band.
+ * On hover the shine sweeps left-to-right and the arrow nudges
+ * 3 px to suggest forward motion.
+ * ──────────────────────────────────────────────────────────── */
+
+.clixa-pill__wrap {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
 
 .clixa-pill--trial {
-  padding: 4px 4px 4px 12px;
-  gap: 8px;
-  flex: 0 0 auto;
-  cursor: pointer;
-}
-
-/* Free / non-trial state — violet wash inside the pill. */
-.clixa-pill--trial-free {
-  background:
-    linear-gradient(135deg, rgba(139, 92, 246, 0.22) 0%, rgba(76, 29, 149, 0.18) 100%),
-    var(--clixa-pill-bg);
-  border-color: rgba(167, 139, 250, 0.36);
-}
-.clixa-pill--trial-free:hover {
-  border-color: rgba(196, 181, 253, 0.55);
-}
-
-/* Trial state — amber/gold wash inside the pill AND amber border.
- * The colour radiates throughout the chip (background + border +
- * divider + tag + CTA) so a trialing user gets a single coherent
- * gold signal across the whole pill. Matches the credits badge's
- * --trial variant so both top-bar pills feel like a pair. */
-.clixa-pill--trial-on {
-  background:
-    linear-gradient(135deg, rgba(253, 224, 71, 0.24) 0%, rgba(217, 119, 6, 0.22) 100%),
-    var(--clixa-pill-bg);
-  border-color: rgba(253, 224, 71, 0.55);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 6px 22px rgba(0, 0, 0, 0.34),
-    0 0 22px rgba(217, 119, 6, 0.28);
-}
-.clixa-pill--trial-on:hover {
-  border-color: rgba(253, 224, 71, 0.72);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 8px 26px rgba(0, 0, 0, 0.4),
-    0 0 28px rgba(217, 119, 6, 0.42);
-}
-
-.clixa-trial__tag {
-  font-size: 0.64rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  line-height: 1;
-  padding: 0 2px;
-  white-space: nowrap;
-}
-
-/* State-specific tag colour. */
-.clixa-pill--trial-on .clixa-trial__tag {
-  color: #fde68a;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
-}
-.clixa-pill--trial-free .clixa-trial__tag {
-  color: rgba(226, 232, 240, 0.92);
-}
-
-/* Vertical hairline that separates the tag from the CTA — the same
- * shape the credits badge uses between its count and plan tag, so
- * the two pills read as part of one family. */
-.clixa-trial__divider {
-  width: 1px;
-  height: 16px;
-  flex-shrink: 0;
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(196, 181, 253, 0.4) 25%,
-    rgba(196, 181, 253, 0.4) 75%,
-    transparent 100%
-  );
-}
-.clixa-pill--trial-on .clixa-trial__divider {
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(253, 224, 71, 0.5) 25%,
-    rgba(253, 224, 71, 0.5) 75%,
-    transparent 100%
-  );
-}
-
-/* CTA — the loud action element. Background swaps based on state:
- *   • Free  → brand violet (drives upgrade to Pro)
- *   • Trial → warm amber/gold (matches the trialing state visually
- *             across the whole pill so the action and the context
- *             share one colour family)
- * Internal shine sweep on hover regardless of state. */
-.clixa-trial__cta {
   position: relative;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  height: 30px;
-  padding: 0 14px;
-  border: none;
-  border-radius: 999px;
+  gap: 10px;
+  height: var(--clixa-pill-h);
+  padding: 0 16px 0 14px;
+  border-radius: var(--clixa-pill-radius);
+  border: 1px solid rgba(196, 181, 253, 0.55);
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 50%, #6d28d9 100%);
   color: #ffffff;
   font: inherit;
-  font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: -0.005em;
   cursor: pointer;
   overflow: hidden;
   isolation: isolate;
-  flex-shrink: 0;
+  white-space: nowrap;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28),
+    0 2px 4px rgba(0, 0, 0, 0.28),
+    0 10px 28px -10px rgba(124, 58, 237, 0.7);
   transition:
-    filter 0.18s ease,
-    box-shadow 0.18s ease,
-    transform 0.15s ease;
+    border-color 0.22s ease,
+    box-shadow 0.22s ease,
+    transform 0.14s cubic-bezier(0.33, 1, 0.68, 1),
+    filter 0.22s ease;
 }
 
-/* Free-state CTA — brand violet. */
-.clixa-pill--trial-free .clixa-trial__cta {
-  background: var(
-    --accent-gradient,
-    linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    0 2px 8px rgba(76, 29, 149, 0.35);
-}
-.clixa-pill--trial-free:hover .clixa-trial__cta {
-  filter: brightness(1.06);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    0 4px 14px rgba(76, 29, 149, 0.5);
-}
-
-/* Trial-state CTA — amber / gold gradient. Same shape as the free
- * CTA, just retinted so the whole trial pill (background, border,
- * tag, divider, CTA) speaks one colour. Text stays white with a
- * darker drop-shadow so it's legible on the warm gradient. */
-.clixa-pill--trial-on .clixa-trial__cta {
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 55%, #b45309 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 2px 8px rgba(180, 83, 9, 0.4);
-  text-shadow: 0 1px 1px rgba(120, 53, 15, 0.45);
-}
-.clixa-pill--trial-on:hover .clixa-trial__cta {
-  filter: brightness(1.06);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.36),
-    0 4px 14px rgba(180, 83, 9, 0.55);
-}
-
-.clixa-trial__cta-shine {
+/* Glossy top-half highlight so the solid violet doesn't read flat. */
+.clixa-pill--trial::before {
+  content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
   background: linear-gradient(
-    110deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.18) 50%,
-    transparent 100%
+    180deg,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 255, 255, 0.04) 50%,
+    transparent 70%
   );
-  transform: translateX(-110%);
-  transition: transform 0.55s ease;
   pointer-events: none;
+  z-index: 0;
 }
 
-.clixa-trial__cta-label {
+.clixa-pill--trial:hover {
+  border-color: rgba(221, 214, 254, 0.75);
+  filter: brightness(1.07);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.32),
+    0 4px 8px rgba(0, 0, 0, 0.32),
+    0 16px 38px -10px rgba(139, 92, 246, 0.85);
+}
+
+.clixa-pill--trial:hover .clixa-trial__arrow {
+  transform: translateX(3px);
+}
+
+.clixa-pill--trial:hover .clixa-trial__shine {
+  transform: translateX(110%);
+}
+
+.clixa-pill--trial:active {
+  transform: scale(0.98);
+}
+
+.clixa-pill--trial:focus-visible {
+  outline: none;
+  border-color: rgba(221, 214, 254, 0.9);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    0 0 0 3px rgba(167, 139, 250, 0.45),
+    0 10px 28px -10px rgba(124, 58, 237, 0.7);
+}
+
+/* Sparkle icon — small disc with a soft golden glow so the eye
+ * lands on it first and reads "premium". */
+.clixa-trial__sparkle {
   position: relative;
   z-index: 1;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-}
-
-/* Pending state — disables click, dims pill, shows spinner inside the CTA.
- * The whole pill (not just the CTA) becomes non-interactive so a stray
- * tap on the tag area doesn't re-fire the mutation. */
-.clixa-pill--trial.is-pending {
-  cursor: progress;
-  pointer-events: none;
-  opacity: 0.92;
-}
-.clixa-trial__cta:disabled {
-  cursor: progress;
-  /* Keep the visual weight close to the active state so the pill
-   * doesn't suddenly look broken — just a hint of dimming. */
-  filter: brightness(0.92) saturate(0.85);
-}
-
-.clixa-trial__cta-spinner {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.4);
-  border-top-color: #ffffff;
-  animation: clixa-trial-spin 0.72s linear infinite;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
+  border-radius: 999px;
+  color: #fde68a;
+  background:
+    radial-gradient(
+      circle at 30% 28%,
+      rgba(254, 240, 138, 0.55) 0%,
+      rgba(253, 224, 71, 0.32) 45%,
+      rgba(0, 0, 0, 0) 70%
+    ),
+    rgba(0, 0, 0, 0.18);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
+    0 0 8px -1px rgba(253, 224, 71, 0.55);
 }
-@keyframes clixa-trial-spin {
-  to {
-    transform: rotate(360deg);
-  }
+.clixa-trial__sparkle svg {
+  width: 11px;
+  height: 11px;
 }
 
-/* Vertical stack so the error toast docks directly below the pill. */
-.clixa-pill__wrap {
+/* Label — primary phrase + dot divider + secondary phrase. */
+.clixa-trial__label {
   position: relative;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
-  pointer-events: auto;
-}
-
-/* Inline error toast — small chip docked below the trial pill when the
- * mutation fails. Reads the structured error message from the API
- * (PADDLE_API_ERROR, STATE_TRANSITION_FAILED, etc.) so the user knows
- * what went wrong and whether to retry. */
-.clixa-trial__error {
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  align-self: stretch;
-  padding: 6px 8px 6px 12px;
-  border-radius: 12px;
-  background: rgba(127, 29, 29, 0.55);
-  border: 1px solid rgba(248, 113, 113, 0.45);
-  color: #fecaca;
-  font-size: 0.72rem;
-  font-weight: 500;
+  line-height: 1;
+}
+
+.clixa-trial__label-primary {
+  font-size: 0.82rem;
+  font-weight: 800;
   letter-spacing: -0.005em;
-  line-height: 1.3;
-  backdrop-filter: blur(14px) saturate(1.2);
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.34);
+  color: #ffffff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
 }
-.clixa-trial__error-text {
-  flex: 1 1 auto;
-  min-width: 0;
+
+.clixa-trial__label-divider {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0 -2px;
 }
-.clixa-trial__error-dismiss {
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
+
+.clixa-trial__label-secondary {
+  font-size: 0.74rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: rgba(245, 243, 255, 0.92);
+}
+
+/* Arrow — animates right on hover so the affordance is obvious. */
+.clixa-trial__arrow {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  border: none;
-  background: rgba(248, 113, 113, 0.16);
-  color: #fecaca;
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-  transition: background 0.18s ease;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.88);
+  transition: transform 0.2s cubic-bezier(0.33, 1, 0.68, 1);
 }
-.clixa-trial__error-dismiss:hover {
-  background: rgba(248, 113, 113, 0.3);
-  color: #ffffff;
+.clixa-trial__arrow svg {
+  width: 14px;
+  height: 14px;
 }
 
-.clixa-pill--trial:hover .clixa-trial__cta-shine {
-  transform: translateX(110%);
-}
-.clixa-pill--trial:focus-visible .clixa-trial__cta-shine {
-  transform: translateX(110%);
-}
-
-/* ── Credits-badge container override ────────────────────────
- * Normalise the outer shell so it matches the `.clixa-pill` family,
- * then layer the tier-specific colour wash on top so a trialing /
- * Ultimate / Creator user sees the SAME colour signal inside the
- * pill that the trial pill carries — both pills speak the same
- * colour language. */
-
-.clixa-topbar .header-credits-badge {
-  height: var(--clixa-pill-h);
-  box-sizing: border-box;
-  padding: 0 0.7rem 0 0.55rem;
-  border-radius: var(--clixa-pill-radius);
-  border: var(--clixa-pill-border);
-  background: var(--clixa-pill-bg);
-  box-shadow: var(--clixa-pill-shadow);
-  backdrop-filter: blur(22px) saturate(1.5);
-  -webkit-backdrop-filter: blur(22px) saturate(1.5);
-  flex: 0 0 auto;
-  transition:
-    border-color 0.22s ease,
-    box-shadow 0.22s ease,
-    background 0.22s ease;
-}
-.clixa-topbar .header-credits-badge:hover {
-  border: var(--clixa-pill-border-hover);
-  box-shadow: var(--clixa-pill-shadow-hover);
+/* Shine — diagonal highlight sweeps L→R on hover. */
+.clixa-trial__shine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 50%;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.22) 50%,
+    transparent 100%
+  );
+  transform: translateX(-110%);
+  transition: transform 0.65s cubic-bezier(0.33, 1, 0.68, 1);
+  pointer-events: none;
+  z-index: 0;
 }
 
-/* Trial — amber wash inside the pill, matching .clixa-pill--trial-on
- * so the credits and trial pills look like a colour-coordinated pair. */
-.clixa-topbar .header-credits-badge--trial {
-  background:
-    linear-gradient(135deg, rgba(253, 224, 71, 0.24) 0%, rgba(217, 119, 6, 0.22) 100%),
-    var(--clixa-pill-bg);
-  border-color: rgba(253, 224, 71, 0.55);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 6px 22px rgba(0, 0, 0, 0.34),
-    0 0 22px rgba(217, 119, 6, 0.28);
-}
-.clixa-topbar .header-credits-badge--trial:hover {
-  border-color: rgba(253, 224, 71, 0.72);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 8px 26px rgba(0, 0, 0, 0.4),
-    0 0 28px rgba(217, 119, 6, 0.42);
-}
-
-/* Ultimate — gold + violet wash (premium feel). */
-.clixa-topbar .header-credits-badge--tier-ultimate {
-  background:
-    linear-gradient(135deg, rgba(251, 191, 36, 0.22) 0%, rgba(124, 58, 237, 0.22) 100%),
-    var(--clixa-pill-bg);
-  border-color: rgba(253, 224, 71, 0.55);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 6px 22px rgba(0, 0, 0, 0.34),
-    0 0 22px rgba(217, 119, 6, 0.28);
-}
-.clixa-topbar .header-credits-badge--tier-ultimate:hover {
-  border-color: rgba(253, 224, 71, 0.72);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 8px 26px rgba(0, 0, 0, 0.4),
-    0 0 28px rgba(217, 119, 6, 0.42);
-}
-
-/* Creator — brand-violet wash inside the pill. */
-.clixa-topbar .header-credits-badge--tier-creator {
-  background:
-    linear-gradient(135deg, rgba(139, 92, 246, 0.24) 0%, rgba(76, 29, 149, 0.2) 100%),
-    var(--clixa-pill-bg);
-  border-color: rgba(196, 181, 253, 0.5);
-}
-.clixa-topbar .header-credits-badge--tier-creator:hover {
-  border-color: rgba(196, 181, 253, 0.72);
-}
-
-/* Starter — restrained slate wash (no premium colour cue). */
-.clixa-topbar .header-credits-badge--tier-starter {
-  background:
-    linear-gradient(135deg, rgba(148, 163, 184, 0.16) 0%, rgba(71, 85, 105, 0.14) 100%),
-    var(--clixa-pill-bg);
-  border-color: rgba(167, 139, 250, 0.3);
-}
-
-/* Free — slate wash, same family as Starter but a hair cooler. Pairs
- * with the trial pill's "Free" tag so the two pills read as one
- * state at a glance. */
-.clixa-topbar .header-credits-badge--tier-free {
-  background:
-    linear-gradient(135deg, rgba(148, 163, 184, 0.12) 0%, rgba(71, 85, 105, 0.1) 100%),
-    var(--clixa-pill-bg);
-  border-color: rgba(148, 163, 184, 0.28);
-}
-.clixa-topbar .header-credits-badge--tier-free .header-credits-badge__plan {
-  color: rgba(203, 213, 225, 0.92);
-}
-
-/* Low / empty balance — coral / amber overrides on the icon only,
- * the outer pill keeps its tier wash. */
-
-/* ── Responsive collapse ───────────────────────────────────── *
- * The new tag-style trial pill is compact at every viewport, so
- * the responsive ladder is mild — tighten paddings on narrow
- * phones, drop the credits' plan tag on the very narrowest. */
-
+/* ── Compact below 560 px ────────────────────────────────────
+ * Hide the secondary label so the pill shrinks gracefully. */
 @media (max-width: 560px) {
   .clixa-pill--trial {
-    padding: 4px 4px 4px 10px;
-    gap: 7px;
+    height: 34px;
+    padding: 0 14px 0 12px;
+    gap: 8px;
   }
-  .clixa-trial__cta {
-    height: 30px;
-    padding: 0 12px;
-    font-size: 0.78rem;
-  }
-  .clixa-trial__tag {
-    font-size: 0.6rem;
-  }
-}
-
-/* Tighten the credits badge below 680 px so the three pills sit
- * cleanly on a 360–414 px phone. */
-@media (max-width: 680px) {
-  .clixa-topbar .header-credits-badge {
-    padding: 0 0.6rem 0 0.5rem;
-  }
-}
-
-/* Tiny phones (≤ 380 px) — drop the credits' plan tag and divider
- * (the trial pill carries the state signal in its own tag, no
- * redundancy needed). */
-@media (max-width: 380px) {
-  .clixa-pill--trial {
-    padding: 4px 4px 4px 9px;
+  .clixa-trial__label {
     gap: 6px;
   }
-  .clixa-trial__cta {
-    padding: 0 11px;
-    font-size: 0.74rem;
+  .clixa-trial__label-divider,
+  .clixa-trial__label-secondary {
+    display: none;
   }
-  .clixa-topbar .header-credits-badge__divider,
-  .clixa-topbar .header-credits-badge__plan {
+  .clixa-trial__label-primary {
+    font-size: 0.78rem;
+  }
+  .clixa-trial__sparkle {
+    width: 16px;
+    height: 16px;
+  }
+  .clixa-trial__sparkle svg {
+    width: 10px;
+    height: 10px;
+  }
+}
+
+/* Very narrow phones (≤ 380 px) — drop the arrow too so the pill
+ * collapses to icon + "Unlock Pro". */
+@media (max-width: 380px) {
+  .clixa-pill--trial {
+    padding: 0 12px 0 10px;
+    gap: 6px;
+  }
+  .clixa-trial__arrow {
     display: none;
   }
 }
 
-/* Reduced motion — respect the OS preference. */
 @media (prefers-reduced-motion: reduce) {
-  .clixa-pill,
-  .clixa-trial__cta,
-  .clixa-trial__cta-shine,
-  .clixa-pill--menu.is-hidden {
+  .clixa-pill--menu,
+  .clixa-pill--trial,
+  .clixa-trial__arrow,
+  .clixa-trial__shine {
     transition: none;
   }
-  .clixa-pill:active {
+  .clixa-pill--trial:active {
     transform: none;
   }
 }

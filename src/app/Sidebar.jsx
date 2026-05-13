@@ -628,13 +628,27 @@ export function Sidebar({
       requestAnimationFrame(() => historySearchInputRef.current?.focus())
     }
   }, [historySearchOpen])
-  // Subscription is still subscribed-to elsewhere (header credits
-  // badge, sidebar Go-Pro CTA visibility) — keep this hook so the
-  // query stays warm even though we no longer render a plan label in
-  // the account button itself. The plan name now lives only in the
-  // top-right HeaderCreditsBadge ribbon, which is the single source of
-  // truth for "what plan am I on".
-  useSubscriptionQuery()
+  // Subscription drives the small plan chip rendered above the
+  // account button. Free users see "Upgrade to Pro →" (routes to
+  // /#pro on click); paid users see their tier label as a static
+  // badge. The chip is the single navigation surface for "what plan
+  // am I on" now that the credits pill is plan-agnostic.
+  const { data: subscription } = useSubscriptionQuery()
+  const subStatus = (subscription?.status || '').toLowerCase()
+  const subTier = (subscription?.tier || '').toString().toLowerCase()
+  const isPaid = ['active', 'past_due', 'trialing'].includes(subStatus)
+  const planLabel = (() => {
+    if (subscription?.is_trial) return 'Trial'
+    if (!isPaid) return 'Free'
+    if (['starter', 'creator', 'ultimate'].includes(subTier)) {
+      return subTier[0].toUpperCase() + subTier.slice(1)
+    }
+    return subscription?.plan_name || 'Pro'
+  })()
+  const planChipTone = subscription?.is_trial ? 'trial' : isPaid ? subTier || 'pro' : 'free'
+  const goPro = useCallback(() => {
+    if (typeof window !== 'undefined') window.location.hash = 'pro'
+  }, [])
 
   // Friendly name shown above the email.
   //
@@ -1298,6 +1312,37 @@ export function Sidebar({
                   })()}
               </div>
             </nav>
+
+            <button
+              type="button"
+              className={`sidebar-plan-chip sidebar-plan-chip--${planChipTone}`}
+              onClick={goPro}
+              aria-label={isPaid ? `On ${planLabel} plan — open plans` : 'Upgrade to Pro'}
+              title={isPaid ? `${planLabel} plan` : 'Upgrade to Pro'}
+            >
+              <span className="sidebar-plan-chip__dot" aria-hidden />
+              <span className="sidebar-plan-chip__label">{planLabel}</span>
+              {!isPaid ? (
+                <span className="sidebar-plan-chip__cta">
+                  Upgrade
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <path d="M5 12h14M13 6l6 6-6 6" />
+                  </svg>
+                </span>
+              ) : (
+                <span className="sidebar-plan-chip__cta sidebar-plan-chip__cta--manage">
+                  Manage
+                </span>
+              )}
+            </button>
 
             <div className="sidebar-account-wrap">
               <button
