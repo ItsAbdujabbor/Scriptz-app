@@ -140,6 +140,26 @@ function friendlyMessageFor({ code, status, serverMessage, retryAfterSeconds }) 
       return "You're out of credits for now. Add a top-up or wait for your monthly renewal."
     case 'NO_ACTIVE_SUBSCRIPTION':
       return 'Start your free trial or subscribe to use this feature.'
+    case 'PAYMENT_METHOD_REQUIRED':
+      // Surfaced when Paddle rejects an immediate-bill skip-trial
+      // because the subscription has no payment method on file.
+      // The TrialPill onError handler in the top-bar redirects to
+      // /pro on this code so the user lands on Paddle's checkout
+      // overlay (which captures the card + ends the trial).
+      return 'Add a payment method to activate your plan.'
+    case 'NOT_TRIALING':
+      // Trial already ended (concurrent call, webhook landed first,
+      // admin flipped it). The UI should refresh — the user is
+      // already on the plan they thought they had to skip the trial
+      // for.
+      return "You're already on the full plan — no trial to skip."
+    case 'PADDLE_API_ERROR':
+      // Surfaced by /skip-trial when Paddle returned 4xx/5xx. The
+      // structured `extra.retryable` flag tells the caller whether
+      // to encourage retry; the message comes straight from the
+      // server's structured response which already knows whether to
+      // say "try again" or "contact support".
+      return serverMessage || 'Billing provider had a hiccup. Please try again.'
     case 'PLAN_UPGRADE_REQUIRED':
       return 'This feature is on a higher plan. Upgrade to unlock it.'
     case 'IDEMPOTENT_REQUEST_IN_PROGRESS':

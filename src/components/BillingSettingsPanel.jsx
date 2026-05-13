@@ -231,7 +231,24 @@ export function BillingSettingsPanel({ active, onClose }) {
   // queries/billing/creditsQueries.js for the full semantics.
   const skipTrialMutation = useSkipTrialMutation({
     onSuccess: () => setSkipTrialError(null),
-    onError: (err) => setSkipTrialError(friendlyMessage(err) || 'Could not end trial. Try again.'),
+    onError: (err) => {
+      // PAYMENT_METHOD_REQUIRED → Paddle rejected because no card on
+      // file. Route to /pro where Paddle's checkout overlay captures
+      // the card + ends the trial in one flow.
+      if (err?.code === 'PAYMENT_METHOD_REQUIRED') {
+        if (typeof window !== 'undefined') window.location.hash = 'pro'
+        setSkipTrialError(null)
+        return
+      }
+      // NOT_TRIALING → already active (concurrent call / webhook
+      // already landed). Refresh silently — billing state queries
+      // re-fetch and the panel re-renders on the new shape.
+      if (err?.code === 'NOT_TRIALING') {
+        setSkipTrialError(null)
+        return
+      }
+      setSkipTrialError(friendlyMessage(err) || 'Could not end trial. Try again.')
+    },
   })
 
   const isSubscribed =

@@ -74,6 +74,10 @@ function TrialPill() {
   const { isSubscribed, isTrial } = usePlanEntitlements()
   const [error, setError] = useState('')
 
+  const goPro = useCallback(() => {
+    if (typeof window !== 'undefined') window.location.hash = 'pro'
+  }, [])
+
   const skipTrialMutation = useSkipTrialMutation({
     onSuccess: () => {
       setError('')
@@ -83,14 +87,27 @@ function TrialPill() {
       // backstop fires /sync. Nothing else to do here.
     },
     onError: (err) => {
+      // PAYMENT_METHOD_REQUIRED → Paddle rejected the immediate bill
+      // because the subscription has no card on file. Route the user
+      // straight to /pro where Paddle's checkout overlay captures the
+      // card AND ends the trial in one flow (same end-state as
+      // skip-trial). No error toast in this case — the redirect IS
+      // the resolution.
+      if (err?.code === 'PAYMENT_METHOD_REQUIRED') {
+        goPro()
+        return
+      }
+      // NOT_TRIALING → the trial already ended (concurrent call,
+      // webhook landed first, etc.). Refresh state silently; the
+      // pill will re-render on the new state.
+      if (err?.code === 'NOT_TRIALING') {
+        setError('')
+        return
+      }
       const msg = friendlyMessage(err) || 'Could not end trial. Please try again in a moment.'
       setError(msg)
     },
   })
-
-  const goPro = useCallback(() => {
-    if (typeof window !== 'undefined') window.location.hash = 'pro'
-  }, [])
 
   const handleSkipTrial = useCallback(
     (e) => {

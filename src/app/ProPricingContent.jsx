@@ -590,8 +590,23 @@ function TrialActiveStrip({ subscription }) {
   // identically (single source of truth for the skip-trial UX).
   const mut = useSkipTrialMutation({
     onSuccess: () => setErrMsg(null),
-    onError: (err) =>
-      setErrMsg(friendlyMessage(err) || 'Could not end the trial. Please try again.'),
+    onError: (err) => {
+      // PAYMENT_METHOD_REQUIRED → user is on the Pro screen already,
+      // so we can render guidance inline instead of redirecting in
+      // a loop. Surface the structured message verbatim — it already
+      // tells them to add a payment method on this page.
+      if (err?.code === 'PAYMENT_METHOD_REQUIRED') {
+        setErrMsg(err?.serverMessage || 'Add a payment method below to activate your plan.')
+        return
+      }
+      // NOT_TRIALING → already active. Silently clear; the strip
+      // returns null on the next render when `is_trial` is false.
+      if (err?.code === 'NOT_TRIALING') {
+        setErrMsg(null)
+        return
+      }
+      setErrMsg(friendlyMessage(err) || 'Could not end the trial. Please try again.')
+    },
   })
 
   // Days remaining in the trial. Backend reports `trial_ends_at` as
