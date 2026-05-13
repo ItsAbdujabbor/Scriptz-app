@@ -21,20 +21,20 @@
    ============================================================ */
 
 .clixa-topbar {
-  --clixa-pill-h: 36px;
+  --clixa-pill-h: 34px;
   --clixa-pill-radius: 999px;
 
   position: fixed;
-  top: 14px;
-  left: 16px;
-  right: 16px;
+  /* Breathing room from the viewport top + safe-area inset on iOS
+   * so the pills don't feel pinned to the screen edge. */
+  top: calc(env(safe-area-inset-top, 0px) + 22px);
+  left: 20px;
+  right: 20px;
   z-index: 60;
   display: flex;
   align-items: center;
-  gap: 12px;
-  /* Container itself doesn't catch clicks — only the pills do. Lets
-   * the chat content underneath remain interactive in the gaps
-   * between pills. */
+  gap: 14px;
+  /* Container itself doesn't catch clicks — only the pills do. */
   pointer-events: none;
 }
 
@@ -128,11 +128,15 @@
   align-items: center;
   gap: 10px;
   height: var(--clixa-pill-h);
-  padding: 0 16px 0 14px;
+  padding: 0 14px 0 12px;
   border-radius: var(--clixa-pill-radius);
-  border: 1px solid rgba(196, 181, 253, 0.55);
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 50%, #6d28d9 100%);
-  color: #ffffff;
+  border: 1px solid rgba(167, 139, 250, 0.32);
+  /* Dark glass + soft violet wash. Same material as the credits pill
+   * so the two read as one family instead of competing solids. */
+  background:
+    linear-gradient(135deg, rgba(139, 92, 246, 0.18) 0%, rgba(76, 29, 149, 0.12) 100%),
+    linear-gradient(180deg, rgba(24, 20, 36, 0.94) 0%, rgba(15, 12, 26, 0.94) 100%);
+  color: #f5f3ff;
   font: inherit;
   font-weight: 600;
   letter-spacing: -0.005em;
@@ -140,19 +144,20 @@
   overflow: hidden;
   isolation: isolate;
   white-space: nowrap;
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.24),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.28),
-    0 2px 4px rgba(0, 0, 0, 0.28),
-    0 10px 28px -10px rgba(124, 58, 237, 0.7);
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.28),
+    0 8px 24px -12px rgba(124, 58, 237, 0.28);
   transition:
     border-color 0.22s ease,
     box-shadow 0.22s ease,
-    transform 0.14s cubic-bezier(0.33, 1, 0.68, 1),
-    filter 0.22s ease;
+    background 0.22s ease,
+    transform 0.14s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
-/* Glossy top-half highlight so the solid violet doesn't read flat. */
+/* Subtle inner highlight at the top. */
 .clixa-pill--trial::before {
   content: '';
   position: absolute;
@@ -160,22 +165,23 @@
   border-radius: inherit;
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.18) 0%,
-    rgba(255, 255, 255, 0.04) 50%,
-    transparent 70%
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.01) 45%,
+    transparent 65%
   );
   pointer-events: none;
   z-index: 0;
 }
 
 .clixa-pill--trial:hover {
-  border-color: rgba(221, 214, 254, 0.75);
-  filter: brightness(1.07);
+  border-color: rgba(196, 181, 253, 0.5);
+  background:
+    linear-gradient(135deg, rgba(139, 92, 246, 0.26) 0%, rgba(76, 29, 149, 0.18) 100%),
+    linear-gradient(180deg, rgba(28, 24, 40, 0.95) 0%, rgba(18, 14, 30, 0.95) 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.32),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.32),
-    0 4px 8px rgba(0, 0, 0, 0.32),
-    0 16px 38px -10px rgba(139, 92, 246, 0.85);
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 4px 14px rgba(0, 0, 0, 0.36),
+    0 12px 32px -10px rgba(139, 92, 246, 0.42);
 }
 
 .clixa-pill--trial:hover .clixa-trial__arrow {

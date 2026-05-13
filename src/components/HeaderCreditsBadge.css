@@ -21,15 +21,20 @@
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  height: 36px;
+  height: 34px;
   box-sizing: border-box;
-  padding: 0 0.85rem 0 0.6rem;
+  padding: 0 0.8rem 0 0.55rem;
   border-radius: 999px;
-  border: 1px solid rgba(167, 139, 250, 0.55);
-  background: linear-gradient(180deg, #7c3aed 0%, #6d28d9 100%);
-  color: #ffffff;
+  border: 1px solid rgba(167, 139, 250, 0.28);
+  /* Dark glass body with a quiet violet inner tint — sits in the
+   * same family as the chat cards / sidebar surfaces instead of
+   * shouting as a solid-purple element. */
+  background:
+    linear-gradient(135deg, rgba(139, 92, 246, 0.14) 0%, rgba(76, 29, 149, 0.1) 100%),
+    linear-gradient(180deg, rgba(24, 20, 36, 0.94) 0%, rgba(15, 12, 26, 0.94) 100%);
+  color: #f5f3ff;
   font-family: inherit;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 700;
   letter-spacing: 0.01em;
   white-space: nowrap;
@@ -37,20 +42,21 @@
   pointer-events: auto;
   overflow: hidden;
   isolation: isolate;
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.32),
-    0 2px 4px rgba(0, 0, 0, 0.28),
-    0 8px 22px -8px rgba(124, 58, 237, 0.65);
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.28),
+    0 8px 24px -12px rgba(124, 58, 237, 0.28);
   transition:
     border-color 0.22s ease,
     box-shadow 0.28s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.14s cubic-bezier(0.33, 1, 0.68, 1),
-    filter 0.22s ease;
+    background 0.22s ease;
 }
 
-/* Glossy highlight band across the top half so the solid violet
- * doesn't read flat. */
+/* Subtle inner highlight — keeps the pill from reading flat
+ * without pushing it bright. */
 .header-credits-badge::before {
   content: '';
   position: absolute;
@@ -58,8 +64,8 @@
   border-radius: inherit;
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.16) 0%,
-    rgba(255, 255, 255, 0.04) 45%,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.01) 45%,
     transparent 65%
   );
   pointer-events: none;
@@ -67,13 +73,14 @@
 }
 
 .header-credits-badge:hover {
-  border-color: rgba(221, 214, 254, 0.7);
-  filter: brightness(1.08);
+  border-color: rgba(196, 181, 253, 0.45);
+  background:
+    linear-gradient(135deg, rgba(139, 92, 246, 0.22) 0%, rgba(76, 29, 149, 0.16) 100%),
+    linear-gradient(180deg, rgba(28, 24, 40, 0.95) 0%, rgba(18, 14, 30, 0.95) 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.36),
-    0 4px 8px rgba(0, 0, 0, 0.32),
-    0 14px 36px -10px rgba(139, 92, 246, 0.78);
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 4px 14px rgba(0, 0, 0, 0.36),
+    0 12px 32px -10px rgba(139, 92, 246, 0.4);
 }
 
 .header-credits-badge:active {
