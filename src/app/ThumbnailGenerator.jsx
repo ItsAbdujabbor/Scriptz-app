@@ -2144,20 +2144,30 @@ export function ThumbnailGenerator({
   onConversationCreated,
 }) {
   const queryClient = useQueryClient()
-  // Paywall gate. Trial users are subscribed; pure free users (no
-  // active subscription, no trial) are not. When they try to fire any
-  // generate/analyze/edit submit, we route them to #pro instead of
-  // running the action — `requirePaywall()` returns false in that
-  // case so handlers can short-circuit cleanly.
-  const { isSubscribed: hasPaidOrTrialPlan } = usePlanEntitlements()
-  const requirePaywall = useCallback(() => {
-    if (hasPaidOrTrialPlan) return true
-    toast.info('Start a plan to generate thumbnails.', {
-      title: 'Upgrade required',
-    })
-    if (typeof window !== 'undefined') window.location.hash = 'pro'
-    return false
-  }, [hasPaidOrTrialPlan])
+  // Access policy: free users with credits can use generate / recreate
+  // / analyze / titles directly — the backend charges credits and
+  // returns 402 INSUFFICIENT_CREDITS only when the balance hits zero
+  // (the paywall interceptor routes that to /pro). Premium features
+  // (Edit, Score, One-click fix, Persona, Styles, Max model) keep
+  // their own client-side gate via `requirePremium(feature)` below,
+  // which checks the `canUse()` flag from usePlanEntitlements.
+  const { canUse } = usePlanEntitlements()
+  const requirePremium = useCallback(
+    (feature, label) => {
+      // Subscribers get through; everyone else gets a "premium feature"
+      // toast + redirect to /pro. `feature` matches the backend
+      // features_json key (edit, score, one_click_fix, personas, styles,
+      // max_model). `label` is the human-readable name shown in the
+      // toast so users understand WHAT requires upgrading.
+      if (canUse?.(feature)) return true
+      toast.info(`${label || 'This feature'} is part of Clixa Pro.`, {
+        title: 'Upgrade to unlock',
+      })
+      if (typeof window !== 'undefined') window.location.hash = 'pro'
+      return false
+    },
+    [canUse]
+  )
   const selectedPersonaId = usePersonaStore((s) => s.selectedPersonaId)
   const selectedPersona = usePersonaStore((s) => s.selectedPersona)
   const selectedStyleId = useStyleStore((s) => s.selectedStyleId)
@@ -3388,10 +3398,10 @@ export function ThumbnailGenerator({
     el.style.overflow = target >= 140 ? '' : 'hidden'
   }, [recreateDraft])
 
-  // YouTube → thumbnail extraction is gated behind a trial / paid plan
-  // (`hasPaidOrTrialPlan`). Free users never trigger the backend
-  // `fetchExistingThumbnail` call from any of the three URL inputs;
-  // direct image URLs still resolve locally for the edit form.
+  // YouTube → thumbnail extraction is now credit-only access: any
+  // signed-in user (free or paid) can paste a YouTube URL and see the
+  // preview. The actual recreate / analyze / edit submit still hits
+  // the credit gate on the backend; the preview itself is free.
   useEffect(() => {
     if (recreateSourceMode !== 'youtube') {
       setRecreatePreviewUrl(null)
@@ -3401,11 +3411,6 @@ export function ThumbnailGenerator({
     const url = extractYoutubeUrl(recreateUrlInput)
     if (!url) {
       setRecreatePreviewUrl(null)
-      return
-    }
-    if (!hasPaidOrTrialPlan) {
-      setRecreatePreviewUrl(null)
-      setRecreateFetchingPreview(false)
       return
     }
     if (recreateFetchRef.current) clearTimeout(recreateFetchRef.current)
@@ -3425,7 +3430,7 @@ export function ThumbnailGenerator({
     return () => {
       if (recreateFetchRef.current) clearTimeout(recreateFetchRef.current)
     }
-  }, [recreateSourceMode, recreateUrlInput, hasPaidOrTrialPlan])
+  }, [recreateSourceMode, recreateUrlInput])
 
   useEffect(() => {
     if (analyzeSourceMode !== 'youtube') {
@@ -3436,11 +3441,6 @@ export function ThumbnailGenerator({
     const url = extractYoutubeUrl(analyzeUrlInput)
     if (!url) {
       setAnalyzePreviewUrl(null)
-      return
-    }
-    if (!hasPaidOrTrialPlan) {
-      setAnalyzePreviewUrl(null)
-      setAnalyzeFetchingPreview(false)
       return
     }
     if (analyzeFetchRef.current) clearTimeout(analyzeFetchRef.current)
@@ -3460,7 +3460,7 @@ export function ThumbnailGenerator({
     return () => {
       if (analyzeFetchRef.current) clearTimeout(analyzeFetchRef.current)
     }
-  }, [analyzeSourceMode, analyzeUrlInput, hasPaidOrTrialPlan])
+  }, [analyzeSourceMode, analyzeUrlInput])
 
   useEffect(() => {
     if (editSourceMode !== 'url') {
@@ -3479,8 +3479,7 @@ export function ThumbnailGenerator({
       try {
         const token = await getAccessTokenOrNull()
         if (extractYoutubeUrl(url)) {
-          // Free users skip the YouTube extraction call entirely.
-          if (!hasPaidOrTrialPlan || !token) {
+          if (!token) {
             setEditPreviewUrl(null)
             return
           }
@@ -3498,7 +3497,7 @@ export function ThumbnailGenerator({
     return () => {
       if (editFetchRef.current) clearTimeout(editFetchRef.current)
     }
-  }, [editSourceMode, editUrlInput, editDataUrl, hasPaidOrTrialPlan])
+  }, [editSourceMode, editUrlInput, editDataUrl])
 
   const pushLocalAssistantMessage = useCallback((userContent, assistant) => {
     // Warm the browser's HTTP cache for any freshly-generated thumbnail
@@ -3906,7 +3905,9 @@ export function ThumbnailGenerator({
 
   const handleSubmit = async (e) => {
     e?.preventDefault?.()
-    if (!requirePaywall()) return
+    // Credit-only access: free users with credits proceed; backend
+    // returns 402 INSUFFICIENT_CREDITS when balance is 0 (paywall
+    // interceptor routes to /pro).
     // Synchronous spam-guard — see `submitGuardRef` definition above.
     // Returns BEFORE any state writes so a rapid double-Enter never
     // double-pushes an optimistic pair or fires two chat mutations.
@@ -4411,7 +4412,7 @@ export function ThumbnailGenerator({
 
   const handleRecreateSubmit = async (e) => {
     e?.preventDefault?.()
-    if (!requirePaywall()) return
+    // Credit-only access — backend gate handles INSUFFICIENT_CREDITS.
     if (anyJobInFlight) return
     if (submitGuardRef.current) return
     const instructions = recreateDraft.trim()
@@ -4601,7 +4602,9 @@ export function ThumbnailGenerator({
 
   const handleEditSubmit = (e) => {
     e.preventDefault()
-    if (!requirePaywall()) return
+    // Premium feature: in-place region edit. Block if the user's
+    // plan doesn't include `edit`.
+    if (!requirePremium('edit', 'Edit')) return
     setEditFooterError('')
     if (editSourceMode === 'upload' && editDataUrl) {
       setEditDialogUrl(editDataUrl)
@@ -4617,7 +4620,8 @@ export function ThumbnailGenerator({
   }
 
   const handleOpenEditFromFooter = () => {
-    if (!requirePaywall()) return
+    // Premium feature: in-place region edit.
+    if (!requirePremium('edit', 'Edit')) return
     setEditFooterError('')
     if (editSourceMode === 'upload' && editDataUrl) {
       setEditDialogUrl(editDataUrl)
@@ -4634,7 +4638,7 @@ export function ThumbnailGenerator({
 
   const handleAnalyzeFooterSubmit = async (e) => {
     e?.preventDefault?.()
-    if (!requirePaywall()) return
+    // Credit-only access — backend gate handles INSUFFICIENT_CREDITS.
     if (anyJobInFlight) return
     if (submitGuardRef.current) return
     const imageUrl = analyzeSourceMode === 'upload' ? analyzeSourceImage : analyzePreviewUrl
@@ -4786,7 +4790,7 @@ export function ThumbnailGenerator({
 
   const handleTitleIdeasSubmit = async (e) => {
     e?.preventDefault?.()
-    if (!requirePaywall()) return
+    // Credit-only access — backend gate handles INSUFFICIENT_CREDITS.
     if (anyJobInFlight) return
     if (submitGuardRef.current) return
     const topic = titleTopic.trim()

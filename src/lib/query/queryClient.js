@@ -2,13 +2,24 @@ import { QueryClient, QueryCache, MutationCache } from '@tanstack/react-query'
 import { aiAwareShouldRetry, aiAwareRetryDelay } from '../aiErrors'
 
 // Global paywall interceptor — any query or mutation that comes back as
-// 402 NO_ACTIVE_SUBSCRIPTION redirects the user to the pricing screen.
+// 402 with one of the recognised paywall codes redirects the user to
+// the pricing screen.
+//
+//   NO_ACTIVE_SUBSCRIPTION → tried to use a premium-only feature
+//                            (Persona / Styles / Edit / Score /
+//                            One-click fix / Max model)
+//   INSUFFICIENT_CREDITS   → ran out of credits on a credit-deductible
+//                            feature (Generate / Recreate / Analyze /
+//                            Titles)
+//
+// Both redirect to /pro silently — no error banner.
+const PAYWALL_CODES = new Set(['NO_ACTIVE_SUBSCRIPTION', 'INSUFFICIENT_CREDITS'])
+
 function maybeRedirectToPaywall(error) {
   if (!error) return
-  const is402 = error.status === 402
-  const isPaywall =
-    error.code === 'NO_ACTIVE_SUBSCRIPTION' || error.body?.error?.code === 'NO_ACTIVE_SUBSCRIPTION'
-  if (!is402 || !isPaywall) return
+  if (error.status !== 402) return
+  const code = error.code || error.body?.error?.code || error.body?.detail?.code
+  if (!code || !PAYWALL_CODES.has(code)) return
   if (typeof window === 'undefined') return
   // Avoid loop if we're already on the pricing page.
   if ((window.location.hash || '').replace(/^#/, '').startsWith('pro')) return

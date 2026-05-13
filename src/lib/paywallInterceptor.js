@@ -1,22 +1,28 @@
 /**
  * Global paywall interceptor.
  *
- * Wraps window.fetch once. When any request returns HTTP 402 with
- * error.code === "NO_ACTIVE_SUBSCRIPTION":
- *   1. Immediately navigates the SPA to the pricing screen (#pro).
- *   2. Returns a fake `Response` that looks like a cancelled request, so
- *      downstream `.then(res => res.ok ? ... : throw)` branches simply
- *      resolve to `null` / empty state without rendering any error UI.
+ * Wraps window.fetch once. When any request returns HTTP 402 with one
+ * of the recognised paywall codes:
  *
- * This keeps the UX clean — the user never sees a red "Start your free
- * trial" error banner; they just land on the pricing page.
+ *   * NO_ACTIVE_SUBSCRIPTION  — the user hit a premium-only feature
+ *                               (Persona / Styles / Edit / Score /
+ *                               One-click fix / Max model) without a
+ *                               paid plan.
+ *   * INSUFFICIENT_CREDITS    — a credit-deductible feature
+ *                               (Generate / Recreate / Analyze /
+ *                               Titles) was hit but the user ran out
+ *                               of credits.
+ *
+ * Both cases redirect to /pro with distinct analytics events so we
+ * can tell upgrade-intent (premium gate) from upsell-intent (credit
+ * exhaustion) in dashboards. The redirect is silent — no red banner.
  */
 
 import { track } from './analytics'
 
 let installed = false
 
-const PAYWALL_CODE = 'NO_ACTIVE_SUBSCRIPTION'
+const PAYWALL_CODES = new Set(['NO_ACTIVE_SUBSCRIPTION', 'INSUFFICIENT_CREDITS'])
 
 function goToPricing() {
   if (typeof window === 'undefined') return
@@ -46,10 +52,13 @@ export function installPaywallInterceptor() {
       const cloned = response.clone()
       const body = await cloned.json().catch(() => null)
       const code = body?.error?.code || body?.detail?.code || body?.code || null
-      if (code === PAYWALL_CODE) {
+      if (code && PAYWALL_CODES.has(code)) {
         try {
           const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || ''
-          track('paywall_view', { feature_path: new URL(url, window.location.origin).pathname })
+          // Distinct analytics events so funnels can tell premium-gate
+          // hits from credit-exhaustion hits.
+          const event = code === 'INSUFFICIENT_CREDITS' ? 'credits_exhausted' : 'paywall_view'
+          track(event, { feature_path: new URL(url, window.location.origin).pathname })
         } catch {}
         goToPricing()
         return makeSilentResponse()
