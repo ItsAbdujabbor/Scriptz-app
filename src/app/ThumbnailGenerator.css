@@ -89,17 +89,12 @@
  * badge owns its own click-to-topup dialog (CreditPacksModal). ═══ */
 .thumb-screen-credits {
   position: absolute;
-  top: 0.6rem;
-  right: 0.75rem;
+  /* 1:1 with .sidebar-open-btn (left) and .thumb-plan-callout (center)
+   * so the three top affordances baseline at the same y. */
+  top: 12px;
+  right: 12px;
   z-index: 30;
   pointer-events: auto;
-}
-
-@media (max-width: 640px) {
-  .thumb-screen-credits {
-    top: 0.5rem;
-    right: 0.6rem;
-  }
 }
 
 /* Narrow phones (≤ 480 px): the model picker, plan callout, and
@@ -355,17 +350,24 @@
  * ══════════════════════════════════════════════════════════════════════ */
 .thumb-plan-callout {
   position: absolute;
-  top: 0.9rem;
+  top: 12px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 5;
+  /* Sits above the credits badge's halo on tight viewports — but the
+   * narrow-screen media query below also constrains the pill's width
+   * so it doesn't actually overlap. */
+  z-index: 31;
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  /* 4px right padding leaves a clean inset for the CTA's outer rect; the
+  /* 5px right padding leaves a clean inset for the CTA's outer rect; the
    * left-side gets more breathing room around the icon + label. */
-  padding: 4px 4px 4px 12px;
-  height: 38px;
+  padding: 5px 5px 5px 14px;
+  /* 1:1 height with .sidebar-open-btn (mobile hamburger) and
+   * .header-credits-badge (right pill) so the three top affordances
+   * read as a balanced toolbar across the screen. */
+  height: 40px;
+  box-sizing: border-box;
   border-radius: 999px;
   background:
     /* Soft violet wash across the top so the label feels like it sits
@@ -456,6 +458,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Pill shell is 40px; CTA is the inset 30px capsule (5px inset on
+   * each side of the shell). */
   height: 30px;
   padding: 0 14px;
   border: none;
@@ -527,14 +531,23 @@
 }
 
 /* Tight viewports — collapse the sub-line so the chip doesn't overflow
- * on narrow phones. The primary label + CTA stay; the muted secondary
- * descriptor hides since space is too tight to read it cleanly. */
+ * on narrow phones, but keep the OUTER shell at 40px so the three top
+ * pills (hamburger, trial pill, credits) all read at the same height
+ * across the screen. The user-feedback bug this fixes: on a 360-400px
+ * phone the credits badge previously overlapped the trial pill's CTA
+ * because the trial pill was wider AND taller. With the sub-text
+ * hidden and the icon dropped at the narrowest sizes, the trial pill
+ * compresses to its label+CTA core (~150px) and clears the credits. */
 @media (max-width: 560px) {
   .thumb-plan-callout {
-    height: 36px;
-    gap: 0.45rem;
-    padding: 3px 3px 3px 11px;
+    /* Height stays 40px — matches the hamburger + credits badge. */
+    gap: 0.4rem;
+    padding: 5px 5px 5px 12px;
     font-size: 0.78rem;
+    /* Cap the pill width so the centered chip can never reach into
+     * the credits-badge halo on the right. Computed: viewport minus
+     * (hamburger 40 + credits ~88 + 8px gutters × 2) = ~viewport-152. */
+    max-width: calc(100vw - 168px);
   }
   .thumb-plan-callout__icon {
     width: 18px;
@@ -548,9 +561,27 @@
     display: none;
   }
   .thumb-plan-callout__cta {
-    height: 28px;
-    padding: 0 11px;
+    height: 30px;
+    padding: 0 12px;
     font-size: 0.76rem;
+  }
+}
+
+/* Extra-narrow phones (≤ 400 px) — the trial pill's icon disappears so
+ * the label + CTA always fit cleanly between hamburger and credits.
+ * On a 360px iPhone SE this is the difference between the credits
+ * overlapping the CTA and a clean three-pill row. */
+@media (max-width: 400px) {
+  .thumb-plan-callout {
+    gap: 0.35rem;
+    padding: 5px 5px 5px 10px;
+  }
+  .thumb-plan-callout__icon {
+    display: none;
+  }
+  .thumb-plan-callout__cta {
+    padding: 0 10px;
+    font-size: 0.74rem;
   }
 }
 
