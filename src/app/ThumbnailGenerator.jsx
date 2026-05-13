@@ -5004,14 +5004,18 @@ export function ThumbnailGenerator({
         transition={{ duration: 0.42, ease: IOS_EASE }}
       >
         <div className="thumb-bg-fx-top-shadow" aria-hidden="true" />
-        {/* Top-right credits badge — pinned over the chat shell so it's
-         * always reachable. Click → CreditPacks top-up dialog (same one
-         * the rest of the app uses via the `app:open-credits-modal`
-         * event). Hidden for unsubscribed users by HeaderCreditsBadge. */}
-        <div className="thumb-screen-credits">
-          <HeaderCreditsBadge />
+        {/* Top toolbar — 3-column CSS grid so the trial pill (centre)
+         * and credits badge (right) always fit alongside the global
+         * sidebar hamburger (left, rendered separately). The grid auto-
+         * compresses when the viewport is narrow, so the centred trial
+         * pill can never overlap the right-pinned credits halo. */}
+        <div className="thumb-top-bar">
+          <div className="thumb-top-bar__spacer" aria-hidden="true" />
+          <PlanCallout />
+          <div className="thumb-top-bar__credits">
+            <HeaderCreditsBadge />
+          </div>
         </div>
-        <PlanCallout />
         <div
           ref={threadRef}
           className={`coach-thread ${layoutCentered ? 'coach-thread--empty' : ''} coach-thread--thumb-panel ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
