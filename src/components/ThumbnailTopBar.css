@@ -133,6 +133,35 @@
     transform 0.22s cubic-bezier(0.34, 1.2, 0.6, 1);
 }
 
+/* Desktop layout — the global Sidebar becomes a permanent left column
+ * at ≥ 1025px (matches the Sidebar.css breakpoint), so:
+ *   • Hide the in-bar hamburger (the sidebar is already visible).
+ *   • Hide the spacer BETWEEN the trial pill and the credits badge so
+ *     the two right-hand pills sit flush against each other.
+ *   • Keep the leading spacer (the one before the trial pill) so the
+ *     remaining group is pushed to the right edge of the chat area.
+ *
+ * Net effect on desktop:
+ *   [               grow                ][Go Pro][Credits]
+ * Net effect on mobile (unchanged):
+ *   [Menu]          [Go Pro]          [Credits]
+ */
+@media (min-width: 1025px) {
+  .clixa-topbar .clixa-pill--menu {
+    display: none;
+  }
+  /* The two spacers are identical DOM nodes — target the second one
+   * (the one after the trial pill's wrap, before the credits badge). */
+  .clixa-topbar .clixa-pill__wrap + .clixa-topbar__spacer {
+    display: none;
+  }
+  /* Slim gap between the trial pill and credits so they breathe but
+   * stay grouped. */
+  .clixa-topbar .clixa-pill__wrap {
+    margin-right: 10px;
+  }
+}
+
 /* ── Trial / upgrade pill ───────────────────────────────────── *
  * Mirrors the credits-badge structure: state tag | divider | CTA.
  * Reads at a glance as "current plan state | what to do about it".
@@ -495,6 +524,19 @@
     linear-gradient(135deg, rgba(148, 163, 184, 0.16) 0%, rgba(71, 85, 105, 0.14) 100%),
     var(--clixa-pill-bg);
   border-color: rgba(167, 139, 250, 0.3);
+}
+
+/* Free — slate wash, same family as Starter but a hair cooler. Pairs
+ * with the trial pill's "Free" tag so the two pills read as one
+ * state at a glance. */
+.clixa-topbar .header-credits-badge--tier-free {
+  background:
+    linear-gradient(135deg, rgba(148, 163, 184, 0.12) 0%, rgba(71, 85, 105, 0.1) 100%),
+    var(--clixa-pill-bg);
+  border-color: rgba(148, 163, 184, 0.28);
+}
+.clixa-topbar .header-credits-badge--tier-free .header-credits-badge__plan {
+  color: rgba(203, 213, 225, 0.92);
 }
 
 /* Low / empty balance — coral / amber overrides on the icon only,

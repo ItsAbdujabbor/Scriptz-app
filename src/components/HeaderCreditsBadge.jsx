@@ -47,8 +47,12 @@ function formatCount(n) {
 // Map the raw plan tier (server-side enum: starter | creator | ultimate)
 // to a display label + className token. The label is what the user
 // reads; the tier token drives the colour ramp on the right zone.
-function planTierAndLabel(subscription, isTrial) {
+function planTierAndLabel(subscription, isTrial, isSubscribed) {
   if (isTrial) return { tier: 'trial', label: 'Trial' }
+  // Unsubscribed users (free tier) get a slate-coloured "Free" pill —
+  // the badge is still rendered so they can see their welcome credits
+  // counting down as they use the product.
+  if (!isSubscribed) return { tier: 'free', label: 'Free' }
   const rawTier = (subscription?.tier || '').toString().trim().toLowerCase()
   const rawName = (subscription?.plan_name || '').toString().trim()
   const fromTier = ['starter', 'creator', 'ultimate'].includes(rawTier) ? rawTier : null
@@ -72,13 +76,18 @@ export function HeaderCreditsBadge({ onClick }) {
     return Number(credits.subscription_credits || 0) + Number(credits.permanent_credits || 0)
   }, [credits])
 
-  if (!isSubscribed) return null
+  // Show the badge for every signed-in user — free users see their
+  // welcome credits + "Free" plan tag, paid users see their tier label.
+  // The only time we render nothing is when the credits query hasn't
+  // resolved yet AND there's no subscription either, which means the
+  // session itself isn't ready.
+  if (credits == null && !subscription) return null
 
   const isLow = total != null && total > 0 && total < 100
   const isEmpty = total === 0
   const isTrial = !!subscription?.is_trial
   const planCredits = subscription?.plan_credits || 0
-  const { tier, label: planLabel } = planTierAndLabel(subscription, isTrial)
+  const { tier, label: planLabel } = planTierAndLabel(subscription, isTrial, isSubscribed)
 
   const handleClick = (e) => {
     if (onClick) return onClick(e)
