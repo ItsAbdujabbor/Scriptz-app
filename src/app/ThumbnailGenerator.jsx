@@ -28,6 +28,7 @@ import {
 } from '../queries/thumbnails/thumbnailQueries'
 import { useThumbnailChatActivityStore } from '../stores/thumbnailChatActivityStore'
 import { useThumbnailJobStatusStore } from '../stores/thumbnailJobStatusStore'
+import * as pendingActions from '../stores/pendingActionStore'
 import { EditThumbnailDialog } from '../components/EditThumbnailDialog'
 import { HeaderCreditsBadge } from '../components/HeaderCreditsBadge'
 import { TabBar } from '../components/TabBar'
@@ -2264,6 +2265,14 @@ export function ThumbnailGenerator({
   useEffect(() => {
     messagesRef.current = messages
   }, [messages])
+
+  // Mount-time housekeeping for the pending-action localStorage queue:
+  // drop tickets older than 30min (the stale-pending sweep on the
+  // backend already finalises those rows server-side, so client-side
+  // bookkeeping past that point is stale). Runs once per mount.
+  useEffect(() => {
+    pendingActions.prune()
+  }, [])
   // Local-only thread for flows that don't write through the chat endpoint:
   // recreate (regenerateWithPersona) and analyze (rate). These don't have
   // a server record so we keep them in a separate bucket — they survive
@@ -2531,8 +2540,19 @@ export function ThumbnailGenerator({
   // this tab owns the generation eliminates that flicker; the
   // server-pending state still gets surfaced via the sidebar list
   // refetch for OTHER tabs / sessions watching this conversation.
+  //
+  // ALSO poll when the currently-rendered conversation has any
+  // pending assistant row — e.g. the user hard-refreshed mid-generate
+  // for a recreate/analyze/titles op and the conv-row `is_pending`
+  // flag in the sidebar hasn't propagated yet (or expired). The poll
+  // fetches the conversation every 4s; when the server-side handler
+  // finalises the row (via `pending_message_id` or the stale sweep),
+  // the next poll tick lifts the loader.
+  const hasPendingAssistantRow = messages.some(
+    (m) => m && (m._analyzePending || m._titlesPending || m._promptPending)
+  )
   const conversationQuery = useThumbnailConversationQuery(conversationId, {
-    pollWhilePending: isCurrentConversationPending && !pendingAssistant,
+    pollWhilePending: (isCurrentConversationPending || hasPendingAssistantRow) && !pendingAssistant,
   })
   // Conversations the client minted in this mount (via send-first-message,
   // persistEvent auto-create, or the chat mutation's auto-create). For these
@@ -2894,25 +2914,35 @@ export function ThumbnailGenerator({
       // failure entries for FailedAttemptBlock to render.
       const next = mergeFailurePairs(stitchPersistedUserImages(built))
       // Silent-reconciliation guard: skip the setMessages call if the
-      // computed list has the SAME id sequence as the current state.
-      // Otherwise React Query's reference-equality identity flips on
-      // every successful refetch (even a no-op poll tick), which
-      // triggers a setMessages → re-render → renderedMessages recompute
-      // → message-list reconciliation → scroll-to-bottom even though
-      // nothing visible changed. With this guard, only NEW data ever
-      // causes a re-render — refetches that find no diff are no-ops.
+      // computed list is unchanged in any rendered field. Otherwise
+      // React Query's reference-equality identity flips on every
+      // successful refetch (even a no-op poll tick), which triggers a
+      // re-render and scroll-to-bottom even though nothing visible
+      // changed. The previous version compared on id-sequence only,
+      // which mis-classified content updates (e.g. a pending row
+      // finalising) as "same" and left the loader stuck on screen
+      // after a poll-driven update. This version compares the fields
+      // that actually affect what the user sees — id + content +
+      // pending flags + result payloads — so genuine updates pass
+      // through immediately while idle polls stay silent.
       setMessages((prev) => {
-        if (prev.length === next.length) {
-          let same = true
-          for (let i = 0; i < prev.length; i++) {
-            if (prev[i] !== next[i] && prev[i]?.id !== next[i]?.id) {
-              same = false
-              break
-            }
-          }
-          if (same) return prev
+        if (prev.length !== next.length) return next
+        for (let i = 0; i < prev.length; i++) {
+          if (prev[i] === next[i]) continue
+          const a = prev[i] || {}
+          const b = next[i] || {}
+          if (a.id !== b.id) return next
+          if (a.content !== b.content) return next
+          if (a.imageUrl !== b.imageUrl) return next
+          if (a.analysis !== b.analysis) return next
+          if (a.titleIdeas !== b.titleIdeas) return next
+          if (a.thumbnails !== b.thumbnails) return next
+          if (a._analyzePending !== b._analyzePending) return next
+          if (a._promptPending !== b._promptPending) return next
+          if (a._titlesPending !== b._titlesPending) return next
+          if (a._kind !== b._kind) return next
         }
-        return next
+        return prev
       })
     } else if (!matchesCurrent || !conversationQuery.data) {
       // Defensive wipe: only fire if the current state isn't already
@@ -4469,6 +4499,20 @@ export function ThumbnailGenerator({
     setRecreateSourceImage(null)
     setRecreateUrlInput('')
     setRecreatePreviewUrl(null)
+    // Synchronous localStorage ticket: written BEFORE any await so a
+    // refresh inside the pre-persist window still leaves a record.
+    const op_id =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `recreate-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
+    pendingActions.enqueue({
+      op_id,
+      kind: 'recreate',
+      conversationId,
+      userText,
+      sourceImageUrl,
+      extra: { count: numRecreateThumbnails },
+    })
     // Pre-persist the pending pair BEFORE generation so a refresh
     // mid-flight doesn't drop the conversation. Binds the optimistic
     // local entry to the server IDs immediately. If pre-persist fails
@@ -4480,7 +4524,14 @@ export function ThumbnailGenerator({
       is_recreate: true,
       mode: 'recreate',
     })
-    if (prePersisted) linkLocalToServer(localIds, prePersisted, conversationId)
+    if (prePersisted) {
+      linkLocalToServer(localIds, prePersisted, conversationId)
+      pendingActions.markPersisted(op_id, {
+        serverConvId: prePersisted.conversation_id,
+        serverUserMessageId: prePersisted.user_message?.id,
+        serverAssistantMessageId: prePersisted.assistant_message?.id,
+      })
+    }
     const assistantServerId = prePersisted?.assistant_message?.id ?? null
     try {
       const token = await getAccessTokenOrNull()
@@ -4572,6 +4623,7 @@ export function ThumbnailGenerator({
       }
     } finally {
       submitGuardRef.current = false
+      pendingActions.complete(op_id)
     }
   }
 
@@ -4674,13 +4726,32 @@ export function ThumbnailGenerator({
       analysis: null,
       _analyzePending: true,
     })
+    const op_id =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `analyze-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
+    pendingActions.enqueue({
+      op_id,
+      kind: 'analyze',
+      conversationId,
+      userText,
+      sourceImageUrl: imageUrl,
+      extra: null,
+    })
     // Pre-persist the pending analyze pair BEFORE the rating call.
     const prePersisted = await persistPendingEvent('analyze', userText, {
       image_url: imageUrl,
       user_image_url: imageUrl,
       mode: 'analyze',
     })
-    if (prePersisted) linkLocalToServer(localIds, prePersisted, conversationId)
+    if (prePersisted) {
+      linkLocalToServer(localIds, prePersisted, conversationId)
+      pendingActions.markPersisted(op_id, {
+        serverConvId: prePersisted.conversation_id,
+        serverUserMessageId: prePersisted.user_message?.id,
+        serverAssistantMessageId: prePersisted.assistant_message?.id,
+      })
+    }
     const assistantServerId = prePersisted?.assistant_message?.id ?? null
     // Single-flight latch: the moment the response is committed to
     // the local card via `patchLocalAssistantMessage`, this flag
@@ -4751,6 +4822,7 @@ export function ThumbnailGenerator({
       }
     } finally {
       submitGuardRef.current = false
+      pendingActions.complete(op_id)
     }
     // No pending* state was set for analyze (in-place pattern), so
     // no `finally` cleanup is needed. The optimistic placeholder is
@@ -4789,6 +4861,18 @@ export function ThumbnailGenerator({
       _titlesPending: true,
       titleIdeasCount: titleCount,
     })
+    const op_id =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `titles-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
+    pendingActions.enqueue({
+      op_id,
+      kind: 'titles',
+      conversationId,
+      userText,
+      sourceImageUrl: null,
+      extra: { titleCount },
+    })
     // Pre-persist the pending titles pair so a refresh mid-generation
     // keeps the conversation. `title_ideas_count` lets the reload
     // adapter pick the right loader row count.
@@ -4797,7 +4881,14 @@ export function ThumbnailGenerator({
       mode: 'titles',
       title_ideas_count: titleCount,
     })
-    if (prePersisted) linkLocalToServer(localIds, prePersisted, conversationId)
+    if (prePersisted) {
+      linkLocalToServer(localIds, prePersisted, conversationId)
+      pendingActions.markPersisted(op_id, {
+        serverConvId: prePersisted.conversation_id,
+        serverUserMessageId: prePersisted.user_message?.id,
+        serverAssistantMessageId: prePersisted.assistant_message?.id,
+      })
+    }
     const assistantServerId = prePersisted?.assistant_message?.id ?? null
     try {
       const token = await getAccessTokenOrNull()
@@ -4848,6 +4939,7 @@ export function ThumbnailGenerator({
       }
     } finally {
       submitGuardRef.current = false
+      pendingActions.complete(op_id)
     }
     // No `finally` clearing of `pendingUserMessage` — title mode no
     // longer uses the separate pending-bubble flow; the user bubble
