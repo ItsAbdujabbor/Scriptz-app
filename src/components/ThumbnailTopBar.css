@@ -23,18 +23,23 @@
 .clixa-topbar {
   --clixa-pill-h: 34px;
   --clixa-pill-radius: 999px;
-  /* Sidebar widths — mirrors --sidebar-width / --sidebar-collapsed
-   * in Sidebar.css. If those tokens ever change the topbar's left
-   * offset on desktop needs to track them. */
-  --clixa-sidebar-width: 232px;
-  --clixa-sidebar-collapsed: 60px;
 
   position: fixed;
   /* Generous breathing room from the viewport top + safe-area inset
    * on iOS so the pills don't feel pinned to the screen edge. */
   top: calc(env(safe-area-inset-top, 0px) + 32px);
-  /* Mobile / narrow: full-width margin (sidebar is off-canvas). */
-  left: 20px;
+  /* Span the FULL viewport (symmetric 24 px margins). The chat
+   * content is centered against the viewport — the sidebar overlays
+   * the left side rather than pushing the chat content right — so
+   * the topbar's flex-centred Go Pro pill lands at viewport centre
+   * and therefore directly above the chat heading + composer. The
+   * left margin sitting behind the sidebar is invisible (the sidebar
+   * has a higher z-index and an opaque background).
+   *
+   * Bonus: with `left` constant regardless of sidebar state, the
+   * Go Pro pill literally cannot drift out of sync when the user
+   * collapses or expands the sidebar — there's nothing to animate. */
+  left: 24px;
   right: 24px;
   z-index: 60;
   display: flex;
@@ -42,28 +47,6 @@
   gap: 14px;
   /* Container itself doesn't catch clicks — only the pills do. */
   pointer-events: none;
-  /* Sync the `left` shift with the sidebar's own width animation.
-   * Sidebar.css uses `--sidebar-transition-open / -close` =
-   *   240ms cubic-bezier(0.33, 1, 0.68, 1)
-   * Mirror that here verbatim so the topbar slides in lock-step
-   * with the sidebar (and therefore with the chat content area,
-   * which is a flex sibling of the sidebar). No transition on
-   * the trial pill / credits' own `transform` since they only
-   * move because their flex container is moving. */
-  transition: left 240ms cubic-bezier(0.33, 1, 0.68, 1);
-}
-
-/* Desktop — sidebar is permanent. Offset the topbar's left edge to
- * sit AFTER the sidebar (so the Go Pro pill centres over the chat
- * area, not over the sidebar). The two variants react in real time
- * to the user toggling the sidebar rail. */
-@media (min-width: 1025px) {
-  .clixa-topbar--sidebar-expanded {
-    left: calc(var(--clixa-sidebar-width) + 24px);
-  }
-  .clixa-topbar--sidebar-collapsed {
-    left: calc(var(--clixa-sidebar-collapsed) + 24px);
-  }
 }
 
 .clixa-topbar > * {
