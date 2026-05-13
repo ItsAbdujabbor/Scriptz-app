@@ -288,7 +288,7 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
                   title={locked ? 'Create your own style — Clixa Pro' : 'Create a new style'}
                 >
                   {locked ? <IconCrown /> : <IconPlus />}
-                  {locked ? 'Create — Pro' : 'Create'}
+                  Create
                 </button>
               </div>
             )}

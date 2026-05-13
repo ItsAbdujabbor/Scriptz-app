@@ -453,14 +453,12 @@ const THUMB_GEN_SUB_TABS = [
   },
 ]
 
-// Reshape into the `{value,label,icon}` contract expected by ThumbPillTabs.
-// Done once at module load — stable reference so the memoised tab row
-// never invalidates on parent re-renders.
-const THUMB_GEN_MODE_OPTIONS = THUMB_GEN_SUB_TABS.map((t) => ({
-  value: t.id,
-  label: t.label,
-  icon: t.icon,
-}))
+// Note: tab options are computed per-render inside the component as
+// `thumbModeOptions` because the `premium` flag on the Edit tab
+// depends on the user's `canUse('edit')` entitlement (free users see
+// a crown badge; subscribers see no badge). The useMemo guards
+// stability so ThumbPillTabs' memo isn't invalidated by parent
+// re-renders.
 
 function ThumbBatchCirclePicker({ value, onChange, disabled }) {
   const [open, setOpen] = useState(false)
@@ -2720,6 +2718,22 @@ export function ThumbnailGenerator({
       pushThumbModeHash(conversationId, id)
     },
     [conversationId]
+  )
+
+  // Tab options recomputed only when the user's edit entitlement
+  // changes — free users see a crown badge on the Edit tab; paid
+  // users see no badge. Stable array reference keeps ThumbPillTabs'
+  // memo from invalidating on every parent re-render.
+  const canUseEdit = !!canUse?.('edit')
+  const thumbModeOptions = useMemo(
+    () =>
+      THUMB_GEN_SUB_TABS.map((t) => ({
+        value: t.id,
+        label: t.label,
+        icon: t.icon,
+        premium: t.id === 'edit' && !canUseEdit,
+      })),
+    [canUseEdit]
   )
 
   useEffect(() => {
@@ -5077,7 +5091,7 @@ export function ThumbnailGenerator({
              * doesn't re-render the tab row. */}
             <div className="thumb-gen-tab-row" role="tablist" aria-label="Thumbnail modes">
               <ThumbPillTabs
-                options={THUMB_GEN_MODE_OPTIONS}
+                options={thumbModeOptions}
                 value={thumbMode}
                 onChange={handleThumbModeTab}
                 ariaLabel="Thumbnail modes"
@@ -5226,12 +5240,20 @@ export function ThumbnailGenerator({
                         ) : (
                           <button
                             type="button"
-                            className="coach-composer-tool coach-composer-tool--circle thumb-gen-toolbar-attach"
+                            className={`coach-composer-tool coach-composer-tool--circle thumb-gen-toolbar-attach${canUseEdit ? '' : ' thumb-gen-toolbar-attach--premium'}`}
                             onClick={() => promptFileInputRef.current?.click()}
                             aria-label="Add image"
                             title="Add image"
                           >
                             <IconPaperclip />
+                            {!canUseEdit ? (
+                              <span className="thumb-gen-toolbar-attach__crown" aria-hidden>
+                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M3 8.5l3.5 3 3-5 2.5 4 2.5-4 3 5L21 8.5l-1.5 8.5h-15L3 8.5z" />
+                                  <path d="M4.5 18.5h15v1.5h-15z" />
+                                </svg>
+                              </span>
+                            ) : null}
                           </button>
                         )}
                         <PersonaSelector onOpenLibrary={onOpenPersonas} variant="glassCircle" />

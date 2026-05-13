@@ -113,3 +113,24 @@
   height: 14px;
   flex-shrink: 0;
 }
+
+/* Pro-feature signpost — small amber crown painted at the top-right
+ * corner of premium tabs. Visual only; the actual gate lives on the
+ * submit handler. */
+.thumb-gen-pill-tab__crown {
+  position: absolute;
+  top: -4px;
+  right: -2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: #fcd34d;
+  filter: drop-shadow(0 0 4px rgba(252, 211, 77, 0.5));
+  pointer-events: none;
+}
+.thumb-gen-pill-tab__crown svg {
+  width: 12px;
+  height: 12px;
+}

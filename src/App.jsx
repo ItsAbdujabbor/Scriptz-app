@@ -56,8 +56,22 @@ const AuthenticatedRoutes = lazy(() => import('./AuthenticatedRoutes.jsx'))
 
 /** Pro pricing — its own fullscreen takeover, NOT mounted inside the
  *  authenticated shell. A close-X in the top-right dismisses it back to
- *  wherever the user came from. */
+ *  wherever the user came from.
+ *
+ *  Preload trigger: every "Go Pro" / premium-locked button can route
+ *  here at any moment, so we kick off the chunk fetch on idle right
+ *  after the first paint. That way navigation feels instant — no
+ *  Suspense-fallback flicker between the click and the screen
+ *  appearing. */
 const ProScreen = lazy(() => import('./app/ProScreen').then((m) => ({ default: m.ProScreen })))
+if (typeof window !== 'undefined') {
+  const kick = () => import('./app/ProScreen')
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(kick, { timeout: 2500 })
+  } else {
+    setTimeout(kick, 1200)
+  }
+}
 
 /** Checkout — Stripe-style fullscreen takeover that hosts the Paddle
  *  Inline Checkout iframe. Reached from the pricing page after the

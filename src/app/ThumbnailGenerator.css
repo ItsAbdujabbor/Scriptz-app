@@ -2022,6 +2022,32 @@
   height: 14px !important;
 }
 
+/* Premium crown badge — small amber crown stamped at the top-right
+ * of the attach button for free users. Visual signpost only — the
+ * button itself stays functional (image attach works regardless of
+ * subscription state). The crown communicates that image-as-prompt
+ * is part of the Pro experience. */
+.thumb-gen-toolbar-attach__crown {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  color: #fcd34d;
+  filter: drop-shadow(0 0 4px rgba(252, 211, 77, 0.55));
+  pointer-events: none;
+}
+.thumb-gen-toolbar-attach__crown svg {
+  width: 10px !important;
+  height: 10px !important;
+}
+.thumb-gen-toolbar-attach--premium {
+  position: relative;
+}
+
 /* Unified toolbar-button sizing on the thumbnail screen — every empty-
  * state circle button (attach, persona, style, batch) shares the same
  * 34px square as the sidebar's New-chat pill so the whole row reads as

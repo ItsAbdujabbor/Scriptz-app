@@ -326,7 +326,7 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
                   }
                 >
                   {locked ? <IconCrown /> : <IconPlus />}
-                  {locked ? 'Create — Pro' : 'Create'}
+                  Create
                 </button>
               </div>
             )}
