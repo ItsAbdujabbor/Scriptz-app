@@ -19,6 +19,9 @@
   gap: 0.4rem;
   flex-wrap: wrap;
   justify-content: flex-start;
+  /* Crown badge on premium tabs overflows the pill bounds by ~6 px;
+   * the group container must NOT clip it. */
+  overflow: visible;
 }
 
 .thumb-gen-pill-tab-group--right {

@@ -212,3 +212,17 @@ body.zoom-settling *::after {
   width: 10px;
   height: 10px;
 }
+
+/* On mobile / narrow viewports the soft keyboard pushes the footer
+ * chrome (which owns the tab row + premium-tab badges) right up
+ * to the top of the visible area. The badge's -6px overhang then
+ * spills above the viewport and reads as "clipped". Tighten the
+ * overhang on small screens so the badge stays inside the pill's
+ * own bounds. The pill itself is 34px tall; an 18px badge with a
+ * -2px top offset still reads as a corner stamp without spilling. */
+@media (max-width: 768px) {
+  .clixa-pro-crown:not(.clixa-pro-crown--inline) {
+    top: -2px;
+    right: -2px;
+  }
+}

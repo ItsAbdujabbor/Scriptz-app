@@ -4289,6 +4289,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  /* Crown badges on premium tabs extend -6 px above their host
+   * pill. Make sure this row (and the inline-flex tab group
+   * inside it) doesn't clip them on mobile, where the footer
+   * chrome's overflow can be tight. */
+  overflow: visible;
   /* Outer dimensions match the composer below (`.coach-main--thumb
    * .coach-composer`) so the tabbar sits in the same 780px column.
    * The inner padding mirrors the composer's `0.85rem` horizontal
