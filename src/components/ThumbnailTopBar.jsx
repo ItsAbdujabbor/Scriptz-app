@@ -129,7 +129,6 @@ export default function ThumbnailTopBar() {
   return (
     <header className="clixa-topbar" role="banner">
       <MenuButton />
-      <div className="clixa-topbar__spacer" aria-hidden />
       <TrialPill />
       <div className="clixa-topbar__spacer" aria-hidden />
       <HeaderCreditsBadge />
