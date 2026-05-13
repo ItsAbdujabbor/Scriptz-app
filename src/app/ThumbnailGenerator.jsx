@@ -30,7 +30,7 @@ import { useThumbnailChatActivityStore } from '../stores/thumbnailChatActivitySt
 import { useThumbnailJobStatusStore } from '../stores/thumbnailJobStatusStore'
 import * as pendingActions from '../stores/pendingActionStore'
 import { EditThumbnailDialog } from '../components/EditThumbnailDialog'
-import { HeaderCreditsBadge } from '../components/HeaderCreditsBadge'
+import ThumbnailTopBar from '../components/ThumbnailTopBar'
 import { TabBar } from '../components/TabBar'
 import { Dropdown, InlineSpinner, PrimaryPill } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
@@ -158,52 +158,6 @@ function SmoothHint({ visible, variant = 'textarea', children }) {
     >
       {children}
     </span>
-  )
-}
-
-/**
- * Top-of-screen plan callout. Floats at the top centre of the chat
- * shell. Hidden entirely for paid Pro users (active subscription that
- * isn't a trial); shown to free users and trialing users with the
- * appropriate CTA. Both CTAs route to #pro.
- *
- * Visual: dark-glass body, violet-tinted border + glow, sparkle icon
- * in brand violet, inset accent-gradient button on the right. Reads
- * as a single unified chip — info on the left, action on the right.
- */
-function PlanCallout() {
-  const { isSubscribed, isTrial } = usePlanEntitlements()
-  // Hook must be called unconditionally before any early return to
-  // satisfy rules-of-hooks.
-  const handleClick = useCallback(() => {
-    if (typeof window !== 'undefined') window.location.hash = 'pro'
-  }, [])
-  // Paid Pro (active subscription, not a trial) — nothing to upsell.
-  if (isSubscribed && !isTrial) return null
-  const onTrial = !!isTrial
-  return (
-    <div className="thumb-plan-callout" role="status" aria-live="polite">
-      <span className="thumb-plan-callout__icon" aria-hidden>
-        <LucideSparkles strokeWidth={2.2} />
-      </span>
-      <span className="thumb-plan-callout__text">
-        {onTrial ? (
-          <>
-            <span className="thumb-plan-callout__label">Trial active</span>
-            <span className="thumb-plan-callout__sub"> · finish setup</span>
-          </>
-        ) : (
-          <>
-            <span className="thumb-plan-callout__label">Unlock Pro</span>
-            <span className="thumb-plan-callout__sub"> · unlimited thumbnails</span>
-          </>
-        )}
-      </span>
-      <button type="button" className="thumb-plan-callout__cta" onClick={handleClick}>
-        <span className="thumb-plan-callout__cta-shine" aria-hidden />
-        <span className="thumb-plan-callout__cta-label">{onTrial ? 'Skip Trial' : 'Go Pro'}</span>
-      </button>
-    </div>
   )
 }
 
@@ -5004,18 +4958,11 @@ export function ThumbnailGenerator({
         transition={{ duration: 0.42, ease: IOS_EASE }}
       >
         <div className="thumb-bg-fx-top-shadow" aria-hidden="true" />
-        {/* Top toolbar — 3-column CSS grid so the trial pill (centre)
-         * and credits badge (right) always fit alongside the global
-         * sidebar hamburger (left, rendered separately). The grid auto-
-         * compresses when the viewport is narrow, so the centred trial
-         * pill can never overlap the right-pinned credits halo. */}
-        <div className="thumb-top-bar">
-          <div className="thumb-top-bar__spacer" aria-hidden="true" />
-          <PlanCallout />
-          <div className="thumb-top-bar__credits">
-            <HeaderCreditsBadge />
-          </div>
-        </div>
+        {/* Top-bar — owns the menu button + trial / upgrade pill +
+         * credits badge as three siblings sharing one visual recipe.
+         * Hides the global Sidebar's .sidebar-open-btn while mounted
+         * (via body.clixa-thumb-screen). */}
+        <ThumbnailTopBar />
         <div
           ref={threadRef}
           className={`coach-thread ${layoutCentered ? 'coach-thread--empty' : ''} coach-thread--thumb-panel ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}

@@ -1,0 +1,353 @@
+/* ============================================================
+   ThumbnailTopBar — the single top-bar that owns the menu
+   button, the trial / upgrade pill, and the credits badge as
+   three equally-sized siblings on the thumbnail screen.
+
+   Goals encoded here:
+
+     1. ONE positioning system. The bar is position: fixed at
+        the viewport's top so the menu button (which the global
+        Sidebar also rendered as position: fixed) lines up with
+        the other two pills without depending on any parent's
+        padding-top.
+     2. ONE visual recipe. Every pill extends `.clixa-pill` —
+        same height, same dark-glass body, same violet hairline,
+        same drop-shadow. Each variant adds ONE differentiator
+        (the CTA inside the trial pill, the tier accent on the
+        credits' plan tag).
+     3. ONE responsive ladder. All mobile / narrow-screen rules
+        live in this file. No more cross-file media queries
+        fighting each other.
+
+   Token: `--clixa-pill-h` controls the height. Bump it in one
+   place if the design ever changes.
+   ============================================================ */
+
+.clixa-topbar {
+  --clixa-pill-h: 40px;
+  --clixa-pill-radius: 999px;
+  --clixa-pill-border: 1px solid rgba(196, 181, 253, 0.22);
+  --clixa-pill-border-hover: 1px solid rgba(196, 181, 253, 0.42);
+  --clixa-pill-bg: linear-gradient(180deg, rgba(28, 24, 40, 0.92) 0%, rgba(13, 11, 24, 0.92) 100%);
+  --clixa-pill-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 6px 22px rgba(0, 0, 0, 0.34),
+    0 0 22px rgba(124, 58, 237, 0.16);
+  --clixa-pill-shadow-hover:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 26px rgba(0, 0, 0, 0.4),
+    0 0 28px rgba(124, 58, 237, 0.28);
+
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* Container itself doesn't catch clicks — only the pills do.
+   * Lets the chat content underneath remain interactive in the
+   * gaps between pills. */
+  pointer-events: none;
+}
+
+.clixa-topbar > * {
+  pointer-events: auto;
+}
+
+/* Flex spacers around the trial pill so the middle child lands
+ * visually centred between the menu button and the credits. */
+.clixa-topbar__spacer {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* ── Shared pill base ───────────────────────────────────────── */
+
+.clixa-pill {
+  height: var(--clixa-pill-h);
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--clixa-pill-radius);
+  border: var(--clixa-pill-border);
+  background: var(--clixa-pill-bg);
+  box-shadow: var(--clixa-pill-shadow);
+  backdrop-filter: blur(22px) saturate(1.5);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  color: rgba(245, 243, 255, 0.94);
+  font: inherit;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    border-color 0.22s ease,
+    box-shadow 0.22s ease,
+    background 0.22s ease;
+}
+
+.clixa-pill:hover {
+  border: var(--clixa-pill-border-hover);
+  box-shadow: var(--clixa-pill-shadow-hover);
+  color: #ffffff;
+}
+
+.clixa-pill:focus-visible {
+  outline: none;
+  border-color: rgba(196, 181, 253, 0.6);
+  box-shadow:
+    var(--clixa-pill-shadow-hover),
+    0 0 0 3px rgba(167, 139, 250, 0.32);
+}
+
+.clixa-pill:active {
+  transform: scale(0.97);
+  transition: transform 0.12s cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+/* ── Menu button ────────────────────────────────────────────── */
+
+.clixa-pill--menu {
+  width: var(--clixa-pill-h);
+  padding: 0;
+  flex: 0 0 auto;
+}
+
+.clixa-pill--menu svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.clixa-pill--menu.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.85);
+  transition:
+    opacity 0.2s ease,
+    transform 0.22s cubic-bezier(0.34, 1.2, 0.6, 1);
+}
+
+/* ── Trial / upgrade pill ───────────────────────────────────── */
+
+.clixa-pill--trial {
+  padding: 4px 4px 4px 14px;
+  gap: 10px;
+  font-size: 0.82rem;
+  flex: 0 0 auto;
+  /* Subtle violet wash at the top so the label reads as sitting
+   * on a faint brand glow, not a flat dark bar. */
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(124, 58, 237, 0.18) 0%, transparent 70%),
+    var(--clixa-pill-bg);
+}
+
+.clixa-trial__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: #c4b5fd;
+  filter: drop-shadow(0 0 6px rgba(196, 181, 253, 0.45));
+}
+.clixa-trial__icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.clixa-trial__text {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+  padding-right: 4px;
+}
+.clixa-trial__label {
+  color: rgba(248, 246, 255, 0.96);
+  font-weight: 600;
+}
+.clixa-trial__sub {
+  color: rgba(229, 229, 231, 0.55);
+  font-weight: 500;
+}
+
+/* CTA — the ONE loud element in the toolbar. Accent gradient,
+ * white label, internal shine sweep on hover. */
+.clixa-trial__cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(
+    --accent-gradient,
+    linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 2px 8px rgba(76, 29, 149, 0.35);
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  flex-shrink: 0;
+  transition:
+    filter 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.15s ease;
+}
+
+.clixa-trial__cta-shine {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 100%
+  );
+  transform: translateX(-110%);
+  transition: transform 0.55s ease;
+  pointer-events: none;
+}
+
+.clixa-trial__cta-label {
+  position: relative;
+  z-index: 1;
+}
+
+.clixa-pill--trial:hover .clixa-trial__cta {
+  filter: brightness(1.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 4px 14px rgba(76, 29, 149, 0.5);
+}
+.clixa-pill--trial:hover .clixa-trial__cta-shine {
+  transform: translateX(110%);
+}
+
+.clixa-pill--trial:focus-visible .clixa-trial__cta-shine {
+  transform: translateX(110%);
+}
+
+/* ── Credits-badge container override ────────────────────────
+ * The credits badge renders its own internal markup; here we
+ * just normalise its outer shell so it matches the `.clixa-pill`
+ * family. The badge's tier-accent on the plan tag stays
+ * intact — that's its one point of identity. */
+
+.clixa-topbar .header-credits-badge {
+  height: var(--clixa-pill-h);
+  box-sizing: border-box;
+  padding: 0 0.7rem 0 0.55rem;
+  border-radius: var(--clixa-pill-radius);
+  border: var(--clixa-pill-border);
+  background: var(--clixa-pill-bg);
+  box-shadow: var(--clixa-pill-shadow);
+  backdrop-filter: blur(22px) saturate(1.5);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  flex: 0 0 auto;
+  transition:
+    border-color 0.22s ease,
+    box-shadow 0.22s ease;
+}
+.clixa-topbar .header-credits-badge:hover {
+  border: var(--clixa-pill-border-hover);
+  box-shadow: var(--clixa-pill-shadow-hover);
+}
+/* Trial / Ultimate variants still get their warm-gold accent on
+ * the BORDER, but only ~30% strength so the toolbar still reads
+ * as a unified family. */
+.clixa-topbar .header-credits-badge--trial,
+.clixa-topbar .header-credits-badge--tier-ultimate {
+  border-color: rgba(253, 224, 71, 0.34);
+}
+.clixa-topbar .header-credits-badge--trial:hover,
+.clixa-topbar .header-credits-badge--tier-ultimate:hover {
+  border-color: rgba(253, 224, 71, 0.55);
+}
+
+/* ── Responsive collapse ───────────────────────────────────── */
+
+/* Phones in landscape / small tablets — drop the trial pill's
+ * sub-text so the chip reads tightly. */
+@media (max-width: 720px) {
+  .clixa-trial__sub {
+    display: none;
+  }
+}
+
+/* Phones (≤ 560 px) — hide the trial pill's label so the chip
+ * collapses to icon + CTA. The credits badge's "TRIAL" tag
+ * still carries the status signal. */
+@media (max-width: 560px) {
+  .clixa-pill--trial {
+    padding: 4px 4px 4px 10px;
+    gap: 6px;
+  }
+  .clixa-trial__text {
+    display: none;
+  }
+  .clixa-trial__cta {
+    height: 30px;
+    padding: 0 12px;
+    font-size: 0.78rem;
+  }
+}
+
+/* Tighten the credits badge below 680 px so the three pills
+ * sit cleanly on a 360–414 px phone. */
+@media (max-width: 680px) {
+  .clixa-topbar .header-credits-badge {
+    padding: 0 0.6rem 0 0.5rem;
+  }
+}
+
+/* Tiny phones (≤ 380 px) — drop the trial pill's icon AND the
+ * credits' plan tag so each pill fits inside ~ 70 px and the
+ * three controls fit on a 320 px viewport with ample breathing
+ * room. */
+@media (max-width: 380px) {
+  .clixa-pill--trial {
+    padding: 4px;
+    gap: 0;
+  }
+  .clixa-trial__icon {
+    display: none;
+  }
+  .clixa-trial__cta {
+    padding: 0 11px;
+    font-size: 0.74rem;
+  }
+  .clixa-topbar .header-credits-badge__divider,
+  .clixa-topbar .header-credits-badge__plan {
+    display: none;
+  }
+}
+
+/* Reduced motion — respect the OS preference. */
+@media (prefers-reduced-motion: reduce) {
+  .clixa-pill,
+  .clixa-trial__cta,
+  .clixa-trial__cta-shine,
+  .clixa-pill--menu.is-hidden {
+    transition: none;
+  }
+  .clixa-pill:active {
+    transform: none;
+  }
+}

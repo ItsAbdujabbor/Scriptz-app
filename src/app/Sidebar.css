@@ -3009,6 +3009,15 @@
   transform: scale(0.85);
 }
 
+/* The thumbnail screen renders its own in-bar menu button as part of
+ * ThumbnailTopBar (Clixa-app/src/components/ThumbnailTopBar.jsx). Hide
+ * the global Sidebar's hamburger while that screen is mounted so the
+ * two controls don't overlap. The body class is toggled by
+ * ThumbnailTopBar's mount/unmount effect. */
+body.clixa-thumb-screen .sidebar-open-btn {
+  display: none;
+}
+
 /* Overlay — dim + light blur behind the slide-in drawer. */
 .sidebar-overlay {
   display: none;
