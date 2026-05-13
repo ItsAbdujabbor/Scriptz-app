@@ -23,20 +23,22 @@
 .clixa-topbar {
   --clixa-pill-h: 34px;
   --clixa-pill-radius: 999px;
-  /* Sidebar widths — mirrors --sidebar-width / --sidebar-collapsed
-   * in Sidebar.css. The topbar's left edge tracks these so the
-   * Go Pro pill (flex-centred between the topbar's left and right
-   * edges) lands directly above the chat heading + composer, which
-   * are centred in the right-of-sidebar area. */
-  --clixa-sidebar-width: 232px;
-  --clixa-sidebar-collapsed: 60px;
 
-  position: fixed;
-  /* Generous breathing room from the viewport top + safe-area inset
-   * on iOS so the pills don't feel pinned to the screen edge. */
-  top: calc(env(safe-area-inset-top, 0px) + 32px);
-  /* Mobile / narrow: full-width margins (sidebar is off-canvas). */
-  left: 20px;
+  /* `position: absolute` against the chat shell (`.coach-chat-shell`
+   * is `position: relative`) so the topbar inherits the shell's
+   * centring. Whatever positions the chat heading + composer also
+   * positions this — they're siblings in the same container, so the
+   * flex-centred Go Pro pill is guaranteed to sit directly above
+   * the heading no matter how the parent layout shifts (sidebar
+   * collapse, viewport resize, etc).
+   *
+   * Absolute (not fixed) means the topbar moves with the shell when
+   * its entry transform animates — no flicker on page load. The
+   * shell itself doesn't scroll internally on this screen, so this
+   * stays visually pinned to the top of the chat area. */
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 18px);
+  left: 24px;
   right: 24px;
   z-index: 60;
   display: flex;
@@ -44,28 +46,6 @@
   gap: 14px;
   /* Container itself doesn't catch clicks — only the pills do. */
   pointer-events: none;
-  /* Sync the `left` shift with the sidebar's own width animation.
-   * Sidebar.css uses `--sidebar-transition-open / -close` =
-   *   240ms cubic-bezier(0.33, 1, 0.68, 1)
-   * Mirror that here verbatim so the topbar slides in lock-step
-   * with the sidebar (and therefore with the chat content area,
-   * which is a flex sibling of the sidebar). */
-  transition: left 240ms cubic-bezier(0.33, 1, 0.68, 1);
-}
-
-/* Desktop — sidebar is permanent and pushes the chat content to its
- * right (flex layout, not overlay). Offset the topbar's left edge to
- * sit AFTER the sidebar so the flex-centred Go Pro pill lands
- * directly above the chat heading + composer (which centre within
- * the right-of-sidebar slot). Two variants react in real time to
- * the user toggling the sidebar rail. */
-@media (min-width: 1025px) {
-  .clixa-topbar--sidebar-expanded {
-    left: calc(var(--clixa-sidebar-width) + 24px);
-  }
-  .clixa-topbar--sidebar-collapsed {
-    left: calc(var(--clixa-sidebar-collapsed) + 24px);
-  }
 }
 
 .clixa-topbar > * {

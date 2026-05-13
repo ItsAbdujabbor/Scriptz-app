@@ -135,20 +135,16 @@ export default function ThumbnailTopBar() {
     return () => document.body.classList.remove('clixa-thumb-screen')
   }, [])
 
-  // Track sidebar collapsed state so the topbar can offset its
-  // `left` to start AFTER the sidebar. The chat content is in flex
-  // flow next to the sidebar (not overlay), so its centre shifts
-  // when the sidebar collapses — the topbar must track that shift
-  // to keep the Go Pro pill aligned with the chat heading.
-  const sidebarCollapsed = useSidebarStore((s) => s.collapsed)
+  // Topbar lives INSIDE .coach-chat-shell now and uses
+  // `position: absolute` against the shell — so it inherits whatever
+  // centring the shell uses for its children (chat heading,
+  // composer, etc). No more sidebar-tracking needed: the Go Pro pill
+  // is guaranteed to sit directly above the heading regardless of
+  // sidebar state or viewport size, because they're siblings in the
+  // same container.
 
   return (
-    <header
-      className={`clixa-topbar ${
-        sidebarCollapsed ? 'clixa-topbar--sidebar-collapsed' : 'clixa-topbar--sidebar-expanded'
-      }`}
-      role="banner"
-    >
+    <header className="clixa-topbar" role="banner">
       <MenuButton />
       <div className="clixa-topbar__spacer" aria-hidden />
       <TrialPill />

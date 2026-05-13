@@ -4951,15 +4951,6 @@ export function ThumbnailGenerator({
           </filter>
         </defs>
       </svg>
-      {/* Top-bar — owns the menu button + trial / upgrade pill +
-       * credits badge. Rendered OUTSIDE the motion.section because the
-       * shell's entry animation uses a CSS transform, which would
-       * otherwise create a new containing block for `position: fixed`
-       * descendants and pin the topbar relative to the animating
-       * shell instead of the viewport (causing a visible 8 px slide
-       * on every page load). Hides the global Sidebar's
-       * .sidebar-open-btn while mounted (via body.clixa-thumb-screen). */}
-      <ThumbnailTopBar />
       <motion.section
         className={`coach-chat-shell${isScrolled ? ' coach-chat-shell--scrolled' : ''}${isEmptyScreen ? ' coach-chat-shell--empty' : ''}`}
         initial={{ opacity: 0, y: 8 }}
@@ -4967,6 +4958,17 @@ export function ThumbnailGenerator({
         transition={{ duration: 0.42, ease: IOS_EASE }}
       >
         <div className="thumb-bg-fx-top-shadow" aria-hidden="true" />
+        {/* Top-bar — owns the menu button + trial / upgrade pill +
+         * credits badge. Rendered INSIDE the chat shell so it
+         * inherits the shell's centring — Go Pro pill lands directly
+         * above the chat heading + composer, which are siblings in
+         * the same shell. The shell is `position: relative` so the
+         * topbar's `position: absolute` positions against it. The
+         * shell's entry transform is fine because absolute children
+         * move WITH the parent (containing-block is the shell).
+         * Hides the global Sidebar's .sidebar-open-btn while mounted
+         * (via body.clixa-thumb-screen). */}
+        <ThumbnailTopBar />
         <div
           ref={threadRef}
           className={`coach-thread ${layoutCentered ? 'coach-thread--empty' : ''} coach-thread--thumb-panel ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}

@@ -76,14 +76,9 @@
 
 /* Both background-FX layers manage their own positioning + z-index,
    and so does the floating footer chrome (which lives above the
-   shadow at z-index 20). The fixed topbar (.clixa-topbar) ALSO
-   manages its own positioning — it's `position: fixed` against the
-   viewport and this blanket would clamp it to `relative` flow,
-   dropping it into document order and breaking the entire top-pill
-   layout. Skipping all four here so the blanket doesn't drag any of
-   them into document flow / clamp them to z-1. */
-.coach-main--thumb
-  > *:not(.thumb-bg-fx):not(.thumb-bg-fx-shadow):not(.thumb-gen-footer-chrome):not(.clixa-topbar) {
+   shadow at z-index 20). Skipping all three here so this blanket
+   doesn't drag any of them into document flow / clamp them to z-1. */
+.coach-main--thumb > *:not(.thumb-bg-fx):not(.thumb-bg-fx-shadow):not(.thumb-gen-footer-chrome) {
   position: relative;
   z-index: 1;
 }
