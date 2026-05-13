@@ -262,6 +262,27 @@ export const thumbnailsApi = {
   appendEvent(accessToken, payload, fetchInit = {}) {
     return request('POST', '/api/thumbnails/events', accessToken, payload, {}, fetchInit)
   },
+
+  /** Finalize a previously pre-persisted (pending) message. Used by the
+   *  persistent-action pattern: handlers first call `appendEvent` with
+   *  `extra_data.pending = true` BEFORE running generation, then PATCH
+   *  the assistant row in-place with the result. If the client refreshes
+   *  mid-generation the pending pair is already on disk, so the chat is
+   *  not empty — the conversation reload renders the pending placeholder
+   *  and the backend's stale-pending sweep ultimately marks an abandoned
+   *  row as failed (a retryable card) after 5 minutes.
+   *  body: { content?, extra_data_patch? }
+   *  Response: { message } */
+  patchEvent(accessToken, messageId, body, fetchInit = {}) {
+    return request(
+      'PATCH',
+      `/api/thumbnails/events/${encodeURIComponent(messageId)}`,
+      accessToken,
+      body || {},
+      {},
+      fetchInit
+    )
+  },
 }
 
 // ─── Async-job polling helpers ──────────────────────────────────────────────

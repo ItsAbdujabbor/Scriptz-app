@@ -1911,6 +1911,51 @@ function buildMessagesFromApi(apiMessages = []) {
         _failureRow: true,
       }
     }
+    // Pending placeholder: a non-chat handler pre-persisted the
+    // user/assistant pair with `extra_data.pending = true` BEFORE
+    // running generation, so a refresh mid-flight still renders the
+    // conversation. Map onto the in-place pending flags (`_promptPending`
+    // / `_analyzePending` / `_titlesPending`) so the same loader UI the
+    // optimistic local pair shows during the live submit also renders
+    // after reload. The PATCH that finalizes the row clears `pending`,
+    // at which point this branch stops triggering and the row renders
+    // as a normal completed result.
+    if (isAssistant && ed.pending === true) {
+      const kind = (ed.kind || ed.mode || '').toString().toLowerCase()
+      const base = {
+        id: m.id,
+        role: m.role,
+        content: m.content || '',
+        userRequest: ed.user_request || '',
+        thumbnails: [],
+        imageUrl: null,
+        _userImageUrl: ed.user_image_url || null,
+        analysis: null,
+        titleIdeas: null,
+        isRecreate: kind === 'recreate',
+        _isUser: false,
+      }
+      if (kind === 'analyze') {
+        return { ...base, imageUrl: ed.user_image_url || null, _analyzePending: true }
+      }
+      if (kind === 'titles') {
+        return {
+          ...base,
+          _titlesPending: true,
+          titleIdeasCount: ed.title_ideas_count || 4,
+        }
+      }
+      // Default: recreate / edit / faceswap render the same in-place
+      // loader the prompt flow uses (`_promptPending: true`). The
+      // user image carries over into both bubbles via the existing
+      // stitch step.
+      return {
+        ...base,
+        _promptPending: true,
+        _promptMode: kind || 'recreate',
+        _promptCount: ed.count || 1,
+      }
+    }
     // User-message side: a persisted event flow stores the source
     // thumbnail on the ASSISTANT row's `extra_data.user_image_url`.
     // The user row in the chat thread reads the same field forwarded
@@ -4142,7 +4187,7 @@ export function ThumbnailGenerator({
           channel_id: channelId || undefined,
           kind,
           user_content: userContent || '',
-          extra_data: extraData || {},
+          extra_data: { ...(extraData || {}), pending: false },
         })
         const newId = res?.conversation_id
         if (newId != null && newId !== conversationId) {
@@ -4174,6 +4219,81 @@ export function ThumbnailGenerator({
       }
     },
     [channelId, conversationId, handleConversationCreated, queryClient]
+  )
+
+  /**
+   * Pre-persist a pending (in-flight) event BEFORE running generation.
+   *
+   * Writes the same user/assistant pair `persistEvent` writes, but stamps
+   * `extra_data.pending = true` on the assistant row. If the user refreshes
+   * mid-generation the row is already on disk — the conversation reload
+   * renders a pending placeholder card (so the chat is not empty) and
+   * the backend's stale-pending sweep ultimately marks an abandoned row
+   * as failed (retryable) after 5 minutes if no client ever finishes it.
+   *
+   * Returns the same shape as `persistEvent` so callers can keep using
+   * `linkLocalToServer` to bind their optimistic local entries to the
+   * server-assigned IDs.
+   */
+  const persistPendingEvent = useCallback(
+    async (kind, userContent, extraData) => {
+      try {
+        const token = await getAccessTokenOrNull()
+        if (!token) return null
+        const res = await thumbnailsApi.appendEvent(token, {
+          conversation_id: conversationId || undefined,
+          channel_id: channelId || undefined,
+          kind,
+          user_content: userContent || '',
+          extra_data: { ...(extraData || {}), pending: true },
+        })
+        const newId = res?.conversation_id
+        if (newId != null && newId !== conversationId) {
+          handleConversationCreated(newId)
+        }
+        queryClient.invalidateQueries({
+          queryKey: ['thumbnails', 'conversations'],
+          exact: false,
+        })
+        return res
+      } catch (err) {
+        if (typeof console !== 'undefined') {
+          console.warn('[thumbnail] persistPendingEvent failed:', kind, err)
+        }
+        return null
+      }
+    },
+    [channelId, conversationId, handleConversationCreated, queryClient]
+  )
+
+  /**
+   * Finalize a pending message row in-place. Patches the assistant row's
+   * `extra_data` to set `pending = false` and merge in the generation
+   * result (or failure metadata). The user row is left untouched.
+   *
+   * Best-effort — a network blip here doesn't surface to the user
+   * because the local card has already rendered the result. The
+   * stale-pending sweep eventually finalizes any row this PATCH missed.
+   */
+  const finalizePersistedEvent = useCallback(
+    async (assistantMessageId, extraDataPatch, content) => {
+      if (assistantMessageId == null) return null
+      try {
+        const token = await getAccessTokenOrNull()
+        if (!token) return null
+        const body = {
+          extra_data_patch: { ...(extraDataPatch || {}), pending: false },
+        }
+        if (content != null) body.content = content
+        return await thumbnailsApi.patchEvent(token, assistantMessageId, body)
+      } catch (err) {
+        if (typeof console !== 'undefined') {
+          console.warn('[thumbnail] finalizePersistedEvent failed:', err)
+        }
+        return null
+      }
+    },
+    []
   )
 
   const handleUseTitleAsPrompt = useCallback(
@@ -4349,6 +4469,19 @@ export function ThumbnailGenerator({
     setRecreateSourceImage(null)
     setRecreateUrlInput('')
     setRecreatePreviewUrl(null)
+    // Pre-persist the pending pair BEFORE generation so a refresh
+    // mid-flight doesn't drop the conversation. Binds the optimistic
+    // local entry to the server IDs immediately. If pre-persist fails
+    // we still let generation run — the UI just won't survive a
+    // mid-flight refresh in that one case.
+    const prePersisted = await persistPendingEvent('recreate', userText, {
+      user_image_url: sourceImageUrl,
+      user_request: instructions,
+      is_recreate: true,
+      mode: 'recreate',
+    })
+    if (prePersisted) linkLocalToServer(localIds, prePersisted, conversationId)
+    const assistantServerId = prePersisted?.assistant_message?.id ?? null
     try {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Sign in to recreate thumbnails.')
@@ -4364,20 +4497,29 @@ export function ThumbnailGenerator({
       }
       const count = numRecreateThumbnails
       if (count === 1) {
-        const res = await thumbnailsApi.regenerateWithPersona(token, payload)
+        // Single-thumbnail path: hand the server the pending row id so
+        // it finalizes the row inside the handler. Multi-thumbnail path
+        // can't pass a single id (N parallel calls would race), so it
+        // relies on the client-side PATCH below instead.
+        const res = await thumbnailsApi.regenerateWithPersona(token, {
+          ...payload,
+          pending_message_id: assistantServerId ?? undefined,
+        })
         const imageUrl = res?.image_url
         if (!imageUrl) throw new Error('No image returned from recreate.')
         patchLocalAssistantMessage(localIds.assistantId, {
           _promptPending: false,
           imageUrl,
         })
-        const persisted = await persistEvent('recreate', userText, {
+        // The server has already PATCHed the row via `pending_message_id`,
+        // but we issue this client-side PATCH as a safety net for older
+        // backends and to keep the cache fresh in the same tick.
+        await finalizePersistedEvent(assistantServerId, {
           image_url: imageUrl,
           user_image_url: sourceImageUrl,
           user_request: instructions,
           is_recreate: true,
         })
-        if (persisted) linkLocalToServer(localIds, persisted, conversationId)
       } else {
         const results = await Promise.all(
           Array.from({ length: count }, () => thumbnailsApi.regenerateWithPersona(token, payload))
@@ -4390,13 +4532,12 @@ export function ThumbnailGenerator({
           _promptPending: false,
           thumbnails,
         })
-        const persisted = await persistEvent('recreate', userText, {
+        await finalizePersistedEvent(assistantServerId, {
           thumbnails,
           user_image_url: sourceImageUrl,
           user_request: instructions,
           is_recreate: true,
         })
-        if (persisted) linkLocalToServer(localIds, persisted, conversationId)
       }
       finishLoading()
     } catch (err) {
@@ -4405,18 +4546,30 @@ export function ThumbnailGenerator({
         prev.filter((m) => m.id !== localIds.userId && m.id !== localIds.assistantId)
       )
       setPendingAssistant(false)
-      pushFailureEntry({
-        mode: 'recreate',
-        userText: instructions,
-        userImageUrl: sourceImageUrl,
-        errorCode: code,
-        errorMessage: message,
-        retryable: true,
-      })
-      // No top-of-screen toast — the inline failure card above is the
-      // sole error UI for failed recreate attempts. It lives in the
-      // message thread, gets a server-assigned id via appendEvent,
-      // and orders chronologically with the rest of the conversation.
+      // Convert the pre-persisted pending row into a failure card via
+      // PATCH so a future refresh still shows the error. Falls back to
+      // pushFailureEntry when pre-persist didn't succeed.
+      if (assistantServerId != null) {
+        await finalizePersistedEvent(assistantServerId, {
+          kind: 'failure',
+          failed: true,
+          mode: 'recreate',
+          error_code: code,
+          error_message: message,
+          retryable: true,
+          user_image_url: sourceImageUrl,
+          user_request: instructions,
+        })
+      } else {
+        pushFailureEntry({
+          mode: 'recreate',
+          userText: instructions,
+          userImageUrl: sourceImageUrl,
+          errorCode: code,
+          errorMessage: message,
+          retryable: true,
+        })
+      }
     } finally {
       submitGuardRef.current = false
     }
@@ -4521,6 +4674,14 @@ export function ThumbnailGenerator({
       analysis: null,
       _analyzePending: true,
     })
+    // Pre-persist the pending analyze pair BEFORE the rating call.
+    const prePersisted = await persistPendingEvent('analyze', userText, {
+      image_url: imageUrl,
+      user_image_url: imageUrl,
+      mode: 'analyze',
+    })
+    if (prePersisted) linkLocalToServer(localIds, prePersisted, conversationId)
+    const assistantServerId = prePersisted?.assistant_message?.id ?? null
     // Single-flight latch: the moment the response is committed to
     // the local card via `patchLocalAssistantMessage`, this flag
     // flips so the catch / finally branches below can't push a
@@ -4533,6 +4694,7 @@ export function ThumbnailGenerator({
       const rating = await thumbnailsApi.rate(token, {
         ...(base64 ? { thumbnail_image_base64: base64 } : { thumbnail_image_url: imageUrl }),
         video_title: titleTrim || undefined,
+        pending_message_id: assistantServerId ?? undefined,
       })
       // Prime the per-image rating cache so the analyze card's
       // ScorePill resolves instantly from cache instead of firing a
@@ -4546,12 +4708,11 @@ export function ThumbnailGenerator({
         _analyzePending: false,
       })
       resolved = true
-      const persisted = await persistEvent('analyze', userText, {
+      await finalizePersistedEvent(assistantServerId, {
         image_url: imageUrl,
         user_image_url: imageUrl,
         analysis: rating,
       })
-      if (persisted) linkLocalToServer(localIds, persisted, conversationId)
     } catch (err) {
       if (resolved) {
         // The rating already resolved + was committed to the card;
@@ -4568,17 +4729,26 @@ export function ThumbnailGenerator({
       setLocalOnlyMessages((prev) =>
         prev.filter((m) => m.id !== localIds.userId && m.id !== localIds.assistantId)
       )
-      pushFailureEntry({
-        mode: 'analyze',
-        userText: titleTrim,
-        userImageUrl: imageUrl,
-        errorCode: code,
-        errorMessage: message,
-        retryable: true,
-      })
-      // Inline failure card is the sole error UI — no top-of-screen
-      // toast. Failure persists via appendEvent with a server id;
-      // renders in the message list ordered by that id.
+      if (assistantServerId != null) {
+        await finalizePersistedEvent(assistantServerId, {
+          kind: 'failure',
+          failed: true,
+          mode: 'analyze',
+          error_code: code,
+          error_message: message,
+          retryable: true,
+          user_image_url: imageUrl,
+        })
+      } else {
+        pushFailureEntry({
+          mode: 'analyze',
+          userText: titleTrim,
+          userImageUrl: imageUrl,
+          errorCode: code,
+          errorMessage: message,
+          retryable: true,
+        })
+      }
     } finally {
       submitGuardRef.current = false
     }
@@ -4619,12 +4789,23 @@ export function ThumbnailGenerator({
       _titlesPending: true,
       titleIdeasCount: titleCount,
     })
+    // Pre-persist the pending titles pair so a refresh mid-generation
+    // keeps the conversation. `title_ideas_count` lets the reload
+    // adapter pick the right loader row count.
+    const prePersisted = await persistPendingEvent('titles', userText, {
+      user_request: topic,
+      mode: 'titles',
+      title_ideas_count: titleCount,
+    })
+    if (prePersisted) linkLocalToServer(localIds, prePersisted, conversationId)
+    const assistantServerId = prePersisted?.assistant_message?.id ?? null
     try {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Not authenticated')
       const res = await thumbnailsApi.titleIdeas(token, {
         topic,
         count: titleCount,
+        pending_message_id: assistantServerId ?? undefined,
       })
       const titles = Array.isArray(res?.titles) ? res.titles : []
       if (!titles.length) throw new Error('No titles returned.')
@@ -4635,11 +4816,10 @@ export function ThumbnailGenerator({
         titleIdeas: titles,
         _titlesPending: false,
       })
-      const persisted = await persistEvent('titles', userText, {
+      await finalizePersistedEvent(assistantServerId, {
         user_request: topic,
         title_ideas: titles,
       })
-      if (persisted) linkLocalToServer(localIds, persisted, conversationId)
     } catch (err) {
       const { code, message } = parseApiError(err, 'Could not generate titles.')
       // Drop the optimistic placeholder so the failure card lands
@@ -4647,19 +4827,25 @@ export function ThumbnailGenerator({
       setLocalOnlyMessages((prev) =>
         prev.filter((m) => m.id !== localIds.userId && m.id !== localIds.assistantId)
       )
-      // Persist as an inline failure card (mode='titles' so retry
-      // re-fires this same handler with the same topic). The card is
-      // the sole error UI — no duplicate top-of-screen toast. The
-      // failure event lands in the conversation via appendEvent with
-      // a server id and renders in chronological order alongside the
-      // rest of the thread.
-      pushFailureEntry({
-        mode: 'titles',
-        userText: topic,
-        errorCode: code,
-        errorMessage: message,
-        retryable: true,
-      })
+      if (assistantServerId != null) {
+        await finalizePersistedEvent(assistantServerId, {
+          kind: 'failure',
+          failed: true,
+          mode: 'titles',
+          error_code: code,
+          error_message: message,
+          retryable: true,
+          user_request: topic,
+        })
+      } else {
+        pushFailureEntry({
+          mode: 'titles',
+          userText: topic,
+          errorCode: code,
+          errorMessage: message,
+          retryable: true,
+        })
+      }
     } finally {
       submitGuardRef.current = false
     }
