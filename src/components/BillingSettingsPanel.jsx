@@ -155,8 +155,24 @@ const CardChipIcon = (
 
 /* ───────────────────── confirm sheet ───────────────────────────── */
 
-function CancelConfirm({ open, busy, error, periodEnd, onCancel, onConfirm }) {
+function CancelConfirm({
+  open,
+  busy,
+  error,
+  periodEnd,
+  recentlyPaid = false,
+  subscriptionCredits,
+  onCancel,
+  onConfirm,
+}) {
   if (!open) return null
+  // Loss-aversion copy: show the exact credit count the user is about
+  // to forfeit, plus a stronger warning when the period started within
+  // the last 24 hours (refund within that window auto-revokes credits
+  // server-side via the fraud guard in handle_adjustment_event).
+  // `recentlyPaid` is computed at click-time by the parent so we don't
+  // call Date.now() during render here (react-hooks/purity rule).
+  const remaining = Number(subscriptionCredits) || 0
   return (
     <div className="bp-confirm" role="alertdialog" aria-labelledby="bp-confirm-title">
       <div className="bp-confirm-card">
@@ -165,8 +181,23 @@ function CancelConfirm({ open, busy, error, periodEnd, onCancel, onConfirm }) {
         </h4>
         <p className="bp-confirm-body">
           Your plan stays active until <strong>{fmtDate(periodEnd)}</strong>. After that, paid
-          features lock and credits reset to zero.
+          features lock and{' '}
+          {remaining > 0 ? (
+            <>
+              your <strong>{remaining.toLocaleString('en-US')} remaining credits</strong> reset to
+              zero.
+            </>
+          ) : (
+            'credits reset to zero.'
+          )}
         </p>
+        {recentlyPaid ? (
+          <p className="bp-confirm-body" style={{ marginTop: 8 }}>
+            <strong>Heads up:</strong> you started this plan less than 24 hours ago. If you also
+            request a refund, your remaining credits will be revoked immediately rather than at
+            period end.
+          </p>
+        ) : null}
         {error ? <p className="bp-confirm-error">{error}</p> : null}
         <div className="bp-confirm-actions">
           <button type="button" className="bp-btn bp-btn--ghost" onClick={onCancel} disabled={busy}>
@@ -207,6 +238,11 @@ export function BillingSettingsPanel({ active, onClose }) {
   const { data: ledger } = useLedgerQuery(active)
 
   const [confirmOpen, setConfirmOpen] = useState(false)
+  // Captured at the moment the dialog is opened so the CancelConfirm
+  // component doesn't need to call Date.now() during render (which
+  // react-hooks/purity forbids). Re-derived on every open click — if
+  // the user closes and re-opens later, the freshness is recomputed.
+  const [confirmRecentlyPaid, setConfirmRecentlyPaid] = useState(false)
   const [cancelError, setCancelError] = useState(null)
   const [skipTrialError, setSkipTrialError] = useState(null)
 
@@ -540,7 +576,17 @@ export function BillingSettingsPanel({ active, onClose }) {
           <button
             type="button"
             className="bp-cancel-link"
-            onClick={() => setConfirmOpen(true)}
+            onClick={() => {
+              const startedAt = subscription.current_period_start
+                ? new Date(subscription.current_period_start)
+                : null
+              const hoursSinceStart =
+                startedAt && !Number.isNaN(startedAt.getTime())
+                  ? (Date.now() - startedAt.getTime()) / 3_600_000
+                  : null
+              setConfirmRecentlyPaid(hoursSinceStart != null && hoursSinceStart <= 24)
+              setConfirmOpen(true)
+            }}
             disabled={cancelMutation.isPending}
           >
             Cancel subscription
@@ -601,6 +647,8 @@ export function BillingSettingsPanel({ active, onClose }) {
         busy={cancelMutation.isPending}
         error={cancelError}
         periodEnd={subscription.current_period_end}
+        recentlyPaid={confirmRecentlyPaid}
+        subscriptionCredits={credits?.subscription_credits}
         onCancel={() => {
           setConfirmOpen(false)
           setCancelError(null)
