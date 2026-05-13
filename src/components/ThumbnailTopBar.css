@@ -115,15 +115,13 @@
 }
 
 /* ── Go Pro pill ─────────────────────────────────────────────
- * Single button with: [sparkle][primary label · secondary label][arrow]
- *
- * The whole pill is the clickable target — no nested CTA button
- * (the previous tag/divider/CTA combo was visually noisy at this
- * height and required two tap targets that did the same thing).
- *
- * Body: solid violet with a subtle gradient + glossy top band.
- * On hover the shine sweeps left-to-right and the arrow nudges
- * 3 px to suggest forward motion.
+ * Mirrors the hero `.thumb-send-pill` (the Generate button on the
+ * composer) verbatim: accent-gradient body, white-ish border, soft
+ * violet halo, hover lifts the pill 1 px + brightens the body, a
+ * diagonal shine sweeps L → R on hover. No internal icons / arrows /
+ * nudges — the pill text + body animation IS the affordance.
+ * Same recipe → one design language across the topbar's primary CTA
+ * and the composer's Send button.
  * ──────────────────────────────────────────────────────────── */
 
 .clixa-pill__wrap {
@@ -134,94 +132,83 @@
 
 .clixa-pill--trial {
   position: relative;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  gap: 0.45rem;
   height: var(--clixa-pill-h);
-  padding: 0 14px 0 12px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: var(--clixa-pill-radius);
-  /* Match the hero composer recipe exactly: solid #1c1c24 body +
-   * subtle white border + soft inner highlight. The Go Pro pill is
-   * the topbar's primary action so it lifts to the same material
-   * the prompt input is built from — two surfaces, one design
-   * language. */
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: #1c1c24;
-  color: #f5f3ff;
-  font: inherit;
-  font-weight: 600;
-  letter-spacing: -0.005em;
+  font-family: inherit;
+  color: #ffffff;
   cursor: pointer;
-  overflow: hidden;
-  isolation: isolate;
   white-space: nowrap;
+  outline: none;
+  background: var(
+    --accent-gradient,
+    linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%)
+  );
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 1px 0 rgba(0, 0, 0, 0.25);
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 2px 10px rgba(0, 0, 0, 0.3);
+  -webkit-tap-highlight-color: transparent;
   transition:
+    filter 0.28s cubic-bezier(0.4, 0, 0.2, 1),
     border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-    background 0.28s cubic-bezier(0.4, 0, 0.2, 1),
     box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.14s cubic-bezier(0.33, 1, 0.68, 1);
+    transform 0.18s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+/* Diagonal shine sweep — same recipe as `.thumb-send-pill::before`.
+ * A 65 deg white gradient parks at translateX(-130 %) and slides to
+ * +130 % on hover. Clipped by the pill's own `overflow: hidden`. */
+.clixa-pill--trial::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    65deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.18) 45%,
+    rgba(255, 255, 255, 0.32) 50%,
+    rgba(255, 255, 255, 0.18) 55%,
+    transparent 100%
+  );
+  transform: translateX(-130%);
+  transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
 }
 
 .clixa-pill--trial:hover {
-  border-color: rgba(255, 255, 255, 0.24);
-  background: #1f1f28;
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.7);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 2px 4px rgba(0, 0, 0, 0.3);
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 6px 22px rgba(124, 58, 237, 0.42);
 }
 
-.clixa-pill--trial:hover .clixa-trial__arrow {
-  transform: translateX(3px);
-}
-
-.clixa-pill--trial:hover .clixa-trial__shine {
-  transform: translateX(110%);
+.clixa-pill--trial:hover::before {
+  transform: translateX(130%);
 }
 
 .clixa-pill--trial:active {
-  transform: scale(0.98);
+  transform: translateY(0) scale(0.97);
+  filter: brightness(0.97);
 }
 
 .clixa-pill--trial:focus-visible {
   outline: none;
-  border-color: rgba(221, 214, 254, 0.9);
+  border-color: rgba(255, 255, 255, 0.65);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.32),
-    0 0 0 3px rgba(167, 139, 250, 0.45),
-    0 10px 28px -10px rgba(124, 58, 237, 0.7);
-}
-
-/* Sparkle icon — small disc with a soft lavender glow so the eye
- * lands on it first. Violet tones throughout — no gold/amber. */
-.clixa-trial__sparkle {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  border-radius: 999px;
-  color: #ddd6fe;
-  background:
-    radial-gradient(
-      circle at 30% 28%,
-      rgba(221, 214, 254, 0.55) 0%,
-      rgba(167, 139, 250, 0.32) 45%,
-      rgba(0, 0, 0, 0) 70%
-    ),
-    rgba(0, 0, 0, 0.18);
-  box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
-    0 0 8px -1px rgba(167, 139, 250, 0.55);
-}
-.clixa-trial__sparkle svg {
-  width: 11px;
-  height: 11px;
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 0 0 3px rgba(255, 255, 255, 0.1);
 }
 
 /* Label — primary phrase + dot divider + secondary phrase. */
@@ -236,7 +223,7 @@
 
 .clixa-trial__label-primary {
   font-size: 0.82rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.005em;
   color: #ffffff;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
@@ -244,7 +231,7 @@
 
 .clixa-trial__label-divider {
   font-size: 0.7rem;
-  font-weight: 700;
+  font-weight: 600;
   color: rgba(255, 255, 255, 0.55);
   margin: 0 -2px;
 }
@@ -253,53 +240,14 @@
   font-size: 0.74rem;
   font-weight: 500;
   letter-spacing: 0;
-  color: rgba(245, 243, 255, 0.92);
-}
-
-/* Arrow — animates right on hover so the affordance is obvious. */
-.clixa-trial__arrow {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
   color: rgba(255, 255, 255, 0.88);
-  transition: transform 0.2s cubic-bezier(0.33, 1, 0.68, 1);
-}
-.clixa-trial__arrow svg {
-  width: 14px;
-  height: 14px;
 }
 
-/* Shine — diagonal highlight sweeps L→R on hover. */
-.clixa-trial__shine {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 50%;
-  background: linear-gradient(
-    110deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.22) 50%,
-    transparent 100%
-  );
-  transform: translateX(-110%);
-  transition: transform 0.65s cubic-bezier(0.33, 1, 0.68, 1);
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* ── Compact below 560 px ────────────────────────────────────
- * Hide the secondary label so the pill shrinks gracefully. */
+/* ── Compact below 560 px — drop the secondary label so the pill
+ * shrinks gracefully on phones. */
 @media (max-width: 560px) {
   .clixa-pill--trial {
-    height: 34px;
-    padding: 0 14px 0 12px;
-    gap: 8px;
+    padding: 0 14px;
   }
   .clixa-trial__label {
     gap: 6px;
@@ -311,34 +259,26 @@
   .clixa-trial__label-primary {
     font-size: 0.78rem;
   }
-  .clixa-trial__sparkle {
-    width: 16px;
-    height: 16px;
-  }
-  .clixa-trial__sparkle svg {
-    width: 10px;
-    height: 10px;
-  }
 }
 
-/* Very narrow phones (≤ 380 px) — drop the arrow too so the pill
- * collapses to icon + "Unlock Pro". */
+/* Very narrow phones (≤ 380 px) — tighter padding so the pill fits
+ * alongside the menu + credits on a 360 px width. */
 @media (max-width: 380px) {
   .clixa-pill--trial {
-    padding: 0 12px 0 10px;
-    gap: 6px;
-  }
-  .clixa-trial__arrow {
-    display: none;
+    padding: 0 12px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .clixa-pill--menu,
-  .clixa-pill--trial,
-  .clixa-trial__arrow,
-  .clixa-trial__shine {
+  .clixa-pill--trial {
     transition: none;
+  }
+  .clixa-pill--trial::before {
+    transition: none;
+  }
+  .clixa-pill--trial:hover {
+    transform: none;
   }
   .clixa-pill--trial:active {
     transform: none;
