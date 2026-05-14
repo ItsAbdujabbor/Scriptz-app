@@ -616,7 +616,36 @@ function BrushSizePopover({ value, onChange }) {
 }
 
 /* ── Component ────────────────────────────────────────────────────── */
-export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
+export function EditThumbnailDialog({
+  imageUrl,
+  onClose,
+  onApply,
+  onError,
+  // Optional persistence-lifecycle callbacks. When provided, the dialog
+  // pre-persists a pending event row BEFORE calling /edit-region or
+  // /face-swap and finalizes it once the result/error is known. This
+  // makes mid-flight refresh survive (the conversation reload picks up
+  // the pending row), and makes failures durable instead of toast-only.
+  // When omitted the dialog falls back to its legacy fire-and-forget
+  // behaviour — the parent's `onApply` / `onError` carry the
+  // persistence load (legacy path).
+  //
+  //   onBeforeSubmit({ mode, prompt, sourceImageUrl, persona, batch })
+  //     → Promise<{ pendingMessageId: number | null }>
+  //
+  //   onSubmitFinalize({ pendingMessageId, mode, prompt, sourceImageUrl,
+  //                      persona, urls })
+  //     → Promise<void>  (after a successful submit; parent updates the
+  //                       row in-place + binds local optimistic state)
+  //
+  //   onSubmitErrorFinalize({ pendingMessageId, mode, prompt,
+  //                           sourceImageUrl, persona, error })
+  //     → Promise<void>  (after a failed submit; parent converts the
+  //                       pending row into a failure card)
+  onBeforeSubmit,
+  onSubmitFinalize,
+  onSubmitErrorFinalize,
+}) {
   const [mode, setMode] = useState('edit') // 'edit' | 'faceswap'
   const [editPrompt, setEditPrompt] = useState('')
   const [batch] = useState(1)
@@ -1132,18 +1161,23 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
   }
 
   /* ── Submit ───────────────────────────────────────────────────── */
-  async function callEditOnce(token, maskB64) {
+  async function callEditOnce(token, maskB64, pendingMessageId) {
     const imageB64 = extractBase64FromDataUrl(imageUrl)
     const res = await thumbnailsApi.editRegion(token, {
       thumbnail_image_base64: imageB64 || undefined,
       thumbnail_image_url: imageB64 ? undefined : imageUrl,
       mask_base64: maskB64,
       edit_prompt: editPrompt.trim(),
+      // Server finalizes the pre-persisted pending row in-place when
+      // this is set — the assistant row gets the image_url + flips
+      // pending=false even if the client disconnects mid-call. The
+      // parent's onSubmitFinalize below is the client-side safety net.
+      pending_message_id: pendingMessageId ?? undefined,
     })
     return res?.image_url || null
   }
 
-  async function callFaceSwapOnce(token) {
+  async function callFaceSwapOnce(token, pendingMessageId) {
     const imageB64 = extractBase64FromDataUrl(imageUrl)
     const faceUrl = selectedPersona?.image_url
     const faceB64 = extractBase64FromDataUrl(faceUrl)
@@ -1153,6 +1187,7 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
       face_image_base64: faceB64 || undefined,
       face_image_url: faceB64 ? undefined : faceUrl,
       extra_hint: editPrompt.trim() || undefined,
+      pending_message_id: pendingMessageId ?? undefined,
     })
     return res?.image_url || null
   }
@@ -1170,17 +1205,64 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
 
     setError(null)
     setBusy(true)
+
+    const submitMode = mode
+    const submitPrompt = submitMode === 'faceswap' ? '' : editPrompt || ''
+    const submitPersona = submitMode === 'faceswap' ? selectedPersona : null
+
+    // Phase 1B pre-persist: write a pending placeholder pair to the
+    // active conversation BEFORE we hit the AI endpoint. If the user
+    // refreshes mid-edit the row is already on disk and the chat
+    // reload renders a pending card; the backend finalizes the row
+    // when /edit-region (or /face-swap) lands, even if the client
+    // disconnected. Best-effort: a persistence outage degrades to
+    // the legacy fire-and-forget behaviour rather than blocking the
+    // edit itself.
+    let pendingMessageId = null
+    if (typeof onBeforeSubmit === 'function') {
+      try {
+        const ctx = await onBeforeSubmit({
+          mode: submitMode,
+          prompt: submitPrompt,
+          sourceImageUrl: imageUrl,
+          persona: submitPersona,
+          batch,
+        })
+        pendingMessageId = ctx?.pendingMessageId ?? null
+      } catch {
+        // Persistence layer hiccup — don't block the user from editing.
+        // The legacy onError + onApply fallbacks still kick in below.
+        pendingMessageId = null
+      }
+    }
+
     try {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Sign in required.')
 
       let oneCall
-      if (mode === 'faceswap') {
-        oneCall = () => callFaceSwapOnce(token)
+      if (submitMode === 'faceswap') {
+        // Only the FIRST parallel call gets the pending_message_id — the
+        // backend's _finalize_pending_message is idempotent merge-style
+        // but passing the same id to N concurrent calls would race the
+        // final extra_data write. For batch>1 the parent's
+        // onSubmitFinalize below writes the combined `thumbnails` array
+        // client-side via the PATCH endpoint.
+        let firstCall = true
+        oneCall = () => {
+          const id = firstCall && batch === 1 ? pendingMessageId : null
+          firstCall = false
+          return callFaceSwapOnce(token, id)
+        }
       } else {
         // Resolve the mask once up-front so each batch call reuses it.
         const maskB64 = await exportMaskBase64()
-        oneCall = () => callEditOnce(token, maskB64)
+        let firstCall = true
+        oneCall = () => {
+          const id = firstCall && batch === 1 ? pendingMessageId : null
+          firstCall = false
+          return callEditOnce(token, maskB64, id)
+        }
       }
 
       const settled = await Promise.allSettled(Array.from({ length: batch }, () => oneCall()))
@@ -1189,36 +1271,82 @@ export function EditThumbnailDialog({ imageUrl, onClose, onApply, onError }) {
         const firstErr = settled.find((r) => r.status === 'rejected')
         throw new Error(
           firstErr?.reason?.message ||
-            (mode === 'faceswap' ? 'Face swap failed.' : 'No image returned.')
+            (submitMode === 'faceswap' ? 'Face swap failed.' : 'No image returned.')
         )
       }
       invalidateCredits(queryClient)
-      onApply?.(urls.length === 1 ? urls[0] : urls)
+
+      // Pre-persist + finalize lifecycle. When the parent opted into
+      // the new contract via onBeforeSubmit, it also owns finalizing
+      // the row + binding local optimistic state — the legacy onApply
+      // hook is skipped to avoid double-persistence.
+      if (typeof onSubmitFinalize === 'function') {
+        try {
+          await onSubmitFinalize({
+            pendingMessageId,
+            mode: submitMode,
+            prompt: submitPrompt,
+            sourceImageUrl: imageUrl,
+            persona: submitPersona,
+            urls,
+          })
+        } catch {
+          /* never let a persistence hiccup mask the successful edit */
+        }
+      } else {
+        onApply?.(urls.length === 1 ? urls[0] : urls)
+      }
       onClose?.()
     } catch (err) {
       const friendly =
         friendlyMessage(err) ||
-        (mode === 'faceswap'
+        (submitMode === 'faceswap'
           ? 'Face swap failed. Try a different character.'
           : 'Edit failed. Try a different prompt.')
       setError(friendly)
       setBusy(false)
-      // Notify parent so it can persist a failure card in the chat
-      // thread (mode='edit'). Parent decides whether to push — the
-      // dialog stays open so the user can immediately retry inside
-      // it; the persisted card is a permanent record once the dialog
-      // closes with the failure unresolved.
-      try {
-        onError?.({
-          friendly,
-          code: err?.code || null,
-          retryable: true,
-          baseImageUrl: imageUrl,
-          editMode: mode,
-          prompt: mode === 'faceswap' ? '' : editPrompt || '',
-        })
-      } catch {
-        /* never let the parent's error path mask the user-facing one */
+
+      // Failure persistence: parent flips the pending row to a
+      // `kind='failure'` record so the failed attempt survives reload.
+      // The backend also persists a failure row in its own error paths
+      // when pending_message_id was supplied — onSubmitErrorFinalize is
+      // a client-side PATCH safety net that ensures the row reflects
+      // the user-facing friendly message (the backend has the raw
+      // exception string, the client has the friendly translation).
+      if (typeof onSubmitErrorFinalize === 'function') {
+        try {
+          await onSubmitErrorFinalize({
+            pendingMessageId,
+            mode: submitMode,
+            prompt: submitPrompt,
+            sourceImageUrl: imageUrl,
+            persona: submitPersona,
+            error: {
+              friendly,
+              code: err?.code || null,
+              retryable: true,
+            },
+          })
+        } catch {
+          /* swallow — the user-visible error in `friendly` is enough */
+        }
+      } else {
+        // Legacy fallback: parent listener pushes the in-thread failure
+        // card from this single hook. Caller is responsible for ALSO
+        // persisting (the chat thread renders the local-only entry
+        // until parent's persistEvent finishes).
+        try {
+          onError?.({
+            friendly,
+            code: err?.code || null,
+            retryable: true,
+            baseImageUrl: imageUrl,
+            editMode: submitMode,
+            prompt: submitPrompt,
+          })
+        } catch {
+          /* never let the parent's error path mask the user-facing one */
+        }
       }
     }
   }

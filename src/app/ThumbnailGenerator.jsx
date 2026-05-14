@@ -5556,24 +5556,215 @@ export function ThumbnailGenerator({
             setShowEditDialog(false)
             setEditDialogUrl(null)
           }}
+          onBeforeSubmit={async ({ mode, prompt, sourceImageUrl, persona }) => {
+            // Pre-persist a pending edit/faceswap event into the active
+            // conversation BEFORE the AI call. If the user refreshes
+            // mid-edit the conversation reload finds the placeholder row
+            // and renders a pending card; the backend finalizes the row
+            // when /edit-region (or /face-swap) lands even if the
+            // client never reconnects. The user-facing label mirrors
+            // what the row will say on reload — for edit we use the
+            // prompt, for face-swap we use the persona name.
+            const kind = mode === 'faceswap' ? 'faceswap' : 'edit'
+            const userText =
+              mode === 'faceswap'
+                ? `Face swap${persona?.name ? ` · ${persona.name}` : ''}`
+                : prompt || ''
+            const prePersisted = await persistPendingEvent(kind, userText, {
+              user_image_url: sourceImageUrl,
+              user_request: userText,
+              mode,
+              ...(persona?.image_url ? { persona_image_url: persona.image_url } : {}),
+            })
+            return { pendingMessageId: prePersisted?.assistant_message?.id ?? null }
+          }}
+          onSubmitFinalize={async ({ pendingMessageId, mode, prompt, sourceImageUrl, urls }) => {
+            // Finalize the pending row with the actual result. Bind
+            // the local optimistic message to the server row so the
+            // chat doesn't double-render on the next refetch tick.
+            const userText = mode === 'faceswap' ? 'Face swap' : prompt || ''
+            if (urls.length <= 1) {
+              const localIds = pushLocalAssistantMessage('', {
+                content: '',
+                imageUrl: urls[0] || null,
+                userImageUrl: sourceImageUrl,
+              })
+              if (pendingMessageId != null) {
+                // Server has likely already PATCHed via pending_message_id
+                // — this client-side PATCH is a safety net that also
+                // stamps the user_image_url + final user_request label.
+                await finalizePersistedEvent(pendingMessageId, {
+                  kind: mode === 'faceswap' ? 'faceswap' : 'edit',
+                  image_url: urls[0] || null,
+                  user_image_url: sourceImageUrl,
+                  user_request: userText,
+                })
+                // Bind local optimistic IDs to the server row so the
+                // post-finalize refetch doesn't ghost-render a duplicate.
+                if (conversationId) {
+                  linkLocalToServer(
+                    localIds,
+                    {
+                      conversation_id: conversationId,
+                      // pendingMessageId is the assistant row id; user
+                      // row id isn't returned here. linkLocalToServer
+                      // tolerates undefined user_message and just binds
+                      // the assistant side.
+                      assistant_message: { id: pendingMessageId },
+                    },
+                    conversationId
+                  )
+                }
+              } else {
+                // No pre-persist context — legacy post-hoc persist.
+                const persisted = await persistEvent(
+                  mode === 'faceswap' ? 'faceswap' : 'edit',
+                  '',
+                  {
+                    image_url: urls[0] || null,
+                    user_image_url: sourceImageUrl,
+                  }
+                )
+                if (persisted) linkLocalToServer(localIds, persisted, conversationId)
+              }
+            } else {
+              const thumbnails = urls.map((image_url, i) => ({
+                title: `${i + 1}x`,
+                image_url,
+                emotion: '',
+                psychology_angle: '',
+              }))
+              const localIds = pushLocalAssistantMessage('', {
+                content: '',
+                thumbnails,
+                userImageUrl: sourceImageUrl,
+              })
+              if (pendingMessageId != null) {
+                await finalizePersistedEvent(pendingMessageId, {
+                  kind: mode === 'faceswap' ? 'faceswap' : 'edit',
+                  thumbnails,
+                  user_image_url: sourceImageUrl,
+                  user_request: userText,
+                })
+                if (conversationId) {
+                  linkLocalToServer(
+                    localIds,
+                    {
+                      conversation_id: conversationId,
+                      assistant_message: { id: pendingMessageId },
+                    },
+                    conversationId
+                  )
+                }
+              } else {
+                const persisted = await persistEvent(
+                  mode === 'faceswap' ? 'faceswap' : 'edit',
+                  '',
+                  {
+                    thumbnails,
+                    user_image_url: sourceImageUrl,
+                  }
+                )
+                if (persisted) linkLocalToServer(localIds, persisted, conversationId)
+              }
+            }
+            setShowEditDialog(false)
+            setEditDialogUrl(null)
+            setEditDataUrl(null)
+            setEditUrlInput('')
+            setEditPreviewUrl(null)
+          }}
+          onSubmitErrorFinalize={async ({
+            pendingMessageId,
+            mode,
+            prompt,
+            sourceImageUrl,
+            error,
+          }) => {
+            // Convert the pending row into a durable failure row so the
+            // chat reload shows the failed attempt (FailedGenerationCard).
+            // Also push the local in-thread failure entry for the dialog
+            // user (matches recreate/analyze UX).
+            const editMode = mode || 'edit'
+            const userText = mode === 'faceswap' ? '' : prompt || ''
+            const failureKind = editMode === 'faceswap' ? 'faceswap' : 'edit'
+            pushFailureEntry({
+              mode: failureKind,
+              userText,
+              userImageUrl: sourceImageUrl,
+              errorCode: error?.code || null,
+              errorMessage: error?.friendly || 'Edit failed.',
+              retryable: !!error?.retryable,
+              options: {
+                base_image_url: sourceImageUrl,
+                edit_mode: editMode,
+                prompt: userText,
+              },
+            })
+            if (pendingMessageId != null) {
+              await finalizePersistedEvent(pendingMessageId, {
+                kind: 'failure',
+                failed: true,
+                mode: editMode,
+                error_code: error?.code || null,
+                error_message: error?.friendly || 'Edit failed.',
+                retryable: !!error?.retryable,
+                user_image_url: sourceImageUrl,
+                user_request: userText,
+              })
+            } else {
+              // Pre-persist missed → write a fresh failure event so the
+              // attempt still survives reload.
+              persistEvent('failure', userText, {
+                failed: true,
+                mode: editMode,
+                error_code: error?.code || null,
+                error_message: error?.friendly || 'Edit failed.',
+                retryable: !!error?.retryable,
+                user_image_url: sourceImageUrl,
+                user_request: userText,
+              })
+            }
+          }}
           onError={(err) => {
             // Persist the editor failure as an in-thread card so it
             // survives a navigate-away. The dialog stays open so the
             // user can retry inside it; this card is the permanent
             // record. mode='edit' so handleRetryFailedAttempt's
             // `edit` case can re-open the dialog pre-loaded.
+            const editMode = err?.editMode || 'edit'
+            const failureKind = editMode === 'faceswap' ? 'faceswap' : 'edit'
+            const userText = err?.prompt || ''
+            const sourceImageUrl = err?.baseImageUrl || editDialogUrl
             pushFailureEntry({
-              mode: 'edit',
-              userText: err?.prompt || '',
-              userImageUrl: err?.baseImageUrl || editDialogUrl,
+              mode: failureKind,
+              userText,
+              userImageUrl: sourceImageUrl,
               errorCode: err?.code || null,
               errorMessage: err?.friendly || 'Edit failed.',
               retryable: !!err?.retryable,
               options: {
-                base_image_url: err?.baseImageUrl || editDialogUrl,
-                edit_mode: err?.editMode || 'edit',
-                prompt: err?.prompt || '',
+                base_image_url: sourceImageUrl,
+                edit_mode: editMode,
+                prompt: userText,
               },
+            })
+            // Mirror the recreate / analyze / titles failure-persistence
+            // contract: write a `kind='failure'` event into the active
+            // conversation so a reload still shows the attempt. Without
+            // this row, a failed edit/face-swap leaves only an in-memory
+            // toast that dies the moment the user refreshes. Backend
+            // stamps extra_data.kind from the first arg — pass 'failure'
+            // here so buildMessagesFromApi's FailedGenerationCard reader
+            // picks the row up on reload.
+            persistEvent('failure', userText, {
+              failed: true,
+              mode: editMode,
+              error_code: err?.code || null,
+              error_message: err?.friendly || 'Edit failed.',
+              retryable: !!err?.retryable,
+              user_image_url: sourceImageUrl,
+              user_request: userText,
             })
           }}
           onApply={async (result) => {
