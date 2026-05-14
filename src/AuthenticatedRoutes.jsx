@@ -7,10 +7,7 @@ import { Sidebar } from './app/Sidebar'
 import { CreatePersonaDialog } from './components/CreatePersonaDialog'
 import { BillingDialog } from './components/BillingDialog'
 import { ToastStack } from './components/ToastStack'
-import {
-  connectJobEventStream,
-  disconnectJobEventStream,
-} from './services/jobEventStream'
+import { connectJobEventStream, disconnectJobEventStream } from './services/jobEventStream'
 // Each view is its own lazy chunk — Dashboard / Optimize / Billing are
 // temporarily hidden from the UI. The 'pro' view is now a fullscreen
 // takeover routed at the App.jsx level (see <ProScreen>), so the
@@ -60,14 +57,20 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
   const [showPersonasModal, setShowPersonasModal] = useState(false)
   const [showStylesModal, setShowStylesModal] = useState(false)
 
-  // Settings used to be a portal dialog gated by `settingsOpen` state.
-  // It's now an in-shell route, so opening it just changes the hash —
-  // the route boundary mounts the settings content inside `<main>` next
-  // to the sidebar exactly like Dashboard / Optimize / Billing.
+  // Remembers the hash (e.g. "thumbnails?id=42") that was active just
+  // before the user opened settings so we can restore it on close —
+  // otherwise the hashchange listener in Thumbnails.jsx sees the bare
+  // "#thumbnails" and resets conversationId to null, starting an
+  // unwanted new chat.
+  const [settingsReturnHash, setSettingsReturnHash] = useState('thumbnails')
+
   const openSettings = useCallback((section) => {
-    const target = section ? `settings/${section}` : 'settings'
     if (typeof window !== 'undefined') {
-      window.location.hash = target
+      const current = (window.location.hash || '').replace(/^#/, '')
+      if (current && !current.startsWith('settings')) {
+        setSettingsReturnHash(current)
+      }
+      window.location.hash = section ? `settings/${section}` : 'settings'
     }
   }, [])
 
@@ -161,7 +164,7 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
        * hash is #settings. The underlying view (thumbnails) stays
        * rendered behind so closing the dialog reveals the user's
        * actual workspace, not a remount. */}
-      {isSettings && <SettingsLazy onLogout={handleLogout} />}
+      {isSettings && <SettingsLazy onLogout={handleLogout} returnHash={settingsReturnHash} />}
 
       {/* Always-mounted create-persona dialog. Listens for the
        * `app:open-create-persona-dialog` window event from anywhere in the
@@ -216,15 +219,15 @@ function StylesModalLazy({ onClose }) {
 const SettingsModule = lazy(() =>
   import('./app/SharedSettingsModal').then((m) => ({ default: m.SharedSettingsModal }))
 )
-function SettingsLazy({ onLogout }) {
-  // Closing settings goes back to thumbnails — dashboard is hidden right
-  // now (back/swipe behaviour can still reach other routes normally;
-  // this is just the explicit ✕ tap).
+function SettingsLazy({ onLogout, returnHash = 'thumbnails' }) {
+  // Restore the exact hash that was active before settings opened so that
+  // Thumbnails.jsx's hashchange listener keeps the same conversationId
+  // (avoids an unwanted "new chat" when the user closes settings).
   const handleClose = useCallback(() => {
     if (typeof window !== 'undefined') {
-      window.location.hash = 'thumbnails'
+      window.location.hash = returnHash
     }
-  }, [])
+  }, [returnHash])
   return (
     <Suspense fallback={null}>
       <SettingsModule open onClose={handleClose} onLogout={onLogout} />
