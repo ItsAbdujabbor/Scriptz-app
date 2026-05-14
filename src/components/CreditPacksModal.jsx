@@ -1,27 +1,16 @@
 /**
- * CreditPacksModal — dumb presentational dialog controlled by `open` prop.
+ * CreditPacksModal — redesigned credit marketplace.
  *
- * Pattern mirrors the working milestones dialog in Dashboard.jsx:
- *   • Parent owns `open` state
- *   • When `open` is true, this component renders via `createPortal` to
- *     document.body (backdrop covers everything)
- *   • Backdrop click closes, card click stops propagation
- *   • Esc closes
- *
- * Structure:
- *   <Dialog>
- *     <header />          ← sticky top
- *     <div scroll />      ← grows + scrolls (this is the mobile fix)
- *     <footer />          ← sticky bottom
- *   </Dialog>
- *
- * Splitting into three siblings lets the Dialog panel's `overflow: hidden`
- * clip the inner scroll body without hiding the chrome.
+ * Three-zone layout (header / scroll body / footer) so the inner pack
+ * grid scrolls cleanly on phones while the title and footer stay locked.
+ * Best-value pack gets the LiquidMetalButton (same as hero Generate CTA).
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { Sparkles } from 'lucide-react'
 
 import { Dialog } from './ui'
+import { LiquidMetalButton } from './LiquidMetalButton'
 import { useAuthStore } from '../stores/authStore'
 import { useCreditsQuery, refreshBillingState } from '../queries/billing/creditsQueries'
 import { queryKeys } from '../lib/query/queryKeys'
@@ -38,20 +27,13 @@ const fmtCredits = (n) => {
   }
   return Number(n).toLocaleString('en-US')
 }
+
 const fmtPrice = (usd) => {
   const n = Number(usd)
-  return Number.isFinite(n) ? `$${n.toFixed(2)}` : '—'
-}
-const costPerCredit = (credits, price) => {
-  if (!credits || !price) return null
-  const cents = (Number(price) * 100) / Number(credits)
-  return cents < 1 ? `${cents.toFixed(2)}¢ / credit` : `${cents.toFixed(1)}¢ / credit`
+  if (!Number.isFinite(n)) return '—'
+  return n % 1 === 0 ? `$${n}` : `$${n.toFixed(2)}`
 }
 
-/** Decorate each pack with `isBestValue` (lowest per-credit rate) and
- *  `savingsPct` (how much cheaper than the worst rate, i.e. the
- *  smallest pack). Savings are only meaningful relative to a baseline,
- *  so the smallest pack always reports `savingsPct: 0`. */
 const decoratePacks = (packs) => {
   if (!packs?.length) return []
   const rate = (p) => Number(p.price_usd) / Number(p.credits)
@@ -73,6 +55,53 @@ const decoratePacks = (packs) => {
   })
 }
 
+/* ── Icons ────────────────────────────────────────────────────────── */
+
+function CreditCoin({ size = 24 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="9.5" stroke="currentColor" strokeWidth="1.4" opacity="0.3" />
+      <path d="M13.2 8l-4.4 5h3.2l-1 5L16 13h-3.2L13.2 8z" fill="currentColor" />
+    </svg>
+  )
+}
+
+function IconClose() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+    >
+      <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  )
+}
+
+function IconShield() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────────────── */
+
 export function CreditPacksModal({ open, onClose }) {
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
@@ -82,7 +111,6 @@ export function CreditPacksModal({ open, onClose }) {
   const [error, setError] = useState(null)
   const { data: credits } = useCreditsQuery({ refetchInterval: open ? 5000 : false })
 
-  // Fetch catalog when opened.
   useEffect(() => {
     if (!open) return
     let alive = true
@@ -118,17 +146,11 @@ export function CreditPacksModal({ open, onClose }) {
     }
     setError(null)
     setLoadingPack(pack.slug)
-    // Snapshot the user's current permanent_credits BEFORE opening
-    // checkout — the splash will compare against this baseline to
-    // detect "the webhook landed and balance increased".
     const baselinePermanent = Number(
       queryClient.getQueryData(queryKeys.billing.credits)?.permanent_credits || 0
     )
     const expectedCredits = Number(pack?.credits || 0)
 
-    // Local flag so the listener only fires once even if Paddle
-    // dispatches `checkout.completed` multiple times (it can fire
-    // again on retries / page transitions).
     let alreadyHandled = false
     let disposeHandle = null
 
@@ -145,11 +167,6 @@ export function CreditPacksModal({ open, onClose }) {
           pack: { name: pack.name, credits: expectedCredits },
           packBaseline: baselinePermanent,
         })
-        // Optimistic bump — gives the badge an instant tick. The
-        // splash's success detection compares the SERVER credits
-        // against `packBaseline`, which we captured BEFORE mutating
-        // the cache, so the comparison still sees a true server-side
-        // increase once the webhook lands.
         if (expectedCredits > 0) {
           queryClient.setQueryData(queryKeys.billing.credits, (current) => {
             if (!current || typeof current !== 'object') return current
@@ -160,11 +177,8 @@ export function CreditPacksModal({ open, onClose }) {
         }
         refreshBillingState(queryClient)
         onClose?.()
-        // Listener can be cleaned up — we got what we needed.
         disposeHandle?.dispose?.()
       } else if (name === 'checkout.closed') {
-        // User dismissed the overlay without paying. Clean up the
-        // listener so a future purchase doesn't double-fire.
         disposeHandle?.dispose?.()
       }
     }
@@ -176,9 +190,6 @@ export function CreditPacksModal({ open, onClose }) {
         successUrl: window.location.origin + '/#credits?checkout=success',
         cancelUrl: window.location.origin + '/#credits?checkout=canceled',
       })
-      // Pass onEvent through openPaddleCheckout so the listener gets
-      // registered inside paddle.js's own module instance (avoids
-      // cross-chunk subscriber-set drift — see paddle.js comment).
       disposeHandle = await openPaddleCheckout({
         transactionId: resp?.transaction_id,
         checkoutUrl: resp?.checkout_url,
@@ -201,48 +212,33 @@ export function CreditPacksModal({ open, onClose }) {
       ariaLabelledBy="credits-modal-title"
       className="credits-modal-card"
     >
+      {/* ── Header ───────────────────────────────────────────────── */}
       <header className="credits-modal-head">
-        <div className="credits-modal-head-text">
-          <h2 id="credits-modal-title" className="credits-modal-title">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-              className="credits-modal-title-icon"
-            >
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
-            Credits marketplace
-          </h2>
-          <p className="credits-modal-sub">
-            One-time top-up — permanent credits never expire.
-            {total != null && (
-              <>
-                {' '}
-                · Current balance: <strong>{fmtCredits(total)}</strong>
-              </>
-            )}
-          </p>
+        <div className="credits-modal-head-left">
+          <div className="credits-modal-head-icon" aria-hidden>
+            <CreditCoin size={18} />
+          </div>
+          <div className="credits-modal-head-text">
+            <h2 id="credits-modal-title" className="credits-modal-title">
+              Credits
+            </h2>
+            <p className="credits-modal-sub">
+              One-time top-up · never expire
+              {total != null && (
+                <>
+                  {' '}
+                  · <strong>{fmtCredits(total)}</strong> in balance
+                </>
+              )}
+            </p>
+          </div>
         </div>
         <button type="button" className="credits-modal-close" onClick={onClose} aria-label="Close">
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          >
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
+          <IconClose />
         </button>
       </header>
 
+      {/* ── Scroll body ──────────────────────────────────────────── */}
       <div className="credits-modal-scroll">
         {error && (
           <div className="credits-modal-error" role="alert">
@@ -256,49 +252,71 @@ export function CreditPacksModal({ open, onClose }) {
             <span>Loading packs…</span>
           </div>
         ) : packs.length === 0 ? (
-          <div className="credits-modal-empty">No credit packs are available right now.</div>
+          <div className="credits-modal-empty">No credit packs available right now.</div>
         ) : (
           <ul className="credits-modal-grid">
             {packs.map((p) => (
               <li
                 key={p.slug}
-                className={`credits-pack-card ${p.isBestValue ? 'credits-pack-card--best' : ''}`}
+                className={`credits-pack-card${p.isBestValue ? ' credits-pack-card--best' : ''}`}
               >
-                {p.isBestValue && <span className="credits-pack-badge">Best value</span>}
+                {/* Top row: badge or savings chip */}
+                <div className="credits-pack-top">
+                  {p.isBestValue && <span className="credits-pack-badge">Best value</span>}
+                  {p.savingsPct >= 15 && !p.isBestValue && (
+                    <span className="credits-pack-savings">Save {p.savingsPct}%</span>
+                  )}
+                </div>
 
+                {/* Credit coin icon */}
+                <div className="credits-pack-icon-wrap" aria-hidden>
+                  <CreditCoin size={24} />
+                </div>
+
+                {/* Amount */}
                 <div className="credits-pack-credits">
                   <span className="credits-pack-credits-num">{fmtCredits(p.credits)}</span>
                   <span className="credits-pack-credits-label">credits</span>
                 </div>
 
+                {/* Price */}
                 <div className="credits-pack-price">{fmtPrice(p.price_usd)}</div>
 
-                <div className="credits-pack-rate">
-                  {costPerCredit(p.credits, p.price_usd)}
-                  {p.savingsPct >= 15 && (
-                    <span className="credits-pack-savings" aria-label={`Save ${p.savingsPct}%`}>
-                      Save {p.savingsPct}%
-                    </span>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  className={`credits-pack-cta ${p.isBestValue ? 'credits-pack-cta--primary' : ''}`}
-                  onClick={() => buy(p)}
-                  disabled={loadingPack === p.slug}
-                >
-                  {loadingPack === p.slug ? 'Opening…' : `Buy ${fmtCredits(p.credits)}`}
-                </button>
+                {/* CTA */}
+                {p.isBestValue ? (
+                  <div className="credits-pack-lmb-wrap">
+                    <LiquidMetalButton
+                      label="Get credits"
+                      icon={Sparkles}
+                      dark
+                      width="100%"
+                      height={44}
+                      onClick={() => buy(p)}
+                      loading={loadingPack === p.slug}
+                      disabled={!!loadingPack && loadingPack !== p.slug}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="credits-pack-cta"
+                    onClick={() => buy(p)}
+                    disabled={!!loadingPack}
+                  >
+                    {loadingPack === p.slug ? 'Opening…' : 'Get credits'}
+                  </button>
+                )}
               </li>
             ))}
           </ul>
         )}
       </div>
 
+      {/* ── Footer ───────────────────────────────────────────────── */}
       <footer className="credits-modal-foot">
         <span className="credits-modal-foot-note">
-          Payments processed by Paddle. Credits are added instantly once the payment is confirmed.
+          <IconShield />
+          Payments processed securely by Paddle
         </span>
         <button
           type="button"
@@ -308,7 +326,7 @@ export function CreditPacksModal({ open, onClose }) {
             window.location.hash = 'pro'
           }}
         >
-          Or upgrade your plan →
+          Upgrade your plan →
         </button>
       </footer>
     </Dialog>
