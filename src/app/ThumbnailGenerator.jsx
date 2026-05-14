@@ -1012,6 +1012,11 @@ const ThumbnailGenFill = memo(function ThumbnailGenFill({
   const rafRef = useRef(0)
   const startRef = useRef(0)
   const doneRef = useRef(false)
+  // Lock the duration at first mount. If the parent re-renders with a
+  // different value (e.g. message object updated while job is in flight),
+  // we must NOT restart the animation — that's exactly what causes the
+  // percentage to jump back to 0% mid-generation.
+  const lockedDurationRef = useRef(estimatedDurationMs)
   // Mirror pct in a ref so the `done` effect can read the *current*
   // pct without depending on it (avoids effect re-runs on every frame).
   const pctRef = useRef(0)
@@ -1063,7 +1068,9 @@ const ThumbnailGenFill = memo(function ThumbnailGenFill({
     const status = useThumbnailJobStatusStore.getState().status
     const p = status?.progress
     if (typeof p !== 'number' || !Number.isFinite(p)) return null
-    // Backend may emit 0..1 OR 0..100 depending on worker; normalize.
+    // Backend emits 0..1. Values > 1 are treated as a 0-100 scale for
+    // legacy compatibility. Exclude exactly 1.0 from the >1 branch —
+    // that is a valid "100%" in 0..1 scale, not "1%" in 0..100 scale.
     const normalized = p > 1 ? p / 100 : p
     return Math.max(0, Math.min(0.999, normalized))
   }
@@ -1077,7 +1084,7 @@ const ThumbnailGenFill = memo(function ThumbnailGenFill({
     startRef.current = performance.now()
 
     const { k1, k2, fuzz } = jitter
-    const effectiveDuration = Math.max(2000, estimatedDurationMs * fuzz)
+    const effectiveDuration = Math.max(2000, lockedDurationRef.current * fuzz)
 
     const tick = (now) => {
       if (doneRef.current) return
@@ -1119,7 +1126,11 @@ const ThumbnailGenFill = memo(function ThumbnailGenFill({
     return () => cancelAnimationFrame(rafRef.current)
     // NOTE: ``livePctValue`` deliberately NOT in deps. See the
     // ``livePctRef`` block above for why.
-  }, [estimatedDurationMs])
+    // NOTE: deps are intentionally empty — duration is locked via
+    // ``lockedDurationRef`` at mount so parent re-renders (e.g. from
+    // SSE events updating the message object) never restart the animation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // On `done` flip, the parent's `finishLoading` now drops
   // `pendingAssistant` immediately (single-frame swap with the result
