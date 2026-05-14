@@ -1703,7 +1703,7 @@ export function EditThumbnailDialog({
           style={{
             alignSelf: 'center',
             width: '100%',
-            maxWidth: 1040,
+            maxWidth: 720,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
