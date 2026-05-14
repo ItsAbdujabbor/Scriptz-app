@@ -22,7 +22,19 @@ import { track } from './analytics'
 
 let installed = false
 
-const PAYWALL_CODES = new Set(['NO_ACTIVE_SUBSCRIPTION', 'INSUFFICIENT_CREDITS'])
+// Codes that route the user to /pro. PLAN_UPGRADE_REQUIRED is the
+// 403 raised by `require_plan_feature(...)` when a user IS
+// subscribed but their tier doesn't include the requested feature
+// (e.g., Starter trying to use Personas / Styles / Edit / Score /
+// One-click fix — all Creator-or-Ultimate only). Without it in this
+// set, the persona/style modal mutation throws an unhandled error
+// and the user sees a generic "Generation failed" red toast instead
+// of being routed to /pro.
+const PAYWALL_CODES = new Set([
+  'NO_ACTIVE_SUBSCRIPTION',
+  'INSUFFICIENT_CREDITS',
+  'PLAN_UPGRADE_REQUIRED',
+])
 
 function goToPricing() {
   if (typeof window === 'undefined') return

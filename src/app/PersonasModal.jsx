@@ -395,7 +395,20 @@ export function PersonasModal({ onClose }) {
       if (persona) setSelectedPersona(persona)
       clearCreateForm()
     } catch (err) {
-      setCreateError(friendlyMessage(err) || 'Could not create character.')
+      // Surface the actual backend code + status alongside the
+      // friendly message so users (and us in support) can tell the
+      // difference between a 403 PLAN_UPGRADE_REQUIRED, a 402
+      // INSUFFICIENT_CREDITS, a 500 provider failure, and a network
+      // outage. Console-log the raw error too so it's copy-pastable
+      // out of devtools for debugging.
+       
+      console.error('Persona create failed:', err)
+      const friendly = friendlyMessage(err)
+      const detail =
+        err?.code || err?.status
+          ? ` [${err?.code || ''}${err?.status ? ` ${err.status}` : ''}]`
+          : ''
+      setCreateError((friendly || err?.message || 'Could not create character.') + detail)
     }
   }
 

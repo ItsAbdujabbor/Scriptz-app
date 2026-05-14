@@ -13,7 +13,15 @@ import { aiAwareShouldRetry, aiAwareRetryDelay } from '../aiErrors'
 //                            Titles)
 //
 // Both redirect to /pro silently — no error banner.
-const PAYWALL_CODES = new Set(['NO_ACTIVE_SUBSCRIPTION', 'INSUFFICIENT_CREDITS'])
+// See src/lib/paywallInterceptor.js for the full rationale —
+// PLAN_UPGRADE_REQUIRED is included so Starter-tier users hitting
+// a Creator+ feature route to /pro cleanly instead of seeing a
+// red "failed" toast.
+const PAYWALL_CODES = new Set([
+  'NO_ACTIVE_SUBSCRIPTION',
+  'INSUFFICIENT_CREDITS',
+  'PLAN_UPGRADE_REQUIRED',
+])
 
 function maybeRedirectToPaywall(error) {
   if (!error) return

@@ -303,7 +303,14 @@ export function StylesModal({ onClose }) {
       setSelectedStyle(style)
       clearCreateForm()
     } catch (err) {
-      setCreateError(friendlyMessage(err) || 'Could not create style.')
+       
+      console.error('Style upload failed:', err)
+      const friendly = friendlyMessage(err)
+      const detail =
+        err?.code || err?.status
+          ? ` [${err?.code || ''}${err?.status ? ` ${err.status}` : ''}]`
+          : ''
+      setCreateError((friendly || err?.message || 'Could not create style.') + detail)
     }
   }
 
@@ -328,7 +335,14 @@ export function StylesModal({ onClose }) {
       setSelectedStyle(style)
       clearCreateForm()
     } catch (err) {
-      setCreateError(friendlyMessage(err) || 'Could not create style from link.')
+       
+      console.error('Style create-from-url failed:', err)
+      const friendly = friendlyMessage(err)
+      const detail =
+        err?.code || err?.status
+          ? ` [${err?.code || ''}${err?.status ? ` ${err.status}` : ''}]`
+          : ''
+      setCreateError((friendly || err?.message || 'Could not create style from link.') + detail)
     }
   }
 
