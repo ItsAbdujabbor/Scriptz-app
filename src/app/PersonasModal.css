@@ -1201,20 +1201,128 @@
  * paints on top. The fill below is bumped to a brighter mix than the
  * default slot variant so the animation reads as appealing brand
  * accent, not faint wash. */
+/* ─── Persona generation loader ─────────────────────────────────────
+ * Custom bright on-brand loader. Used to inherit the thumbnail
+ * GenerationProgress styles for parity, but persona is the surface
+ * users see most often when waiting and the muted lavender wash
+ * felt flat. This recipe uses the live `--accent-gradient` brand
+ * ramp + a breathing radial pulse + a faster wider shimmer, so the
+ * waiting state reads as energetic and obviously "the same brand"
+ * as the rest of the app.
+ *
+ * Structure (DOM comes from GenerationProgress with .gen-progress-slot):
+ *   .pm-create-overlay  ← outer container, holds the breathing glow
+ *     .gen-progress      ← absolute-positioned canvas
+ *       .gen-progress__bar     ← dark base track
+ *       .gen-progress__fill    ← bright accent-gradient fill, grows L→R
+ *         .gen-progress__shimmer ← bright sliding sheen on top of fill
+ *       .gen-progress__pct     ← centred percentage typography
+ */
 .pm-create-overlay {
   border-radius: inherit;
   overflow: hidden;
-  background: #14121c;
+  position: relative;
+  isolation: isolate;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(144, 97, 240, 0.22) 0%,
+    rgba(124, 58, 237, 0.08) 35%,
+    #100c1a 75%
+  );
 }
 
-/* Persona generation now uses the exact same animation recipe as the
- * thumbnail generation slot — the gradient fill, shimmer cadence,
- * percentage typography, and easing all inherit from
- * `.gen-progress-slot .gen-progress__*` in GenerationProgress.css.
- * No overrides here on purpose: visual parity with the thumbnail
- * generation is the whole point. If you find yourself wanting to
- * tweak the look of persona generation, change GenerationProgress.css
- * so both stay in lockstep. */
+/* Breathing radial glow behind the progress bar — slow, ambient,
+ * lives behind everything else. Gives the loader a sense of life
+ * even when the percentage is briefly stalled. */
+.pm-create-overlay::before {
+  content: '';
+  position: absolute;
+  inset: -10%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(167, 139, 250, 0.35) 0%,
+    rgba(124, 58, 237, 0.15) 30%,
+    transparent 65%
+  );
+  filter: blur(40px);
+  z-index: 0;
+  animation: pm-loader-pulse 3.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pm-loader-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+/* Dark base track behind the growing fill. */
+.pm-create-overlay .gen-progress__bar {
+  background: rgba(10, 8, 18, 0.65);
+}
+
+/* Bright on-brand fill — uses the live --accent-gradient token so
+ * future palette changes automatically propagate here. The inset
+ * highlight + outer drop-glow give the fill physical depth instead
+ * of a flat coloured rectangle. */
+.pm-create-overlay .gen-progress__fill {
+  background: var(--accent-gradient);
+  box-shadow:
+    inset 0 0 24px rgba(255, 255, 255, 0.18),
+    0 0 28px rgba(124, 58, 237, 0.55),
+    0 0 60px rgba(144, 97, 240, 0.35);
+}
+
+/* Faster, wider, brighter shimmer than the thumbnail recipe — the
+ * sheen sells the "energetic + premium" feel the user asked for.
+ * Override BOTH the gradient (brighter peak) and the animation
+ * keyframe (faster cycle, fuller traverse). */
+.pm-create-overlay .gen-progress__shimmer {
+  width: 45%;
+  left: -45%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: pm-loader-shimmer 1.8s linear infinite;
+  mix-blend-mode: screen;
+}
+
+@keyframes pm-loader-shimmer {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+/* Percentage typography — bigger, bolder, with a brand-violet glow
+ * so it reads as on-brand rather than generic white-on-purple.
+ * z-index sits above the fill + shimmer so the number is always
+ * legible regardless of where the shimmer currently sweeps. */
+.pm-create-overlay .gen-progress__pct {
+  z-index: 2;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: #ffffff;
+  text-shadow:
+    0 2px 18px rgba(0, 0, 0, 0.55),
+    0 0 18px rgba(196, 181, 253, 0.55),
+    0 0 36px rgba(124, 58, 237, 0.4);
+}
+
+.pm-create-overlay .gen-progress__pct-sign {
+  color: rgba(196, 181, 253, 0.85);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .pm-create-form,
