@@ -39,11 +39,14 @@ import './PersonasModal.css'
  * (fast to ~92 %, slow creep to ~99 %) with per-mount jitter so no two
  * generations feel identical.
  */
-const PersonaGenLoader = memo(function PersonaGenLoader() {
+const PersonaGenLoader = memo(function PersonaGenLoader({ done = false, onComplete }) {
   const [pct, setPct] = useState(0)
   const rafRef = useRef(0)
   const startRef = useRef(0)
   const maxReachedRef = useRef(0)
+  // Mirror pct in a ref so the done-effect can read the current value
+  // without adding pct to its deps (which would re-run on every frame).
+  const pctRef = useRef(0)
 
   const [jitter] = useState(() => {
     const r = () => Math.random() - 0.5
@@ -54,9 +57,16 @@ const PersonaGenLoader = memo(function PersonaGenLoader() {
     }
   })
 
+  // Sync pct → pctRef every render so done-effect always sees latest value.
+  useEffect(() => {
+    pctRef.current = pct
+  })
+
+  // Asymptotic rAF curve — runs until done flips true.
   useEffect(() => {
     maxReachedRef.current = 0
     setPct(0)
+    pctRef.current = 0
     startRef.current = performance.now()
     const effectiveDuration = Math.max(2000, 20000 * jitter.fuzz)
 
@@ -77,6 +87,34 @@ const PersonaGenLoader = memo(function PersonaGenLoader() {
     return () => cancelAnimationFrame(rafRef.current)
   }, [jitter])
 
+  // When the parent signals completion, cancel the curve and easeOut
+  // from wherever we are to 100 % over 280 ms, then call onComplete.
+  useEffect(() => {
+    if (!done) return
+    cancelAnimationFrame(rafRef.current)
+    const startPct = pctRef.current
+    if (startPct >= 100) {
+      onComplete?.()
+      return
+    }
+    const startTime = performance.now()
+    const duration = 280
+    const animate = (now) => {
+      const t = Math.min(1, (now - startTime) / duration)
+      const eased = 1 - Math.pow(1 - t, 3) // easeOutCubic
+      const next = Math.round(startPct + (100 - startPct) * eased)
+      setPct(next)
+      pctRef.current = next
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(animate)
+      } else {
+        onComplete?.()
+      }
+    }
+    rafRef.current = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [done, onComplete])
+
   return (
     <div
       className="pm-gen-loader"
@@ -84,7 +122,7 @@ const PersonaGenLoader = memo(function PersonaGenLoader() {
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={pct}
-      aria-busy="true"
+      aria-busy={!done}
       aria-label="Creating character"
     >
       <div className="pm-gen-loader__bar" style={{ width: `${pct}%` }}>
@@ -394,6 +432,8 @@ export function PersonasModal({ onClose }) {
   const { selectedPersonaId, setSelectedPersona } = usePersonaStore()
 
   const [showCreate, setShowCreate] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [genDone, setGenDone] = useState(false)
   const [createImages, setCreateImages] = useState({ front: null, left: null, right: null })
   const [createName, setCreateName] = useState('')
   const [createError, setCreateError] = useState('')
@@ -433,15 +473,18 @@ export function PersonasModal({ onClose }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const clearCreateForm = () => {
+  const clearCreateForm = useCallback(() => {
     setCreateImages({ front: null, left: null, right: null })
     setCreateName('')
     setCreateError('')
     setShowCreate(false)
+    setIsGenerating(false)
+    setGenDone(false)
     Object.values(slotRefs).forEach((ref) => {
       if (ref.current) ref.current.value = ''
     })
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleCreate = async (e) => {
     e.preventDefault()
@@ -451,6 +494,8 @@ export function PersonasModal({ onClose }) {
     }
     const name = createName.trim() || 'My Character'
     setCreateError('')
+    setIsGenerating(true)
+    setGenDone(false)
     try {
       const persona = await createMutation.mutateAsync({
         frontImage: createImages.front,
@@ -459,7 +504,9 @@ export function PersonasModal({ onClose }) {
         name,
       })
       if (persona) setSelectedPersona(persona)
-      clearCreateForm()
+      // Signal the loader to snap to 100 % — clearCreateForm is called
+      // by the loader's onComplete callback after the animation finishes.
+      setGenDone(true)
     } catch (err) {
       // Surface the actual backend code + status alongside the
       // friendly message so users (and us in support) can tell the
@@ -467,7 +514,8 @@ export function PersonasModal({ onClose }) {
       // INSUFFICIENT_CREDITS, a 500 provider failure, and a network
       // outage. Console-log the raw error too so it's copy-pastable
       // out of devtools for debugging.
-
+      setIsGenerating(false)
+      setGenDone(false)
       console.error('Persona create failed:', err)
       const friendly = friendlyMessage(err)
       const detail =
@@ -649,8 +697,8 @@ export function PersonasModal({ onClose }) {
            * the accent gradient growing left-to-right and a real
            * tabular percentage centred over the fill. */}
           {showCreate &&
-            (createMutation.isPending ? (
-              <PersonaGenLoader />
+            (isGenerating ? (
+              <PersonaGenLoader done={genDone} onComplete={clearCreateForm} />
             ) : (
               <form onSubmit={handleCreate} className="pm-create-form" aria-busy={undefined}>
                 <fieldset className="pm-create-fieldset">

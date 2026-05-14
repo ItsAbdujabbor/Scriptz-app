@@ -1204,10 +1204,10 @@
   justify-content: center;
   min-height: 260px;
   border-radius: 14px;
-  background: #0a0712;
+  background: #18181c;
   overflow: hidden;
   contain: paint;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Bar grows left → right via inline width, same as thumb-gen-fill__bar. */
