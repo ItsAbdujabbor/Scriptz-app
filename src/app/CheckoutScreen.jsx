@@ -132,24 +132,21 @@ export function CheckoutScreen({ onClose }) {
           // ─────────────────────────────────────────────────────────
           if (completed?.type === 'subscription') {
             // Subscription tier flips first — the sidebar reads this
-            // for plan name + tier badge.
+            // for plan name + tier badge. No trial: subscriptions start
+            // `active` and grant the full plan_credits allotment up front.
             queryClient.setQueryData(queryKeys.billing.subscription, (current) => ({
               ...(current || {}),
               plan_slug: completed.planSlug || current?.plan_slug,
               plan_name: completed.planName || current?.plan_name,
               tier: completed.tier || current?.tier,
-              status: 'trialing', // 7-day trial by default
-              is_trial: true,
+              status: 'active',
+              is_trial: false,
               billing_period: completed.cycle === 'annual' ? 'year' : 'month',
               plan_credits: completed.expectedCredits || current?.plan_credits,
-              // Trial period gives 100 credits — see TRIAL_CREDIT_GRANT
-              // on the backend. Show that immediately. If the user
-              // selected skip-trial, the webhook reconciles to the
-              // full plan amount on next poll.
             }))
             queryClient.setQueryData(queryKeys.billing.credits, (current) => {
               const permanent = Number(current?.permanent_credits || 0)
-              const subCreditsOptimistic = 100 // trial grant
+              const subCreditsOptimistic = Number(completed.expectedCredits || 0)
               return {
                 ...(current || {}),
                 subscription_credits: subCreditsOptimistic,

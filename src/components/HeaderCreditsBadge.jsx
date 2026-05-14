@@ -47,8 +47,7 @@ function formatCount(n) {
 // Map the raw plan tier (server-side enum: starter | creator | ultimate)
 // to a display label + className token. The label is what the user
 // reads; the tier token drives the colour ramp on the right zone.
-function planTierAndLabel(subscription, isTrial, isSubscribed) {
-  if (isTrial) return { tier: 'trial', label: 'Trial' }
+function planTierAndLabel(subscription, isSubscribed) {
   // Unsubscribed users (free tier) get a slate-coloured "Free" pill —
   // the badge is still rendered so they can see their welcome credits
   // counting down as they use the product.
@@ -85,9 +84,8 @@ export function HeaderCreditsBadge({ onClick }) {
 
   const isLow = total != null && total > 0 && total < 100
   const isEmpty = total === 0
-  const isTrial = !!subscription?.is_trial
   const planCredits = subscription?.plan_credits || 0
-  const { tier } = planTierAndLabel(subscription, isTrial, isSubscribed)
+  const { tier } = planTierAndLabel(subscription, isSubscribed)
 
   const handleClick = (e) => {
     if (onClick) return onClick(e)
@@ -103,7 +101,6 @@ export function HeaderCreditsBadge({ onClick }) {
           `header-credits-badge--tier-${tier}`,
           isLow ? 'header-credits-badge--low' : '',
           isEmpty ? 'header-credits-badge--empty' : '',
-          isTrial ? 'header-credits-badge--trial' : '',
         ]
           .filter(Boolean)
           .join(' ')}
@@ -111,9 +108,7 @@ export function HeaderCreditsBadge({ onClick }) {
         title={
           total == null
             ? 'Loading credits…'
-            : isTrial
-              ? `Trial: ${total} credits remaining — upgrade to get the full plan`
-              : `${total.toLocaleString('en-US')} credits remaining${planCredits ? ` / ${planCredits.toLocaleString('en-US')} monthly` : ''}`
+            : `${total.toLocaleString('en-US')} credits remaining${planCredits ? ` / ${planCredits.toLocaleString('en-US')} monthly` : ''}`
         }
         aria-label={total == null ? 'Credits loading' : `${total} credits remaining`}
       >

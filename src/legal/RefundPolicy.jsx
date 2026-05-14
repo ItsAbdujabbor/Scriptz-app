@@ -37,8 +37,8 @@ export function RefundPolicy({ onBack }) {
         <div className="legal-content">
           <p>
             This Refund Policy explains when and how you can request a refund for purchases made on
-            Clixa AI (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;). By subscribing to a
-            paid plan or purchasing credits you agree to the terms below. This policy should be read
+            Clixa AI (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;). By subscribing to a paid
+            plan or purchasing credits you agree to the terms below. This policy should be read
             together with our <a href="#terms">Terms of Service</a> and{' '}
             <a href="#privacy">Privacy Policy</a>.
           </p>
@@ -95,14 +95,7 @@ export function RefundPolicy({ onBack }) {
             of purchase by contacting support.
           </p>
 
-          <h2>4. Free Trial</h2>
-          <p>
-            If you started with a free trial, you will not be charged during the trial period. You
-            can cancel at any time before the trial ends to avoid being billed. Once the trial
-            converts into a paid subscription, the 14-day satisfaction window in Section 2 applies.
-          </p>
-
-          <h2>5. AI-Generated Content</h2>
+          <h2>4. AI-Generated Content</h2>
           <p>
             Credits spent on AI generation (thumbnails, titles, SEO optimisations, etc.) are{' '}
             <strong>not refundable once the generation has completed successfully</strong>,
@@ -112,7 +105,7 @@ export function RefundPolicy({ onBack }) {
             and we will restore them.
           </p>
 
-          <h2>6. Exceptions — Technical Issues & Duplicate Charges</h2>
+          <h2>5. Exceptions — Technical Issues & Duplicate Charges</h2>
           <p>
             We will issue a full refund in the following cases, regardless of the 14-day window:
           </p>
@@ -128,7 +121,7 @@ export function RefundPolicy({ onBack }) {
             </li>
           </ul>
 
-          <h2>7. How to Request a Refund</h2>
+          <h2>6. How to Request a Refund</h2>
           <p>
             Send your refund request from the email address associated with your Clixa AI account.
             Include:
@@ -139,13 +132,13 @@ export function RefundPolicy({ onBack }) {
             <li>A brief reason for the request.</li>
           </ul>
           <p>
-            Email <a href="mailto:support@clixa.app">support@clixa.app</a>. We aim to respond
-            within 3 business days. Once a refund is approved, Paddle (our Merchant of Record)
-            processes the refund back to your original payment method, typically within 5–10
-            business days — timing depends on your bank or card issuer.
+            Email <a href="mailto:support@clixa.app">support@clixa.app</a>. We aim to respond within
+            3 business days. Once a refund is approved, Paddle (our Merchant of Record) processes
+            the refund back to your original payment method, typically within 5–10 business days —
+            timing depends on your bank or card issuer.
           </p>
 
-          <h2>8. Chargebacks</h2>
+          <h2>7. Chargebacks</h2>
           <p>
             If you believe you were charged in error, please contact us first — we will work with
             you quickly to resolve the issue. Initiating a chargeback without first contacting
@@ -153,14 +146,14 @@ export function RefundPolicy({ onBack }) {
             investigated, in accordance with our <a href="#terms">Terms of Service</a>.
           </p>
 
-          <h2>9. Taxes</h2>
+          <h2>8. Taxes</h2>
           <p>
             Where applicable, refunds will include any sales tax, VAT, or GST that was charged on
             the original invoice. Currency conversion fees applied by your bank or card issuer are
             not refundable by Clixa AI.
           </p>
 
-          <h2>10. Changes to This Policy</h2>
+          <h2>9. Changes to This Policy</h2>
           <p>
             We may update this Refund Policy from time to time. Material changes will be posted on
             this page with an updated &quot;Last updated&quot; date. Your continued use of the
@@ -169,7 +162,7 @@ export function RefundPolicy({ onBack }) {
             that was in effect at the time of purchase.
           </p>
 
-          <h2>11. Contact</h2>
+          <h2>10. Contact</h2>
           <p>
             For refund requests or questions about this Refund Policy, email{' '}
             <a href="mailto:support@clixa.app">support@clixa.app</a> or see our{' '}

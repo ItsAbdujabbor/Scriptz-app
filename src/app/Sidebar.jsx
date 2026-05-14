@@ -638,14 +638,13 @@ export function Sidebar({
   const subTier = (subscription?.tier || '').toString().toLowerCase()
   const isPaid = ['active', 'past_due', 'trialing'].includes(subStatus)
   const planLabel = (() => {
-    if (subscription?.is_trial) return 'Trial'
     if (!isPaid) return 'Free'
     if (['starter', 'creator', 'ultimate'].includes(subTier)) {
       return subTier[0].toUpperCase() + subTier.slice(1)
     }
     return subscription?.plan_name || 'Pro'
   })()
-  const planChipTone = subscription?.is_trial ? 'trial' : isPaid ? subTier || 'pro' : 'free'
+  const planChipTone = isPaid ? subTier || 'pro' : 'free'
   const goPro = useCallback(() => {
     if (typeof window !== 'undefined') window.location.hash = 'pro'
   }, [])

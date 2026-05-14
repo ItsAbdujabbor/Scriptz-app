@@ -508,21 +508,17 @@ export function SettingsModal({
     ? new Date(memberSinceMs).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
     : null
 
-  // Plan derived from subscription. `isSubscribed` covers active /
-  // trialing / past_due; trial users see a different CTA than paid.
+  // Plan derived from subscription. `hasActivePlan` covers active /
+  // trialing / past_due — `trialing` is back-compat only; no trial UX exists.
   const ACTIVE = ['active', 'trialing', 'past_due']
   const hasActivePlan = !!(subscription && ACTIVE.includes(subscription.status))
-  const isTrial = !!subscription?.is_trial
   const planName = (() => {
     if (!hasActivePlan) return 'Free'
     const name = subscription.plan_name || subscription.tier || 'Pro'
-    const cap = name.charAt(0).toUpperCase() + name.slice(1)
-    return isTrial ? `${cap} · Trial` : cap
+    return name.charAt(0).toUpperCase() + name.slice(1)
   })()
   const planSubtitle = hasActivePlan
-    ? isTrial
-      ? 'Your trial is active. Continue to keep all features after it ends.'
-      : `Billed ${subscription.billing_period === 'year' ? 'annually' : 'monthly'}.`
+    ? `Billed ${subscription.billing_period === 'year' ? 'annually' : 'monthly'}.`
     : 'Upgrade to unlock unlimited generations and the SRX-3 model.'
 
   return createPortal(

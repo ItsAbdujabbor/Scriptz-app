@@ -104,13 +104,13 @@ const FAQS = [
     ),
   },
   {
-    q: 'What happens after my free trial ends?',
+    q: 'How do I try Clixa before subscribing?',
     a: (
       <p>
-        Every paid plan starts with a <strong>7-day free trial</strong> — no charge during the
-        trial. Your card is charged the plan price on day 8 unless you cancel before then in{' '}
-        <strong>Settings → Billing</strong>. You can also <strong>"Skip trial — pay now"</strong>{' '}
-        from the billing panel to unlock the full plan credits immediately.
+        Every new account gets <strong>100 free credits</strong> on sign-up — enough to generate a
+        handful of thumbnails and explore the editor end-to-end before deciding. When you're ready
+        for more, pick a plan (Starter / Creator / Ultimate); subscriptions are charged immediately
+        and you get the full monthly credit allotment from day one.
       </p>
     ),
   },

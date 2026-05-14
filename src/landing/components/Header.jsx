@@ -50,13 +50,13 @@ function HeaderBar() {
         {/* Desktop / mobile-visible CTAs. Both targets are the same unified
             auth dialog (#signin) — two buttons exist so returning users
             have an obvious "Sign In" affordance separate from the marketing
-            "Start Free Trial" CTA, without changing dialog behaviour. */}
+            "Get Started" CTA, without changing dialog behaviour. */}
         <div className="header-actions">
           <a href="#signin" className="header-login">
             Sign In
           </a>
           <a href="#signin" className="header-trial">
-            Start Free Trial
+            Get Started Free
           </a>
         </div>
 
@@ -201,7 +201,7 @@ function HeaderMobileMenu() {
                 <path d="M12 2.5 13.7 9 20.5 10.5 13.7 12 12 18.5 10.3 12 3.5 10.5 10.3 9z" />
               </svg>
             </span>
-            Start Free Trial
+            Get Started Free
           </a>
           <a href="#signin" className="hm-login" onClick={close}>
             Already have an account? <span className="hm-login-em">Sign in</span>

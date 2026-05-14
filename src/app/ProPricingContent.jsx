@@ -300,7 +300,7 @@ export function ProPricingContent({ onStartTrial }) {
   const ctaLabelFor = (plan) => {
     if (checkoutLoading === plan.tier) return 'Loading…'
     if (isCurrentTier(plan.tier)) return 'Current plan'
-    if (!user) return 'Start free trial'
+    if (!user) return `Subscribe to ${plan.name}`
     // Admin-granted users get the no-active-sub copy because their plan
     // isn't on Paddle — clicking "Upgrade" actually runs a fresh checkout,
     // not a change-plan PATCH.
@@ -310,11 +310,6 @@ export function ProPricingContent({ onStartTrial }) {
       const isUpgrade = (rank[plan.tier] ?? 0) > (rank[activeTier] ?? 0)
       return isUpgrade ? `Upgrade to ${plan.name}` : `Switch to ${plan.name}`
     }
-    // No real subscription yet (free user OR admin-granted). If the
-    // backend says they've never had a Paddle sub, the plan still
-    // offers a free trial; otherwise they're a returning user who's
-    // already used their trial allowance, so we skip the trial copy.
-    if (subscription?.trial_eligible !== false) return 'Start free trial'
     return `Subscribe to ${plan.name}`
   }
 

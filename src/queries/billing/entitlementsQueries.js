@@ -4,8 +4,8 @@
  * `usePlanEntitlements()` returns:
  *   {
  *     tier: "free" | "starter" | "creator" | "ultimate",
- *     isSubscribed: boolean,   // true for active / trialing / past_due
- *     isTrial: boolean,
+ *     isSubscribed: boolean,   // true for active / past_due
+ *     isTrial: false,          // trial concept removed; kept for back-compat
  *     features: { personas, styles, faceswap, priority_support, advanced_analytics, ... },
  *     canUse: (key) => boolean,
  *   }
@@ -18,6 +18,8 @@ import { useMemo } from 'react'
 
 import { useSubscriptionQuery } from './creditsQueries'
 
+// `trialing` is kept for back-compat with any cached Paddle state that may
+// still report it; functionally it is treated identically to `active`.
 const ACTIVE = new Set(['active', 'trialing', 'past_due'])
 const FREE_FEATURES = {
   tier: 'free',
@@ -38,8 +40,7 @@ export function usePlanEntitlements() {
         ? { ...FREE_FEATURES, ...subscription.features }
         : { ...FREE_FEATURES }
     const tier = subscription?.tier || features.tier || 'free'
-    const isTrial = !!subscription?.is_trial
     const canUse = (key) => !!features[key]
-    return { tier, isSubscribed, isTrial, features, canUse, isLoading }
+    return { tier, isSubscribed, isTrial: false, features, canUse, isLoading }
   }, [subscription, isLoading])
 }

@@ -139,7 +139,7 @@ function friendlyMessageFor({ code, status, serverMessage, retryAfterSeconds }) 
     case 'INSUFFICIENT_CREDITS':
       return "You're out of credits for now. Add a top-up or wait for your monthly renewal."
     case 'NO_ACTIVE_SUBSCRIPTION':
-      return 'Start your free trial or subscribe to use this feature.'
+      return 'Subscribe to unlock this feature.'
     case 'PAYMENT_METHOD_REQUIRED':
       // Surfaced when Paddle rejects an immediate-bill skip-trial
       // because the subscription has no payment method on file.
