@@ -2498,22 +2498,26 @@
 }
 
 /* ── Unified picker SELECTED state ──────────────────────────────────
- * Matches the .pm-card--selected / .sm-card--selected recipe used in
- * the persona and style modals: dark purple-tinted background with an
- * accent-violet border (inset box-shadow avoids layout shift).
- *   background : #1a1922  — same dark purple plate as the modal cards
- *   border     : rgba(167,139,250,0.55) accent rim via inset shadow
+ * Matches the persona-selector and style-selector selected recipe
+ * (PersonaSelector.css / StyleSelector.css). Both of those pickers
+ * portal their dropdowns to <body> so the .coach-main--thumb scope
+ * never reaches them — their own CSS defines the authoritative
+ * neutral white-wash recipe. Batch uses the same values here so
+ * all three picker popovers look identical when something is active.
+ *   background : rgba(255,255,255,0.08) — neutral white wash
+ *   border     : rgba(255,255,255,0.06) subtle white inset rim
  *   color      : white
  */
-.thumb-batch-circle-option.is-active,
-.thumb-batch-circle-option.is-active:hover,
-.coach-main--thumb .persona-selector-option.is-selected,
-.coach-main--thumb .persona-selector-option.is-selected:hover,
-.coach-main--thumb .style-selector-option.is-selected,
-.coach-main--thumb .style-selector-option.is-selected:hover {
-  background: #1a1922;
+.thumb-batch-circle-option.is-active {
+  background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.thumb-batch-circle-option.is-active:hover {
+  background: rgba(255, 255, 255, 0.11);
 }
 
 .thumb-batch-circle-option-n {
