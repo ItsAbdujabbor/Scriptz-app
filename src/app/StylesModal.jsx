@@ -303,7 +303,6 @@ export function StylesModal({ onClose }) {
       setSelectedStyle(style)
       clearCreateForm()
     } catch (err) {
-       
       console.error('Style upload failed:', err)
       const friendly = friendlyMessage(err)
       const detail =
@@ -335,7 +334,6 @@ export function StylesModal({ onClose }) {
       setSelectedStyle(style)
       clearCreateForm()
     } catch (err) {
-       
       console.error('Style create-from-url failed:', err)
       const friendly = friendlyMessage(err)
       const detail =
@@ -629,14 +627,6 @@ export function StylesModal({ onClose }) {
 
               {createSourceTab === 'video' && (
                 <form onSubmit={handleCreateFromYoutube} className="sm-form">
-                  <input
-                    type="url"
-                    className="sm-input sm-url-input"
-                    placeholder="Paste a YouTube link"
-                    value={createYoutubeUrl}
-                    onChange={(e) => setCreateYoutubeUrl(e.target.value.slice(0, 280))}
-                    autoComplete="off"
-                  />
                   <div className="sm-yt-preview">
                     {createYoutubeFetching && (
                       <span className="sm-yt-preview-state">
@@ -657,6 +647,14 @@ export function StylesModal({ onClose }) {
                         <span className="sm-yt-preview-state">Preview will appear here</span>
                       )}
                   </div>
+                  <input
+                    type="url"
+                    className="sm-input sm-url-input"
+                    placeholder="Paste a YouTube link"
+                    value={createYoutubeUrl}
+                    onChange={(e) => setCreateYoutubeUrl(e.target.value.slice(0, 280))}
+                    autoComplete="off"
+                  />
                   <div className="sm-name-field">
                     <input
                       type="text"
