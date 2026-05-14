@@ -1433,7 +1433,7 @@ export function Sidebar({
       <ConfirmDialog
         open={deleteChatDialogOpen}
         title="Delete chat"
-        description="Delete this chat permanently? This cannot be undone."
+        description="This will permanently delete the chat and all its generated images from storage. This cannot be undone."
         confirmLabel="Delete"
         cancelLabel="Cancel"
         danger
