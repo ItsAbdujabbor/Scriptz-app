@@ -460,9 +460,57 @@
   gap: 12px;
 }
 
+/* Mobile compactness — keep the 3-column shape so the entire create
+ * form fits in roughly one phone-viewport without scrolling. The
+ * stacked 1-column layout we had before produced ~900px of vertical
+ * drop-zone height alone on an iPhone SE, which forced users to
+ * scroll past the slots to reach the Name field + Create button.
+ * Tighter gaps, smaller labels, and reduced form padding bring the
+ * whole form down to ~400px on 360px-wide phones. */
 @media (max-width: 540px) {
+  .pm-create-form {
+    gap: 10px;
+    padding: 12px;
+    border-radius: 12px;
+  }
   .pm-slots-grid {
-    grid-template-columns: 1fr;
+    /* stay 3-col on mobile; the squares just get smaller */
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .pm-slot {
+    border-width: 1px;
+    border-radius: 10px;
+  }
+  .pm-slot-label {
+    font-size: 10px;
+    letter-spacing: 0.01em;
+  }
+  .pm-slot-empty-hint {
+    /* The "Front / Left / Right" label above the slot already says
+     * what each one is — the inside-hint is redundant on the tiny
+     * mobile tiles and just adds visual noise. */
+    display: none;
+  }
+  .pm-slot-wrap {
+    gap: 4px;
+  }
+  .pm-slot-clear {
+    width: 18px;
+    height: 18px;
+    top: 4px;
+    right: 4px;
+  }
+  .pm-input {
+    height: 38px;
+    font-size: 13px;
+  }
+  /* Match the form's reduced 12px padding so the divider line still
+   * spans edge-to-edge — without this the negative margin overshoots
+   * the form and the bottom-bar grows a stray gap on each side. */
+  .pm-form-actions {
+    margin: 4px -12px 0;
+    padding: 12px 12px 0;
   }
 }
 
@@ -1159,39 +1207,14 @@
   background: #14121c;
 }
 
-/* Brighter slot fill — overrides the default slot recipe in
- * GenerationProgress.css for this dialog only. Saturated brand
- * accent so the growing bar is clearly visible against the dark
- * plate, with a stronger sheen on the moving shimmer. */
-.pm-create-overlay .gen-progress__fill {
-  background: linear-gradient(
-    135deg,
-    rgba(167, 139, 250, 0.85) 0%,
-    rgba(196, 181, 253, 0.65) 55%,
-    rgba(124, 58, 237, 0.85) 100%
-  );
-  box-shadow: 0 0 60px rgba(124, 58, 237, 0.45);
-}
-
-.pm-create-overlay .gen-progress__bar {
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.pm-create-overlay .gen-progress__shimmer {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.4) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
-}
-
-.pm-create-overlay .gen-progress__pct {
-  font-weight: 800;
-  text-shadow:
-    0 2px 18px rgba(0, 0, 0, 0.6),
-    0 0 24px rgba(167, 139, 250, 0.4);
-}
+/* Persona generation now uses the exact same animation recipe as the
+ * thumbnail generation slot — the gradient fill, shimmer cadence,
+ * percentage typography, and easing all inherit from
+ * `.gen-progress-slot .gen-progress__*` in GenerationProgress.css.
+ * No overrides here on purpose: visual parity with the thumbnail
+ * generation is the whole point. If you find yourself wanting to
+ * tweak the look of persona generation, change GenerationProgress.css
+ * so both stay in lockstep. */
 
 @media (prefers-reduced-motion: reduce) {
   .pm-create-form,
