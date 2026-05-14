@@ -13,7 +13,7 @@
  *   - Empty state placeholder
  *   - Persona grid with rename / delete / favourite controls
  */
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import {
   usePersonasQuery,
   useCreatePersonaFromImagesMutation,
@@ -27,10 +27,76 @@ import { useCostOf } from '../queries/billing/creditsQueries'
 import { Dialog } from '../components/ui/Dialog'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import { InlineSpinner } from '../components/ui'
-import GenerationProgress from '../components/GenerationProgress'
 import { useObjectURL } from '../lib/useObjectURL'
 import { friendlyMessage } from '../lib/aiErrors'
 import './PersonasModal.css'
+
+/**
+ * PersonaGenLoader — card-filling generation animation identical to the
+ * thumbnail generator's ThumbnailGenFill. Deep-purple gradient grows
+ * left → right, soft white sheen sweeps the filled area, large tabular
+ * percentage sits centred over everything. rAF-driven asymptotic curve
+ * (fast to ~92 %, slow creep to ~99 %) with per-mount jitter so no two
+ * generations feel identical.
+ */
+const PersonaGenLoader = memo(function PersonaGenLoader() {
+  const [pct, setPct] = useState(0)
+  const rafRef = useRef(0)
+  const startRef = useRef(0)
+  const maxReachedRef = useRef(0)
+
+  const [jitter] = useState(() => {
+    const r = () => Math.random() - 0.5
+    return {
+      k1: 2.55 * (1 + r() * 0.2),
+      k2: 0.45 * (1 + r() * 0.5),
+      fuzz: 1 + r() * 0.16,
+    }
+  })
+
+  useEffect(() => {
+    maxReachedRef.current = 0
+    setPct(0)
+    startRef.current = performance.now()
+    const effectiveDuration = Math.max(2000, 20000 * jitter.fuzz)
+
+    const tick = (now) => {
+      const t = (now - startRef.current) / effectiveDuration
+      let curve
+      if (t <= 1) {
+        curve = ((1 - Math.exp(-jitter.k1 * t)) / (1 - Math.exp(-jitter.k1))) * 0.92
+      } else {
+        curve = 0.92 + 0.07 * (1 - Math.exp(-jitter.k2 * Math.min(1, (t - 1) / 3)))
+      }
+      const next = Math.max(maxReachedRef.current, curve)
+      maxReachedRef.current = next
+      setPct(Math.round(next * 100))
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [jitter])
+
+  return (
+    <div
+      className="pm-gen-loader"
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={pct}
+      aria-busy="true"
+      aria-label="Creating character"
+    >
+      <div className="pm-gen-loader__bar" style={{ width: `${pct}%` }}>
+        <span className="pm-gen-loader__sheen" aria-hidden="true" />
+      </div>
+      <div className="pm-gen-loader__pct">
+        {pct}
+        <span className="pm-gen-loader__pct-sign">%</span>
+      </div>
+    </div>
+  )
+})
 
 function SlotImage({ file, alt }) {
   const url = useObjectURL(file)
@@ -401,7 +467,7 @@ export function PersonasModal({ onClose }) {
       // INSUFFICIENT_CREDITS, a 500 provider failure, and a network
       // outage. Console-log the raw error too so it's copy-pastable
       // out of devtools for debugging.
-       
+
       console.error('Persona create failed:', err)
       const friendly = friendlyMessage(err)
       const detail =
@@ -582,80 +648,61 @@ export function PersonasModal({ onClose }) {
            * on top — same component the thumbnail screen uses — with
            * the accent gradient growing left-to-right and a real
            * tabular percentage centred over the fill. */}
-          {showCreate && (
-            <form
-              onSubmit={handleCreate}
-              className={`pm-create-form${createMutation.isPending ? ' pm-create-form--busy' : ''}`}
-              aria-busy={createMutation.isPending || undefined}
-            >
-              <fieldset className="pm-create-fieldset" disabled={createMutation.isPending}>
-                <div className="pm-slots-grid">
-                  {PHOTO_SLOTS.map(({ key, label }) => (
-                    <PhotoSlot
-                      key={key}
-                      slotKey={key}
-                      label={label}
-                      file={createImages[key]}
-                      onPick={pickFile}
-                      onClear={clearSlot}
-                      fileInputRef={slotRefs[key]}
+          {showCreate &&
+            (createMutation.isPending ? (
+              <PersonaGenLoader />
+            ) : (
+              <form onSubmit={handleCreate} className="pm-create-form" aria-busy={undefined}>
+                <fieldset className="pm-create-fieldset">
+                  <div className="pm-slots-grid">
+                    {PHOTO_SLOTS.map(({ key, label }) => (
+                      <PhotoSlot
+                        key={key}
+                        slotKey={key}
+                        label={label}
+                        file={createImages[key]}
+                        onPick={pickFile}
+                        onClear={clearSlot}
+                        fileInputRef={slotRefs[key]}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="pm-name-field">
+                    <input
+                      type="text"
+                      className="pm-input pm-name-input"
+                      placeholder="Name this character"
+                      value={createName}
+                      onChange={(e) => setCreateName(e.target.value.slice(0, PERSONA_NAME_MAX))}
+                      maxLength={PERSONA_NAME_MAX}
+                      required
                     />
-                  ))}
-                </div>
+                    <span
+                      className={`pm-name-counter${createName.length >= PERSONA_NAME_MAX - 5 ? ' pm-name-counter--warn' : ''}`}
+                      aria-live="polite"
+                    >
+                      {createName.length} / {PERSONA_NAME_MAX}
+                    </span>
+                  </div>
 
-                <div className="pm-name-field">
-                  <input
-                    type="text"
-                    className="pm-input pm-name-input"
-                    placeholder="Name this character"
-                    value={createName}
-                    onChange={(e) => setCreateName(e.target.value.slice(0, PERSONA_NAME_MAX))}
-                    maxLength={PERSONA_NAME_MAX}
-                    required
-                  />
-                  <span
-                    className={`pm-name-counter${createName.length >= PERSONA_NAME_MAX - 5 ? ' pm-name-counter--warn' : ''}`}
-                    aria-live="polite"
-                  >
-                    {createName.length} / {PERSONA_NAME_MAX}
-                  </span>
-                </div>
+                  {createError && <p className="pm-error-text">{createError}</p>}
 
-                {createError && <p className="pm-error-text">{createError}</p>}
-
-                <div className="pm-form-actions">
-                  <button
-                    type="button"
-                    className="pm-btn-ghost"
-                    onClick={clearCreateForm}
-                    disabled={createMutation.isPending}
-                  >
-                    Cancel
-                  </button>
-                  <PrimaryButton
-                    type="submit"
-                    disabled={createDisabled}
-                    busy={createMutation.isPending}
-                    busyLabel="Creating…"
-                    featureKey="persona_generate"
-                  >
-                    Create
-                  </PrimaryButton>
-                </div>
-              </fieldset>
-
-              {createMutation.isPending && (
-                <div
-                  className="pm-create-overlay gen-progress-slot"
-                  role="status"
-                  aria-live="polite"
-                  aria-label="Creating character"
-                >
-                  <GenerationProgress estimatedDurationMs={20000} />
-                </div>
-              )}
-            </form>
-          )}
+                  <div className="pm-form-actions">
+                    <button type="button" className="pm-btn-ghost" onClick={clearCreateForm}>
+                      Cancel
+                    </button>
+                    <PrimaryButton
+                      type="submit"
+                      disabled={createDisabled}
+                      featureKey="persona_generate"
+                    >
+                      Create
+                    </PrimaryButton>
+                  </div>
+                </fieldset>
+              </form>
+            ))}
 
           {/* Empty state */}
           {isEmpty && (

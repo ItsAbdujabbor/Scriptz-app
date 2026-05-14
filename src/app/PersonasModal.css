@@ -1177,16 +1177,9 @@
  * growth + white shimmer sweep + tabular percentage that the
  * thumbnail-generation slot uses.
  * ───────────────────────────────────────────────────────────────── */
-.pm-create-form {
-  position: relative;
-}
-
-.pm-create-form--busy {
-  border-color: rgba(167, 139, 250, 0.45);
-}
 
 /* Disabled fieldset wrapper — makes every input/button inside the
- * form non-interactive without changing layout. The opaque overlay
+ * form non-interactive without changing layout. The loader
  * sits on top so no visual fade is needed; this is purely a11y. */
 .pm-create-fieldset {
   border: 0;
@@ -1196,61 +1189,48 @@
 }
 
 /* ─── Persona generation loader ─────────────────────────────────────
- * Visual parity with the thumbnail-generation card-fill (see
- * `.thumb-gen-fill` in ThumbnailGenerator.css). Same deep-purple
- * gradient that grows left → right, same soft white sheen sweep on
- * the filled portion, same big centred percentage. Achieved by
- * overriding the GenerationProgress slot styles inside this overlay
- * — the DOM comes verbatim from <GenerationProgress /> so the rAF
- * curve, monotone clamp, and reduced-motion behaviour are shared.
- *
- * Structure (DOM comes from GenerationProgress with .gen-progress-slot):
- *   .pm-create-overlay  ← outer container, opaque dark plate
- *     .gen-progress       ← absolute-positioned canvas
- *       .gen-progress__bar     ← dark base track
- *       .gen-progress__fill    ← deep-purple gradient, scales L→R
- *         .gen-progress__shimmer ← soft white sheen sweeping the fill
- *       .gen-progress__pct     ← huge centred percentage
- */
-.pm-create-overlay {
-  /* Anchor explicitly so neither the cascade order vs. .gen-progress-slot
-   * nor any future selector with equal specificity can knock the overlay
-   * out of position. Without `position: absolute` here the overlay falls
-   * into normal flow and the form behind it stays fully visible — which
-   * is exactly the bug the user reported (busy state showed nothing). */
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  border-radius: inherit;
-  overflow: hidden;
-  isolation: isolate;
+ * Self-contained card-fill loader rendered in place of the create
+ * form while the mutation is in flight. Mirrors `.thumb-gen-fill`
+ * in ThumbnailGenerator.css exactly: deep-purple gradient growing
+ * left → right, soft white sheen sweeping the filled bar, large
+ * tabular percentage centred over the card. No CSS overlay tricks —
+ * the JSX swaps the form out entirely when isPending, so this
+ * element owns its space without fighting z-index or positioning.
+ * ───────────────────────────────────────────────────────────────── */
+.pm-gen-loader {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 260px;
+  border-radius: 14px;
   background: #0a0712;
+  overflow: hidden;
   contain: paint;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* Subtle dark base track — matches the thumbnail's flat backdrop so
- * the deep-purple fill is the only thing that draws attention. */
-.pm-create-overlay .gen-progress__bar {
-  background: rgba(10, 8, 18, 0.85);
-}
-
-/* Deep-purple gradient fill — exact same ramp as `.thumb-gen-fill__bar`
- * so the two surfaces feel like one design system. No box-shadow,
- * no inset highlight: the colour itself is the statement, and any
- * glow leaked past the rounded form corners during fill growth. */
-.pm-create-overlay .gen-progress__fill {
-  background: linear-gradient(90deg, #4c1d95 0%, #6d28d9 35%, #7c3aed 70%, #8b5cf6 100%);
-  box-shadow: none;
-}
-
-/* Soft white sheen sweep on the filled portion — same gradient and
- * cadence as `.thumb-gen-fill__sheen`. Spans the full width of the
- * fill (which itself scales with progress), so the sheen only ever
- * appears over the painted area. No mix-blend-mode: the soft alpha
- * stops do the work cleanly without going chalky on the gradient. */
-.pm-create-overlay .gen-progress__shimmer {
-  width: 100%;
+/* Bar grows left → right via inline width, same as thumb-gen-fill__bar. */
+.pm-gen-loader__bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
   left: 0;
+  width: 0%;
+  background: linear-gradient(90deg, #4c1d95 0%, #6d28d9 35%, #7c3aed 70%, #8b5cf6 100%);
+  transition: width 0.18s linear;
+  will-change: width;
+  overflow: hidden;
+}
+
+/* Soft white sheen — sweeps across the filled area only. */
+.pm-gen-loader__sheen {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
   background: linear-gradient(
     90deg,
     transparent 0%,
@@ -1260,11 +1240,11 @@
     transparent 100%
   );
   transform: translateX(-60%);
-  animation: pm-loader-sheen 2.2s linear infinite;
-  mix-blend-mode: normal;
+  animation: pm-gen-sheen 2.2s linear infinite;
+  will-change: transform;
 }
 
-@keyframes pm-loader-sheen {
+@keyframes pm-gen-sheen {
   0% {
     transform: translateX(-60%);
   }
@@ -1273,11 +1253,10 @@
   }
 }
 
-/* Huge centred percentage — same scale + tracking as the thumbnail
- * `.thumb-gen-fill__pct`. White on the deep-purple fill carries the
- * contrast on its own; no glow / drop-shadow needed. */
-.pm-create-overlay .gen-progress__pct {
-  z-index: 2;
+/* Large centred percentage — same scale as thumb-gen-fill__pct. */
+.pm-gen-loader__pct {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: baseline;
   gap: 0.04em;
@@ -1286,17 +1265,22 @@
   letter-spacing: -0.02em;
   color: #ffffff;
   font-variant-numeric: tabular-nums;
-  text-shadow: none;
   pointer-events: none;
   user-select: none;
 }
 
-.pm-create-overlay .gen-progress__pct-sign {
+.pm-gen-loader__pct-sign {
   font-size: 0.55em;
   font-weight: 600;
   opacity: 0.85;
   margin-left: 0.05em;
-  color: #ffffff;
+}
+
+@media (max-width: 540px) {
+  .pm-gen-loader {
+    min-height: 200px;
+    border-radius: 12px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
