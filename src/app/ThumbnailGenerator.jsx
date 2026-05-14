@@ -4177,7 +4177,7 @@ export function ThumbnailGenerator({
    * events land in the same thread.
    */
   const persistEvent = useCallback(
-    async (kind, userContent, extraData) => {
+    async (kind, userContent, extraData, parentMessageId = null) => {
       try {
         const token = await getAccessTokenOrNull()
         if (!token) return null
@@ -4187,6 +4187,10 @@ export function ThumbnailGenerator({
           kind,
           user_content: userContent || '',
           extra_data: { ...(extraData || {}), pending: false },
+          // Optional regen-sibling pointer. The server links the new
+          // assistant row back to `parentMessageId` so future variant-
+          // navigation UI can group siblings under one user prompt.
+          ...(parentMessageId != null ? { parent_message_id: parentMessageId } : {}),
         })
         const newId = res?.conversation_id
         if (newId != null && newId !== conversationId) {
@@ -4235,7 +4239,7 @@ export function ThumbnailGenerator({
    * server-assigned IDs.
    */
   const persistPendingEvent = useCallback(
-    async (kind, userContent, extraData) => {
+    async (kind, userContent, extraData, parentMessageId = null) => {
       try {
         const token = await getAccessTokenOrNull()
         if (!token) return null
@@ -4245,6 +4249,8 @@ export function ThumbnailGenerator({
           kind,
           user_content: userContent || '',
           extra_data: { ...(extraData || {}), pending: true },
+          // Optional regen-sibling pointer — see persistEvent above.
+          ...(parentMessageId != null ? { parent_message_id: parentMessageId } : {}),
         })
         const newId = res?.conversation_id
         if (newId != null && newId !== conversationId) {
