@@ -19,6 +19,7 @@
  * and query-param transport.
  */
 import { getApiBaseUrl } from '../lib/env.js'
+import { useAuthStore } from '../stores/authStore.js'
 import { useJobStore } from '../stores/useJobStore.js'
 import { useThumbnailJobStatusStore } from '../stores/thumbnailJobStatusStore.js'
 import { showJobDoneNotification } from '../lib/browserNotification.js'
@@ -57,10 +58,23 @@ function scheduleReconnect() {
   const jitter = Math.random() * (BASE_RECONNECT_DELAY_MS / 2)
   const delay = exp + jitter
   _reconnectAttempt += 1
-  _reconnectTimer = setTimeout(() => {
+  _reconnectTimer = setTimeout(async () => {
     _reconnectTimer = null
-    if (_disposed || !_currentToken) return
-    openStream(_currentToken)
+    if (_disposed) return
+    // Always get a fresh token before reconnecting — the old token may have
+    // expired, which is exactly why the previous connection errored out.
+    let token = _currentToken
+    try {
+      const fresh = await useAuthStore.getState().getValidAccessToken()
+      if (fresh) {
+        token = fresh
+        _currentToken = fresh
+      }
+    } catch {
+      // fall back to current token; openStream will fail again if it's expired
+    }
+    if (!token) return
+    openStream(token)
   }, delay)
 }
 

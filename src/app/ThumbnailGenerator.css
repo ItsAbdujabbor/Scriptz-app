@@ -823,9 +823,9 @@
 /* ----- Image wrap -----
  * Locked to YouTube's native 16:9 frame so every card reads as a
  * YT-thumbnail-shaped tile regardless of the source image's ratio.
- * Paired with `object-fit: cover` on the <img>, the source (gpt-image-2
- * is 3:2 / 1536×1024) fills the frame edge-to-edge with a small
- * top+bottom crop — no letterbox bars. */
+ * `object-fit: contain` on the <img> shows the full 16:9 gpt-image-2
+ * output (1536×864) with no cropping. Since the wrap is also 16:9 there
+ * are no letterbox bars — the image fills edge-to-edge. */
 .thumb-batch-img-wrap {
   position: relative;
   /* Inner radius = outer radius − 4px padding, with the tail corner
@@ -857,12 +857,10 @@
   width: 100%;
   height: 100%;
   max-width: 100%;
-  /* `cover` fills the wrap's 16:9 frame edge-to-edge. The 3:2 source
-   * (gpt-image-2) loses ~6% from the top + bottom — the prompt-rewriter
-   * keeps subjects centred, so the crop hits empty sky / floor, not
-   * faces. Switching from `contain` is what removes the letterbox bars
-   * the user saw on the previous build. */
-  object-fit: cover;
+  /* `contain` shows the complete generated image with zero cropping.
+   * gpt-image-2 generates at 1536×864 (exact 16:9) and the wrap is
+   * locked to 16:9 aspect-ratio, so there are no letterbox bars. */
+  object-fit: contain;
   object-position: center;
   display: block;
   /* DO NOT add `transform: translateZ(0)` here — promoting the <img>
@@ -3679,6 +3677,7 @@
   /* Match `.thumb-batch-card-wrap` exactly — same chat-content cap so
    * the loader and finished card occupy identical space in the list. */
   max-width: 720px;
+  margin: 0 auto;
   padding: 4px;
   border-radius: 22px 22px 22px 4px;
   overflow: hidden;
