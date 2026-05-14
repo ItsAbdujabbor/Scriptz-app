@@ -12,6 +12,17 @@
  * sits at the top with its own padding; everything else lives in
  * `.pm-scroll` which is the actual scroll surface. Top + bottom
  * shadow gradients overlay this region for a smooth scroll fade. */
+/* Solid opaque card — same dark base as the credits marketplace. */
+.pm-modal-card {
+  background: #111119 !important;
+  border-radius: 24px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 24px 64px rgba(0, 0, 0, 0.6) !important;
+  overflow: hidden !important;
+}
+
 .pm-body {
   position: relative;
   display: flex;
@@ -40,9 +51,9 @@
   z-index: 3;
   background: linear-gradient(
     180deg,
-    rgba(22, 22, 28, 0.92) 0%,
-    rgba(22, 22, 28, 0.45) 55%,
-    rgba(22, 22, 28, 0) 100%
+    rgba(17, 17, 25, 1) 0%,
+    rgba(17, 17, 25, 0.45) 55%,
+    rgba(17, 17, 25, 0) 100%
   );
 }
 
@@ -58,9 +69,9 @@
   z-index: 3;
   background: linear-gradient(
     0deg,
-    rgba(22, 22, 28, 0.95) 0%,
-    rgba(22, 22, 28, 0.5) 55%,
-    rgba(22, 22, 28, 0) 100%
+    rgba(17, 17, 25, 1) 0%,
+    rgba(17, 17, 25, 0.5) 55%,
+    rgba(17, 17, 25, 0) 100%
   );
 }
 
@@ -437,9 +448,10 @@
   flex-direction: column;
   gap: 14px;
   padding: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 14px;
-  background: #18181c;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: #1a1a24;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22);
   animation: pm-fade-in 220ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
@@ -854,24 +866,31 @@
   display: flex;
   flex-direction: column;
   padding: 6px;
-  border-radius: 14px;
-  background: #18181c;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  background: #1a1a24;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22);
   overflow: hidden;
   animation: pm-fade-in 240ms cubic-bezier(0.4, 0, 0.2, 1) both;
   transition:
-    border-color 0.22s ease,
-    background 0.22s ease,
-    transform 0.12s ease;
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .pm-card:hover {
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.13);
+  background: #1e1e2a;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
 }
 
 .pm-card--selected {
-  border-color: rgba(167, 139, 250, 0.55);
-  background: #1a1922;
+  border-color: rgba(255, 255, 255, 0.18);
+  background: #1e1e2a;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 4px 18px rgba(0, 0, 0, 0.28);
 }
 
 /* Pick affordance — absolute overlay covering the image so clicking
@@ -1203,8 +1222,8 @@
   align-items: center;
   justify-content: center;
   min-height: 260px;
-  border-radius: 14px;
-  background: #18181c;
+  border-radius: 18px;
+  background: #1a1a24;
   overflow: hidden;
   contain: paint;
   border: 1px solid rgba(255, 255, 255, 0.1);

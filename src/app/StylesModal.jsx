@@ -453,7 +453,13 @@ export function StylesModal({ onClose }) {
   }, [showGrid, visibleCount, filteredItems.length])
 
   return (
-    <Dialog open onClose={() => onClose?.()} size="lg" ariaLabelledBy="styles-modal-title">
+    <Dialog
+      open
+      onClose={() => onClose?.()}
+      size="lg"
+      ariaLabelledBy="styles-modal-title"
+      className="sm-modal-card"
+    >
       <div className="sm-body">
         {/* Header — title + close. Subtitle splits the counts so the
          * user can see at a glance which mix of stock vs personal

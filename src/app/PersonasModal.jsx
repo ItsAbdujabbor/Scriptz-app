@@ -636,7 +636,13 @@ export function PersonasModal({ onClose }) {
   }, [showGrid, visibleCount, filteredItems.length])
 
   return (
-    <Dialog open onClose={requestClose} size="lg" ariaLabelledBy="personas-modal-title">
+    <Dialog
+      open
+      onClose={requestClose}
+      size="lg"
+      ariaLabelledBy="personas-modal-title"
+      className="pm-modal-card"
+    >
       <div className="pm-body">
         {/* Header ── */}
         <div className="pm-header">
