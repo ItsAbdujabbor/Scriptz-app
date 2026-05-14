@@ -2584,6 +2584,13 @@ export function ThumbnailGenerator({
     const current = conversationId == null ? null : Number(conversationId)
     if (current === target) return
     releaseSubmissionLockImmediate()
+    // Also clear the UI-level pending flag so the destination chat's
+    // composer is not locked by a job running for a different conversation.
+    // The localOnlyMessages placeholder for the original conversation stays
+    // in memory (filtered by _conversationId), so returning to that chat
+    // still shows the in-flight loader. finishLoading() will no-op when it
+    // fires after the job completes.
+    setPendingAssistant(false)
   }, [conversationId, releaseSubmissionLockImmediate])
   const chatMutation = useThumbnailChatMutation(handleConversationCreated)
   // (Removed: eager `useCreateThumbnailConversationMutation()` call.
@@ -3045,9 +3052,20 @@ export function ThumbnailGenerator({
   //   • `_promptPending` placeholder  — same modes (redundant but safe)
   //   • `_titlesPending` placeholder  — title-ideas mode
   //   • `_analyzePending` placeholder — analyze-score mode
+  //
+  // IMPORTANT: only check placeholders pinned to the CURRENT conversation.
+  // A _promptPending entry for conversation 107 must not lock the New Chat
+  // composer (conversationId=null) — the user should be able to start a
+  // fresh generation while the old one finishes in the background.
   const anyJobInFlight =
     pendingAssistant ||
-    localOnlyMessages.some((m) => m && (m._promptPending || m._titlesPending || m._analyzePending))
+    localOnlyMessages.some((m) => {
+      if (!m) return false
+      if (!(m._promptPending || m._titlesPending || m._analyzePending)) return false
+      const pinned = m._conversationId
+      if (conversationId == null) return pinned == null
+      return pinned != null && Number(pinned) === Number(conversationId)
+    })
   const isLocallyCreatedConversation =
     conversationId != null && locallyCreatedConvIdsRef.current.has(Number(conversationId))
   // The submission lock force-suppresses the history-loading skeleton
