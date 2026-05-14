@@ -1213,9 +1213,16 @@
  *       .gen-progress__pct     ← huge centred percentage
  */
 .pm-create-overlay {
+  /* Anchor explicitly so neither the cascade order vs. .gen-progress-slot
+   * nor any future selector with equal specificity can knock the overlay
+   * out of position. Without `position: absolute` here the overlay falls
+   * into normal flow and the form behind it stays fully visible — which
+   * is exactly the bug the user reported (busy state showed nothing). */
+  position: absolute;
+  inset: 0;
+  z-index: 5;
   border-radius: inherit;
   overflow: hidden;
-  position: relative;
   isolation: isolate;
   background: #0a0712;
   contain: paint;
