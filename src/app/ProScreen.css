@@ -1,52 +1,40 @@
-/* ProScreen — fullscreen pricing takeover (rebuilt from scratch).
+/* ProScreen — fullscreen pricing takeover.
  *
- * Self-contained surface that paints over the rest of the app. Every
- * selector here is scoped under `.pro-screen` so this file does not
- * touch the landing-page pricing or any other module. No imports from
- * the legacy `Pro.css` / `pricing.css` are needed — this stylesheet
- * owns the look end-to-end.
- *
- * Layers, top to bottom:
- *   • base surface (deep near-black with a subtle violet wash)
- *   • two animated radial "orbs" + a top halo for depth
- *   • a soft dot grid for texture (drawn via background-image, no JS)
- *   • content column with hero, cards, perks row, FAQ
- *
- * Cards use INNER glow only — no outer drop-glow, per design ask.
+ * Redesigned with Outfit (geometric humanist sans), elevated featured
+ * card, warm-amber "Most popular" badge, and tighter mobile layout.
+ * All selectors scoped under `.pro-screen` / `.pro-pricing-host`.
  */
 
+/* ── Google Fonts ────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+
 /* CSS variables exposed on BOTH the fullscreen takeover and the
- * landing-page embed. The shell-only properties (position: fixed,
- * inset, z-index 1000, overflow, etc.) live on `.pro-screen`; the
- * variable defaults live on `.pro-pricing-host` so the same content
- * (`<ProPricingContent>`) renders correctly in either context. */
+ * landing-page embed. Shell-only properties live on `.pro-screen`. */
 .pro-screen,
 .pro-pricing-host {
-  /* Palette — more reserved violet, deeper base. Drops the saturated
-   * neon feel; reads premium rather than club-poster. */
-  --pro-bg: #07060f;
-  --pro-bg-tint: #0d0a1c;
+  --pro-bg: #06050e;
+  --pro-bg-tint: #0c0a1d;
   --pro-violet: #8b5cf6;
   --pro-violet-bright: #a78bfa;
   --pro-violet-deep: #6d28d9;
   --pro-indigo: #6366f1;
   --pro-pink: #d946ef;
+  /* Amber accent — featured badge + featured CTA ring */
+  --pro-amber: #f59e0b;
+  --pro-amber-light: #fde68a;
   --pro-text-1: #ffffff;
-  --pro-text-2: rgba(229, 231, 235, 0.82);
-  --pro-text-3: rgba(229, 231, 235, 0.6);
-  --pro-text-4: rgba(229, 231, 235, 0.42);
-  --pro-card-bg: rgba(20, 16, 36, 0.66);
-  --pro-card-bg-pop: rgba(34, 24, 60, 0.7);
-  --pro-card-border: rgba(167, 139, 250, 0.14);
-  --pro-card-border-pop: rgba(196, 181, 253, 0.36);
-
-  /* Typography tokens — keep the whole surface on one rhythm. */
-  --pro-font:
-    'Inter', var(--font, 'Poppins'), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --pro-font-numeric:
-    'Inter', var(--font, 'Poppins'), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --pro-text-2: rgba(229, 231, 235, 0.84);
+  --pro-text-3: rgba(229, 231, 235, 0.56);
+  --pro-text-4: rgba(229, 231, 235, 0.36);
+  --pro-card-bg: rgba(16, 12, 30, 0.74);
+  --pro-card-bg-pop: rgba(26, 16, 54, 0.82);
+  --pro-card-border: rgba(167, 139, 250, 0.13);
+  --pro-card-border-pop: rgba(167, 139, 250, 0.45);
+  --pro-font: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --pro-font-numeric: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
+/* ── Fullscreen shell ─────────────────────────────────────────────── */
 .pro-screen {
   position: fixed;
   inset: 0;
@@ -55,38 +43,28 @@
   isolation: isolate;
   color: #f5f5f6;
   font-family: var(--pro-font);
-  font-feature-settings: 'cv11', 'ss01', 'ss03';
+  font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 
-  /* Calmer base wash — top + bottom radials at lower alpha so the
-   * surface reads as a premium dark page with violet undertone, not a
-   * neon takeover. */
   background:
     radial-gradient(
-      ellipse 80% 60% at 50% 0%,
-      rgba(76, 29, 149, 0.18) 0%,
-      rgba(76, 29, 149, 0.06) 40%,
-      transparent 70%
+      ellipse 90% 65% at 50% 0%,
+      rgba(76, 29, 149, 0.22) 0%,
+      rgba(76, 29, 149, 0.07) 45%,
+      transparent 72%
     ),
-    radial-gradient(ellipse 100% 80% at 50% 100%, rgba(67, 24, 132, 0.1) 0%, transparent 65%),
+    radial-gradient(ellipse 110% 85% at 50% 100%, rgba(67, 24, 132, 0.12) 0%, transparent 66%),
     linear-gradient(180deg, var(--pro-bg) 0%, var(--pro-bg-tint) 55%, var(--pro-bg) 100%);
 
-  /* Pure opacity fade — no transform. A `transform: scale(...)` here
-   * creates a containing block for `position: fixed` descendants
-   * inside the pricing content (see the topbar bug from earlier),
-   * AND on first paint the scale animation reads as a subtle
-   * "pop" some users perceive as flicker. Opacity alone is enough
-   * to soften the transition; nothing inside moves. */
   animation: pro-screen-in 220ms cubic-bezier(0.4, 0, 0.2, 1);
   will-change: opacity;
 }
 
-/* The landing host needs the same typography baseline. */
 .pro-pricing-host {
   font-family: var(--pro-font);
-  font-feature-settings: 'cv11', 'ss01', 'ss03';
+  font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: #f5f5f6;
@@ -101,47 +79,40 @@
   }
 }
 
-/* Top halo — soft violet glow above the heading. Toned down from the
- * earlier punchy version so it reads as ambient depth, not a stage
- * light. Sits below the content (z-index 1) and above the orbs (0). */
+/* Top halo */
 .pro-screen::before {
   content: '';
   position: absolute;
-  top: -260px;
+  top: -280px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(1400px, 130vw);
-  height: 860px;
+  width: min(1500px, 140vw);
+  height: 900px;
   background: radial-gradient(
     ellipse at 50% 22%,
-    rgba(167, 139, 250, 0.18) 0%,
-    rgba(124, 58, 237, 0.1) 32%,
+    rgba(167, 139, 250, 0.2) 0%,
+    rgba(124, 58, 237, 0.11) 34%,
     rgba(76, 29, 149, 0.04) 58%,
-    transparent 75%
+    transparent 76%
   );
   pointer-events: none;
   z-index: 1;
 }
 
-/* Whisper-thin dotted texture — barely there. Stops the surface from
- * looking like flat colour without competing with content. */
+/* Dot texture */
 .pro-screen::after {
   content: '';
   position: absolute;
   inset: 0;
   z-index: 0;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px);
-  background-size: 30px 30px;
-  background-position: 0 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 28px 28px;
   pointer-events: none;
   mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, #000 25%, transparent 88%);
   -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, #000 25%, transparent 88%);
 }
 
-/* ── Animated orbs ──────────────────────────────────────────────────
- * Two oversized radial blobs that drift slowly to give the page a
- * living "brighter purple" feel without being noisy. The animation is
- * hardware-accelerated (transform/opacity only). */
+/* ── Animated orbs ──────────────────────────────────────────────────*/
 .pro-orbs {
   position: absolute;
   inset: 0;
@@ -153,37 +124,37 @@
 .pro-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(110px);
-  opacity: 0.28;
+  filter: blur(120px);
+  opacity: 0.26;
   will-change: transform;
 }
 
 .pro-orb-1 {
-  top: 8%;
-  left: -6%;
-  width: 520px;
-  height: 520px;
+  top: 5%;
+  left: -8%;
+  width: 560px;
+  height: 560px;
   background: radial-gradient(circle, #6d28d9 0%, rgba(109, 40, 217, 0) 70%);
   animation: pro-orb-drift-1 22s ease-in-out infinite;
 }
 
 .pro-orb-2 {
-  top: 40%;
-  right: -8%;
-  width: 580px;
-  height: 580px;
+  top: 38%;
+  right: -10%;
+  width: 600px;
+  height: 600px;
   background: radial-gradient(circle, #a21caf 0%, rgba(162, 28, 175, 0) 70%);
-  opacity: 0.16;
+  opacity: 0.14;
   animation: pro-orb-drift-2 26s ease-in-out infinite;
 }
 
 .pro-orb-3 {
-  bottom: -10%;
-  left: 30%;
-  width: 660px;
-  height: 660px;
+  bottom: -12%;
+  left: 28%;
+  width: 700px;
+  height: 700px;
   background: radial-gradient(circle, #3730a3 0%, rgba(55, 48, 163, 0) 70%);
-  opacity: 0.2;
+  opacity: 0.18;
   animation: pro-orb-drift-3 30s ease-in-out infinite;
 }
 
@@ -282,18 +253,11 @@
     height: 36px;
   }
   .pro-screen-scroll {
-    /* On phones the scrollbar is overlay (zero-width) and the gutter
-     * is not needed — explicitly disable it so older Safari (which
-     * ignores `both-edges` and falls back to right-only) doesn't bias
-     * the content off-center on the most common viewport. */
     scrollbar-gutter: auto;
   }
 }
 
-/* ── Scroll container ─────────────────────────────────────────────── *
- * Neutral white-alpha thumb to match SettingsModal and the rest of
- * the app's modal-style scrollers. Keeps the chrome consistent across
- * surfaces — the violet stays for content, not chrome. */
+/* ── Scroll container ─────────────────────────────────────────────── */
 .pro-screen-scroll {
   position: relative;
   z-index: 2;
@@ -301,53 +265,35 @@
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  /* Use `both-edges` so the gutter is reserved on BOTH sides instead
-   * of the default right-only. Right-only reservation made the inner
-   * content center within `(viewport - gutter)` — visually shifted
-   * left of the true viewport center on mobile, which is the off-
-   * center look you'd see on a 390px iPhone viewport.
-   *
-   * With `both-edges` the gutter is symmetric so the content stays
-   * truly centered. Falls back to `stable` for browsers that don't
-   * support the second keyword (older Safari) — same right-only
-   * behavior as before, which is the original baseline anyway. */
   scrollbar-gutter: stable both-edges;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 
 .pro-screen-scroll::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 .pro-screen-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
 .pro-screen-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
   border-radius: 999px;
 }
 .pro-screen-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.15);
 }
 
+/* ── Inner column ─────────────────────────────────────────────────── */
 .pro-screen-inner {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1220px;
   margin: 0 auto;
-  padding: clamp(2rem, 4vh, 3.5rem) clamp(1.25rem, 4vw, 2.5rem) clamp(2.5rem, 5vh, 4rem);
+  padding: clamp(2.25rem, 5vh, 4rem) clamp(1.25rem, 4vw, 2.5rem) clamp(3rem, 6vh, 5rem);
   display: flex;
   flex-direction: column;
-  gap: clamp(2.25rem, 5vh, 3.5rem);
-  /* `box-sizing: border-box` so the declared 100% width is INCLUSIVE
-   * of the horizontal padding — without it, the inner box paints
-   * `100% + padding*2` wide and the rightmost rem or two extends
-   * past the viewport, which is what was making the FAQ items hang
-   * off the right edge on mobile. */
+  gap: clamp(2.5rem, 5vh, 4rem);
   box-sizing: border-box;
-  /* Defensive overflow clip — any descendant that tries to be wider
-   * than the inner (e.g. a long unbreakable string, an image without
-   * max-width) gets cut off cleanly instead of pushing the whole
-   * column right of viewport center. */
   min-width: 0;
   overflow-x: clip;
 }
@@ -358,25 +304,25 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 0.9rem;
+  gap: 1rem;
 }
 
 .pro-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.32rem 0.9rem;
-  font-size: 0.7rem;
+  gap: 0.45rem;
+  padding: 0.3rem 0.9rem;
+  font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
   color: #ddd6fe;
-  background: linear-gradient(180deg, rgba(167, 139, 250, 0.12), rgba(124, 58, 237, 0.05));
-  border: 1px solid rgba(167, 139, 250, 0.26);
+  background: linear-gradient(180deg, rgba(167, 139, 250, 0.13), rgba(124, 58, 237, 0.06));
+  border: 1px solid rgba(167, 139, 250, 0.28);
   border-radius: 9999px;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 2px 12px rgba(124, 58, 237, 0.1);
+    0 2px 14px rgba(124, 58, 237, 0.12);
 }
 
 .pro-eyebrow::before {
@@ -385,16 +331,16 @@
   height: 5px;
   border-radius: 50%;
   background: #c4b5fd;
-  box-shadow: 0 0 6px rgba(196, 181, 253, 0.7);
+  box-shadow: 0 0 8px rgba(196, 181, 253, 0.8);
 }
 
 .pro-hero-title {
-  margin: 0;
-  font-size: clamp(2rem, 3.4vw, 3.2rem);
-  font-weight: 700;
-  line-height: 1.08;
-  letter-spacing: -0.03em;
-  background: linear-gradient(140deg, #ffffff 0%, #f5f3ff 30%, #d8b4fe 65%, #a78bfa 100%);
+  margin: 0.25rem 0 0;
+  font-size: clamp(2.2rem, 4vw, 3.6rem);
+  font-weight: 800;
+  line-height: 1.06;
+  letter-spacing: -0.04em;
+  background: linear-gradient(145deg, #ffffff 0%, #f0ebff 28%, #c4b5fd 62%, #a78bfa 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -402,31 +348,22 @@
 }
 
 .pro-hero-sub {
-  max-width: 34rem;
+  max-width: 38rem;
   margin: 0;
-  font-size: 0.98rem;
-  line-height: 1.6;
-  letter-spacing: -0.005em;
+  font-size: 1.02rem;
+  font-weight: 400;
+  line-height: 1.65;
+  letter-spacing: -0.01em;
   color: var(--pro-text-3);
 }
 
-/* Billing toggle wrap (we own the styles end-to-end here) */
-/* Billing toggle wrap. We render <ThumbPillTabs> here so the chips
- * are literally the same component the Thumbnail Generator uses —
- * single source of truth for the pill look. The wrap just centres the
- * chip group and reserves margin above. */
+/* Billing toggle wrap */
 .pro-billing {
-  margin-top: 1.4rem;
+  margin-top: 1.75rem;
   display: inline-flex;
 }
 
-/* Selected-state for the Monthly / Annually pill tabs. The base
- * `.thumb-gen-pill-tab--active` styling was removed globally (the
- * thumbnail screen tabs deliberately don't show a selected state —
- * the composer body is the cue), but on the Pro pricing screen the
- * billing-cycle toggle MUST show which side is active because the
- * card prices below depend on it. Scoped under `.pro-billing` so
- * only the pricing tabs get the accent. */
+/* Selected-state for the Monthly / Annually pill tabs */
 .pro-billing .thumb-gen-pill-tab--active,
 .pro-billing .thumb-gen-pill-tab--active:hover {
   background: linear-gradient(135deg, #9061f0 0%, #7c3aed 55%, #5b21b6 100%);
@@ -441,17 +378,14 @@
   stroke-width: 2.2;
 }
 
-/* "Save 30%" line — plain text, sits BELOW the billing toggle. No
- * pill, no border, no background; just a quiet two-tone line where
- * the percentage lifts in a brand violet so the eye lands on it. */
+/* "Save X%" — sits below billing toggle */
 .pro-billing-save {
-  margin: 0.7rem 0 0;
+  margin: 0.75rem 0 0;
   display: inline-flex;
   align-items: baseline;
   gap: 0.32rem;
   font-size: 0.8rem;
   font-weight: 400;
-  letter-spacing: -0.005em;
   color: var(--pro-text-3);
   pointer-events: none;
   white-space: nowrap;
@@ -459,38 +393,34 @@
 
 .pro-billing-save-pct {
   font-weight: 600;
-  letter-spacing: -0.01em;
   color: #c4b5fd;
   font-feature-settings: 'tnum';
 }
 
 .pro-no-card {
-  margin: 0.45rem 0 0;
-  font-size: 0.74rem;
-  color: rgba(196, 181, 253, 0.35);
-  letter-spacing: 0.015em;
+  margin: 0.5rem 0 0;
+  font-size: 0.73rem;
+  color: rgba(196, 181, 253, 0.32);
+  letter-spacing: 0.02em;
   font-weight: 400;
   pointer-events: none;
 }
 
 .pro-checkout-error {
   margin: 0.5rem 0 0;
-  padding: 0.55rem 0.85rem;
-  font-size: 0.82rem;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.83rem;
   color: #fecaca;
-  background: rgba(127, 29, 29, 0.35);
-  border: 1px solid rgba(248, 113, 113, 0.4);
+  background: rgba(127, 29, 29, 0.32);
+  border: 1px solid rgba(248, 113, 113, 0.38);
   border-radius: 12px;
-  /* Self-center inside `.pro-hero`'s flex column so the error doesn't
-   * stretch to the full inner width — long messages now wrap inside a
-   * comfortable column instead of becoming a full-width red bar. */
   max-width: 32rem;
   align-self: center;
   text-align: center;
 }
 
 .pro-activating {
-  margin: 0.6rem auto 0;
+  margin: 0.65rem auto 0;
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
@@ -506,7 +436,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 2px solid rgba(196, 181, 253, 0.35);
+  border: 2px solid rgba(196, 181, 253, 0.3);
   border-top-color: #c4b5fd;
   animation: pro-activating-spin 0.9s linear infinite;
 }
@@ -520,43 +450,46 @@
 /* ── Cards row ────────────────────────────────────────────────────── */
 .pro-cards {
   display: grid;
+  /* The middle (featured) card is 1fr like the rest on desktop —
+   * the visual elevation comes from translateY + shadow, not extra width. */
   grid-template-columns: repeat(3, 1fr);
-  gap: 1.1rem;
-  align-items: stretch;
+  gap: 1.25rem;
+  align-items: start; /* start so the featured card's lift doesn't stretch siblings */
 }
 
-@media (max-width: 940px) {
+@media (max-width: 960px) {
   .pro-cards {
     grid-template-columns: 1fr;
-    max-width: 26rem;
+    max-width: 28rem;
     margin: 0 auto;
+    /* On mobile, show featured card at the top */
+    display: flex;
+    flex-direction: column;
+  }
+  /* Pull the featured card to the top on mobile */
+  .pro-card--featured {
+    order: -1;
   }
 }
 
-/* The card. INNER glow only — no outer halo, no drop shadow that paints
- * outside the card. The trick:
- *   • a thin gradient border via background-clip on a wrapper-ish ::before
- *   • inset box-shadow rings (white top sheen + violet inner glow)
- *   • a localized radial wash painted via ::before behind the content
- *
- * The glow is REINFORCED on the popular card to draw the eye. */
+/* ── Card ─────────────────────────────────────────────────────────── */
 .pro-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  padding: 1.6rem 1.4rem 1.5rem;
+  padding: 1.75rem 1.5rem 1.75rem;
   background: var(--pro-card-bg);
   border: 1px solid var(--pro-card-border);
-  border-radius: 20px;
-  backdrop-filter: blur(28px) saturate(1.1);
-  -webkit-backdrop-filter: blur(28px) saturate(1.1);
+  border-radius: 22px;
+  backdrop-filter: blur(30px) saturate(1.1);
+  -webkit-backdrop-filter: blur(30px) saturate(1.1);
   isolation: isolate;
   overflow: hidden;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    inset 0 0 32px rgba(124, 58, 237, 0.06);
+    inset 0 0 36px rgba(124, 58, 237, 0.05);
   transition:
-    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
     border-color 220ms ease,
     box-shadow 220ms ease;
 }
@@ -568,70 +501,89 @@
   z-index: -1;
   border-radius: inherit;
   background:
-    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(167, 139, 250, 0.1) 0%, transparent 70%),
-    radial-gradient(ellipse 80% 40% at 50% 100%, rgba(124, 58, 237, 0.07) 0%, transparent 70%);
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(167, 139, 250, 0.09) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 40% at 50% 100%, rgba(124, 58, 237, 0.06) 0%, transparent 70%);
   pointer-events: none;
 }
 
 .pro-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(196, 181, 253, 0.24);
+  transform: translateY(-3px);
+  border-color: rgba(196, 181, 253, 0.26);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 0 50px rgba(139, 92, 246, 0.1);
+    inset 0 0 50px rgba(139, 92, 246, 0.09);
 }
 
-/* Featured card — Creator. Slightly richer base + subtler inner glow
- * so the card reads as the highlighted pick without dominating. */
+/* Featured card — Creator — elevated and richly lit */
 .pro-card--featured {
   background: var(--pro-card-bg-pop);
   border-color: var(--pro-card-border-pop);
+  /* Lift above sibling cards */
+  transform: translateY(-10px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 0 60px rgba(167, 139, 250, 0.16),
-    inset 0 -50px 80px -40px rgba(124, 58, 237, 0.22);
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 70px rgba(167, 139, 250, 0.18),
+    inset 0 -60px 90px -40px rgba(124, 58, 237, 0.24),
+    0 24px 60px rgba(76, 29, 149, 0.3),
+    0 0 0 1px rgba(167, 139, 250, 0.28);
 }
 
 .pro-card--featured::before {
   background:
-    radial-gradient(ellipse 90% 55% at 50% 0%, rgba(196, 181, 253, 0.18) 0%, transparent 70%),
-    radial-gradient(ellipse 90% 55% at 50% 100%, rgba(139, 92, 246, 0.12) 0%, transparent 70%);
+    radial-gradient(ellipse 90% 55% at 50% 0%, rgba(196, 181, 253, 0.2) 0%, transparent 70%),
+    radial-gradient(ellipse 90% 55% at 50% 100%, rgba(139, 92, 246, 0.14) 0%, transparent 70%);
 }
 
 .pro-card--featured:hover {
-  border-color: rgba(221, 214, 254, 0.5);
+  transform: translateY(-14px);
+  border-color: rgba(221, 214, 254, 0.55);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 0 80px rgba(167, 139, 250, 0.22),
-    inset 0 -50px 80px -40px rgba(124, 58, 237, 0.3);
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 0 90px rgba(167, 139, 250, 0.24),
+    inset 0 -60px 90px -40px rgba(124, 58, 237, 0.32),
+    0 32px 72px rgba(76, 29, 149, 0.38),
+    0 0 0 1px rgba(196, 181, 253, 0.4);
 }
 
+/* Warm amber "Most popular" badge — contrasts the violet palette so
+ * the eye immediately lands on the featured card. Positioned at the
+ * top-center of the card, inside (card has overflow:hidden so we
+ * stay within the border-radius clip). */
 .pro-card-badge {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
   gap: 0.32rem;
-  padding: 0.3rem 0.65rem;
-  font-size: 0.6rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
+  padding: 0.3rem 0.9rem;
+  font-size: 0.57rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #f5f3ff;
-  background: linear-gradient(180deg, rgba(139, 92, 246, 0.9), rgba(91, 33, 182, 0.9));
-  border: 1px solid rgba(196, 181, 253, 0.4);
-  border-radius: 9999px;
+  color: #1c0f00;
+  background: linear-gradient(135deg, var(--pro-amber-light) 0%, var(--pro-amber) 100%);
+  border-radius: 0 0 12px 12px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    0 2px 10px rgba(91, 33, 182, 0.32);
+    0 3px 14px rgba(245, 158, 11, 0.38),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+  z-index: 1;
+}
+
+/* Star dot inside the badge */
+.pro-card-badge::before {
+  content: '★';
+  font-size: 0.5rem;
+  color: rgba(120, 53, 15, 0.75);
 }
 
 .pro-card-name {
-  margin: 0 0 0.5rem;
-  font-size: 0.78rem;
+  margin: 0 0 0.55rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--pro-text-3);
 }
@@ -640,43 +592,47 @@
   color: #c4b5fd;
 }
 
+/* Push card name below the amber badge on the featured card.
+ * Badge is ~28px tall so 1.75rem clears it comfortably. */
+.pro-card--featured .pro-card-name {
+  margin-top: 1.75rem;
+}
+
 .pro-card-price {
   display: flex;
   align-items: baseline;
-  gap: 0.3rem;
+  gap: 0.25rem;
   margin: 0;
   line-height: 1;
 }
 
 .pro-card-amount {
-  font-size: clamp(2rem, 2.8vw, 2.4rem);
-  font-weight: 700;
-  letter-spacing: -0.035em;
+  font-size: clamp(2.4rem, 3.2vw, 3.2rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
   font-feature-settings: 'tnum';
   color: #fff;
   line-height: 1;
 }
 
 .pro-card-period {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 500;
-  letter-spacing: -0.005em;
   color: var(--pro-text-3);
+  margin-bottom: 2px;
 }
 
 .pro-card-billed {
-  margin: 0.4rem 0 0;
-  font-size: 0.74rem;
+  margin: 0.45rem 0 0;
+  font-size: 0.73rem;
   font-weight: 500;
-  letter-spacing: 0;
   color: var(--pro-text-4);
 }
 
 .pro-card-tagline {
-  margin: 1rem 0 1.15rem;
-  font-size: 0.86rem;
-  line-height: 1.55;
-  letter-spacing: -0.005em;
+  margin: 1.1rem 0 1.25rem;
+  font-size: 0.88rem;
+  line-height: 1.58;
   color: var(--pro-text-2);
 }
 
@@ -685,7 +641,7 @@
   font-weight: 600;
 }
 
-/* CTA */
+/* ── CTA button ───────────────────────────────────────────────────── */
 .pro-card-cta {
   position: relative;
   display: inline-flex;
@@ -693,15 +649,15 @@
   justify-content: center;
   gap: 0.45rem;
   width: 100%;
-  height: 42px;
-  padding: 0 14px;
+  height: 46px;
+  padding: 0 16px;
   font: inherit;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
   color: #fff;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.03) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.11) 0%, rgba(255, 255, 255, 0.04) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 9999px;
   cursor: pointer;
   overflow: hidden;
@@ -709,17 +665,18 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
     inset 0 -1px 0 rgba(0, 0, 0, 0.14);
   transition:
     background 180ms ease,
     border-color 180ms ease,
+    box-shadow 180ms ease,
     transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .pro-card-cta:hover:not(:disabled) {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.04) 100%);
-  border-color: rgba(255, 255, 255, 0.22);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.06) 100%);
+  border-color: rgba(255, 255, 255, 0.26);
   transform: translateY(-1px);
 }
 
@@ -728,7 +685,7 @@
 }
 
 .pro-card-cta:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -740,46 +697,42 @@
     0 0 0 3px rgba(167, 139, 250, 0.45);
 }
 
-/* Featured CTA — refined violet, less candy-coloured. */
+/* Featured CTA — rich violet */
 .pro-card--featured .pro-card-cta {
-  background: linear-gradient(180deg, #a78bfa 0%, #8b5cf6 50%, #6d28d9 100%);
-  border-color: rgba(196, 181, 253, 0.45);
+  background: linear-gradient(180deg, #b48fff 0%, #8b5cf6 50%, #6d28d9 100%);
+  border-color: rgba(196, 181, 253, 0.5);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
-    0 4px 16px rgba(91, 33, 182, 0.4);
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.24),
+    0 6px 22px rgba(91, 33, 182, 0.45);
 }
 
 .pro-card--featured .pro-card-cta:hover:not(:disabled) {
   background: linear-gradient(180deg, #c4b5fd 0%, #9b75ff 50%, #5b21b6 100%);
-  border-color: rgba(221, 214, 254, 0.6);
+  border-color: rgba(221, 214, 254, 0.65);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
     inset 0 -1px 0 rgba(0, 0, 0, 0.22),
-    0 6px 22px rgba(91, 33, 182, 0.55);
+    0 8px 26px rgba(91, 33, 182, 0.58);
 }
 
-/* Current-plan CTA — quiet brand-violet ghost. Reads as "selected, no
- * action available" without shouting like the green success palette
- * the rest of the app doesn't use. Border + text use the same
- * lavender accent as the active mode pill in the thumbnail screen,
- * so the whole product shares one identity colour. */
+/* Current-plan CTA — quiet selected state */
 .pro-card-cta--current,
 .pro-card-cta--current:hover {
   background: linear-gradient(180deg, rgba(167, 139, 250, 0.18), rgba(124, 58, 237, 0.12));
-  border-color: rgba(196, 181, 253, 0.42);
+  border-color: rgba(196, 181, 253, 0.4);
   color: #ddd6fe;
   cursor: default;
   transform: none;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+    inset 0 -1px 0 rgba(0, 0, 0, 0.16);
 }
 
 .pro-card-cta-spinner {
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.28);
   border-top-color: #fff;
   border-radius: 50%;
   animation: pro-spin 0.8s linear infinite;
@@ -791,24 +744,23 @@
   }
 }
 
-/* Feature list */
+/* ── Feature list ─────────────────────────────────────────────────── */
 .pro-card-feats {
-  margin: 1.2rem 0 0;
-  padding: 1.1rem 0 0;
+  margin: 1.25rem 0 0;
+  padding: 1.2rem 0 0;
   border-top: 1px solid rgba(167, 139, 250, 0.1);
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.65rem;
 }
 
 .pro-card-feat {
   display: flex;
   align-items: flex-start;
-  gap: 0.6rem;
-  font-size: 0.84rem;
-  line-height: 1.45;
-  letter-spacing: -0.005em;
+  gap: 0.65rem;
+  font-size: 0.86rem;
+  line-height: 1.48;
   color: var(--pro-text-2);
 }
 
@@ -816,13 +768,13 @@
   flex-shrink: 0;
   display: inline-grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 19px;
+  height: 19px;
   margin-top: 1px;
   border-radius: 50%;
-  background: rgba(167, 139, 250, 0.14);
+  background: rgba(167, 139, 250, 0.13);
   color: #c4b5fd;
-  border: 1px solid rgba(167, 139, 250, 0.28);
+  border: 1px solid rgba(167, 139, 250, 0.26);
 }
 
 .pro-card-feat-check svg {
@@ -832,30 +784,29 @@
 }
 
 .pro-card--featured .pro-card-feat-check {
-  background: rgba(196, 181, 253, 0.22);
+  background: rgba(196, 181, 253, 0.2);
   color: #ede9fe;
-  border-color: rgba(196, 181, 253, 0.45);
+  border-color: rgba(196, 181, 253, 0.42);
 }
 
 .pro-card-feat--off {
-  color: rgba(255, 255, 255, 0.38);
+  color: rgba(255, 255, 255, 0.34);
 }
 
 .pro-card-feat--off .pro-card-feat-check {
   background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.32);
-  border-color: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.07);
 }
 
 .pro-card--featured .pro-card-feat--off .pro-card-feat-check {
   background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.32);
-  border-color: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.07);
 }
 
 .pro-card-feat--off .pro-card-feat-text strong {
-  color: rgba(255, 255, 255, 0.55);
-  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .pro-card-feat-text {
@@ -868,19 +819,16 @@
   font-weight: 600;
 }
 
-/* ── Perks row (above FAQ) ────────────────────────────────────────── */
+/* ── Perks row ────────────────────────────────────────────────────── */
 .pro-perks {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.85rem;
+  gap: 1rem;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 920px) {
   .pro-perks {
     grid-template-columns: repeat(2, 1fr);
-    /* Slight cap so the 2-up grid doesn't sprawl edge-to-edge on a
-     * narrow tablet — the perks become rectangles sized close to the
-     * pricing cards above. */
     max-width: 36rem;
     margin: 0 auto;
     width: 100%;
@@ -890,45 +838,41 @@
 @media (max-width: 480px) {
   .pro-perks {
     grid-template-columns: 1fr;
-    /* Match the pricing cards' phone width so the perks column lines
-     * up visually with the cards above instead of running the full
-     * screen width (which made the perks look like a different
-     * section, not a continuation). */
-    max-width: 22rem;
+    max-width: 24rem;
   }
 }
 
 .pro-perk {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
-  padding: 1.05rem 1.05rem;
-  background: rgba(20, 16, 36, 0.55);
-  border: 1px solid rgba(167, 139, 250, 0.1);
-  border-radius: 14px;
+  gap: 0.85rem;
+  padding: 1.15rem 1.1rem;
+  background: rgba(16, 12, 28, 0.58);
+  border: 1px solid rgba(167, 139, 250, 0.11);
+  border-radius: 16px;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transition:
     border-color 200ms ease,
     box-shadow 200ms ease,
-    transform 200ms ease;
+    transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .pro-perk:hover {
-  border-color: rgba(196, 181, 253, 0.22);
+  border-color: rgba(196, 181, 253, 0.24);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 0 36px rgba(139, 92, 246, 0.08);
-  transform: translateY(-1px);
+    inset 0 0 40px rgba(139, 92, 246, 0.08);
+  transform: translateY(-2px);
 }
 
 .pro-perk-icon {
   flex-shrink: 0;
   display: inline-grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 10px;
   background: rgba(167, 139, 250, 0.12);
   border: 1px solid rgba(167, 139, 250, 0.22);
@@ -936,176 +880,71 @@
 }
 
 .pro-perk-icon svg {
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
   stroke-width: 2;
 }
 
 .pro-perk-body {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
 }
 
 .pro-perk-title {
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: 0.88rem;
+  font-weight: 700;
   letter-spacing: -0.01em;
   color: #fff;
 }
 
 .pro-perk-text {
-  font-size: 0.78rem;
-  line-height: 1.5;
-  letter-spacing: -0.005em;
+  font-size: 0.79rem;
+  line-height: 1.52;
   color: var(--pro-text-3);
 }
 
-/* ── FAQ section ──────────────────────────────────────────────────── */
-.pro-faq {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.pro-faq-head {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 0.5rem;
-}
-
-.pro-faq-title {
-  margin: 0;
-  font-size: clamp(1.5rem, 2.4vw, 2.1rem);
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
-  background: linear-gradient(140deg, #ffffff 0%, #c4b5fd 75%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-}
-
-.pro-faq-sub {
-  margin: 0;
-  font-size: 0.92rem;
-  letter-spacing: -0.005em;
-  color: var(--pro-text-3);
-}
-
-.pro-faq-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  max-width: 760px;
-  margin: 0 auto;
+/* ── FAQ section overrides ────────────────────────────────────────── */
+.pro-faq-wrap {
+  margin-top: 1rem;
+  min-width: 0;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
-
-.pro-faq-item {
-  background: rgba(20, 16, 36, 0.55);
-  border: 1px solid rgba(167, 139, 250, 0.1);
-  border-radius: 14px;
-  overflow: hidden;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  transition:
-    border-color 220ms ease,
-    box-shadow 220ms ease;
-}
-
-.pro-faq-item[data-open='true'] {
-  border-color: rgba(167, 139, 250, 0.24);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 0 40px rgba(139, 92, 246, 0.08);
-}
-
-.pro-faq-q {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  width: 100%;
-  padding: 1rem 1.2rem;
-  font: inherit;
-  font-size: 0.94rem;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  color: #fff;
+.pro-faq-wrap .faq-section {
+  padding: 0;
   background: transparent;
-  border: 0;
-  cursor: pointer;
-  text-align: left;
-  -webkit-tap-highlight-color: transparent;
-  transition: color 180ms ease;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+.pro-faq-wrap .faq-section::before {
+  display: none;
+}
+.pro-faq-wrap .faq-inner {
+  padding: 0;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+.pro-faq-wrap .faq-header {
+  margin-bottom: 1.75rem;
+}
+.pro-faq-wrap .faq-list,
+.pro-faq-wrap .faq-item,
+.pro-faq-wrap .faq-q,
+.pro-faq-wrap .faq-a {
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
-.pro-faq-q:hover {
-  color: #ddd6fe;
-}
-
-.pro-faq-q:focus-visible {
-  outline: none;
-  box-shadow: inset 0 0 0 2px rgba(167, 139, 250, 0.5);
-  border-radius: inherit;
-}
-
-.pro-faq-icon {
-  flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  color: #c4b5fd;
-  transition: transform 220ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.pro-faq-item[data-open='true'] .pro-faq-icon {
-  transform: rotate(45deg);
-}
-
-.pro-faq-icon svg {
-  width: 14px;
-  height: 14px;
-  stroke-width: 2.5;
-}
-
-.pro-faq-a {
-  padding: 0 1.2rem 1.1rem;
-  font-size: 0.86rem;
-  line-height: 1.65;
-  letter-spacing: -0.005em;
-  color: var(--pro-text-2);
-  animation: pro-faq-open 220ms ease-out;
-}
-
-.pro-faq-a strong {
-  color: #fff;
-  font-weight: 600;
-}
-
-@keyframes pro-faq-open {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* ── Footer hint ──────────────────────────────────────────────────── */
+/* ── Footer ───────────────────────────────────────────────────────── */
 .pro-footer {
   text-align: center;
-  font-size: 0.84rem;
-  letter-spacing: -0.005em;
+  font-size: 0.85rem;
   color: var(--pro-text-4);
 }
 
@@ -1120,78 +959,58 @@
   text-decoration: underline;
 }
 
-/* ── Responsive tweaks ────────────────────────────────────────────── */
+/* ── Responsive ───────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   .pro-screen-inner {
-    gap: 2rem;
+    gap: 2.25rem;
+    padding: 2rem 1.1rem 3rem;
   }
   .pro-cards {
-    max-width: 24rem;
+    max-width: 100%;
   }
   .pro-card {
-    padding: 1.25rem 1.15rem;
+    padding: 1.4rem 1.25rem;
+  }
+  .pro-card--featured {
+    /* Remove vertical lift on mobile — card is already full-width,
+     * the stacking order (featured first) signals importance instead. */
+    transform: none;
+  }
+  .pro-card--featured:hover {
+    transform: none;
   }
   .pro-card-feats {
-    gap: 0.5rem;
+    gap: 0.55rem;
   }
   .pro-card-feat {
-    font-size: 0.82rem;
-    line-height: 1.4;
-  }
-  .pro-card-feat-check {
-    width: 16px;
-    height: 16px;
-  }
-  .pro-card-feat-check svg {
-    width: 9px;
-    height: 9px;
+    font-size: 0.83rem;
   }
 }
 
 @media (max-width: 420px) {
-  .pro-cards {
-    /* Keep a small horizontal margin so the card edges don't touch
-     * the viewport rule — earlier `max-width: 100%` made the cards
-     * go full-bleed and look like they were clipping on phones. */
-    max-width: 22rem;
+  .pro-screen-inner {
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
   .pro-card {
-    padding: 1.15rem 1rem;
+    padding: 1.2rem 1rem;
   }
   .pro-card-feat {
-    font-size: 0.8rem;
+    font-size: 0.81rem;
     gap: 0.5rem;
-  }
-  .pro-perks {
-    /* Mirror — the perks column should breathe by the same amount
-     * the pricing cards do above it. */
-    max-width: 22rem;
-  }
-  .pro-screen-inner {
-    /* Tighten horizontal padding on the smallest viewports so the
-     * centred 22rem column actually has room to breathe inside the
-     * inner shell. clamp(1.25rem, 4vw, 2.5rem) was rounding to 20px
-     * on a 360px viewport, which combined with the cards' own border
-     * radius made the section read as wall-to-wall. */
-    padding-left: clamp(1rem, 4vw, 1.75rem);
-    padding-right: clamp(1rem, 4vw, 1.75rem);
   }
 }
 
-/* Trial → Skip CTA strip. Surfaces ONLY while the user is on an
- * active free trial. Same brand-violet surface as the rest of the
- * pricing chrome (matches the new violet current-plan badge), so
- * the strip reads as part of the page rather than a separate
- * marketing banner. */
+/* ── Trial strip ──────────────────────────────────────────────────── */
 .pro-trial-strip {
-  margin: 1.4rem auto 0;
+  margin: 1.5rem auto 0;
   max-width: 720px;
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
   gap: 1rem;
-  padding: 0.95rem 1.1rem;
-  border-radius: 14px;
+  padding: 1rem 1.15rem;
+  border-radius: 16px;
   border: 1px solid rgba(196, 181, 253, 0.32);
   background:
     linear-gradient(180deg, rgba(167, 139, 250, 0.16) 0%, rgba(124, 58, 237, 0.1) 100%),
@@ -1200,7 +1019,7 @@
   text-align: left;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    0 4px 18px rgba(0, 0, 0, 0.32);
+    0 4px 20px rgba(0, 0, 0, 0.32);
 }
 
 .pro-trial-strip__body {
@@ -1211,25 +1030,22 @@
 }
 
 .pro-trial-strip__title {
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: 0.96rem;
+  font-weight: 700;
   letter-spacing: -0.01em;
   color: #ffffff;
 }
 
-/* Days-remaining chip — quiet violet weight against the bold white
- * title so the eye lands on the plan name first, then the countdown. */
 .pro-trial-strip__days {
   font-weight: 500;
   color: #ddd6fe;
-  letter-spacing: -0.005em;
   font-variant-numeric: tabular-nums;
 }
 
 .pro-trial-strip__sub {
   font-size: 0.85rem;
   font-weight: 400;
-  line-height: 1.45;
+  line-height: 1.48;
   color: rgba(229, 229, 231, 0.78);
 }
 
@@ -1238,11 +1054,10 @@
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  padding: 0.55rem 1.1rem;
+  padding: 0.6rem 1.2rem;
   font: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: -0.005em;
+  font-size: 0.86rem;
+  font-weight: 700;
   color: #ffffff;
   background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 55%, #5b21b6 100%);
   border: 1px solid rgba(196, 181, 253, 0.5);
@@ -1269,7 +1084,7 @@
 .pro-trial-strip__spinner {
   width: 12px;
   height: 12px;
-  border: 1.8px solid rgba(255, 255, 255, 0.32);
+  border: 1.8px solid rgba(255, 255, 255, 0.3);
   border-top-color: #ffffff;
   border-radius: 50%;
   animation: pro-spin 0.85s linear infinite;
@@ -1285,61 +1100,11 @@
 @media (max-width: 640px) {
   .pro-trial-strip {
     grid-template-columns: 1fr;
-    gap: 0.75rem;
+    gap: 0.8rem;
     text-align: center;
   }
   .pro-trial-strip__cta {
     justify-self: center;
     width: 100%;
   }
-}
-
-/* Inline FAQ on the Pro screen — overrides the landing FAQ's heavy
- * 7rem section padding so the section sits naturally inside the
- * checkout-style layout above. The accordion + typography stay as
- * the canonical landing styles. */
-.pro-faq-wrap {
-  margin-top: 2.5rem;
-  /* Flex item defaults to `min-width: auto`, so its width is dictated
-   * by its content's intrinsic min size. Without overriding that, a
-   * single un-breakable line inside the landing FAQ could push this
-   * wrapper wider than `.pro-screen-inner`'s content area, dragging
-   * the whole FAQ section off the right edge of the viewport. */
-  min-width: 0;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-.pro-faq-wrap .faq-section {
-  padding: 0;
-  background: transparent;
-  /* Match the wrapper's constraints so the landing FAQ section
-   * doesn't introduce its own width contributions. */
-  max-width: 100%;
-  box-sizing: border-box;
-  overflow-x: hidden;
-}
-.pro-faq-wrap .faq-section::before {
-  display: none;
-}
-.pro-faq-wrap .faq-inner {
-  padding: 0;
-  max-width: 100%;
-  width: 100%;
-  box-sizing: border-box;
-}
-.pro-faq-wrap .faq-header {
-  margin-bottom: 1.75rem;
-}
-/* Accordion items: explicit `box-sizing` + `max-width: 100%` so the
- * 1px border + 1.4rem horizontal padding don't push their painted
- * width past the parent and clip off the right side of the screen
- * on phones. */
-.pro-faq-wrap .faq-list,
-.pro-faq-wrap .faq-item,
-.pro-faq-wrap .faq-q,
-.pro-faq-wrap .faq-a {
-  max-width: 100%;
-  box-sizing: border-box;
-  min-width: 0;
 }
