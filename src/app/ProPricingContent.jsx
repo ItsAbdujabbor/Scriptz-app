@@ -10,11 +10,10 @@ import { ThumbPillTabs } from '../components/ThumbPillTabs'
 import { useSubscriptionActivationStore } from '../stores/subscriptionActivationStore'
 import { Faq } from '../landing/components/Faq'
 
-/* ─── Static plan metadata (non-price marketing copy) ───────────────
- * Prices and credit amounts are derived at runtime from the API catalog
- * (`GET /api/billing/plans`) so they never drift out of sync with the
- * live Paddle products. Only strings that Paddle doesn't own (taglines,
- * thumbnail count estimates, thumb counts) live here. */
+/* ─── Static plan metadata ───────────────────────────────────────────
+ * Prices are hardcoded to match Paddle production prices exactly.
+ * Checkout prices are always sourced from Paddle directly (not us).
+ * annual price_usd is the full-year charge; /mo display divides by 12. */
 const PLAN_META = {
   starter: {
     tier: 'starter',
@@ -22,6 +21,8 @@ const PLAN_META = {
     thumbsMonthly: 50,
     thumbsAnnual: 600,
     tagline: 'For solo creators getting started.',
+    priceMonthly: 19.99,
+    priceAnnual: 167.88,
   },
   creator: {
     tier: 'creator',
@@ -29,6 +30,8 @@ const PLAN_META = {
     thumbsMonthly: 150,
     thumbsAnnual: 1800,
     tagline: 'For active creators shipping weekly.',
+    priceMonthly: 39.99,
+    priceAnnual: 335.88,
   },
   ultimate: {
     tier: 'ultimate',
@@ -36,33 +39,17 @@ const PLAN_META = {
     thumbsMonthly: 450,
     thumbsAnnual: 5400,
     tagline: 'For studios and high-volume creators.',
+    priceMonthly: 79.99,
+    priceAnnual: 671.88,
   },
 }
 
 const TIER_ORDER = ['starter', 'creator', 'ultimate']
 
-/**
- * Look up price_usd for a plan slug in the API catalog.
- * Returns a formatted "$X.YY" string, or null when the catalog hasn't
- * loaded yet. For annual plans (billing_period = "year") divides by 12
- * to get the per-month equivalent shown on the card.
- */
-function getPriceDisplay(catalog, tier, annual) {
-  if (!catalog?.plans?.length) return null
-  const slug = `${tier}_${annual ? 'annual' : 'monthly'}`
-  const plan = catalog.plans.find((p) => p.slug === slug && p.is_active)
-  if (!plan) return null
-  const usd = Number(plan.price_usd)
-  if (!Number.isFinite(usd) || usd <= 0) return null
-  const display = annual ? usd / 12 : usd
-  return `$${display % 1 === 0 ? display.toFixed(0) : display.toFixed(2)}`
-}
-
-/** Total annual charge for an annual plan (used in order-summary calc). */
-function getAnnualTotal(catalog, tier) {
-  if (!catalog?.plans?.length) return null
-  const plan = catalog.plans.find((p) => p.slug === `${tier}_annual` && p.is_active)
-  return plan ? Number(plan.price_usd) : null
+/** Price shown on the plan card — hardcoded to match Paddle production prices. */
+function getPriceDisplay(meta, annual) {
+  const usd = annual ? meta.priceAnnual / 12 : meta.priceMonthly
+  return `$${usd % 1 === 0 ? usd.toFixed(0) : usd.toFixed(2)}`
 }
 
 function getCreditsFromCatalog(catalog, tier, annual) {
@@ -72,21 +59,15 @@ function getCreditsFromCatalog(catalog, tier, annual) {
   return plan ? Number(plan.monthly_credits) : null
 }
 
-/**
- * Savings percent when paying annually vs monthly for the same tier.
- * Uses the smallest ratio across all tiers so the headline is
- * conservative — we never claim more than the cheapest tier saves.
- */
-function computeAnnualSavingsPct(catalog) {
-  if (!catalog?.plans?.length) return 30
+/** Savings % when paying annually — derived from hardcoded prices. */
+function computeAnnualSavingsPct() {
   const ratios = TIER_ORDER.map((tier) => {
-    const monthly = catalog.plans.find((p) => p.slug === `${tier}_monthly` && p.is_active)
-    const annual = catalog.plans.find((p) => p.slug === `${tier}_annual` && p.is_active)
-    if (!monthly || !annual) return null
-    const mUsd = Number(monthly.price_usd)
-    const aUsd = Number(annual.price_usd) / 12
-    if (!mUsd || !aUsd || aUsd >= mUsd) return null
-    return (mUsd - aUsd) / mUsd
+    const m = PLAN_META[tier]
+    if (!m) return null
+    const monthly = m.priceMonthly
+    const annualPerMonth = m.priceAnnual / 12
+    if (!monthly || annualPerMonth >= monthly) return null
+    return (monthly - annualPerMonth) / monthly
   }).filter((r) => r != null && r > 0)
   if (!ratios.length) return 30
   return Math.round(Math.min(...ratios) * 100)
@@ -251,8 +232,7 @@ export function ProPricingContent({ onStartTrial }) {
   const [plans, setPlans] = useState(null)
   const [checkoutLoading, setCheckoutLoading] = useState(null)
   const [checkoutError, setCheckoutError] = useState(null)
-  // Derived from the live API catalog — never drifts out of sync with Paddle.
-  const annualSavingsPct = useMemo(() => computeAnnualSavingsPct(plans), [plans])
+  const annualSavingsPct = useMemo(() => computeAnnualSavingsPct(), [])
   const queryClient = useQueryClient()
   const { user, getValidAccessToken } = useAuthStore()
   const { data: subscription } = useSubscriptionQuery()
@@ -377,11 +357,9 @@ export function ProPricingContent({ onStartTrial }) {
       // Compute the actual charge Paddle will show at checkout.
       // Annual plans: price_usd in DB is the full-year amount; monthly display
       // is price_usd/12. We pass the full annual total to the order summary.
-      const priceDisplay = getPriceDisplay(plans, meta.tier, annual)
-      const annualTotal = annual ? getAnnualTotal(plans, meta.tier) : null
-      const totalDueAmount = annual
-        ? annualTotal
-        : Number(plans?.plans?.find((p) => p.slug === slug)?.price_usd)
+      const priceDisplay = getPriceDisplay(meta, annual)
+      const annualTotal = annual ? meta.priceAnnual : null
+      const totalDueAmount = annual ? annualTotal : meta.priceMonthly
       const totalDueDisplay =
         totalDueAmount != null && Number.isFinite(totalDueAmount)
           ? `$${totalDueAmount.toFixed(2)}`
@@ -453,8 +431,7 @@ export function ProPricingContent({ onStartTrial }) {
         {TIER_ORDER.map((tier) => {
           const meta = PLAN_META[tier]
           const featured = tier === 'creator'
-          // Price from live API catalog — shows "—" while catalog loads
-          const price = getPriceDisplay(plans, tier, annual) ?? '—'
+          const price = getPriceDisplay(meta, annual)
           const thumbs = annual ? meta.thumbsAnnual : meta.thumbsMonthly
           const credits = getCreditsFromCatalog(plans, tier, annual)
           const current = isCurrentTier(tier)
