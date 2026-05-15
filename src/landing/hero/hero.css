@@ -141,6 +141,14 @@
   letter-spacing: 0.005em;
 }
 
+.lin-no-card {
+  margin: 0.7rem auto 0;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.28);
+  letter-spacing: 0.02em;
+  font-weight: 400;
+}
+
 /* ─────────────────────────────────────
    ANIMATIONS
 ───────────────────────────────────── */

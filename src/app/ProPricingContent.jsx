@@ -447,6 +447,7 @@ export function ProPricingContent({ onStartTrial }) {
           <span className="pro-billing-save-pct">Save {annualSavingsPct}%</span>
           <span>when billed annually</span>
         </p>
+        <p className="pro-no-card">No credit card required to sign up</p>
       </section>
 
       {/* Cards */}

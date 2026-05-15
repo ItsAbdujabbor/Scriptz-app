@@ -464,6 +464,15 @@
   font-feature-settings: 'tnum';
 }
 
+.pro-no-card {
+  margin: 0.45rem 0 0;
+  font-size: 0.74rem;
+  color: rgba(196, 181, 253, 0.35);
+  letter-spacing: 0.015em;
+  font-weight: 400;
+  pointer-events: none;
+}
+
 .pro-checkout-error {
   margin: 0.5rem 0 0;
   padding: 0.55rem 0.85rem;

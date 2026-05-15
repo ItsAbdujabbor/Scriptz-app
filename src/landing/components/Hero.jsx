@@ -70,6 +70,7 @@ export function Hero() {
         <p className="lin-sub">
           Generate, edit, and score thumbnails + titles — all in one workspace.
         </p>
+        <p className="lin-no-card">No credit card required</p>
       </div>
 
       {/* STAGE — bottom anchor: scrolling thumbs behind a translucent prompt */}
