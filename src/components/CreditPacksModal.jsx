@@ -1,15 +1,7 @@
-/**
- * CreditPacksModal — redesigned credit marketplace.
- *
- * Three-zone layout (header / scroll body / footer) so the inner pack
- * grid scrolls cleanly on phones while the title and footer stay locked.
- * Best-value pack gets the LiquidMetalButton (same as hero Generate CTA).
- */
 import { useEffect, useMemo, useState } from 'react'
-import { Sparkles } from 'lucide-react'
+import { Zap } from 'lucide-react'
 
 import { Dialog } from './ui'
-import { LiquidMetalButton } from './LiquidMetalButton'
 import { useAuthStore } from '../stores/authStore'
 import { useCreditsQuery } from '../queries/billing/creditsQueries'
 import { getPlans, startCheckout } from '../api/billing'
@@ -17,10 +9,6 @@ import './CreditPacksModal.css'
 
 const fmtCredits = (n) => {
   if (n == null) return '—'
-  if (n >= 1000) {
-    const k = n / 1000
-    return k % 1 === 0 ? `${k}K` : `${k.toFixed(1)}K`
-  }
   return Number(n).toLocaleString('en-US')
 }
 
@@ -30,47 +18,42 @@ const fmtPrice = (usd) => {
   return n % 1 === 0 ? `$${n}` : `$${n.toFixed(2)}`
 }
 
+const perCredit = (usd, credits) => {
+  const rate = Number(usd) / Number(credits)
+  if (!Number.isFinite(rate) || rate <= 0) return null
+  return `$${rate.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')} / credit`
+}
+
 const decoratePacks = (packs) => {
   if (!packs?.length) return []
   const rate = (p) => Number(p.price_usd) / Number(p.credits)
-  let best = null
+  let bestSlug = null
   let bestRate = Infinity
   let worstRate = 0
   for (const p of packs) {
     const r = rate(p)
     if (r < bestRate) {
       bestRate = r
-      best = p.slug
+      bestSlug = p.slug
     }
     if (r > worstRate) worstRate = r
   }
   return packs.map((p) => {
     const r = rate(p)
     const savingsPct = worstRate > 0 ? Math.round((1 - r / worstRate) * 100) : 0
-    return { ...p, isBestValue: p.slug === best, savingsPct }
+    return { ...p, isBestValue: p.slug === bestSlug, savingsPct }
   })
-}
-
-/* ── Icons ────────────────────────────────────────────────────────── */
-
-function CreditCoin({ size = 24 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="12" cy="12" r="9.5" stroke="currentColor" strokeWidth="1.4" opacity="0.3" />
-      <path d="M13.2 8l-4.4 5h3.2l-1 5L16 13h-3.2L13.2 8z" fill="currentColor" />
-    </svg>
-  )
 }
 
 function IconClose() {
   return (
     <svg
-      width="15"
-      height="15"
+      width="14"
+      height="14"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2.2"
+      strokeWidth="2.4"
       strokeLinecap="round"
     >
       <path d="M18 6L6 18M6 6l12 12" />
@@ -81,8 +64,8 @@ function IconClose() {
 function IconShield() {
   return (
     <svg
-      width="13"
-      height="13"
+      width="12"
+      height="12"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -96,7 +79,25 @@ function IconShield() {
   )
 }
 
-/* ─────────────────────────────────────────────────────────────────── */
+function SkeletonRows() {
+  return (
+    <div className="cpm-skeleton-list">
+      {[100, 85, 90, 80, 88].map((w, i) => (
+        <div key={i} className="cpm-skeleton-row" style={{ animationDelay: `${i * 80}ms` }}>
+          <div className="cpm-skeleton-icon" />
+          <div className="cpm-skeleton-body">
+            <div className="cpm-skeleton-line cpm-skeleton-line--lg" style={{ width: `${w}%` }} />
+            <div
+              className="cpm-skeleton-line cpm-skeleton-line--sm"
+              style={{ width: `${Math.round(w * 0.55)}%` }}
+            />
+          </div>
+          <div className="cpm-skeleton-cta" />
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export function CreditPacksModal({ open, onClose }) {
   const user = useAuthStore((s) => s.user)
@@ -126,7 +127,7 @@ export function CreditPacksModal({ open, onClose }) {
 
   if (!open) return null
 
-  const total = credits
+  const balance = credits
     ? Number(credits.subscription_credits || 0) + Number(credits.permanent_credits || 0)
     : null
 
@@ -136,12 +137,11 @@ export function CreditPacksModal({ open, onClose }) {
       return
     }
     if (!pack.paddle_price_id || pack.paddle_price_id.startsWith('pri_placeholder_')) {
-      setError('Credit pack checkout is not fully configured yet. Please contact support.')
+      setError('This pack is not available yet. Please contact support.')
       return
     }
     setError(null)
     setLoadingPack(pack.slug)
-
     try {
       const token = await getValidAccessToken()
       const resp = await startCheckout(token, {
@@ -176,128 +176,105 @@ export function CreditPacksModal({ open, onClose }) {
   }
 
   return (
-    <Dialog
-      open
-      onClose={onClose}
-      size="lg"
-      ariaLabelledBy="credits-modal-title"
-      className="credits-modal-card"
-    >
-      {/* ── Header ───────────────────────────────────────────────── */}
-      <header className="credits-modal-head">
-        <div className="credits-modal-head-left">
-          <div className="credits-modal-head-icon" aria-hidden>
-            <CreditCoin size={18} />
+    <Dialog open onClose={onClose} size="md" ariaLabelledBy="cpm-title" className="cpm-card">
+      {/* Header */}
+      <header className="cpm-head">
+        <div className="cpm-head-left">
+          <div className="cpm-head-icon" aria-hidden>
+            <Zap size={16} strokeWidth={2.2} />
           </div>
-          <div className="credits-modal-head-text">
-            <h2 id="credits-modal-title" className="credits-modal-title">
-              Credits
+          <div>
+            <h2 id="cpm-title" className="cpm-title">
+              Top up credits
             </h2>
-            <p className="credits-modal-sub">
-              One-time top-up · never expire
-              {total != null && (
+            <p className="cpm-sub">
+              One-time · never expire
+              {balance != null && (
                 <>
                   {' '}
-                  · <strong>{fmtCredits(total)}</strong> in balance
+                  · <strong>{fmtCredits(balance)}</strong> in balance
                 </>
               )}
             </p>
           </div>
         </div>
-        <button type="button" className="credits-modal-close" onClick={onClose} aria-label="Close">
+        <button type="button" className="cpm-close" onClick={onClose} aria-label="Close">
           <IconClose />
         </button>
       </header>
 
-      {/* ── Scroll body ──────────────────────────────────────────── */}
-      <div className="credits-modal-scroll">
+      {/* Body */}
+      <div className="cpm-body">
         {error && (
-          <div className="credits-modal-error" role="alert">
+          <div className="cpm-error" role="alert">
             {error}
           </div>
         )}
 
         {!catalog ? (
-          <div className="credits-modal-loading">
-            <span className="credits-modal-spinner" aria-hidden />
-            <span>Loading packs…</span>
-          </div>
+          <SkeletonRows />
         ) : packs.length === 0 ? (
-          <div className="credits-modal-empty">No credit packs available right now.</div>
+          <p className="cpm-empty">No credit packs available right now.</p>
         ) : (
-          <ul className="credits-modal-grid">
-            {packs.map((p) => (
-              <li
-                key={p.slug}
-                className={`credits-pack-card${p.isBestValue ? ' credits-pack-card--best' : ''}`}
-              >
-                {/* Top row: badge or savings chip */}
-                <div className="credits-pack-top">
-                  {p.isBestValue && <span className="credits-pack-badge">Best value</span>}
-                  {p.savingsPct >= 15 && !p.isBestValue && (
-                    <span className="credits-pack-savings">Save {p.savingsPct}%</span>
-                  )}
-                </div>
-
-                {/* Credit coin icon */}
-                <div className="credits-pack-icon-wrap" aria-hidden>
-                  <CreditCoin size={24} />
-                </div>
-
-                {/* Amount */}
-                <div className="credits-pack-credits">
-                  <span className="credits-pack-credits-num">{fmtCredits(p.credits)}</span>
-                  <span className="credits-pack-credits-label">credits</span>
-                </div>
-
-                {/* Price */}
-                <div className="credits-pack-price">{fmtPrice(p.price_usd)}</div>
-
-                {/* CTA */}
-                {p.isBestValue ? (
-                  <div className="credits-pack-lmb-wrap">
-                    <LiquidMetalButton
-                      label="Get credits"
-                      icon={Sparkles}
-                      dark
-                      width="100%"
-                      height={44}
-                      onClick={() => buy(p)}
-                      loading={loadingPack === p.slug}
-                      disabled={!!loadingPack && loadingPack !== p.slug}
-                    />
+          <ul className="cpm-list">
+            {packs.map((p) => {
+              const isLoading = loadingPack === p.slug
+              const isDisabled = !!loadingPack && !isLoading
+              const rate = perCredit(p.price_usd, p.credits)
+              return (
+                <li key={p.slug} className={`cpm-row${p.isBestValue ? ' cpm-row--best' : ''}`}>
+                  {/* Left: icon + credit info */}
+                  <div className="cpm-row-left">
+                    <div className="cpm-row-icon" aria-hidden>
+                      <Zap size={15} strokeWidth={2.2} />
+                    </div>
+                    <div className="cpm-row-info">
+                      <div className="cpm-row-credits">
+                        <span className="cpm-row-num">{fmtCredits(p.credits)}</span>
+                        <span className="cpm-row-unit">credits</span>
+                        {p.isBestValue && <span className="cpm-badge-best">Best value</span>}
+                        {!p.isBestValue && p.savingsPct >= 15 && (
+                          <span className="cpm-badge-save">Save {p.savingsPct}%</span>
+                        )}
+                      </div>
+                      {rate && <span className="cpm-row-rate">{rate}</span>}
+                    </div>
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="credits-pack-cta"
-                    onClick={() => buy(p)}
-                    disabled={!!loadingPack}
-                  >
-                    {loadingPack === p.slug ? 'Opening…' : 'Get credits'}
-                  </button>
-                )}
-              </li>
-            ))}
+
+                  {/* Right: price + CTA */}
+                  <div className="cpm-row-right">
+                    <span className="cpm-row-price">{fmtPrice(p.price_usd)}</span>
+                    <button
+                      type="button"
+                      className={`cpm-btn${p.isBestValue ? ' cpm-btn--primary' : ''}`}
+                      onClick={() => buy(p)}
+                      disabled={isDisabled || isLoading}
+                    >
+                      {isLoading ? <span className="cpm-btn-spinner" /> : 'Buy'}
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         )}
       </div>
 
-      {/* ── Footer ───────────────────────────────────────────────── */}
-      <footer className="credits-modal-foot">
-        <span className="credits-modal-foot-note">
+      {/* Footer */}
+      <footer className="cpm-foot">
+        <span className="cpm-foot-note">
           <IconShield />
-          Payments processed securely by Paddle
+          Secure payments by Paddle
         </span>
         <button
           type="button"
-          className="credits-modal-link"
+          className="cpm-foot-link"
           onClick={() => {
             onClose?.()
             window.location.hash = 'pro'
           }}
         >
-          Upgrade your plan →
+          View plans →
         </button>
       </footer>
     </Dialog>
