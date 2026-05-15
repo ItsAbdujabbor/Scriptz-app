@@ -6,17 +6,13 @@
  * Best-value pack gets the LiquidMetalButton (same as hero Generate CTA).
  */
 import { useEffect, useMemo, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { Sparkles } from 'lucide-react'
 
 import { Dialog } from './ui'
 import { LiquidMetalButton } from './LiquidMetalButton'
 import { useAuthStore } from '../stores/authStore'
-import { useCreditsQuery, refreshBillingState } from '../queries/billing/creditsQueries'
-import { queryKeys } from '../lib/query/queryKeys'
+import { useCreditsQuery } from '../queries/billing/creditsQueries'
 import { getPlans, startCheckout } from '../api/billing'
-import { openPaddleCheckout } from '../lib/paddle'
-import { useSubscriptionActivationStore } from '../stores/subscriptionActivationStore'
 import './CreditPacksModal.css'
 
 const fmtCredits = (n) => {
@@ -103,7 +99,6 @@ function IconShield() {
 /* ─────────────────────────────────────────────────────────────────── */
 
 export function CreditPacksModal({ open, onClose }) {
-  const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const getValidAccessToken = useAuthStore((s) => s.getValidAccessToken)
   const [catalog, setCatalog] = useState(null)
@@ -146,42 +141,6 @@ export function CreditPacksModal({ open, onClose }) {
     }
     setError(null)
     setLoadingPack(pack.slug)
-    const baselinePermanent = Number(
-      queryClient.getQueryData(queryKeys.billing.credits)?.permanent_credits || 0
-    )
-    const expectedCredits = Number(pack?.credits || 0)
-
-    let alreadyHandled = false
-    let disposeHandle = null
-
-    const onPaddleEvent = (ev) => {
-      const name = ev?.name || ev?.event_name
-      if (!name) return
-      // eslint-disable-next-line no-console
-      console.info('[CreditPacksModal:paddle-event]', name)
-      if (alreadyHandled) return
-      if (name === 'checkout.completed') {
-        alreadyHandled = true
-        useSubscriptionActivationStore.getState().start({
-          kind: 'pack',
-          pack: { name: pack.name, credits: expectedCredits },
-          packBaseline: baselinePermanent,
-        })
-        if (expectedCredits > 0) {
-          queryClient.setQueryData(queryKeys.billing.credits, (current) => {
-            if (!current || typeof current !== 'object') return current
-            const permanent = Number(current.permanent_credits || 0) + expectedCredits
-            const total = Number(current.subscription_credits || 0) + permanent
-            return { ...current, permanent_credits: permanent, total }
-          })
-        }
-        refreshBillingState(queryClient)
-        onClose?.()
-        disposeHandle?.dispose?.()
-      } else if (name === 'checkout.closed') {
-        disposeHandle?.dispose?.()
-      }
-    }
 
     try {
       const token = await getValidAccessToken()
@@ -190,14 +149,26 @@ export function CreditPacksModal({ open, onClose }) {
         successUrl: window.location.origin + '/#credits?checkout=success',
         cancelUrl: window.location.origin + '/#credits?checkout=canceled',
       })
-      disposeHandle = await openPaddleCheckout({
-        transactionId: resp?.transaction_id,
-        checkoutUrl: resp?.checkout_url,
-        clientToken: resp?.client_token,
-        onEvent: onPaddleEvent,
-      })
+      const returnHash = window.location.hash.replace(/^#/, '') || 'thumbnails'
+      sessionStorage.setItem(
+        'clixa_checkout_session',
+        JSON.stringify({
+          type: 'pack',
+          transactionId: resp?.transaction_id,
+          clientToken: resp?.client_token,
+          checkoutUrl: resp?.checkout_url,
+          packName: pack.name,
+          planName: pack.name,
+          packSlug: pack.slug,
+          expectedCredits: Number(pack.credits),
+          priceDisplay: fmtPrice(pack.price_usd),
+          totalDueDisplay: fmtPrice(pack.price_usd),
+          returnHash,
+        })
+      )
+      onClose?.()
+      window.location.hash = 'checkout'
     } catch (e) {
-      disposeHandle?.dispose?.()
       setError(e?.message || 'Checkout could not start. Try again.')
     } finally {
       setLoadingPack(null)

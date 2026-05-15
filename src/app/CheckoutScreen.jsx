@@ -23,7 +23,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion' // eslint-disable-line no-unused-vars
-import { ArrowLeft, Lock, ShieldCheck, RotateCw, CheckCircle2, Sparkles, Info } from 'lucide-react'
+import {
+  ArrowLeft,
+  Lock,
+  ShieldCheck,
+  RotateCw,
+  CheckCircle2,
+  Sparkles,
+  Zap,
+  Info,
+} from 'lucide-react'
 import { openPaddleInlineCheckout } from '../lib/paddle'
 import { refreshBillingState } from '../queries/billing/creditsQueries'
 import { queryKeys } from '../lib/query/queryKeys'
@@ -212,7 +221,8 @@ export function CheckoutScreen({ onClose }) {
           // sidebar will already show the new plan when they land
           // on the pricing page.
           window.setTimeout(() => {
-            window.location.hash = 'pro?checkout=success'
+            window.location.hash =
+              completed?.type === 'pack' ? completed?.returnHash || 'pro' : 'pro?checkout=success'
           }, 400)
         } else if (name === 'checkout.error' || name === 'checkout.failed') {
           window.clearTimeout(readyFallback)
@@ -256,9 +266,11 @@ export function CheckoutScreen({ onClose }) {
   if (!session) return null
 
   const planName = session.planName || 'Subscription'
+  const isPack = session.type === 'pack'
+  const packName = session.packName || planName
   const totalDueDisplay = session.totalDueDisplay || session.priceDisplay || ''
-  const cycleNoun = session.cycle === 'annual' ? 'annually' : 'monthly'
-  const renewalPeriod = session.cycle === 'annual' ? 'year' : 'month'
+  const cycleNoun = isPack ? 'one-time' : session.cycle === 'annual' ? 'annually' : 'monthly'
+  const renewalPeriod = isPack ? null : session.cycle === 'annual' ? 'year' : 'month'
 
   return (
     <div className="checkout-screen" role="dialog" aria-modal="true" aria-label="Checkout">
@@ -268,7 +280,7 @@ export function CheckoutScreen({ onClose }) {
             type="button"
             className="checkout-back"
             onClick={onClose}
-            aria-label="Back to pricing"
+            aria-label={isPack ? 'Back' : 'Back to pricing'}
           >
             <ArrowLeft size={18} strokeWidth={2} />
           </button>
@@ -293,10 +305,14 @@ export function CheckoutScreen({ onClose }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.32, ease: [0.22, 0.61, 0.36, 1] }}
         >
-          <p className="checkout-summary-eyebrow">Subscribe to Clixa {planName}</p>
+          <p className="checkout-summary-eyebrow">
+            {isPack ? `Buy ${packName}` : `Subscribe to Clixa ${planName}`}
+          </p>
           <div className="checkout-summary-price">
             <span className="checkout-summary-amount">{totalDueDisplay}</span>
-            <span className="checkout-summary-cycle">per {renewalPeriod}</span>
+            <span className="checkout-summary-cycle">
+              {isPack ? 'one-time' : `per ${renewalPeriod}`}
+            </span>
           </div>
 
           <div className="checkout-summary-divider" />
@@ -304,11 +320,19 @@ export function CheckoutScreen({ onClose }) {
           <div className="checkout-line-items">
             <div className="checkout-line-item">
               <span className="checkout-line-item-icon" aria-hidden="true">
-                <Sparkles size={16} strokeWidth={2} />
+                {isPack ? (
+                  <Zap size={16} strokeWidth={2} />
+                ) : (
+                  <Sparkles size={16} strokeWidth={2} />
+                )}
               </span>
               <div className="checkout-line-item-name">
-                <span className="checkout-line-item-title">Clixa {planName}</span>
-                <span className="checkout-line-item-sub">Billed {cycleNoun}</span>
+                <span className="checkout-line-item-title">
+                  {isPack ? packName : `Clixa ${planName}`}
+                </span>
+                <span className="checkout-line-item-sub">
+                  {isPack ? 'One-time purchase · never expires' : `Billed ${cycleNoun}`}
+                </span>
               </div>
               <span className="checkout-line-item-price">{totalDueDisplay}</span>
             </div>
@@ -339,10 +363,12 @@ export function CheckoutScreen({ onClose }) {
             </div>
           </dl>
 
-          <p className="checkout-renewal">
-            Renews automatically every {renewalPeriod} for{' '}
-            <strong>{paddleTotals?.total ?? totalDueDisplay}</strong>. Cancel anytime.
-          </p>
+          {!isPack && (
+            <p className="checkout-renewal">
+              Renews automatically every {renewalPeriod} for{' '}
+              <strong>{paddleTotals?.total ?? totalDueDisplay}</strong>. Cancel anytime.
+            </p>
+          )}
 
           <div className="checkout-trust">
             <ShieldCheck size={14} strokeWidth={2} />
@@ -402,7 +428,9 @@ export function CheckoutScreen({ onClose }) {
                     </motion.span>
                     <p className="checkout-success-title">Payment confirmed</p>
                     <p className="checkout-success-sub">
-                      Your subscription is active. Redirecting…
+                      {isPack
+                        ? 'Your credits have been added. Redirecting…'
+                        : 'Your subscription is active. Redirecting…'}
                     </p>
                   </motion.div>
                 )}

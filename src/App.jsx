@@ -528,12 +528,18 @@ function App() {
       break
     case 'checkout':
       // Stripe-style checkout takeover hosting the Paddle Inline iframe.
-      // Closing returns to the pricing page so the user can pick a
-      // different plan or cycle.
+      // Subscriptions return to the pricing page; pack purchases return
+      // to wherever they were launched from (session.returnHash).
       content = (
         <CheckoutScreen
           onClose={() => {
-            window.location.hash = 'pro'
+            try {
+              const raw = sessionStorage.getItem('clixa_checkout_session')
+              const sess = raw ? JSON.parse(raw) : null
+              window.location.hash = sess?.returnHash || 'pro'
+            } catch {
+              window.location.hash = 'pro'
+            }
           }}
         />
       )
