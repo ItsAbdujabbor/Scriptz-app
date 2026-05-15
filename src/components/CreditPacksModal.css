@@ -384,12 +384,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 60px;
-  height: 34px;
-  border-radius: 9px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  width: 68px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
   background: rgba(255, 255, 255, 0.07);
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.75);
   font: inherit;
   font-size: 0.8rem;
   font-weight: 600;
@@ -400,11 +400,12 @@
     color 0.14s,
     transform 0.1s;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .cpm-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.13);
+  border-color: rgba(255, 255, 255, 0.22);
   color: #fff;
 }
 
@@ -413,19 +414,31 @@
 }
 
 .cpm-btn:disabled {
-  opacity: 0.35;
+  opacity: 0.32;
   cursor: not-allowed;
 }
 
+/* Best value — solid white pill, same weight as the featured plan CTA */
 .cpm-btn--primary {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #fff;
+  width: 80px;
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #111118;
+  font-weight: 700;
+  box-shadow: 0 2px 12px rgba(255, 255, 255, 0.18);
 }
 
 .cpm-btn--primary:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: #f0f0f0;
+  border-color: #f0f0f0;
+  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.25);
+  color: #000;
+}
+
+.cpm-btn--primary:active:not(:disabled) {
+  background: #e0e0e0;
+  border-color: #e0e0e0;
+  box-shadow: none;
 }
 
 /* Loading spinner inside button */
