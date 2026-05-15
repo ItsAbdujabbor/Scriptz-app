@@ -758,12 +758,15 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
     onRegenerate?.(baseRegeneratePrompt)
   }, [onRegenerate, baseRegeneratePrompt])
   const handleOneClickFix = useCallback(() => {
-    if (!onRegenerate || !recommendations.length) return
-    const fixes = recommendations.slice(0, 3).join('; ')
-    onRegenerate(`${baseRegeneratePrompt} Apply these improvements: ${fixes}.`)
+    if (!onRegenerate) return
+    if (recommendations.length > 0) {
+      const fixes = recommendations.slice(0, 3).join('; ')
+      onRegenerate(`${baseRegeneratePrompt} Apply these improvements: ${fixes}.`)
+    } else {
+      onRegenerate(baseRegeneratePrompt)
+    }
   }, [onRegenerate, recommendations, baseRegeneratePrompt])
-  const canOneClickFix =
-    !!onRegenerate && canRegenerate && recommendations.length > 0 && !loadingScore && !scoreError
+  const canOneClickFix = !!onRegenerate && canRegenerate
 
   // The score pill mounts whenever there's *something* to show — a real
   // score, a loading state, or an error. The component handles the
@@ -861,7 +864,11 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
                     className="thumb-batch-card-float-btn thumb-batch-card-float-btn--fix"
                     onClick={handleOneClickFix}
                     aria-label="One-click fix using AI recommendations"
-                    title={`One-click fix — ${recommendations[0] || 'apply AI recommendations'}`}
+                    title={
+                      recommendations.length > 0
+                        ? `One-click fix — ${recommendations[0]}`
+                        : 'One-click fix'
+                    }
                   >
                     <svg
                       viewBox="0 0 24 24"
@@ -5873,24 +5880,25 @@ function FailedAttemptBlock({ entry, onRetry }) {
 
 /**
  * Staged loader hint that fades in inside the in-flight loader. Cycles
- * through three honest messages based on elapsed time:
+ * through honest messages based on elapsed time:
  *
- *   stage 0 (0–1× estimated)  : silent — loader handles its own UI
- *   stage 1 (1–2× estimated)  : "Taking a little longer than usual…"
- *   stage 2 (2×+ estimated)   : "High demand right now — your thumbnail
- *                                is queued, hang tight."
+ *   stage 0 (0–1.5× estimated)  : silent — normal generation window
+ *   stage 1 (1.5–2.5× estimated): "Taking a moment longer than usual…"
+ *                                  (only reaches here on retries / slow provider)
+ *   stage 2 (2.5×+ estimated)   : "Still working on it — thanks for your patience."
  *
- * This gives users honest staged feedback during the wait without needing
- * SSE/polling. Auto-unmounts with the parent loader, so the timer is
- * cleaned up on every mount/unmount cycle.
+ * Stage 1 fires at 1.5× the estimated duration so a normal first-attempt
+ * generation (which completes at or before 1× the estimate) never triggers
+ * the hint. It only appears when the job is genuinely slow — i.e. on a
+ * backend retry or a provider backlog that pushes past the expected window.
  */
 function ThumbnailGenSlowHint({ estimatedDurationMs }) {
   const [stage, setStage] = useState(0)
   useEffect(() => {
     const baseline = Math.max(0, estimatedDurationMs || 0)
     if (baseline <= 0) return undefined
-    const t1 = setTimeout(() => setStage(1), baseline)
-    const t2 = setTimeout(() => setStage(2), baseline * 2)
+    const t1 = setTimeout(() => setStage(1), baseline * 1.5)
+    const t2 = setTimeout(() => setStage(2), baseline * 2.5)
     return () => {
       clearTimeout(t1)
       clearTimeout(t2)
