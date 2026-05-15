@@ -19,6 +19,7 @@
  */
 
 import { track } from './analytics'
+import { openCreditsModal } from './creditsModalBus'
 
 let installed = false
 
@@ -67,12 +68,16 @@ export function installPaywallInterceptor() {
       if (code && PAYWALL_CODES.has(code)) {
         try {
           const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || ''
-          // Distinct analytics events so funnels can tell premium-gate
-          // hits from credit-exhaustion hits.
           const event = code === 'INSUFFICIENT_CREDITS' ? 'credits_exhausted' : 'paywall_view'
           track(event, { feature_path: new URL(url, window.location.origin).pathname })
         } catch {}
-        goToPricing()
+        if (code === 'INSUFFICIENT_CREDITS') {
+          // Out of credits — open the credit marketplace so they can top up.
+          openCreditsModal()
+        } else {
+          // No subscription or wrong plan tier — send to the pricing/upgrade screen.
+          goToPricing()
+        }
         return makeSilentResponse()
       }
     } catch {
