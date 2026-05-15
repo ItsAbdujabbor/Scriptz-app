@@ -10,7 +10,7 @@
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { getCredits, getFeatureCosts, getSubscription } from '../../api/billing'
+import { getCredits, getFeatureCosts, getPaymentMethod, getSubscription } from '../../api/billing'
 import { useModelTierStateQuery } from '../modelTier/modelTierQueries'
 import { getAccessTokenOrNull } from '../../lib/query/authToken'
 import { queryFreshness } from '../../lib/query/queryConfig'
@@ -80,6 +80,21 @@ export function useSubscriptionQuery() {
     gcTime: queryFreshness.long,
     refetchOnWindowFocus: true,
     refetchInterval: isActivating ? 1_000 : 15_000,
+  })
+}
+
+export function usePaymentMethodQuery(enabled = false) {
+  return useQuery({
+    queryKey: queryKeys.billing.paymentMethod,
+    enabled,
+    queryFn: async () => {
+      const token = await getAccessTokenOrNull()
+      if (!token) return null
+      return resultOrNullOnAuthFailure(getPaymentMethod(token))
+    },
+    staleTime: 60_000,
+    gcTime: queryFreshness.long,
+    retry: 1,
   })
 }
 

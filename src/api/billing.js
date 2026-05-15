@@ -92,3 +92,7 @@ export function changePlan(accessToken, { planSlug, priceId, timing = 'immediate
 export function syncSubscription(accessToken) {
   return request('POST', '/api/billing/sync', accessToken)
 }
+
+export function getPaymentMethod(accessToken) {
+  return request('GET', '/api/billing/payment-method', accessToken)
+}

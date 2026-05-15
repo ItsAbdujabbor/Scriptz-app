@@ -30,6 +30,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
 import {
   useCreditsQuery,
+  usePaymentMethodQuery,
   useSubscriptionQuery,
   refreshBillingState,
 } from '../queries/billing/creditsQueries'
@@ -228,6 +229,9 @@ export function BillingSettingsPanel({ active, onClose }) {
   const { data: subscription } = useSubscriptionQuery()
   const { data: credits } = useCreditsQuery({ refetchInterval: active ? 30_000 : false })
   const { data: ledger } = useLedgerQuery(active)
+  const subscriptionActive =
+    !!subscription && ['active', 'trialing', 'past_due'].includes(subscription.status)
+  const { data: paymentMethodData } = usePaymentMethodQuery(active && subscriptionActive)
 
   const [confirmOpen, setConfirmOpen] = useState(false)
   // Captured at the moment the dialog is opened so the CancelConfirm
@@ -343,12 +347,12 @@ export function BillingSettingsPanel({ active, onClose }) {
         : ''
   const cancelScheduled = subscription.cancel_at_period_end
 
-  // Backend-supplied payment method + billing address (graceful fallback).
-  const pm = subscription.payment_method || {}
-  const pmBrand = pm.brand || pm.card_brand || null
-  const pmLast4 = pm.last4 || pm.card_last4 || null
-  const pmExp = pm.expires || pm.card_expires || null
-  const ba = subscription.billing_address || {}
+  // Payment method data fetched from Paddle via /api/billing/payment-method.
+  const pmBrand = paymentMethodData?.card_brand || null
+  const pmLast4 = paymentMethodData?.last4 || null
+  const pmExp = paymentMethodData?.expires || null
+  const updatePaymentUrl = paymentMethodData?.update_url || null
+  const ba = paymentMethodData?.billing_address || {}
   const baLines = [ba.line1, ba.line2, ba.city, ba.state, ba.country].filter(Boolean)
 
   const handleRefresh = () => {
@@ -440,15 +444,16 @@ export function BillingSettingsPanel({ active, onClose }) {
         {/* Payment & billing info row + button */}
         <div className="bp-row">
           <span className="bp-label">Payment &amp; Billing Info</span>
-          <button
-            type="button"
-            className="bp-btn bp-btn--outline"
-            onClick={() => {
-              window.location.hash = 'pro'
-            }}
-          >
-            Update Infos
-          </button>
+          {updatePaymentUrl ? (
+            <a
+              href={updatePaymentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bp-btn bp-btn--outline"
+            >
+              Update card
+            </a>
+          ) : null}
         </div>
 
         <div className="bp-grid-2">

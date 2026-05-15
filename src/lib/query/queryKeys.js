@@ -85,6 +85,7 @@ export const queryKeys = {
      * by `refreshBillingState()` so a single helper can invalidate every
      * billing surface (credits + sub + ledger) atomically after a payment. */
     ledger: ['billing', 'ledger', 'recent'],
+    paymentMethod: ['billing', 'paymentMethod'],
   },
   modelTier: {
     state: ['modelTier', 'state'],
