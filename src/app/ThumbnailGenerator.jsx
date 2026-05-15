@@ -964,30 +964,21 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
 
   const handleDislikeCancel = useCallback(() => setShowDislikeDialog(false), [])
 
-  const handleDownload = useCallback(async () => {
+  const handleDownload = useCallback(() => {
     const url = t?.image_url
     if (!url) return
-    try {
-      const res = await fetch(url)
-      const blob = await res.blob()
-      const objUrl = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = objUrl
-      a.download = `thumbnail-${label || index + 1}.png`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(objUrl)
-    } catch {
-      // Fall back to browser navigation if fetch fails (e.g. CORS)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `thumbnail-${label || index + 1}.png`
-      a.target = '_blank'
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-    }
+    const filename = `thumbnail-${label || index + 1}.png`
+    // Route through the backend proxy so the browser receives
+    // Content-Disposition: attachment — bypasses CloudFront CORS restrictions.
+    const proxyUrl =
+      `/api/thumbnails/download?` +
+      `url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`
+    const a = document.createElement('a')
+    a.href = proxyUrl
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
   }, [t?.image_url, label, index])
 
   // The score pill mounts whenever there's *something* to show — a real
