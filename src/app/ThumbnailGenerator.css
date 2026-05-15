@@ -3547,15 +3547,44 @@
   color: var(--thumb-grade-accent, rgba(196, 181, 253, 0.6));
 }
 
+/* Non-YouTube-thumbnail warning banner */
+.thumb-analysis-card-not-thumb {
+  margin: 0 0 0.65rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: rgba(251, 191, 36, 0.9);
+  letter-spacing: -0.002em;
+}
+
 @media (max-width: 640px) {
+  .thumb-analysis-card {
+    padding: 0.75rem 0.85rem;
+  }
   .thumb-analysis-card-head {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.5rem;
+    gap: 0.45rem;
   }
   .thumb-analysis-card-grade {
     border-right: none;
     padding-right: 0;
+    gap: 0.4rem;
+  }
+  .thumb-analysis-card-grade-letter {
+    font-size: 1.25rem;
+  }
+  .thumb-analysis-card-score {
+    font-size: 0.95rem;
+  }
+  .thumb-analysis-card-oneliner {
+    font-size: 0.83rem;
+  }
+  .thumb-analysis-card-fixes {
+    font-size: 0.8rem;
   }
 }
 

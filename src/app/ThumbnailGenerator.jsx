@@ -1676,10 +1676,13 @@ const AnalysisBreakdown = memo(function AnalysisBreakdown({ analysis }) {
     return list.filter(Boolean).slice(0, 3)
   }, [analysis])
   const oneLiner = analysis?.one_liner || analysis?.specific_advice || ''
+  const notThumbnailNote =
+    analysis?.is_youtube_thumbnail === false ? analysis?.not_thumbnail_note || null : null
 
   if (!analysis) return null
   return (
     <div className={`thumb-analysis-card coach-stream-block ${gradeTierClass(grade)}`}>
+      {notThumbnailNote && <p className="thumb-analysis-card-not-thumb">⚠ {notThumbnailNote}</p>}
       <div className="thumb-analysis-card-head">
         <div className="thumb-analysis-card-grade">
           <span className="thumb-analysis-card-grade-letter">{grade || '—'}</span>
@@ -1915,10 +1918,10 @@ const ChatMessageItem = memo(function ChatMessageItem({
               </motion.div>
             )}
           </AnimatePresence>
-          {/* Recreate / edit / faceswap results: show the returned image.
-               Analyze results (msg.analysis truthy) skip this block — the
-               thumbnail is already visible in the generation card above. */}
-          {!msg._analyzePending && msg.imageUrl && !msg.analysis && (
+          {/* Show the image for recreate/edit AND for completed analyze —
+               the image stays visible with its toolbar after the scan loader
+               exits, so the user sees the thumbnail alongside the breakdown. */}
+          {!msg._analyzePending && msg.imageUrl && (
             <ThumbnailImageBlock
               imageUrl={msg.imageUrl}
               userRequest={msg.userRequest}
