@@ -2869,6 +2869,63 @@
   margin: 0;
 }
 
+/* ── Expandable user bubble ──────────────────────────────────────────────── */
+
+#coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw {
+  position: relative;
+}
+
+#coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+#coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw-text--clamped {
+  max-height: calc(10 * 1.55 * 0.95rem);
+  overflow: hidden;
+}
+
+/* Deep-purple fade veil — sits at the bottom of the clamped text, same angle
+   as the bubble gradient so it reads as a seamless colour fade, not an overlay. */
+#coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw-veil {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4rem;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(91, 33, 182, 0.72) 55%,
+    rgba(76, 20, 160, 0.96) 100%
+  );
+  pointer-events: none;
+  border-radius: 0 0 2px 14px;
+}
+
+/* Show more / Show less toggle */
+#coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw-toggle {
+  display: block;
+  margin-top: 0.45rem;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: rgba(233, 213, 255, 0.85);
+  transition:
+    color 0.15s ease,
+    opacity 0.15s ease;
+  line-height: 1;
+}
+
+#coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw-toggle:hover {
+  color: #ffffff;
+}
+
 /* Stack gap for user messages — between the optional reference image and
  * the bubble itself. Tighter than assistant thumbnail grids. */
 #coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .coach-user-message-stack {

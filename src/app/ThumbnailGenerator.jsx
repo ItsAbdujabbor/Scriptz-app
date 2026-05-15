@@ -1782,6 +1782,48 @@ function TitleIdeasBlock({ titles, onUseTitle }) {
  * stable `useCallback` handlers, only the NEW message renders when the
  * thread updates — the rest stays painted.
  */
+
+// 10 lines × line-height 1.55 × font-size 0.95rem = ~14.7rem
+const USER_BUBBLE_LINE_HEIGHT = 1.55
+const USER_BUBBLE_FONT_SIZE_REM = 0.95
+const USER_BUBBLE_MAX_LINES = 10
+const USER_BUBBLE_MAX_HEIGHT_REM =
+  USER_BUBBLE_MAX_LINES * USER_BUBBLE_LINE_HEIGHT * USER_BUBBLE_FONT_SIZE_REM
+
+function ExpandableUserMessage({ text }) {
+  const [expanded, setExpanded] = useState(false)
+  const [needsClamp, setNeedsClamp] = useState(false)
+  const textRef = useRef(null)
+
+  useLayoutEffect(() => {
+    const el = textRef.current
+    if (!el) return
+    // Temporarily remove max-height so we can measure full scrollHeight
+    el.style.maxHeight = 'none'
+    const full = el.scrollHeight
+    el.style.maxHeight = ''
+    const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+    const clampPx = USER_BUBBLE_MAX_HEIGHT_REM * rootFontSize
+    setNeedsClamp(full > clampPx + 4)
+  }, [text])
+
+  const isClamped = needsClamp && !expanded
+
+  return (
+    <div className="thumb-ubw">
+      <p ref={textRef} className={`thumb-ubw-text${isClamped ? ' thumb-ubw-text--clamped' : ''}`}>
+        {text}
+      </p>
+      {isClamped && <div className="thumb-ubw-veil" aria-hidden />}
+      {needsClamp && (
+        <button type="button" className="thumb-ubw-toggle" onClick={() => setExpanded((e) => !e)}>
+          {expanded ? 'Show less ↑' : 'Show more ↓'}
+        </button>
+      )}
+    </div>
+  )
+}
+
 const ChatMessageItem = memo(function ChatMessageItem({
   msg,
   onReplaceThumbnail,
@@ -1813,7 +1855,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
            * an empty pill clinging to the image card. */}
           {msg.content ? (
             <div className="coach-message-bubble">
-              <p>{msg.content}</p>
+              <ExpandableUserMessage text={msg.content} />
             </div>
           ) : null}
         </div>
@@ -6211,7 +6253,7 @@ function FailedAttemptBlock({ entry, onRetry }) {
             ) : null}
             {entry.userText ? (
               <div className="coach-message-bubble">
-                <p>{entry.userText}</p>
+                <ExpandableUserMessage text={entry.userText} />
               </div>
             ) : null}
           </div>
