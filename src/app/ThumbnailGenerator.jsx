@@ -970,9 +970,35 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
   const handleDownload = useCallback(() => {
     const url = t?.image_url
     if (!url) return
-    const filename = `thumbnail-${label || index + 1}.png`
-    // Route through the backend proxy so the browser receives
-    // Content-Disposition: attachment — bypasses CloudFront CORS restrictions.
+    const num = typeof index === 'number' ? index + 1 : 1
+    const filename = `clixa-ai-thumbnail-${num}.png`
+
+    // Data URLs (base64 fallback when S3 upload failed): convert to blob
+    // client-side so the proxy is never called with a non-http URL.
+    if (url.startsWith('data:')) {
+      try {
+        const [header, b64] = url.split(',')
+        const mime = (header.match(/:(.*?);/) || [])[1] || 'image/png'
+        const binary = atob(b64)
+        const bytes = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+        const blob = new Blob([bytes], { type: mime })
+        const blobUrl = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = blobUrl
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000)
+      } catch {
+        toast.error('Could not download this thumbnail')
+      }
+      return
+    }
+
+    // For CloudFront / S3 URLs: route through the backend proxy which adds
+    // Content-Disposition: attachment and follows any redirects server-side.
     const proxyUrl =
       `/api/thumbnails/download?` +
       `url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`
@@ -982,7 +1008,7 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
-  }, [t?.image_url, label, index])
+  }, [t?.image_url, index])
 
   // The score pill mounts whenever there's *something* to show — a real
   // score, a loading state, or an error. The component handles the
