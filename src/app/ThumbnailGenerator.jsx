@@ -12,6 +12,7 @@ import {
   Sparkles as LucideSparkles,
 } from 'lucide-react'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
+import { getApiBaseUrl } from '../lib/env'
 import { thumbnailsApi } from '../api/thumbnails'
 import { usePersonaStore } from '../stores/personaStore'
 import { useStyleStore } from '../stores/styleStore'
@@ -1009,7 +1010,7 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
         return
       }
       const proxyUrl =
-        `/api/thumbnails/download?` +
+        `${getApiBaseUrl()}/api/thumbnails/download?` +
         `url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`
       const resp = await fetch(proxyUrl, {
         headers: { Authorization: `Bearer ${token}` },
