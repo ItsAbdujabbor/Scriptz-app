@@ -85,27 +85,20 @@ function fmtDateRange(startIso, endIso) {
   }
 }
 
-/* Plan-name → monthly USD price (mirrors ProPricingContent values).
- * Yearly plans bill once with the discounted-monthly × 12. */
-const PRICE_MONTHLY = { starter: 19.99, creator: 39.99, ultimate: 79.99 }
-const PRICE_YEARLY_MONTHLY = { starter: 13.99, creator: 27.99, ultimate: 55.99 }
-
 function nextBillingAmountUSD(subscription) {
   if (!subscription) return null
-  // Backend may already supply the amount.
-  const direct =
-    subscription.next_amount_usd ?? subscription.plan_amount_usd ?? subscription.amount_usd ?? null
-  if (direct != null) return Number(direct)
-  const slug = String(subscription.plan_name || '')
-    .toLowerCase()
-    .trim()
-  if (!slug) return null
-  if (subscription.billing_period === 'year') {
-    const m = PRICE_YEARLY_MONTHLY[slug]
-    return m == null ? null : +(m * 12).toFixed(2)
-  }
-  const m = PRICE_MONTHLY[slug]
-  return m == null ? null : m
+  // Use the authoritative price from the backend subscription response.
+  // plan_price_usd is the full charge for the billing period:
+  //   - monthly plan → e.g. 19.99 (billed every month)
+  //   - annual plan  → e.g. 167.88 (billed once per year)
+  const fromApi =
+    subscription.plan_price_usd ??
+    subscription.next_amount_usd ??
+    subscription.plan_amount_usd ??
+    subscription.amount_usd ??
+    null
+  if (fromApi != null) return Number(fromApi)
+  return null
 }
 
 /* ───────────────────── invoice synthesis ───────────────────────── */

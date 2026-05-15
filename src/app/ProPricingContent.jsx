@@ -10,67 +10,85 @@ import { ThumbPillTabs } from '../components/ThumbPillTabs'
 import { useSubscriptionActivationStore } from '../stores/subscriptionActivationStore'
 import { Faq } from '../landing/components/Faq'
 
-/* ─── Plan catalog (mirrors backend; kept in sync with billing.py) ───
- * Marketing copy + numbers live here. Real Paddle price ids are pulled
- * at runtime via getPlans() and resolved per `tier + cycle`. */
-const STARTER = {
-  tier: 'starter',
-  name: 'Starter',
-  monthly: '$19.99',
-  annual: '$13.99',
-  monthlyCredits: 1000,
-  annualCredits: 13800,
-  thumbsMonthly: 50,
-  thumbsAnnual: 600,
-  tagline: 'For solo creators getting started.',
+/* ─── Static plan metadata (non-price marketing copy) ───────────────
+ * Prices and credit amounts are derived at runtime from the API catalog
+ * (`GET /api/billing/plans`) so they never drift out of sync with the
+ * live Paddle products. Only strings that Paddle doesn't own (taglines,
+ * thumbnail count estimates, thumb counts) live here. */
+const PLAN_META = {
+  starter: {
+    tier: 'starter',
+    name: 'Starter',
+    thumbsMonthly: 50,
+    thumbsAnnual: 600,
+    tagline: 'For solo creators getting started.',
+  },
+  creator: {
+    tier: 'creator',
+    name: 'Creator',
+    thumbsMonthly: 150,
+    thumbsAnnual: 1800,
+    tagline: 'For active creators shipping weekly.',
+  },
+  ultimate: {
+    tier: 'ultimate',
+    name: 'Ultimate',
+    thumbsMonthly: 450,
+    thumbsAnnual: 5400,
+    tagline: 'For studios and high-volume creators.',
+  },
 }
 
-const CREATOR = {
-  tier: 'creator',
-  name: 'Creator',
-  monthly: '$39.99',
-  annual: '$27.99',
-  monthlyCredits: 3000,
-  annualCredits: 41400,
-  thumbsMonthly: 150,
-  thumbsAnnual: 1800,
-  tagline: 'For active creators shipping weekly.',
+const TIER_ORDER = ['starter', 'creator', 'ultimate']
+
+/**
+ * Look up price_usd for a plan slug in the API catalog.
+ * Returns a formatted "$X.YY" string, or null when the catalog hasn't
+ * loaded yet. For annual plans (billing_period = "year") divides by 12
+ * to get the per-month equivalent shown on the card.
+ */
+function getPriceDisplay(catalog, tier, annual) {
+  if (!catalog?.plans?.length) return null
+  const slug = `${tier}_${annual ? 'annual' : 'monthly'}`
+  const plan = catalog.plans.find((p) => p.slug === slug && p.is_active)
+  if (!plan) return null
+  const usd = Number(plan.price_usd)
+  if (!Number.isFinite(usd) || usd <= 0) return null
+  const display = annual ? usd / 12 : usd
+  return `$${display % 1 === 0 ? display.toFixed(0) : display.toFixed(2)}`
 }
 
-const ULTIMATE = {
-  tier: 'ultimate',
-  name: 'Ultimate',
-  monthly: '$79.99',
-  annual: '$55.99',
-  monthlyCredits: 9000,
-  annualCredits: 124200,
-  thumbsMonthly: 450,
-  thumbsAnnual: 5400,
-  tagline: 'For studios and high-volume creators.',
+/** Total annual charge for an annual plan (used in order-summary calc). */
+function getAnnualTotal(catalog, tier) {
+  if (!catalog?.plans?.length) return null
+  const plan = catalog.plans.find((p) => p.slug === `${tier}_annual` && p.is_active)
+  return plan ? Number(plan.price_usd) : null
 }
 
-const PLANS = [STARTER, CREATOR, ULTIMATE]
-
-/** Strip currency symbol from a "$X.YY" string and parse as float. */
-function priceNum(p) {
-  const n = Number.parseFloat(String(p || '').replace(/[^0-9.]/g, ''))
-  return Number.isFinite(n) ? n : 0
+function getCreditsFromCatalog(catalog, tier, annual) {
+  if (!catalog?.plans?.length) return null
+  const slug = `${tier}_${annual ? 'annual' : 'monthly'}`
+  const plan = catalog.plans.find((p) => p.slug === slug && p.is_active)
+  return plan ? Number(plan.monthly_credits) : null
 }
 
-/** Compute the rounded savings percent when billing annually instead
- * of monthly. Reads from the actual plan catalog so the headline can
- * never drift out of sync with prices. Returns the smallest savings
- * across plans so the headline is honest for every tier. */
-function computeAnnualSavingsPct(plans) {
-  const ratios = plans
-    .map((p) => {
-      const m = priceNum(p.monthly)
-      const a = priceNum(p.annual)
-      if (!m || !a || a >= m) return null
-      return (m - a) / m
-    })
-    .filter((r) => r != null && r > 0)
-  if (!ratios.length) return 0
+/**
+ * Savings percent when paying annually vs monthly for the same tier.
+ * Uses the smallest ratio across all tiers so the headline is
+ * conservative — we never claim more than the cheapest tier saves.
+ */
+function computeAnnualSavingsPct(catalog) {
+  if (!catalog?.plans?.length) return 30
+  const ratios = TIER_ORDER.map((tier) => {
+    const monthly = catalog.plans.find((p) => p.slug === `${tier}_monthly` && p.is_active)
+    const annual = catalog.plans.find((p) => p.slug === `${tier}_annual` && p.is_active)
+    if (!monthly || !annual) return null
+    const mUsd = Number(monthly.price_usd)
+    const aUsd = Number(annual.price_usd) / 12
+    if (!mUsd || !aUsd || aUsd >= mUsd) return null
+    return (mUsd - aUsd) / mUsd
+  }).filter((r) => r != null && r > 0)
+  if (!ratios.length) return 30
   return Math.round(Math.min(...ratios) * 100)
 }
 
@@ -233,10 +251,8 @@ export function ProPricingContent({ onStartTrial }) {
   const [plans, setPlans] = useState(null)
   const [checkoutLoading, setCheckoutLoading] = useState(null)
   const [checkoutError, setCheckoutError] = useState(null)
-  // Computed savings — never hardcoded so the headline stays honest
-  // when prices in the catalog change. Uses the smallest savings
-  // across plans so we never overstate.
-  const annualSavingsPct = useMemo(() => computeAnnualSavingsPct(PLANS), [])
+  // Derived from the live API catalog — never drifts out of sync with Paddle.
+  const annualSavingsPct = useMemo(() => computeAnnualSavingsPct(plans), [plans])
   const queryClient = useQueryClient()
   const { user, getValidAccessToken } = useAuthStore()
   const { data: subscription } = useSubscriptionQuery()
@@ -297,63 +313,55 @@ export function ProPricingContent({ onStartTrial }) {
   const isCurrentTier = (tier) =>
     activeTier === tier && ((annual && isAnnualActive) || (!annual && !isAnnualActive))
 
-  const ctaLabelFor = (plan) => {
-    if (checkoutLoading === plan.tier) return 'Loading…'
-    if (isCurrentTier(plan.tier)) return 'Current plan'
-    if (!user) return `Subscribe to ${plan.name}`
-    // Admin-granted users get the no-active-sub copy because their plan
-    // isn't on Paddle — clicking "Upgrade" actually runs a fresh checkout,
-    // not a change-plan PATCH.
+  const ctaLabelFor = (meta) => {
+    if (checkoutLoading === meta.tier) return 'Loading…'
+    if (isCurrentTier(meta.tier)) return 'Current plan'
+    if (!user) return `Subscribe to ${meta.name}`
     const onPaddleSub = hasActiveSub && !subscription?.is_admin_granted
     if (onPaddleSub) {
       const rank = { starter: 0, creator: 1, ultimate: 2 }
-      const isUpgrade = (rank[plan.tier] ?? 0) > (rank[activeTier] ?? 0)
-      return isUpgrade ? `Upgrade to ${plan.name}` : `Switch to ${plan.name}`
+      const isUpgrade = (rank[meta.tier] ?? 0) > (rank[activeTier] ?? 0)
+      return isUpgrade ? `Upgrade to ${meta.name}` : `Switch to ${meta.name}`
     }
-    return `Subscribe to ${plan.name}`
+    return `Subscribe to ${meta.name}`
   }
 
-  const handleCta = async (plan) => {
+  const handleCta = async (meta) => {
     setCheckoutError(null)
     if (!user) {
       onStartTrial?.()
       return
     }
-    if (isCurrentTier(plan.tier)) return
+    if (isCurrentTier(meta.tier)) return
 
-    const slug = `${plan.tier}_${annual ? 'annual' : 'monthly'}`
+    const slug = `${meta.tier}_${annual ? 'annual' : 'monthly'}`
     const priceId = findPriceId(slug)
     if (!priceId || priceId.startsWith('pri_placeholder_')) {
       setCheckoutError('Billing is not yet enabled. Please contact support.')
       return
     }
 
-    setCheckoutLoading(plan.tier)
+    setCheckoutLoading(meta.tier)
     try {
       const token = await getValidAccessToken()
-      // change-plan only works against Paddle-managed subs. Admin-granted
-      // users (paddle_subscription_id = "admin_grant:*") have to run a
-      // fresh checkout — the backend's /change-plan returns 409
-      // ADMIN_GRANTED_NEEDS_CHECKOUT for them, and even if it didn't,
-      // PATCHing a non-existent Paddle subscription id would 404.
       const onPaddleSub = hasActiveSub && !subscription?.is_admin_granted
       if (onPaddleSub) {
         const rank = { starter: 0, creator: 1, ultimate: 2 }
-        const isUpgrade = (rank[plan.tier] ?? 0) > (rank[activeTier] ?? 0)
+        const isUpgrade = (rank[meta.tier] ?? 0) > (rank[activeTier] ?? 0)
         const timing = isUpgrade ? 'immediate' : 'next_period'
         await changePlan(token, { planSlug: slug, timing })
         refreshBillingState(queryClient)
         celebrate(
           isUpgrade
             ? {
-                emoji: plan.tier === 'ultimate' ? '👑' : '🚀',
-                title: `Welcome to ${plan.name}!`,
+                emoji: meta.tier === 'ultimate' ? '👑' : '🚀',
+                title: `Welcome to ${meta.name}!`,
                 subtitle: 'Your new plan is active and credits have been refreshed.',
                 variant: 'celebrate',
               }
             : {
                 emoji: '✅',
-                title: `Scheduled: ${plan.name}`,
+                title: `Scheduled: ${meta.name}`,
                 subtitle: 'Your plan will switch at the end of the current billing period.',
                 variant: 'success',
                 confetti: false,
@@ -366,24 +374,19 @@ export function ProPricingContent({ onStartTrial }) {
         successUrl: window.location.origin + '/#pro?checkout=success',
         cancelUrl: window.location.origin + '/#pro?checkout=canceled',
       })
-      // Hand the transaction off to the Stripe-style checkout page. The
-      // price shown on the pricing card is per-month even for annual
-      // plans, so multiply by 12 to get the actual amount Paddle will
-      // charge today — that's what we surface in the order summary.
-      const priceDisplay = annual ? plan.annual : plan.monthly
-      const perMonthAmount = parseFloat(String(priceDisplay).replace(/[^0-9.]/g, ''))
-      const totalDueAmount =
-        annual && Number.isFinite(perMonthAmount) ? perMonthAmount * 12 : perMonthAmount
-      const totalDueDisplay = Number.isFinite(totalDueAmount)
-        ? `$${totalDueAmount.toFixed(2)}`
-        : priceDisplay
-      // Record everything the post-payment optimistic update needs so
-      // the sidebar tier + credit balance flip the instant Paddle says
-      // "paid", instead of waiting for the webhook → 2 s polling cycle.
-      // CheckoutScreen reads this on `checkout.completed`.
-      const expectedCredits = annual
-        ? Number(plan.annualCredits || 0)
-        : Number(plan.monthlyCredits || 0)
+      // Compute the actual charge Paddle will show at checkout.
+      // Annual plans: price_usd in DB is the full-year amount; monthly display
+      // is price_usd/12. We pass the full annual total to the order summary.
+      const priceDisplay = getPriceDisplay(plans, meta.tier, annual)
+      const annualTotal = annual ? getAnnualTotal(plans, meta.tier) : null
+      const totalDueAmount = annual
+        ? annualTotal
+        : Number(plans?.plans?.find((p) => p.slug === slug)?.price_usd)
+      const totalDueDisplay =
+        totalDueAmount != null && Number.isFinite(totalDueAmount)
+          ? `$${totalDueAmount.toFixed(2)}`
+          : (priceDisplay ?? '—')
+      const expectedCredits = getCreditsFromCatalog(plans, meta.tier, annual) ?? 0
       sessionStorage.setItem(
         'clixa_checkout_session',
         JSON.stringify({
@@ -391,9 +394,9 @@ export function ProPricingContent({ onStartTrial }) {
           transactionId: resp?.transaction_id,
           clientToken: resp?.client_token,
           checkoutUrl: resp?.checkout_url,
-          planName: plan.name,
+          planName: meta.name,
           planSlug: slug,
-          tier: plan.tier,
+          tier: meta.tier,
           expectedCredits,
           priceDisplay,
           totalDueDisplay,
@@ -447,19 +450,30 @@ export function ProPricingContent({ onStartTrial }) {
 
       {/* Cards */}
       <section className="pro-cards" aria-label="Pricing plans">
-        {PLANS.map((plan) => {
-          const featured = plan.tier === 'creator'
-          const price = annual ? plan.annual : plan.monthly
-          const thumbs = annual ? plan.thumbsAnnual : plan.thumbsMonthly
-          const current = isCurrentTier(plan.tier)
-          const loading = checkoutLoading === plan.tier
-          const feats = buildFeatures(plan, annual)
+        {TIER_ORDER.map((tier) => {
+          const meta = PLAN_META[tier]
+          const featured = tier === 'creator'
+          // Price from live API catalog — shows "—" while catalog loads
+          const price = getPriceDisplay(plans, tier, annual) ?? '—'
+          const thumbs = annual ? meta.thumbsAnnual : meta.thumbsMonthly
+          const credits = getCreditsFromCatalog(plans, tier, annual)
+          const current = isCurrentTier(tier)
+          const loading = checkoutLoading === tier
+          // Build features using live credit counts when available
+          const planForFeats = {
+            ...meta,
+            monthlyCredits:
+              credits ?? (tier === 'starter' ? 1000 : tier === 'creator' ? 3000 : 9000),
+            annualCredits:
+              credits ?? (tier === 'starter' ? 13800 : tier === 'creator' ? 41400 : 124200),
+          }
+          const feats = buildFeatures(planForFeats, annual)
 
           return (
-            <div key={plan.tier} className={`pro-card${featured ? ' pro-card--featured' : ''}`}>
+            <div key={tier} className={`pro-card${featured ? ' pro-card--featured' : ''}`}>
               {featured ? <span className="pro-card-badge">Most popular</span> : null}
 
-              <p className="pro-card-name">{plan.name}</p>
+              <p className="pro-card-name">{meta.name}</p>
 
               <div className="pro-card-price">
                 <span className="pro-card-amount">{price}</span>
@@ -468,25 +482,19 @@ export function ProPricingContent({ onStartTrial }) {
               <p className="pro-card-billed">{annual ? 'Billed annually' : 'Billed monthly'}</p>
 
               <p className="pro-card-tagline">
-                {plan.tagline} Up to <strong>{fmtNum(thumbs)} thumbnails</strong>{' '}
+                {meta.tagline} Up to <strong>{fmtNum(thumbs)} thumbnails</strong>{' '}
                 {annual ? 'per year' : 'per month'}.
               </p>
 
               <button
                 type="button"
                 className={`pro-card-cta${current ? ' pro-card-cta--current' : ''}`}
-                onClick={() => handleCta(plan)}
-                /* Disable EVERY plan CTA while ANY checkout is in flight.
-                 * Previously only the current-tier button was disabled, so
-                 * a rapid double-click on different tiers (or the same one
-                 * within ~100 ms) could fire two transactions before
-                 * setCheckoutLoading rebroadcast — leading to two pending
-                 * Paddle transactions on the user's account. */
+                onClick={() => handleCta(meta)}
                 disabled={current || loading || checkoutLoading !== null}
                 aria-disabled={current || loading || checkoutLoading !== null}
               >
                 {loading ? <span className="pro-card-cta-spinner" /> : null}
-                {ctaLabelFor(plan)}
+                {ctaLabelFor(meta)}
               </button>
 
               <ul className="pro-card-feats">
