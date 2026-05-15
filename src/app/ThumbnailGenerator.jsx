@@ -735,7 +735,16 @@ const DISLIKE_REASONS = [
   { id: 'other', label: 'Other' },
 ]
 
-function DislikeReasonDialog({ onSubmit, onCancel, submitting }) {
+const ANALYZE_DISLIKE_REASONS = [
+  { id: 'score_high', label: 'Score seems too high' },
+  { id: 'score_low', label: 'Score seems too low' },
+  { id: 'recommendations', label: 'Recommendations not helpful' },
+  { id: 'missed_issues', label: 'Missed key issues' },
+  { id: 'niche', label: "Doesn't fit my niche" },
+  { id: 'other', label: 'Other' },
+]
+
+function DislikeReasonDialog({ onSubmit, onCancel, submitting, reasons = DISLIKE_REASONS }) {
   const [selected, setSelected] = useState([])
   const [note, setNote] = useState('')
   const showNote = selected.includes('other')
@@ -785,7 +794,7 @@ function DislikeReasonDialog({ onSubmit, onCancel, submitting }) {
         <p className="thumb-dislike-sub">Select all that apply</p>
 
         <div className="thumb-dislike-chips" role="group" aria-label="Dislike reasons">
-          {DISLIKE_REASONS.map(({ id, label }) => (
+          {reasons.map(({ id, label }) => (
             <button
               key={id}
               type="button"
@@ -850,6 +859,7 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
   onRegenerate,
   onOneClickFix,
   canRegenerate = true,
+  isAnalyzeMode = false,
 }) {
   // Rating is cached per-image in React Query (staleTime: Infinity) — a
   // thumbnail is scored exactly once per session no matter how many times
@@ -1160,6 +1170,7 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
             onSubmit={handleDislikeSubmit}
             onCancel={handleDislikeCancel}
             submitting={dialogSubmitting}
+            reasons={isAnalyzeMode ? ANALYZE_DISLIKE_REASONS : DISLIKE_REASONS}
           />
         )}
       </AnimatePresence>
@@ -1219,6 +1230,7 @@ const ThumbnailImageBlock = memo(function ThumbnailImageBlock({
   onViewImage,
   onEditImage,
   canRegenerate = true,
+  isAnalyzeMode = false,
 }) {
   if (!imageUrl) return null
   const t = { image_url: imageUrl }
@@ -1237,6 +1249,7 @@ const ThumbnailImageBlock = memo(function ThumbnailImageBlock({
           onViewImage={onViewImage}
           onEditImage={onEditImage}
           canRegenerate={canRegenerate}
+          isAnalyzeMode={isAnalyzeMode}
         />
       </div>
     </div>
@@ -1887,6 +1900,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
               onViewImage={onViewImage}
               onEditImage={onEditImage}
               canRegenerate
+              isAnalyzeMode={!!msg.analysis}
             />
           )}
           {/* Prompt / recreate in-place pending: when the placeholder is
