@@ -220,6 +220,9 @@ function IconPaperclip(props) {
 const GEN_DURATION_SINGLE_MS = 32000
 const GEN_DURATION_BATCH_MS = 52000
 const GEN_DURATION_RECREATE_MS = 35000
+// Per-slot duration multipliers — spread ±15% so each card's progress bar
+// moves at a visibly different speed from its neighbours.
+const LOAD_SPREADS = [1.0, 1.13, 0.91, 1.08, 0.95, 1.17]
 
 /**
  * Map a backend error code (from the thumbnails chat route's APIError)
@@ -1934,34 +1937,38 @@ const ChatMessageItem = memo(function ChatMessageItem({
                 transition={{ duration: 0.2, ease: IOS_EASE }}
                 style={{ width: '100%' }}
               >
-                <div
-                  className="thumb-gen-loader"
-                  aria-busy="true"
-                  aria-label="Generating thumbnail"
-                >
-                  <div className="thumb-gen-loader__stage">
-                    <ThumbnailGenFill
-                      estimatedDurationMs={(() => {
-                        const lockedMode = msg._promptMode || 'prompt'
-                        const count = msg._promptCount || 1
-                        if (lockedMode === 'recreate') {
-                          return count > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_RECREATE_MS
-                        }
-                        return count > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_SINGLE_MS
-                      })()}
-                    />
-                  </div>
-                  <ThumbnailGenSlowHint
-                    estimatedDurationMs={(() => {
-                      const lockedMode = msg._promptMode || 'prompt'
-                      const count = msg._promptCount || 1
-                      if (lockedMode === 'recreate') {
-                        return count > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_RECREATE_MS
-                      }
-                      return count > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_SINGLE_MS
-                    })()}
-                  />
-                </div>
+                {(() => {
+                  const lockedMode = msg._promptMode || 'prompt'
+                  const count = msg._promptCount || 1
+                  const baseDuration =
+                    lockedMode === 'recreate'
+                      ? count > 1
+                        ? GEN_DURATION_BATCH_MS
+                        : GEN_DURATION_RECREATE_MS
+                      : count > 1
+                        ? GEN_DURATION_BATCH_MS
+                        : GEN_DURATION_SINGLE_MS
+                  return (
+                    <div aria-busy="true" aria-label="Generating thumbnails">
+                      <div className="thumb-batch-grid">
+                        {Array.from({ length: count }).map((_, i) => (
+                          <div key={i} className="thumb-batch-card-wrap">
+                            <div className="thumb-gen-loader">
+                              <div className="thumb-gen-loader__stage">
+                                <ThumbnailGenFill
+                                  estimatedDurationMs={Math.round(
+                                    baseDuration * LOAD_SPREADS[i % LOAD_SPREADS.length]
+                                  )}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <ThumbnailGenSlowHint estimatedDurationMs={baseDuration} />
+                    </div>
+                  )
+                })()}
               </motion.div>
             ) : msg.thumbnails?.length > 0 ? (
               <motion.div
