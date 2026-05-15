@@ -912,6 +912,15 @@
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+  /* Align FAQ token colors to the Pro screen palette */
+  --faq-t1: #ffffff;
+  --faq-t2: rgba(229, 231, 235, 0.72);
+  --faq-t3: rgba(229, 231, 235, 0.42);
+  --faq-item: rgba(16, 12, 30, 0.74);
+  --faq-bd: rgba(167, 139, 250, 0.13);
+  --faq-bd-h: rgba(167, 139, 250, 0.28);
+  --faq-indigo: #8b5cf6;
+  --faq-font: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 .pro-faq-wrap .faq-section {
   padding: 0;
