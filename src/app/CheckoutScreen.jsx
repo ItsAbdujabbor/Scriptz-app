@@ -104,16 +104,15 @@ export function CheckoutScreen({ onClose }) {
       onEvent: (ev) => {
         if (cancelled) return
         const name = ev?.name || ev?.event_name
-        // Extract live totals (subtotal, tax, total) from any checkout event
-        // that carries them. Paddle sends amounts in cents (smallest unit).
+        // Extract live totals from any checkout event that carries them.
+        // Paddle sends amounts as decimal dollar strings (e.g. "167.88").
         const totals = ev?.data?.totals
         if (totals && totals.total != null) {
-          const fmt = (cents) => `$${(Number(cents) / 100).toFixed(2)}`
+          const fmt = (v) => `$${Number(v).toFixed(2)}`
           setPaddleTotals({
             subtotal: fmt(totals.subtotal ?? totals.total),
             tax: Number(totals.tax ?? 0) > 0 ? fmt(totals.tax) : null,
             total: fmt(totals.total),
-            currency: totals.currency_code || 'USD',
           })
         }
 
