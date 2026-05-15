@@ -2528,7 +2528,6 @@ export function ThumbnailGenerator({
       Number(creditsData.subscription_credits || 0) + Number(creditsData.permanent_credits || 0)
     )
   }, [creditsData])
-  const isOutOfCredits = totalCredits === 0
   const requireCredits = useCallback(() => {
     const cached = queryClient.getQueryData(['billing', 'credits'])
     const live =
@@ -5672,11 +5671,11 @@ export function ThumbnailGenerator({
                         className="coach-composer-input thumb-prompt-textarea"
                         maxLength={2000}
                         placeholder=""
-                        disabled={isOutOfCredits || anyJobInFlight}
+                        disabled={anyJobInFlight}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
-                            if (isOutOfCredits || anyJobInFlight || submitGuardRef.current) return
+                            if (anyJobInFlight || submitGuardRef.current) return
                             handleSubmit(e)
                           }
                         }}
@@ -5790,11 +5789,7 @@ export function ThumbnailGenerator({
                         <ThumbSendPill
                           featureKey="thumbnail_generate"
                           count={numThumbnails}
-                          disabled={
-                            isOutOfCredits ||
-                            anyJobInFlight ||
-                            (!draft.trim() && !promptImageDataUrl)
-                          }
+                          disabled={anyJobInFlight || (!draft.trim() && !promptImageDataUrl)}
                           ariaLabel="Generate thumbnails"
                         />
                       </div>
@@ -5876,7 +5871,6 @@ export function ThumbnailGenerator({
                           featureKey="thumbnail_recreate"
                           count={1}
                           disabled={
-                            isOutOfCredits ||
                             anyJobInFlight ||
                             !(recreateSourceMode === 'upload'
                               ? recreateSourceImage
@@ -5956,7 +5950,6 @@ export function ThumbnailGenerator({
                       <ThumbSendPill
                         featureKey="thumbnail_analyze"
                         disabled={
-                          isOutOfCredits ||
                           anyJobInFlight ||
                           !(analyzeSourceMode === 'upload' ? analyzeSourceImage : analyzePreviewUrl)
                         }
@@ -5976,11 +5969,11 @@ export function ThumbnailGenerator({
                         rows={2}
                         className="coach-composer-input"
                         maxLength={600}
-                        disabled={isOutOfCredits || anyJobInFlight}
+                        disabled={anyJobInFlight}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
-                            if (isOutOfCredits || anyJobInFlight || submitGuardRef.current) return
+                            if (anyJobInFlight || submitGuardRef.current) return
                             handleTitleIdeasSubmit(e)
                           }
                         }}
@@ -6001,7 +5994,7 @@ export function ThumbnailGenerator({
                         <ThumbSendPill
                           featureKey="thumbnail_title_ideas"
                           count={titleCount}
-                          disabled={isOutOfCredits || anyJobInFlight || !titleTopic.trim()}
+                          disabled={anyJobInFlight || !titleTopic.trim()}
                           ariaLabel="Brainstorm titles"
                         />
                       </div>
