@@ -5114,10 +5114,13 @@ export function ThumbnailGenerator({
       sourceImageUrl: imageUrl,
       extra: null,
     })
+    // Strip base64 data URLs before persisting — multi-MB payloads cause the
+    // POST to fail silently, leaving prePersisted null and breaking persistence.
+    const persistableUrl = imageUrl && !imageUrl.startsWith('data:') ? imageUrl : null
     // Pre-persist the pending analyze pair BEFORE the rating call.
     const prePersisted = await persistPendingEvent('analyze', userText, {
-      image_url: imageUrl,
-      user_image_url: imageUrl,
+      image_url: persistableUrl,
+      user_image_url: persistableUrl,
       mode: 'analyze',
     })
     if (prePersisted) {
@@ -5156,8 +5159,8 @@ export function ThumbnailGenerator({
       })
       resolved = true
       await finalizePersistedEvent(assistantServerId, {
-        image_url: imageUrl,
-        user_image_url: imageUrl,
+        image_url: persistableUrl,
+        user_image_url: persistableUrl,
         analysis: rating,
       })
     } catch (err) {
