@@ -536,18 +536,6 @@ const HistoryItem = memo(function HistoryItem({
 
       <span className="sidebar-history-row__title">{displayTitle}</span>
 
-      {isPending ? (
-        <span
-          className="sidebar-history-row__status sidebar-history-row__status--pending"
-          aria-label="Generating"
-        />
-      ) : isUnread && !isActive ? (
-        <span
-          className="sidebar-history-row__status sidebar-history-row__status--unread"
-          aria-label="New result ready"
-        />
-      ) : null}
-
       <span
         role="button"
         tabIndex={0}

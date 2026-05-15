@@ -303,7 +303,7 @@ export function CheckoutScreen({ onClose }) {
           <div className="checkout-summary-divider" />
 
           <dl className="checkout-totals">
-            <div className="checkout-total-row">
+            <div className="checkout-total-row checkout-total-row--grand">
               <dt>Subtotal</dt>
               <dd>{totalDueDisplay}</dd>
             </div>
@@ -314,14 +314,10 @@ export function CheckoutScreen({ onClose }) {
                   size={13}
                   strokeWidth={2}
                   className="checkout-tax-info"
-                  aria-label="Sales tax or VAT calculated at checkout based on your billing country"
+                  aria-label="Sales tax or VAT calculated based on your billing country"
                 />
               </dt>
-              <dd>—</dd>
-            </div>
-            <div className="checkout-total-row checkout-total-row--grand">
-              <dt>Total due today</dt>
-              <dd>{totalDueDisplay}</dd>
+              <dd>Calculated at payment</dd>
             </div>
           </dl>
 
