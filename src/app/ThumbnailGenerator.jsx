@@ -2197,16 +2197,19 @@ function buildMessagesFromApi(apiMessages = []) {
     // thumbnail on the ASSISTANT row's `extra_data.user_image_url`.
     // The user row in the chat thread reads the same field forwarded
     // from its sibling so the bubble can render an image-only message.
+    // Strip the legacy "uploaded" sentinel stored before the S3-upload
+    // fix — it is not a real URL and would render as a broken image.
+    const toUrl = (v) => (v && v !== 'uploaded' ? v : null)
     return {
       id: m.id,
       role: m.role,
       content: m.content,
       userRequest: ed.user_request || '',
       thumbnails: ed.thumbnails || [],
-      imageUrl: ed.image_url || null,
+      imageUrl: toUrl(ed.image_url),
       // Source thumbnail used for the user bubble in recreate /
       // analyze / edit / faceswap flows.
-      _userImageUrl: ed.user_image_url || null,
+      _userImageUrl: toUrl(ed.user_image_url),
       // Kind-specific renderable payloads (analysis, title ideas, etc.)
       analysis: ed.analysis || null,
       titleIdeas: ed.title_ideas || null,
@@ -5156,7 +5159,14 @@ export function ThumbnailGenerator({
       // stored). The rating response carries thumbnail_image_url — the
       // S3 URL the backend uploaded the image to — which IS durable and
       // can be persisted so the card survives a page refresh.
-      const storedImageUrl = persistableUrl || rating.thumbnail_image_url || null
+      // Guard against the legacy "uploaded" sentinel stored before the S3
+      // upload fix — treat it as no URL so we don't set imageUrl to the
+      // literal string "uploaded".
+      const ratingImageUrl =
+        rating.thumbnail_image_url && rating.thumbnail_image_url !== 'uploaded'
+          ? rating.thumbnail_image_url
+          : null
+      const storedImageUrl = persistableUrl || ratingImageUrl || null
       // Prime the per-image rating cache keyed by BOTH the original
       // imageUrl (used during this session) and storedImageUrl (used
       // after a refresh, where msg.imageUrl = storedImageUrl). Without
