@@ -2594,20 +2594,6 @@
   text-overflow: ellipsis;
 }
 
-.sidebar-account-item-pro-badge {
-  flex-shrink: 0;
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #a78bfa;
-  background: rgba(139, 92, 246, 0.15);
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  border-radius: 4px;
-  padding: 1px 5px;
-  line-height: 1.4;
-}
-
 /* ── Nested AI-model picker ─────────────────────────────────────── */
 .sidebar-account-model__tag {
   flex-shrink: 0;
@@ -2761,12 +2747,6 @@
 .sidebar-account-model__row--locked .sidebar-account-model__row-main:hover {
   background: rgba(251, 191, 36, 0.06);
   opacity: 1;
-}
-.sidebar-account-model__crown {
-  width: 13px;
-  height: 13px;
-  color: #fbbf24;
-  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.5));
 }
 
 /* Info button — flush right of the row, brightens on hover. */

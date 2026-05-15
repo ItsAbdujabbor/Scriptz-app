@@ -35,6 +35,12 @@ const IconPlus = () => (
     <path d="M12 5v14M5 12h14" />
   </svg>
 )
+const IconCrown = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <path d="M3 8.5l3.5 3 3-5 2.5 4 2.5-4 3 5L21 8.5l-1.5 8.5h-15L3 8.5z" />
+    <path d="M4.5 18.5h15v1.5h-15z" />
+  </svg>
+)
 const IconStyles = () => (
   <svg
     viewBox="0 0 24 24"
@@ -328,14 +334,9 @@ function ModelTierRow({
         <span className="sidebar-account-model__tag-sm">{tag}</span>
         <span className="sidebar-account-model__row-right" aria-hidden>
           {isLocked ? (
-            <svg
-              className="sidebar-account-model__crown"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              aria-hidden
-            >
-              <path d="M2 19h20v2H2zM3 14l4-8 5 4 4-6 4 10H3z" />
-            </svg>
+            <span className="clixa-pro-crown clixa-pro-crown--inline" aria-hidden>
+              <IconCrown />
+            </span>
           ) : isActive ? (
             <svg
               viewBox="0 0 24 24"
@@ -942,14 +943,22 @@ export function Sidebar({
             <IconPersonalization />
           </span>
           <span className="sidebar-account-item-label">Characters</span>
-          {!isPaid && <span className="sidebar-account-item-pro-badge">Pro</span>}
+          {!isPaid && (
+            <span className="clixa-pro-crown clixa-pro-crown--inline" aria-hidden>
+              <IconCrown />
+            </span>
+          )}
         </button>
         <button type="button" className="sidebar-account-item" onClick={handleOpenStyles}>
           <span className="sidebar-account-item-icon" aria-hidden>
             <IconStyles />
           </span>
           <span className="sidebar-account-item-label">Styles</span>
-          {!isPaid && <span className="sidebar-account-item-pro-badge">Pro</span>}
+          {!isPaid && (
+            <span className="clixa-pro-crown clixa-pro-crown--inline" aria-hidden>
+              <IconCrown />
+            </span>
+          )}
         </button>
         {/* Nested collapsible — AI Model picker */}
         <div
