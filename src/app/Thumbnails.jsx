@@ -43,7 +43,14 @@ export function Thumbnails({ onOpenPersonas, onOpenStyles }) {
   const [conversationId, setConversationId] = useState(getThumbnailConversationIdFromHash)
 
   useEffect(() => {
-    const onHashChange = () => setConversationId(getThumbnailConversationIdFromHash())
+    const onHashChange = () => {
+      const raw = normalizeHashRoute(window.location.hash)
+      // Only update when navigating within thumbnails routes. Overlays like
+      // settings, billing, or pro change the hash without leaving the thumbnail
+      // screen, so we must not reset the active conversation while they are open.
+      if (!raw.startsWith('thumbnails')) return
+      setConversationId(getThumbnailConversationIdFromHash())
+    }
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
