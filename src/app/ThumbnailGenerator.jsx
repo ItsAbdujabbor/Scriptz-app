@@ -1551,25 +1551,79 @@ const AnalyzeLoaderCard = memo(function AnalyzeLoaderCard({ imageUrl }) {
  * "thinking" and keeps the surface calm.
  */
 const TitlesLoader = memo(function TitlesLoader({ count = 4 }) {
-  const rows = Math.max(1, Math.min(count, 12))
   return (
-    <div className="thumb-titles-loader" aria-busy="true" aria-label="Generating titles">
-      <div className="thumb-titles-grid">
-        {Array.from({ length: rows }).map((_, i) => (
+    <div className="thumb-titles-ai-loader" aria-busy="true" aria-label="Generating titles">
+      {/* Spinning arc ring */}
+      <div className="thumb-titles-ai-loader__ring-wrap">
+        <div className="thumb-titles-ai-loader__ring-glow" aria-hidden />
+        <svg className="thumb-titles-ai-loader__svg" viewBox="0 0 96 96" fill="none" aria-hidden>
+          <defs>
+            <linearGradient
+              id="titleArcGrad"
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="0%"
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop offset="0%" stopColor="#6d28d9" stopOpacity="0" />
+              <stop offset="70%" stopColor="#a78bfa" />
+              <stop offset="100%" stopColor="#ede9fe" />
+            </linearGradient>
+          </defs>
+          {/* Track */}
+          <circle cx="48" cy="48" r="40" stroke="rgba(167,139,250,0.1)" strokeWidth="3" />
+          {/* Animated gradient arc */}
+          <circle
+            className="thumb-titles-ai-loader__arc"
+            cx="48"
+            cy="48"
+            r="40"
+            stroke="url(#titleArcGrad)"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            strokeDasharray="251"
+            strokeDashoffset="63"
+          />
+        </svg>
+        {/* Bright comet dot that orbits ahead of the arc tip */}
+        <div className="thumb-titles-ai-loader__comet-wrap" aria-hidden>
+          <div className="thumb-titles-ai-loader__comet" />
+        </div>
+        {/* Pulsing sparkle in the center */}
+        <div className="thumb-titles-ai-loader__center" aria-hidden>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden>
+            <path d="M12 2l2.4 6.26L21 9.27l-4.91 4.54 1.58 6.73L12 17.27l-5.67 3.27 1.58-6.73L3 9.27l6.6-1.01L12 2z" />
+          </svg>
+        </div>
+      </div>
+
+      {/* Status text + cycling AI hints */}
+      <div className="thumb-titles-ai-loader__body">
+        <p className="thumb-titles-ai-loader__label">
+          Generating {count} title idea{count !== 1 ? 's' : ''}
+        </p>
+        <div className="thumb-titles-ai-loader__hints" aria-hidden>
+          <span className="thumb-titles-ai-loader__hint thumb-titles-ai-loader__hint--1">
+            Analyzing your content for maximum CTR
+          </span>
+          <span className="thumb-titles-ai-loader__hint thumb-titles-ai-loader__hint--2">
+            Crafting curiosity-gap hooks
+          </span>
+          <span className="thumb-titles-ai-loader__hint thumb-titles-ai-loader__hint--3">
+            Optimizing for search intent &amp; watch time
+          </span>
+        </div>
+      </div>
+
+      {/* Equalizer bars — visual "AI is thinking" rhythm */}
+      <div className="thumb-titles-ai-loader__bars" aria-hidden>
+        {Array.from({ length: 7 }).map((_, i) => (
           <div
             key={i}
-            className="thumb-title-card thumb-title-card--skeleton"
-            style={{ animationDelay: `${i * 70}ms` }}
-            aria-hidden
-          >
-            <span className="thumb-title-card__index thumb-title-card__index--skel">{i + 1}</span>
-            <span className="thumb-title-card__body">
-              <span className="thumb-title-card__title-skel" />
-              <span className="thumb-title-card__reason-skel" />
-              <span className="thumb-title-card__score-skel" />
-            </span>
-            <span className="thumb-title-card__actions-skel" aria-hidden />
-          </div>
+            className="thumb-titles-ai-loader__bar"
+            style={{ animationDelay: `${i * 0.13}s` }}
+          />
         ))}
       </div>
     </div>
