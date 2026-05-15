@@ -231,52 +231,33 @@ function codeToFriendlyMessage(code, backendMsg) {
   switch (code) {
     case 'CONTENT_BLOCKED':
       return (
-        "The image model wouldn't accept this prompt or reference image. " +
-        'Try rephrasing or removing the reference image and generating again. ' +
-        'Nothing was charged.'
+        "This prompt or reference image couldn't be processed. " +
+        'Try rephrasing or using a different image.'
       )
     case 'PROVIDER_RATE_LIMITED':
     case 'PROVIDER_BUSY':
-      return (
-        "Sorry — we're getting a lot of demand right now. Please try again " +
-        'in a moment. Nothing was charged.'
-      )
+      return 'Generation is temporarily delayed due to high demand. Please try again in a moment.'
     case 'queue_full':
     case 'QUEUE_FULL':
-      // Use the backend's friendly message verbatim — aiErrors.parseApiError
-      // already formats it as "High demand right now — try again in Ns" with
-      // the actual ETA from `extra.eta_seconds` or the `Retry-After` header.
-      return (
-        backendMsg || 'High demand right now — please try again in a moment. Nothing was charged.'
-      )
+      // Use the backend message verbatim — it contains the actual ETA from
+      // extra.eta_seconds / Retry-After formatted by aiErrors.parseApiError.
+      return backendMsg || 'Generation is temporarily delayed. Please try again in a moment.'
     case 'HIGH_DEMAND':
-      return "We're at capacity right now — please try again in a minute. " + 'Nothing was charged.'
+      return 'Generation is temporarily delayed — please try again in a moment.'
     case 'PROVIDER_QUOTA_EXCEEDED':
-      return (
-        "We've hit a usage limit on our side and we're working on it. " +
-        'Please try again later — nothing was charged.'
-      )
+      return 'Service temporarily unavailable. Please try again later.'
     case 'PROVIDER_MISCONFIGURED':
-      return (
-        "Something's off on our end and we're investigating. Please try " +
-        'again later — nothing was charged.'
-      )
+      return 'A service issue is being resolved. Please try again later.'
     case 'THUMBNAIL_BAD_REQUEST':
-      return (
-        "Something in this request didn't work. Try rewording the prompt or " +
-        'using a different reference image. Nothing was charged.'
-      )
+      return "This request couldn't be processed. Try rewording the prompt or using a different reference image."
     case 'PROVIDER_UNAVAILABLE':
-      return 'Sorry — our image provider hiccupped. Nothing was charged. Want to try again?'
+      return 'Generation service is temporarily unavailable. Please try again.'
     case 'INSUFFICIENT_CREDITS':
       return "You don't have enough credits for this. Top up or upgrade your plan."
     case 'NO_ACTIVE_SUBSCRIPTION':
       return backendMsg // billing flow handles this via other UI paths
     default:
-      return (
-        backendMsg ||
-        'Sorry — something went wrong on our end. Nothing was charged. Please try again.'
-      )
+      return backendMsg || 'Generation failed. Please try again.'
   }
 }
 

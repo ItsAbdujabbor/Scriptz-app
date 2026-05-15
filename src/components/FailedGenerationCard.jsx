@@ -8,18 +8,13 @@ import './FailedGenerationCard.css'
  * loader, so the loader → failure transition is layout-stable.
  *
  * Variant is derived from the error code:
- *   • 'rate-limited'  — PROVIDER_BUSY (RPM bucket empty). Amber-blue
- *                       gradient, clock icon, live countdown.
- *   • 'queued'        — HIGH_DEMAND (queue full). Amber gradient, queue
- *                       icon, "we're slammed, try again in N seconds".
- *   • 'error'         — anything else. Soft red, alert icon.
- *
- * `entry.attempt` / `entry.maxAttempts` are surfaced in a small subtitle
- * line so users can tell when a transient retry burst was actually
- * attempted ("we tried 4 times over 16s") vs an immediate hard failure.
+ *   • 'rate-limited' — PROVIDER_BUSY / PROVIDER_RATE_LIMITED. Clock icon,
+ *                      live countdown, "taking longer than usual" copy.
+ *   • 'queued'       — HIGH_DEMAND / QUEUE_FULL. Users icon, queue copy.
+ *   • 'error'        — anything else. Alert icon, generic failure copy.
  */
 const RATE_LIMITED_CODES = new Set(['PROVIDER_BUSY', 'PROVIDER_RATE_LIMITED'])
-const QUEUED_CODES = new Set(['HIGH_DEMAND'])
+const QUEUED_CODES = new Set(['HIGH_DEMAND', 'QUEUE_FULL', 'queue_full'])
 
 function variantOf(code) {
   if (RATE_LIMITED_CODES.has(code)) return 'rate-limited'
@@ -34,9 +29,9 @@ function VariantIcon({ variant }) {
 }
 
 function variantTitle(variant) {
-  if (variant === 'rate-limited') return "We're a bit busy right now"
-  if (variant === 'queued') return 'High demand right now'
-  return "We couldn't generate this one"
+  if (variant === 'rate-limited') return 'Generation taking longer than usual'
+  if (variant === 'queued') return 'High demand — generation delayed'
+  return 'Generation failed'
 }
 
 /**
@@ -44,9 +39,6 @@ function variantTitle(variant) {
  * Renders nothing when seconds <= 0 or undefined.
  */
 function Countdown({ seconds }) {
-  // Per failed-attempt entry the `seconds` prop never changes after the
-  // initial failure event is created, so a single useState init is
-  // enough — no need for a re-sync effect when the prop "changes".
   const [remaining, setRemaining] = useState(() => Math.max(0, Math.floor(seconds || 0)))
   useEffect(() => {
     if (remaining <= 0) return undefined
@@ -66,14 +58,6 @@ function Countdown({ seconds }) {
 export default function FailedGenerationCard({ entry, onRetry }) {
   const variant = variantOf(entry?.errorCode)
   const retryable = !!entry?.retryable
-  const attempt = entry?.attempt
-  const maxAttempts = entry?.maxAttempts
-  const showAttemptInfo = !!(attempt && maxAttempts && maxAttempts > 1 && attempt >= 2)
-  // Mode-aware shape: 16:9 stage matches the success thumbnail card for
-  // image-producing modes (prompt / recreate / analyze / edit). Title
-  // mode produces a vertical stack of compact rows on success, so a
-  // 16:9 error card looks oversized — `--compact` drops the aspect
-  // ratio and switches to a tight content-sized card.
   const mode = entry?.mode || 'prompt'
   const compact = mode === 'titles'
 
@@ -83,10 +67,6 @@ export default function FailedGenerationCard({ entry, onRetry }) {
       role="alert"
       aria-live="polite"
     >
-      {/* Single visual card — message + actions both live INSIDE the
-       * gradient-bordered stage so the failure reads as one cohesive
-       * surface (was previously: stage held the message, actions sat
-       * as a separate sibling outside the gradient frame). */}
       <div className="thumb-failed-card__stage">
         <div className="thumb-failed-card__stage-glow" aria-hidden="true" />
         <div className="thumb-failed-card__stage-content">
@@ -95,11 +75,6 @@ export default function FailedGenerationCard({ entry, onRetry }) {
           </div>
           <div className="thumb-failed-card__title">{variantTitle(variant)}</div>
           <div className="thumb-failed-card__msg">{entry?.errorMessage}</div>
-          {showAttemptInfo ? (
-            <div className="thumb-failed-card__attempt">
-              We tried {attempt} time{attempt === 1 ? '' : 's'} before giving up.
-            </div>
-          ) : null}
           <Countdown seconds={entry?.retryAfterSeconds} />
         </div>
         {retryable ? (
