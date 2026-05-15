@@ -4304,266 +4304,239 @@
  * is thinking. No percentage chrome, no progress bar — the shimmer
  * alone reads as activity and keeps the surface calm. ──────────── */
 
-/* ── Premium AI Title Loader ─────────────────────────────────────────
- * Replaces the shimmer skeleton. A centred spinning arc ring with an
- * orbiting comet dot, a pulsing sparkle icon inside, cycling AI hint
- * text below, and an equaliser bar row — all branded in violet/indigo.
+/* ── Generating-state cards ──────────────────────────────────────────
+ * Same card shell as the result cards. Each card has its own internal
+ * animation: a "write beam" that sweeps the title line from left to
+ * right (like text being typed), a slower reason beam below, a
+ * breathing score pill, ghost action buttons, and a glowing left
+ * accent bar. CSS custom properties (--card-i, --title-w, --reason-w)
+ * are injected per card so every row has unique widths and staggered
+ * timing with no JS timer logic needed.
  * ─────────────────────────────────────────────────────────────────── */
 
-.thumb-titles-ai-loader {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 22px;
+.thumb-titles-loader {
   width: 100%;
   max-width: 720px;
-  margin: 0 auto;
-  padding: 44px 24px 40px;
-  animation: thumb-ai-loader-fadein 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-@keyframes thumb-ai-loader-fadein {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
+/* ─── Card modifier ──────────────────────────────────────────────── */
+
+.thumb-title-card--gen {
+  cursor: default;
+  pointer-events: none;
+  /* Card scans with a subtle diagonal highlight as it generates */
+  overflow: hidden;
+}
+
+/* Diagonal light sweep across each card — very subtle, timed per card */
+.thumb-title-card--gen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    108deg,
+    transparent 0%,
+    transparent 38%,
+    rgba(167, 139, 250, 0.055) 50%,
+    transparent 62%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  animation: thumb-gen-card-scan 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation-delay: calc(var(--card-i, 0) * 0.18s);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+@keyframes thumb-gen-card-scan {
+  0% {
+    background-position: 160% 0;
   }
-  to {
+  65%,
+  100% {
+    background-position: -60% 0;
+  }
+}
+
+/* ─── Left accent bar ────────────────────────────────────────────── */
+
+/* Positioned absolutely on the card's left edge; pulses in sync with
+   the write cycle so it brightens as the title beam draws. */
+.thumb-title-card__gen-accent {
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, #c4b5fd 0%, #7c3aed 100%);
+  animation: thumb-gen-accent-pulse 2.6s ease-in-out infinite;
+  animation-delay: calc(var(--card-i, 0) * 0.18s);
+}
+
+@keyframes thumb-gen-accent-pulse {
+  0%,
+  100% {
+    opacity: 0.22;
+    box-shadow: none;
+  }
+  45%,
+  60% {
     opacity: 1;
-    transform: translateY(0);
+    box-shadow: 0 0 10px 3px rgba(124, 58, 237, 0.55);
   }
 }
 
-/* ─── Ring container ─────────────────────────────────────────────── */
+/* ─── Index bubble ───────────────────────────────────────────────── */
 
-.thumb-titles-ai-loader__ring-wrap {
-  position: relative;
-  width: 96px;
-  height: 96px;
+.thumb-title-card__index--gen {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.28);
+  animation: thumb-gen-index-pulse 2.6s ease-in-out infinite;
+  animation-delay: calc(var(--card-i, 0) * 0.18s);
+}
+
+@keyframes thumb-gen-index-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ─── Write beams ────────────────────────────────────────────────── */
+
+/* Title beam — grows from left (0) to var(--title-w) like text being
+   typed. The background encodes a "cursor tip": bright right edge that
+   travels with the beam as it expands. */
+.thumb-title-card__gen-title-beam {
+  display: block;
+  height: 0.92rem;
+  width: var(--title-w, 70%);
+  border-radius: 5px;
+  transform-origin: left center;
+  background: linear-gradient(
+    90deg,
+    rgba(124, 58, 237, 0.12) 0%,
+    rgba(167, 139, 250, 0.24) 70%,
+    rgba(196, 181, 253, 0.82) 88%,
+    rgba(237, 233, 254, 0.95) 100%
+  );
+  animation: thumb-gen-beam-write 2.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+  animation-delay: calc(var(--card-i, 0) * 0.18s);
+}
+
+/* Reason beam — narrower, delayed so it starts after the title beam
+   has reached about halfway across its width. */
+.thumb-title-card__gen-reason-beam {
+  display: block;
+  height: 0.7rem;
+  width: var(--reason-w, 48%);
+  border-radius: 4px;
+  transform-origin: left center;
+  background: linear-gradient(
+    90deg,
+    rgba(124, 58, 237, 0.08) 0%,
+    rgba(167, 139, 250, 0.17) 70%,
+    rgba(196, 181, 253, 0.6) 90%,
+    rgba(237, 233, 254, 0.75) 100%
+  );
+  animation: thumb-gen-beam-write 2.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+  /* Reason starts 0.45 s after the title beam within this card's cycle */
+  animation-delay: calc(var(--card-i, 0) * 0.18s + 0.45s);
+}
+
+/* Both beams share the same write keyframe: expand from nothing, hold,
+   erase, pause — then repeat. The leading-edge glow (bright right stop
+   in the background gradient) naturally moves as the beam grows. */
+@keyframes thumb-gen-beam-write {
+  0% {
+    transform: scaleX(0.03);
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  55% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  70% {
+    transform: scaleX(1);
+    opacity: 0.85;
+  }
+  84% {
+    transform: scaleX(0.03);
+    opacity: 0;
+  }
+  100% {
+    transform: scaleX(0.03);
+    opacity: 0;
+  }
+}
+
+/* ─── Score pill ghost ───────────────────────────────────────────── */
+
+.thumb-title-card__gen-score-pill {
+  display: block;
+  align-self: flex-start;
+  width: 44px;
+  height: 18px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: rgba(167, 139, 250, 0.14);
+  animation: thumb-gen-pill-breathe 2.6s ease-in-out infinite;
+  animation-delay: calc(var(--card-i, 0) * 0.18s + 0.7s);
+}
+
+@keyframes thumb-gen-pill-breathe {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  55% {
+    opacity: 0.72;
+  }
+}
+
+/* ─── Ghost action buttons ───────────────────────────────────────── */
+
+.thumb-title-card__gen-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 1px;
   flex-shrink: 0;
 }
 
-/* Soft ambient glow behind the whole ring */
-.thumb-titles-ai-loader__ring-glow {
-  position: absolute;
-  inset: -16px;
-  border-radius: 50%;
-  background: radial-gradient(
-    closest-side,
-    rgba(124, 58, 237, 0.28) 0%,
-    rgba(124, 58, 237, 0.1) 55%,
-    transparent 100%
-  );
-  animation: thumb-ai-glow-pulse 2.4s ease-in-out infinite;
-  pointer-events: none;
+.thumb-title-card__gen-btn {
+  display: block;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  animation: thumb-gen-btn-breathe 2.6s ease-in-out infinite;
+  animation-delay: calc(var(--card-i, 0) * 0.18s + 0.55s);
 }
 
-@keyframes thumb-ai-glow-pulse {
+.thumb-title-card__gen-btn--primary {
+  width: 84px;
+  background: rgba(124, 58, 237, 0.1);
+  border-color: rgba(124, 58, 237, 0.18);
+}
+
+@keyframes thumb-gen-btn-breathe {
   0%,
   100% {
-    opacity: 0.7;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.12);
-  }
-}
-
-/* SVG arc — spins continuously */
-.thumb-titles-ai-loader__svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  transform-origin: center;
-  animation: thumb-ai-ring-spin 1.7s linear infinite;
-}
-
-/* The gradient arc — breathes (shrinks/grows) while the SVG rotates */
-.thumb-titles-ai-loader__arc {
-  animation: thumb-ai-arc-breathe 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
-  transform-origin: 48px 48px;
-}
-
-@keyframes thumb-ai-ring-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes thumb-ai-arc-breathe {
-  0%,
-  100% {
-    stroke-dashoffset: 63;
-  }
-  50% {
-    stroke-dashoffset: 188;
-  }
-}
-
-/* ─── Comet dot ──────────────────────────────────────────────────── */
-
-/* Full-size wrapper that rotates — the comet rides it at the top */
-.thumb-titles-ai-loader__comet-wrap {
-  position: absolute;
-  inset: 0;
-  animation: thumb-ai-comet-spin 1.7s linear infinite;
-  pointer-events: none;
-}
-
-/* The bright leading dot — positioned at 12 o'clock of the orbit circle */
-.thumb-titles-ai-loader__comet {
-  position: absolute;
-  top: 4.5px;
-  left: 44.5px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #ede9fe;
-  box-shadow:
-    0 0 8px 3px rgba(196, 181, 253, 0.85),
-    0 0 20px 7px rgba(124, 58, 237, 0.45);
-}
-
-/* Offset by 90° so the comet tracks the arc's bright leading edge */
-@keyframes thumb-ai-comet-spin {
-  from {
-    transform: rotate(90deg);
-  }
-  to {
-    transform: rotate(450deg);
-  }
-}
-
-/* ─── Center sparkle ─────────────────────────────────────────────── */
-
-.thumb-titles-ai-loader__center {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #a78bfa;
-  animation: thumb-ai-center-pulse 2.2s ease-in-out infinite;
-}
-
-@keyframes thumb-ai-center-pulse {
-  0%,
-  100% {
-    opacity: 0.65;
-    transform: scale(1);
-    filter: drop-shadow(0 0 5px rgba(167, 139, 250, 0.45));
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.14);
-    filter: drop-shadow(0 0 12px rgba(167, 139, 250, 0.85));
-  }
-}
-
-/* ─── Status text ────────────────────────────────────────────────── */
-
-.thumb-titles-ai-loader__body {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  text-align: center;
-  width: 100%;
-}
-
-.thumb-titles-ai-loader__label {
-  margin: 0;
-  font-size: 0.97rem;
-  font-weight: 600;
-  color: rgba(229, 231, 235, 0.92);
-  letter-spacing: -0.01em;
-}
-
-/* Cycling AI hints — three spans stacked; CSS cycles their opacity */
-.thumb-titles-ai-loader__hints {
-  position: relative;
-  height: 1.35em;
-  width: 100%;
-  max-width: 360px;
-}
-
-.thumb-titles-ai-loader__hint {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.77rem;
-  font-weight: 400;
-  color: rgba(167, 139, 250, 0.7);
-  white-space: nowrap;
-  opacity: 0;
-  animation: thumb-ai-hint-cycle 6s ease-in-out infinite;
-}
-
-.thumb-titles-ai-loader__hint--1 {
-  animation-delay: 0s;
-}
-.thumb-titles-ai-loader__hint--2 {
-  animation-delay: 2s;
-}
-.thumb-titles-ai-loader__hint--3 {
-  animation-delay: 4s;
-}
-
-@keyframes thumb-ai-hint-cycle {
-  0% {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  10% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  28% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  38% {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
-
-/* ─── Equalizer bars ─────────────────────────────────────────────── */
-
-.thumb-titles-ai-loader__bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  height: 28px;
-}
-
-.thumb-titles-ai-loader__bar {
-  width: 3px;
-  border-radius: 3px;
-  background: linear-gradient(180deg, #c4b5fd 0%, rgba(109, 40, 217, 0.35) 100%);
-  animation: thumb-ai-bar-eq 0.85s ease-in-out infinite alternate;
-  height: 5px;
-}
-
-@keyframes thumb-ai-bar-eq {
-  from {
-    height: 3px;
     opacity: 0.3;
   }
-  to {
-    height: 28px;
-    opacity: 1;
+  50% {
+    opacity: 0.65;
   }
 }
 
