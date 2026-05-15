@@ -724,6 +724,122 @@ function buildSelectionHint(selectedPersona, selectedStyle) {
   return hints.join(' ')
 }
 
+const DISLIKE_REASONS = [
+  { id: 'generic', label: 'Too generic' },
+  { id: 'style', label: 'Wrong style' },
+  { id: 'colors', label: 'Colors are off' },
+  { id: 'quality', label: 'Low quality' },
+  { id: 'subject', label: 'Subject unclear' },
+  { id: 'text', label: 'Text hard to read' },
+  { id: 'niche', label: "Doesn't fit my niche" },
+  { id: 'other', label: 'Other' },
+]
+
+function DislikeReasonDialog({ onSubmit, onCancel, submitting }) {
+  const [selected, setSelected] = useState([])
+  const [note, setNote] = useState('')
+  const showNote = selected.includes('other')
+  const isOnlyOther = selected.length === 1 && selected[0] === 'other'
+  const isValid = selected.length > 0 && (!isOnlyOther || note.trim().length > 0)
+
+  const toggle = useCallback((id) => {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]))
+  }, [])
+
+  const handleSubmit = useCallback(() => {
+    if (!isValid || submitting) return
+    const ids = selected.filter((r) => r !== 'other')
+    const reason = [...ids, ...(showNote ? ['other'] : [])].join(',') || null
+    onSubmit({ reason, note: note.trim() || null })
+  }, [isValid, submitting, selected, showNote, note, onSubmit])
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') onCancel()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onCancel])
+
+  return createPortal(
+    <motion.div
+      className="thumb-dislike-backdrop"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+      onClick={onCancel}
+    >
+      <motion.div
+        className="thumb-dislike-dialog"
+        initial={{ opacity: 0, y: 14, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 10, scale: 0.96 }}
+        transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Rate thumbnail"
+      >
+        <p className="thumb-dislike-title">What didn&apos;t work?</p>
+        <p className="thumb-dislike-sub">Select all that apply</p>
+
+        <div className="thumb-dislike-chips" role="group" aria-label="Dislike reasons">
+          {DISLIKE_REASONS.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              className={`thumb-dislike-chip${selected.includes(id) ? ' thumb-dislike-chip--on' : ''}`}
+              onClick={() => toggle(id)}
+              aria-pressed={selected.includes(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <AnimatePresence initial={false}>
+          {showNote && (
+            <motion.div
+              key="note"
+              initial={{ opacity: 0, height: 0, marginTop: 0 }}
+              animate={{ opacity: 1, height: 'auto', marginTop: 10 }}
+              exit={{ opacity: 0, height: 0, marginTop: 0 }}
+              transition={{ duration: 0.2, ease: IOS_EASE }}
+              style={{ overflow: 'hidden' }}
+            >
+              <textarea
+                className="thumb-dislike-note"
+                placeholder="Tell us more…"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+                maxLength={300}
+                autoFocus
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="thumb-dislike-actions">
+          <button type="button" className="thumb-dislike-cancel" onClick={onCancel}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="thumb-dislike-submit"
+            onClick={handleSubmit}
+            disabled={!isValid || submitting}
+          >
+            {submitting ? 'Saving…' : 'Submit'}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>,
+    document.body
+  )
+}
+
 const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
   t,
   index,
@@ -769,33 +885,74 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
   }, [onOneClickFix, recommendations, t])
   const canOneClickFix = !!onOneClickFix && canRegenerate
 
-  // Thumbs feedback — optimistic local state, synced to server via
-  // /ratings/{id}/feedback. No credit cost, free action.
+  // Thumbs feedback — optimistic local state, synced to server.
   const ratingId = ratingQuery.data?.rating_id ?? null
   const serverFeedback = ratingQuery.data?.user_feedback ?? null
-  const [localFeedback, setLocalFeedback] = useState(null) // null = follow server value
+  const [localFeedback, setLocalFeedback] = useState(null) // null = follow server
   const currentFeedback = localFeedback !== null ? localFeedback : serverFeedback
   const [feedbackPending, setFeedbackPending] = useState(false)
+  const [showDislikeDialog, setShowDislikeDialog] = useState(false)
+  const [dialogSubmitting, setDialogSubmitting] = useState(false)
 
-  const handleFeedback = useCallback(
-    async (value) => {
-      if (!ratingId || feedbackPending) return
-      const next = currentFeedback === value ? 0 : value // toggle off
-      setLocalFeedback(next === 0 ? 0 : next)
+  // Thumbs-up: immediate toggle, no dialog.
+  const handleLike = useCallback(async () => {
+    if (!ratingId || feedbackPending) return
+    const next = currentFeedback === 1 ? 0 : 1
+    setLocalFeedback(next)
+    setFeedbackPending(true)
+    try {
+      const token = await getAccessTokenOrNull()
+      if (!token) return
+      await thumbnailsApi.rateFeedback(token, ratingId, next)
+    } catch {
+      setLocalFeedback(null)
+      toast.error('Could not save feedback')
+    } finally {
+      setFeedbackPending(false)
+    }
+  }, [ratingId, feedbackPending, currentFeedback])
+
+  // Thumbs-down: toggle-off is immediate; first dislike opens dialog.
+  const handleDislikeClick = useCallback(() => {
+    if (!ratingId || feedbackPending || dialogSubmitting) return
+    if (currentFeedback === -1) {
+      // Already disliked — toggle off immediately
+      setLocalFeedback(0)
       setFeedbackPending(true)
+      getAccessTokenOrNull()
+        .then((token) => token && thumbnailsApi.rateFeedback(token, ratingId, 0))
+        .catch(() => {
+          setLocalFeedback(null)
+          toast.error('Could not save feedback')
+        })
+        .finally(() => setFeedbackPending(false))
+    } else {
+      setShowDislikeDialog(true)
+    }
+  }, [ratingId, feedbackPending, dialogSubmitting, currentFeedback])
+
+  // Called by the dialog on submit — sends -1 + reason/note.
+  const handleDislikeSubmit = useCallback(
+    async ({ reason, note }) => {
+      if (!ratingId || dialogSubmitting) return
+      setDialogSubmitting(true)
+      setLocalFeedback(-1)
       try {
         const token = await getAccessTokenOrNull()
         if (!token) return
-        await thumbnailsApi.rateFeedback(token, ratingId, next)
+        await thumbnailsApi.rateFeedback(token, ratingId, -1, { reason, note })
+        setShowDislikeDialog(false)
       } catch {
         setLocalFeedback(null)
         toast.error('Could not save feedback')
       } finally {
-        setFeedbackPending(false)
+        setDialogSubmitting(false)
       }
     },
-    [ratingId, feedbackPending, currentFeedback]
+    [ratingId, dialogSubmitting]
   )
+
+  const handleDislikeCancel = useCallback(() => setShowDislikeDialog(false), [])
 
   // The score pill mounts whenever there's *something* to show — a real
   // score, a loading state, or an error. The component handles the
@@ -803,104 +960,79 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
   const showScorePill = loadingScore || !!scoreError || score != null
 
   return (
-    <div className="thumb-batch-card-wrap" data-thumb-slot={index}>
-      <div className="thumb-batch-card">
-        <div className="thumb-batch-card-inner">
-          <div
-            className="thumb-batch-img-wrap thumb-batch-img-wrap--viewable"
-            role="button"
-            tabIndex={0}
-            onClick={() => onViewImage?.(t.image_url, label)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                onViewImage?.(t.image_url, label)
-              }
-            }}
-            aria-label={`View ${label} full size`}
-          >
-            <LazyImg src={t.image_url} alt={label} className="thumb-batch-img" />
+    <>
+      <div className="thumb-batch-card-wrap" data-thumb-slot={index}>
+        <div className="thumb-batch-card">
+          <div className="thumb-batch-card-inner">
+            <div
+              className="thumb-batch-img-wrap thumb-batch-img-wrap--viewable"
+              role="button"
+              tabIndex={0}
+              onClick={() => onViewImage?.(t.image_url, label)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onViewImage?.(t.image_url, label)
+                }
+              }}
+              aria-label={`View ${label} full size`}
+            >
+              <LazyImg src={t.image_url} alt={label} className="thumb-batch-img" />
 
-            {/* Score pill — owns its own state UI (loading / ready / error)
-             *  + tier palette. See ScorePill.jsx. */}
-            {showScorePill && (
-              <ScorePill
-                score={score}
-                loading={loadingScore}
-                error={scoreError}
-                onRetry={retryScore}
-              />
-            )}
+              {/* Score pill — owns its own state UI (loading / ready / error)
+               *  + tier palette. See ScorePill.jsx. */}
+              {showScorePill && (
+                <ScorePill
+                  score={score}
+                  loading={loadingScore}
+                  error={scoreError}
+                  onRetry={retryScore}
+                />
+              )}
 
-            {/* Bottom action area — two frosted pills side by side.
-             *  The group wrapper handles stopPropagation so neither pill
-             *  accidentally opens the lightbox. */}
-            {t?.image_url ? (
-              <div
-                className="thumb-batch-card-float-group"
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-              >
-                {/* Primary actions pill: Edit · Download · OCF · Regenerate */}
+              {/* Bottom action area — two frosted pills side by side.
+               *  The group wrapper handles stopPropagation so neither pill
+               *  accidentally opens the lightbox. */}
+              {t?.image_url ? (
                 <div
-                  className="thumb-batch-card-float"
-                  role="toolbar"
-                  aria-label="Thumbnail actions"
+                  className="thumb-batch-card-float-group"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
                 >
-                  {onEditImage ? (
-                    <button
-                      type="button"
-                      className="thumb-batch-card-float-btn"
-                      onClick={() => onEditImage(t.image_url)}
-                      aria-label="Edit in AI editor"
-                      title="Edit"
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                      >
-                        <path d="M14.7 5.3a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 9.7-9.7z" />
-                        <path d="M13 7l4 4" />
-                      </svg>
-                    </button>
-                  ) : null}
-                  <a
-                    href={t.image_url}
-                    download={`thumbnail-${label || index + 1}.png`}
-                    className="thumb-batch-card-float-btn"
-                    aria-label="Download thumbnail"
-                    title="Download"
+                  {/* Primary actions pill: Edit · Download · OCF · Regenerate */}
+                  <div
+                    className="thumb-batch-card-float"
+                    role="toolbar"
+                    aria-label="Thumbnail actions"
                   >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden
-                    >
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="7 10 12 15 17 10" />
-                      <line x1="12" y1="15" x2="12" y2="3" />
-                    </svg>
-                  </a>
-                  {canOneClickFix ? (
-                    <button
-                      type="button"
-                      className="thumb-batch-card-float-btn thumb-batch-card-float-btn--fix"
-                      onClick={handleOneClickFix}
-                      aria-label="One-click fix using AI recommendations"
-                      title={
-                        recommendations.length > 0
-                          ? `One-click fix — ${recommendations[0]}`
-                          : 'One-click fix'
-                      }
+                    {onEditImage ? (
+                      <button
+                        type="button"
+                        className="thumb-batch-card-float-btn"
+                        onClick={() => onEditImage(t.image_url)}
+                        aria-label="Edit in AI editor"
+                        title="Edit"
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden
+                        >
+                          <path d="M14.7 5.3a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 9.7-9.7z" />
+                          <path d="M13 7l4 4" />
+                        </svg>
+                      </button>
+                    ) : null}
+                    <a
+                      href={t.image_url}
+                      download={`thumbnail-${label || index + 1}.png`}
+                      className="thumb-batch-card-float-btn"
+                      aria-label="Download thumbnail"
+                      title="Download"
                     >
                       <svg
                         viewBox="0 0 24 24"
@@ -911,87 +1043,127 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
                         strokeLinejoin="round"
                         aria-hidden
                       >
-                        <path d="M12 3l1.8 4.5L18.5 9.3 14 11l-2 4.7L10 11 5.5 9.3 10 7.5z" />
-                        <path d="M18.5 15.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" />
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
                       </svg>
-                    </button>
-                  ) : null}
-                  {canRegenerate && onRegenerate ? (
-                    <button
-                      type="button"
-                      className="thumb-batch-card-float-btn"
-                      onClick={handleRegenerateClick}
-                      aria-label="Regenerate thumbnail"
-                      title="Regenerate"
+                    </a>
+                    {canOneClickFix ? (
+                      <button
+                        type="button"
+                        className="thumb-batch-card-float-btn thumb-batch-card-float-btn--fix"
+                        onClick={handleOneClickFix}
+                        aria-label="One-click fix using AI recommendations"
+                        title={
+                          recommendations.length > 0
+                            ? `One-click fix — ${recommendations[0]}`
+                            : 'One-click fix'
+                        }
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden
+                        >
+                          <path d="M12 3l1.8 4.5L18.5 9.3 14 11l-2 4.7L10 11 5.5 9.3 10 7.5z" />
+                          <path d="M18.5 15.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" />
+                        </svg>
+                      </button>
+                    ) : null}
+                    {canRegenerate && onRegenerate ? (
+                      <button
+                        type="button"
+                        className="thumb-batch-card-float-btn"
+                        onClick={handleRegenerateClick}
+                        aria-label="Regenerate thumbnail"
+                        title="Regenerate"
+                      >
+                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                          <path d="M12,2a10.032,10.032,0,0,1,7.122,3H16a1,1,0,0,0-1,1h0a1,1,0,0,0,1,1h4.143A1.858,1.858,0,0,0,22,5.143V1a1,1,0,0,0-1-1h0a1,1,0,0,0-1,1V3.078A11.981,11.981,0,0,0,.05,10.9a1.007,1.007,0,0,0,1,1.1h0a.982.982,0,0,0,.989-.878A10.014,10.014,0,0,1,12,2Z" />
+                          <path d="M22.951,12a.982.982,0,0,0-.989.878A9.986,9.986,0,0,1,4.878,19H8a1,1,0,0,0,1-1H9a1,1,0,0,0-1-1H3.857A1.856,1.856,0,0,0,2,18.857V23a1,1,0,0,0,1,1H3a1,1,0,0,0,1-1V20.922A11.981,11.981,0,0,0,23.95,13.1a1.007,1.007,0,0,0-1-1.1Z" />
+                        </svg>
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {/* Feedback pill: thumbs up · thumbs down — separate pill,
+                   *  appears once the AI rating resolves (ratingId truthy).
+                   *  👍 is immediate; 👎 opens the "why?" dialog. */}
+                  {ratingId ? (
+                    <div
+                      className="thumb-batch-card-float-feedback"
+                      role="group"
+                      aria-label="Rate thumbnail"
                     >
-                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                        <path d="M12,2a10.032,10.032,0,0,1,7.122,3H16a1,1,0,0,0-1,1h0a1,1,0,0,0,1,1h4.143A1.858,1.858,0,0,0,22,5.143V1a1,1,0,0,0-1-1h0a1,1,0,0,0-1,1V3.078A11.981,11.981,0,0,0,.05,10.9a1.007,1.007,0,0,0,1,1.1h0a.982.982,0,0,0,.989-.878A10.014,10.014,0,0,1,12,2Z" />
-                        <path d="M22.951,12a.982.982,0,0,0-.989.878A9.986,9.986,0,0,1,4.878,19H8a1,1,0,0,0,1-1H9a1,1,0,0,0-1-1H3.857A1.856,1.856,0,0,0,2,18.857V23a1,1,0,0,0,1,1H3a1,1,0,0,0,1-1V20.922A11.981,11.981,0,0,0,23.95,13.1a1.007,1.007,0,0,0-1-1.1Z" />
-                      </svg>
-                    </button>
+                      <button
+                        type="button"
+                        className={`thumb-batch-card-float-btn${currentFeedback === 1 ? ' thumb-batch-card-float-btn--liked' : ''}`}
+                        onClick={handleLike}
+                        disabled={feedbackPending || dialogSubmitting}
+                        aria-label="Helpful"
+                        aria-pressed={currentFeedback === 1}
+                        title="Helpful"
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill={currentFeedback === 1 ? 'currentColor' : 'none'}
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden
+                        >
+                          <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z" />
+                          <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        className={`thumb-batch-card-float-btn${currentFeedback === -1 ? ' thumb-batch-card-float-btn--disliked' : ''}`}
+                        onClick={handleDislikeClick}
+                        disabled={feedbackPending || dialogSubmitting}
+                        aria-label="Not helpful"
+                        aria-pressed={currentFeedback === -1}
+                        title="Not helpful"
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill={currentFeedback === -1 ? 'currentColor' : 'none'}
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden
+                        >
+                          <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z" />
+                          <path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
+                        </svg>
+                      </button>
+                    </div>
                   ) : null}
                 </div>
-
-                {/* Feedback pill: thumbs up · thumbs down — separate pill,
-                 *  appears once the AI rating resolves (ratingId truthy). */}
-                {ratingId ? (
-                  <div
-                    className="thumb-batch-card-float-feedback"
-                    role="group"
-                    aria-label="Rate thumbnail"
-                  >
-                    <button
-                      type="button"
-                      className={`thumb-batch-card-float-btn${currentFeedback === 1 ? ' thumb-batch-card-float-btn--liked' : ''}`}
-                      onClick={() => handleFeedback(1)}
-                      disabled={feedbackPending}
-                      aria-label="Helpful"
-                      aria-pressed={currentFeedback === 1}
-                      title="Helpful"
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill={currentFeedback === 1 ? 'currentColor' : 'none'}
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                      >
-                        <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z" />
-                        <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      className={`thumb-batch-card-float-btn${currentFeedback === -1 ? ' thumb-batch-card-float-btn--disliked' : ''}`}
-                      onClick={() => handleFeedback(-1)}
-                      disabled={feedbackPending}
-                      aria-label="Not helpful"
-                      aria-pressed={currentFeedback === -1}
-                      title="Not helpful"
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill={currentFeedback === -1 ? 'currentColor' : 'none'}
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                      >
-                        <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z" />
-                        <path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
-                      </svg>
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Dislike reason dialog — rendered into document.body via portal so it
+       *  escapes the overflow:hidden of the image card. */}
+      <AnimatePresence>
+        {showDislikeDialog && (
+          <DislikeReasonDialog
+            onSubmit={handleDislikeSubmit}
+            onCancel={handleDislikeCancel}
+            submitting={dialogSubmitting}
+          />
+        )}
+      </AnimatePresence>
+    </>
   )
 })
 
