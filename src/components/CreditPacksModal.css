@@ -452,6 +452,20 @@
   animation: cpm-spin 0.65s linear infinite;
 }
 
+.cpm-btn-spinner--dark {
+  border-color: rgba(0, 0, 0, 0.15);
+  border-top-color: rgba(0, 0, 0, 0.7);
+}
+
+.cpm-btn--loading {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #111118;
+  width: 80px;
+  height: 36px;
+  border-radius: 999px;
+}
+
 @keyframes cpm-spin {
   to {
     transform: rotate(360deg);

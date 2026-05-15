@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Zap } from 'lucide-react'
 
 import { Dialog } from './ui'
+import { LiquidMetalButton } from './LiquidMetalButton'
 import { useAuthStore } from '../stores/authStore'
 import { useCreditsQuery } from '../queries/billing/creditsQueries'
 import { getPlans, startCheckout } from '../api/billing'
@@ -244,14 +245,36 @@ export function CreditPacksModal({ open, onClose }) {
                   {/* Right: price + CTA */}
                   <div className="cpm-row-right">
                     <span className="cpm-row-price">{fmtPrice(p.price_usd)}</span>
-                    <button
-                      type="button"
-                      className={`cpm-btn${p.isBestValue ? ' cpm-btn--primary' : ''}`}
-                      onClick={() => buy(p)}
-                      disabled={isDisabled || isLoading}
-                    >
-                      {isLoading ? <span className="cpm-btn-spinner" /> : 'Buy'}
-                    </button>
+                    {p.isBestValue ? (
+                      isLoading ? (
+                        <button
+                          type="button"
+                          className="cpm-btn cpm-btn--primary cpm-btn--loading"
+                          disabled
+                        >
+                          <span className="cpm-btn-spinner cpm-btn-spinner--dark" />
+                        </button>
+                      ) : (
+                        <LiquidMetalButton
+                          label="Buy"
+                          dark
+                          width={80}
+                          height={36}
+                          disabled={isDisabled}
+                          onClick={() => buy(p)}
+                          aria-label={`Buy ${fmtCredits(p.credits)} credits for ${fmtPrice(p.price_usd)}`}
+                        />
+                      )
+                    ) : (
+                      <button
+                        type="button"
+                        className="cpm-btn"
+                        onClick={() => buy(p)}
+                        disabled={isDisabled || isLoading}
+                      >
+                        {isLoading ? <span className="cpm-btn-spinner" /> : 'Buy'}
+                      </button>
+                    )}
                   </div>
                 </li>
               )
