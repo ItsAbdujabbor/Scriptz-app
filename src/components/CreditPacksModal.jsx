@@ -258,8 +258,8 @@ export function CreditPacksModal({ open, onClose }) {
                         <LiquidMetalButton
                           label="Buy"
                           dark
-                          width={80}
-                          height={36}
+                          width={72}
+                          height={30}
                           disabled={isDisabled}
                           onClick={() => buy(p)}
                           aria-label={`Buy ${fmtCredits(p.credits)} credits for ${fmtPrice(p.price_usd)}`}
