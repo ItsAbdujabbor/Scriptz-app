@@ -1824,19 +1824,16 @@ function ExpandableUserMessage({ text }) {
 
   return (
     <div className="thumb-ubw">
-      {/* coach-message-bubble lives here so the toggle renders outside it */}
-      <div className="coach-message-bubble thumb-ubw-bubble">
-        <div
-          className={`thumb-ubw-body${needsClamp && animReady ? ' thumb-ubw-body--animate' : ''}`}
-          style={needsClamp ? { height: currentH } : undefined}
-        >
-          <p ref={textRef} className="thumb-ubw-text">
-            {text}
-          </p>
-          {needsClamp && (
-            <div className="thumb-ubw-veil" style={{ opacity: expanded ? 0 : 1 }} aria-hidden />
-          )}
-        </div>
+      <div
+        className={`thumb-ubw-body${needsClamp && animReady ? ' thumb-ubw-body--animate' : ''}`}
+        style={needsClamp ? { height: currentH } : undefined}
+      >
+        <p ref={textRef} className="thumb-ubw-text">
+          {text}
+        </p>
+        {needsClamp && (
+          <div className="thumb-ubw-veil" style={{ opacity: expanded ? 0 : 1 }} aria-hidden />
+        )}
       </div>
       {needsClamp && (
         <button
@@ -1844,7 +1841,7 @@ function ExpandableUserMessage({ text }) {
           className={`thumb-ubw-toggle${expanded ? ' thumb-ubw-toggle--open' : ''}`}
           onClick={() => setExpanded((e) => !e)}
         >
-          <LucideChevronDown size={11} strokeWidth={2.5} className="thumb-ubw-chevron" />
+          <LucideChevronDown size={11} strokeWidth={2.8} className="thumb-ubw-chevron" />
           <span>{expanded ? 'Show less' : 'Show more'}</span>
         </button>
       )}
@@ -1881,7 +1878,11 @@ const ChatMessageItem = memo(function ChatMessageItem({
           {/* Bubble is skipped entirely when the user sent only an
            * image (recreate / analyze with no typed prompt). Avoids
            * an empty pill clinging to the image card. */}
-          {msg.content ? <ExpandableUserMessage text={msg.content} /> : null}
+          {msg.content ? (
+            <div className="coach-message-bubble">
+              <ExpandableUserMessage text={msg.content} />
+            </div>
+          ) : null}
         </div>
       ) : (
         <>
@@ -6275,7 +6276,11 @@ function FailedAttemptBlock({ entry, onRetry }) {
                 />
               </div>
             ) : null}
-            {entry.userText ? <ExpandableUserMessage text={entry.userText} /> : null}
+            {entry.userText ? (
+              <div className="coach-message-bubble">
+                <ExpandableUserMessage text={entry.userText} />
+              </div>
+            ) : null}
           </div>
         </article>
       ) : null}
