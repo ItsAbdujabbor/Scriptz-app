@@ -231,6 +231,11 @@ export const thumbnailsApi = {
   rate(accessToken, payload, fetchInit = {}) {
     return request('POST', '/api/thumbnails/rate', accessToken, payload, {}, fetchInit)
   },
+  rateFeedback(accessToken, ratingId, feedback) {
+    return request('POST', `/api/thumbnails/ratings/${ratingId}/feedback`, accessToken, {
+      feedback,
+    })
+  },
   improve(accessToken, payload) {
     return request('POST', '/api/thumbnails/improve', accessToken, payload)
   },

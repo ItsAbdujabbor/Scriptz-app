@@ -769,6 +769,34 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
   }, [onOneClickFix, recommendations, t])
   const canOneClickFix = !!onOneClickFix && canRegenerate
 
+  // Thumbs feedback — optimistic local state, synced to server via
+  // /ratings/{id}/feedback. No credit cost, free action.
+  const ratingId = ratingQuery.data?.rating_id ?? null
+  const serverFeedback = ratingQuery.data?.user_feedback ?? null
+  const [localFeedback, setLocalFeedback] = useState(null) // null = follow server value
+  const currentFeedback = localFeedback !== null ? localFeedback : serverFeedback
+  const [feedbackPending, setFeedbackPending] = useState(false)
+
+  const handleFeedback = useCallback(
+    async (value) => {
+      if (!ratingId || feedbackPending) return
+      const next = currentFeedback === value ? 0 : value // toggle off
+      setLocalFeedback(next === 0 ? 0 : next)
+      setFeedbackPending(true)
+      try {
+        const token = await getAccessTokenOrNull()
+        if (!token) return
+        await thumbnailsApi.rateFeedback(token, ratingId, next)
+      } catch {
+        setLocalFeedback(null)
+        toast.error('Could not save feedback')
+      } finally {
+        setFeedbackPending(false)
+      }
+    },
+    [ratingId, feedbackPending, currentFeedback]
+  )
+
   // The score pill mounts whenever there's *something* to show — a real
   // score, a loading state, or an error. The component handles the
   // tier-colour palette + state-specific layout itself.
@@ -859,6 +887,54 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
                     <line x1="12" y1="15" x2="12" y2="3" />
                   </svg>
                 </a>
+                {ratingId ? (
+                  <>
+                    <button
+                      type="button"
+                      className={`thumb-batch-card-float-btn${currentFeedback === 1 ? ' thumb-batch-card-float-btn--liked' : ''}`}
+                      onClick={() => handleFeedback(1)}
+                      disabled={feedbackPending || !ratingId}
+                      aria-label="Helpful"
+                      aria-pressed={currentFeedback === 1}
+                      title="Helpful"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill={currentFeedback === 1 ? 'currentColor' : 'none'}
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden
+                      >
+                        <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z" />
+                        <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      className={`thumb-batch-card-float-btn${currentFeedback === -1 ? ' thumb-batch-card-float-btn--disliked' : ''}`}
+                      onClick={() => handleFeedback(-1)}
+                      disabled={feedbackPending || !ratingId}
+                      aria-label="Not helpful"
+                      aria-pressed={currentFeedback === -1}
+                      title="Not helpful"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill={currentFeedback === -1 ? 'currentColor' : 'none'}
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden
+                      >
+                        <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z" />
+                        <path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
+                      </svg>
+                    </button>
+                  </>
+                ) : null}
                 {canOneClickFix ? (
                   <button
                     type="button"
