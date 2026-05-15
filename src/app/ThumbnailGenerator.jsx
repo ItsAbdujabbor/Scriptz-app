@@ -2518,10 +2518,9 @@ export function ThumbnailGenerator({
     [canUse]
   )
 
-  // Live credit balance — used to short-circuit requests before they hit
-  // the backend. Only blocks when we KNOW the balance is exactly 0;
-  // if the query hasn't loaded yet (null) we let the request through and
-  // the backend 402 + interceptor will handle it.
+  // Live credit balance — hard-blocks all credit-consuming actions at 0.
+  // Reads synchronously from the query cache so even a stale closure sees
+  // the latest value — no race window between a 402 and a re-render.
   const { data: creditsData } = useCreditsQuery()
   const totalCredits = useMemo(() => {
     if (!creditsData) return null
@@ -2529,13 +2528,19 @@ export function ThumbnailGenerator({
       Number(creditsData.subscription_credits || 0) + Number(creditsData.permanent_credits || 0)
     )
   }, [creditsData])
+  const isOutOfCredits = totalCredits === 0
   const requireCredits = useCallback(() => {
-    if (totalCredits === 0) {
+    const cached = queryClient.getQueryData(['billing', 'credits'])
+    const live =
+      cached != null
+        ? Number(cached.subscription_credits || 0) + Number(cached.permanent_credits || 0)
+        : totalCredits
+    if (live === 0) {
       openCreditsModal()
       return false
     }
     return true
-  }, [totalCredits])
+  }, [queryClient, totalCredits])
   const selectedPersonaId = usePersonaStore((s) => s.selectedPersonaId)
   const selectedPersona = usePersonaStore((s) => s.selectedPersona)
   const selectedStyleId = useStyleStore((s) => s.selectedStyleId)
@@ -5328,7 +5333,7 @@ export function ThumbnailGenerator({
 
   const handleTitleIdeasSubmit = async (e) => {
     e?.preventDefault?.()
-    // Credit-only access — backend gate handles INSUFFICIENT_CREDITS.
+    if (!requireCredits()) return
     if (anyJobInFlight) return
     if (submitGuardRef.current) return
     const topic = titleTopic.trim()
@@ -5667,11 +5672,11 @@ export function ThumbnailGenerator({
                         className="coach-composer-input thumb-prompt-textarea"
                         maxLength={2000}
                         placeholder=""
-                        disabled={anyJobInFlight}
+                        disabled={isOutOfCredits || anyJobInFlight}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
-                            if (anyJobInFlight || submitGuardRef.current) return
+                            if (isOutOfCredits || anyJobInFlight || submitGuardRef.current) return
                             handleSubmit(e)
                           }
                         }}
@@ -5785,7 +5790,11 @@ export function ThumbnailGenerator({
                         <ThumbSendPill
                           featureKey="thumbnail_generate"
                           count={numThumbnails}
-                          disabled={anyJobInFlight || (!draft.trim() && !promptImageDataUrl)}
+                          disabled={
+                            isOutOfCredits ||
+                            anyJobInFlight ||
+                            (!draft.trim() && !promptImageDataUrl)
+                          }
                           ariaLabel="Generate thumbnails"
                         />
                       </div>
@@ -5867,6 +5876,7 @@ export function ThumbnailGenerator({
                           featureKey="thumbnail_recreate"
                           count={1}
                           disabled={
+                            isOutOfCredits ||
                             anyJobInFlight ||
                             !(recreateSourceMode === 'upload'
                               ? recreateSourceImage
@@ -5946,6 +5956,7 @@ export function ThumbnailGenerator({
                       <ThumbSendPill
                         featureKey="thumbnail_analyze"
                         disabled={
+                          isOutOfCredits ||
                           anyJobInFlight ||
                           !(analyzeSourceMode === 'upload' ? analyzeSourceImage : analyzePreviewUrl)
                         }
@@ -5965,11 +5976,11 @@ export function ThumbnailGenerator({
                         rows={2}
                         className="coach-composer-input"
                         maxLength={600}
-                        disabled={anyJobInFlight}
+                        disabled={isOutOfCredits || anyJobInFlight}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
-                            if (anyJobInFlight || submitGuardRef.current) return
+                            if (isOutOfCredits || anyJobInFlight || submitGuardRef.current) return
                             handleTitleIdeasSubmit(e)
                           }
                         }}
@@ -5990,7 +6001,7 @@ export function ThumbnailGenerator({
                         <ThumbSendPill
                           featureKey="thumbnail_title_ideas"
                           count={titleCount}
-                          disabled={anyJobInFlight || !titleTopic.trim()}
+                          disabled={isOutOfCredits || anyJobInFlight || !titleTopic.trim()}
                           ariaLabel="Brainstorm titles"
                         />
                       </div>
