@@ -2907,37 +2907,26 @@
   transition: opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Pill toggle — sits outside the overflow:hidden body so it's always visible */
+/* Text-only toggle — lives OUTSIDE the purple bubble so it appears below it */
 #coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw-toggle {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  margin-top: 0.42rem;
-  padding: 0.22rem 0.6rem 0.22rem 0.5rem;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(196, 181, 253, 0.28);
-  border-radius: 999px;
+  margin-top: 0.28rem;
+  padding: 0;
+  background: none;
+  border: none;
   cursor: pointer;
-  font-size: 0.71rem;
-  font-weight: 600;
-  letter-spacing: 0.025em;
-  color: rgba(233, 213, 255, 0.82);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(167, 139, 250, 0.65);
   line-height: 1;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease;
+  transition: color 0.16s ease;
   user-select: none;
 }
 
 #coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw-toggle:hover {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(196, 181, 253, 0.5);
-  color: #fff;
-}
-
-#coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw-toggle:active {
-  background: rgba(255, 255, 255, 0.24);
+  color: rgba(196, 181, 253, 0.95);
 }
 
 /* Chevron rotates 180° when open */
