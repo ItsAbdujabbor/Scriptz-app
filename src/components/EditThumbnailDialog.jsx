@@ -50,7 +50,7 @@ import { canvasToBase64Png } from '../lib/canvasToBase64'
 import './EditThumbnailDialog.css'
 
 const PRIMARY_GRADIENT = 'var(--accent-gradient)'
-const MASK_CSS_OPACITY = 0.4
+const MASK_CSS_OPACITY = 0.72
 const MASK_THRESHOLD = 10
 const UNDO_CAP = 20
 
@@ -1614,7 +1614,7 @@ export function EditThumbnailDialog({
                 // matching the disc the brush will paint at this position.
                 boxSizing: 'border-box',
                 borderRadius: '50%',
-                background: tool === 'eraser' ? 'transparent' : hexToRgba(color, 0.35),
+                background: tool === 'eraser' ? 'transparent' : hexToRgba(color, 0.5),
                 border: '1.5px solid rgba(255, 255, 255, 0.92)',
                 boxShadow: 'inset 0 0 0 1px rgba(0, 0, 0, 0.55)',
                 pointerEvents: 'none',
