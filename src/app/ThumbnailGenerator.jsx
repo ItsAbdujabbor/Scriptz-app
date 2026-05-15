@@ -217,9 +217,9 @@ function IconPaperclip(props) {
 // Calibrated for the current pipeline: Gemini rewrite (~1-2 s) + gpt-
 // image-2 medium quality render (~8-14 s for single, ~20 s for a 4-up
 // batch). Trim further if gpt-image-2 gets faster.
-const GEN_DURATION_SINGLE_MS = 16000
-const GEN_DURATION_BATCH_MS = 24000
-const GEN_DURATION_RECREATE_MS = 18000
+const GEN_DURATION_SINGLE_MS = 32000
+const GEN_DURATION_BATCH_MS = 52000
+const GEN_DURATION_RECREATE_MS = 35000
 
 /**
  * Map a backend error code (from the thumbnails chat route's APIError)
@@ -1608,27 +1608,37 @@ const ChatMessageItem = memo(function ChatMessageItem({
             />
           )}
           {/* Prompt / recreate in-place pending: when the placeholder is
-           * pushed with `_promptPending: true`, render the existing
-           * <ThumbnailGenFill> loader inside the SAME mounted card. When
-           * the API result is patched in (clearing `_promptPending` and
-           * filling `thumbnails`), AnimatePresence crossfades to the
-           * populated grid below. The old sibling-loader block (rendered
-           * outside the messages list) used to flash on first message
-           * because the loader and the result lived in different React
-           * subtrees — this in-place pattern keeps the assistant card
-           * mounted across the swap. */}
-          {msg._promptPending && (
-            <motion.div
-              key="prompt-loader"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.22, ease: IOS_EASE }}
-              style={{ width: '100%' }}
-            >
-              <div className="thumb-gen-loader" aria-busy="true" aria-label="Generating thumbnail">
-                <div className="thumb-gen-loader__stage">
-                  <ThumbnailGenFill
+           * pushed with `_promptPending: true`, render the loader inside
+           * the SAME mounted card. AnimatePresence lets the exit fade
+           * play before the thumbnail grid enters. */}
+          <AnimatePresence mode="wait" initial={false}>
+            {msg._promptPending ? (
+              <motion.div
+                key="prompt-loader"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: IOS_EASE }}
+                style={{ width: '100%' }}
+              >
+                <div
+                  className="thumb-gen-loader"
+                  aria-busy="true"
+                  aria-label="Generating thumbnail"
+                >
+                  <div className="thumb-gen-loader__stage">
+                    <ThumbnailGenFill
+                      estimatedDurationMs={(() => {
+                        const lockedMode = msg._promptMode || 'prompt'
+                        const count = msg._promptCount || 1
+                        if (lockedMode === 'recreate') {
+                          return count > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_RECREATE_MS
+                        }
+                        return count > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_SINGLE_MS
+                      })()}
+                    />
+                  </div>
+                  <ThumbnailGenSlowHint
                     estimatedDurationMs={(() => {
                       const lockedMode = msg._promptMode || 'prompt'
                       const count = msg._promptCount || 1
@@ -1639,19 +1649,28 @@ const ChatMessageItem = memo(function ChatMessageItem({
                     })()}
                   />
                 </div>
-                <ThumbnailGenSlowHint
-                  estimatedDurationMs={(() => {
-                    const lockedMode = msg._promptMode || 'prompt'
-                    const count = msg._promptCount || 1
-                    if (lockedMode === 'recreate') {
-                      return count > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_RECREATE_MS
-                    }
-                    return count > 1 ? GEN_DURATION_BATCH_MS : GEN_DURATION_SINGLE_MS
-                  })()}
+              </motion.div>
+            ) : msg.thumbnails?.length > 0 ? (
+              <motion.div
+                key="thumb-grid"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.28, ease: IOS_EASE }}
+                style={{ width: '100%' }}
+              >
+                <ThumbnailGridBlock
+                  thumbnails={msg.thumbnails}
+                  userRequest={msg.userRequest}
+                  msgId={msg.id}
+                  onReplaceThumbnail={onReplaceThumbnail}
+                  onRegenerate={onRegenerate}
+                  onViewImage={onViewImage}
+                  onEditImage={onEditImage}
+                  canRegenerate
                 />
-              </div>
-            </motion.div>
-          )}
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
           {/* Analyze branch: same in-place pending pattern as titles. The
            * submit handler pushes a placeholder local message with
            * `_analyzePending: true` + `userImageUrl` set; we render the
@@ -1710,18 +1729,6 @@ const ChatMessageItem = memo(function ChatMessageItem({
                 ) : null}
               </AnimatePresence>
             </motion.div>
-          )}
-          {msg.thumbnails?.length > 0 && (
-            <ThumbnailGridBlock
-              thumbnails={msg.thumbnails}
-              userRequest={msg.userRequest}
-              msgId={msg.id}
-              onReplaceThumbnail={onReplaceThumbnail}
-              onRegenerate={onRegenerate}
-              onViewImage={onViewImage}
-              onEditImage={onEditImage}
-              canRegenerate
-            />
           )}
         </>
       )}
@@ -5879,14 +5886,6 @@ function FailedAttemptBlock({ entry, onRetry }) {
  */
 function ThumbnailGenSlowHint({ estimatedDurationMs }) {
   const [stage, setStage] = useState(0)
-  // Live worker-side status drives the message when it's available.
-  // The submit+poll wrapper writes here on every poll, so the hint
-  // reflects what the worker is actually doing — "Calling provider",
-  // "One quick retry — provider had a small hiccup", "Almost there" —
-  // rather than a generic "taking longer". Backs the silent-retry UX:
-  // the user sees friendly progress text instead of an alarming error
-  // during transient blips.
-  const liveStatus = useThumbnailJobStatusStore((s) => s.status)
   useEffect(() => {
     const baseline = Math.max(0, estimatedDurationMs || 0)
     if (baseline <= 0) return undefined
@@ -5898,24 +5897,11 @@ function ThumbnailGenSlowHint({ estimatedDurationMs }) {
     }
   }, [estimatedDurationMs])
 
-  // Live worker status wins when present — but only show it once the
-  // user has been waiting at least the baseline duration. For a job
-  // that resolves in 4 s we don't want a "Queued — your turn is coming
-  // up" message to flash; the silent loader handles fast cases.
-  const liveMessage = liveStatus?.status_message
-  if (liveMessage && stage >= 1) {
-    return (
-      <div className="thumb-gen-loader__slow-hint" role="status" aria-live="polite">
-        {liveMessage}
-      </div>
-    )
-  }
-
   if (stage === 0) return null
   const message =
     stage === 1
-      ? 'Taking a little longer than usual — hang tight while the provider catches up.'
-      : "High demand right now — your thumbnail is queued. We'll have it ready shortly."
+      ? 'Taking a moment longer than usual — almost there.'
+      : 'Still working on it — thanks for your patience.'
   return (
     <div className="thumb-gen-loader__slow-hint" role="status" aria-live="polite">
       {message}

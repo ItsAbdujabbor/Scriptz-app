@@ -291,7 +291,7 @@ export const thumbnailsApi = {
 // frontend's mutation hook stays unchanged (resolves with a
 // ThumbnailChatResponse); only the transport changes underneath.
 
-const POLL_INTERVAL_MS = 1500
+const POLL_INTERVAL_MS = 1000
 const POLL_TIMEOUT_MS = 180_000 // 3 min hard cap; the worker has its
 //   own ~30s retry budget per job
 
