@@ -121,6 +121,9 @@ export function useThumbnailConversationQuery(conversationId, options = {}) {
     // When pending we want the latest server truth — ignore the short
     // staleTime that otherwise suppresses mount-time refetches.
     refetchOnMount: pollWhilePending ? 'always' : false,
+    // Never retry 404s — the conversation is gone and auto-redirect will
+    // fire. Retry once for transient server/network errors only.
+    retry: (count, err) => err?.status !== 404 && err?.code !== 'NOT_FOUND' && count < 1,
     // NOTE: `placeholderData: (prev) => prev` was deliberately removed
     // here. In v5 it bleeds the previous query's data across queryKey
     // changes, so switching from chat A to chat B made chat A's

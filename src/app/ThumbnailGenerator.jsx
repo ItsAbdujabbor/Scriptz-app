@@ -2911,6 +2911,28 @@ export function ThumbnailGenerator({
     if (conversationId != null) markSeen(conversationId)
   }, [conversationId, markSeen])
 
+  // Auto-clear stale 404 conversations. When a conversation no longer exists
+  // on the server (data was reset, row deleted, etc.) we:
+  //   1. Remove its detail entry from the RQ cache so it won't flash again.
+  //   2. Evict it from every cached conversations-list page.
+  //   3. Navigate to a blank new chat so the user isn't stuck on the error.
+  useEffect(() => {
+    if (!conversationQuery.isError || conversationId == null) return
+    const err = conversationQuery.error
+    if (!err || (err.status !== 404 && err.code !== 'NOT_FOUND')) return
+
+    const numId = Number(conversationId)
+    queryClient.removeQueries({ queryKey: queryKeys.thumbnails.conversation(conversationId) })
+    queryClient.setQueriesData({ queryKey: ['thumbnails', 'conversations'] }, (prev) => {
+      if (!prev) return prev
+      const items = prev.items ?? prev
+      if (!Array.isArray(items)) return prev
+      const filtered = items.filter((c) => Number(c?.id) !== numId)
+      return Array.isArray(prev) ? filtered : { ...prev, items: filtered }
+    })
+    pushThumbModeHash(null, null)
+  }, [conversationQuery.isError, conversationQuery.error, conversationId, queryClient])
+
   /**
    * Ensure the conversation row exists server-side BEFORE the chat
    * job runs. On a brand-new chat (no `existingId`) we POST to
