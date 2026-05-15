@@ -49,6 +49,8 @@ import { extractYoutubeUrl } from '../lib/youtubeUrl'
 import { renderMessageContent } from '../lib/messageRender.jsx'
 import { CostHint } from '../components/CostHint'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
+import { useCreditsQuery } from '../queries/billing/creditsQueries'
+import { openCreditsModal } from '../lib/creditsModalBus'
 import { toast } from '../lib/toast'
 import { parseApiError } from '../lib/errorMessages'
 import FailedGenerationCard from '../components/FailedGenerationCard'
@@ -2515,6 +2517,25 @@ export function ThumbnailGenerator({
     },
     [canUse]
   )
+
+  // Live credit balance — used to short-circuit requests before they hit
+  // the backend. Only blocks when we KNOW the balance is exactly 0;
+  // if the query hasn't loaded yet (null) we let the request through and
+  // the backend 402 + interceptor will handle it.
+  const { data: creditsData } = useCreditsQuery()
+  const totalCredits = useMemo(() => {
+    if (!creditsData) return null
+    return (
+      Number(creditsData.subscription_credits || 0) + Number(creditsData.permanent_credits || 0)
+    )
+  }, [creditsData])
+  const requireCredits = useCallback(() => {
+    if (totalCredits === 0) {
+      openCreditsModal()
+      return false
+    }
+    return true
+  }, [totalCredits])
   const selectedPersonaId = usePersonaStore((s) => s.selectedPersonaId)
   const selectedPersona = usePersonaStore((s) => s.selectedPersona)
   const selectedStyleId = useStyleStore((s) => s.selectedStyleId)
@@ -4312,9 +4333,7 @@ export function ThumbnailGenerator({
 
   const handleSubmit = async (e) => {
     e?.preventDefault?.()
-    // Credit-only access: free users with credits proceed; backend
-    // returns 402 INSUFFICIENT_CREDITS when balance is 0 (paywall
-    // interceptor routes to /pro).
+    if (!requireCredits()) return
     // Synchronous spam-guard — see `submitGuardRef` definition above.
     // Returns BEFORE any state writes so a rapid double-Enter never
     // double-pushes an optimistic pair or fires two chat mutations.
@@ -4723,6 +4742,7 @@ export function ThumbnailGenerator({
 
   const handleRegenerateOne = useCallback(
     async (userRequest) => {
+      if (!requireCredits()) return
       if (!userRequest?.trim() || anyJobInFlight) return
       if (submitGuardRef.current) return
       submitGuardRef.current = true
@@ -4802,6 +4822,7 @@ export function ThumbnailGenerator({
       patchLocalAssistantMessage,
       pushFailureEntry,
       linkLocalToServer,
+      requireCredits,
     ]
   )
 
@@ -4907,7 +4928,7 @@ export function ThumbnailGenerator({
 
   const handleRecreateSubmit = async (e) => {
     e?.preventDefault?.()
-    // Credit-only access — backend gate handles INSUFFICIENT_CREDITS.
+    if (!requireCredits()) return
     if (anyJobInFlight) return
     if (submitGuardRef.current) return
     const instructions = recreateDraft.trim()
@@ -5133,7 +5154,7 @@ export function ThumbnailGenerator({
 
   const handleAnalyzeFooterSubmit = async (e) => {
     e?.preventDefault?.()
-    // Credit-only access — backend gate handles INSUFFICIENT_CREDITS.
+    if (!requireCredits()) return
     if (anyJobInFlight) return
     if (submitGuardRef.current) return
     const imageUrl = analyzeSourceMode === 'upload' ? analyzeSourceImage : analyzePreviewUrl
