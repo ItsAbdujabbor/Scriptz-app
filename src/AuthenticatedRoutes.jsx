@@ -9,9 +9,7 @@ import { BillingDialog } from './components/BillingDialog'
 import { ToastStack } from './components/ToastStack'
 import { connectJobEventStream, disconnectJobEventStream } from './services/jobEventStream'
 // Each view is its own lazy chunk — Dashboard / Optimize / Billing are
-// temporarily hidden from the UI. The 'pro' view is now a fullscreen
-// takeover routed at the App.jsx level (see <ProScreen>), so the
-// in-shell Pro view is no longer mounted here.
+// temporarily hidden from the UI.
 import { Thumbnails } from './lazyViews'
 
 import './app/Sidebar.css'

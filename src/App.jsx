@@ -436,10 +436,6 @@ function App() {
     return <Splash label="Signing you in…" />
   }
 
-  // 'pro' is intentionally NOT in this list — it renders as its own
-  // fullscreen takeover (ProScreen) and shouldn't flash the dashboard
-  // shell loader before mounting. The auth gate above (line ~271) still
-  // bounces unauthed users to login if they navigate directly to #pro.
   const appViews = ['dashboard', 'thumbnails', 'optimize', 'billing']
   const needsSessionBeforeRender = appViews.includes(view)
   // Branded splash on first authenticated entry — held while session
@@ -489,8 +485,31 @@ function App() {
     )
   }
 
-  // Everything else is a single-element view — wrap in Suspense so its
-  // lazy chunk can resolve without flashing the screen.
+  // Shell views (thumbnails / settings / pro) always keep AuthenticatedRouteBoundary
+  // mounted at the same tree position. This preserves the active conversation when
+  // the user opens #pro or #settings. ProScreen is position:fixed z-index:1000 so
+  // it visually covers the shell without unmounting it.
+  const isShellView = view === 'thumbnails' || view === 'settings' || view === 'pro'
+  if (isShellView) {
+    const shellViewProp = view === 'pro' ? 'thumbnails' : view
+    const handleProClose = () => {
+      const next = accessToken ? 'thumbnails' : ''
+      if (next) {
+        window.location.hash = next
+      } else {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+        setView('landing')
+      }
+    }
+    return (
+      <Suspense fallback={null}>
+        <AuthenticatedRouteBoundary view={shellViewProp} onLogout={onLogout} />
+        {view === 'pro' && <ProScreen onClose={handleProClose} />}
+      </Suspense>
+    )
+  }
+
+  // Non-shell views — wrap in Suspense so lazy chunks can resolve.
   let content = null
   switch (view) {
     case 'terms':
@@ -501,30 +520,6 @@ function App() {
       break
     case 'refund':
       content = <RefundPolicy onBack={goBack} />
-      break
-    case 'thumbnails':
-      content = <AuthenticatedRouteBoundary view="thumbnails" onLogout={onLogout} />
-      break
-    case 'pro':
-      // Fullscreen pricing takeover — own component, no shell. Closes
-      // back to thumbnails when authed, landing when not.
-      content = (
-        <ProScreen
-          onClose={() => {
-            const next = accessToken ? 'thumbnails' : ''
-            if (next) {
-              window.location.hash = next
-            } else {
-              window.history.replaceState(
-                null,
-                '',
-                window.location.pathname + window.location.search
-              )
-              setView('landing')
-            }
-          }}
-        />
-      )
       break
     case 'checkout':
       // Stripe-style checkout takeover hosting the Paddle Inline iframe.
@@ -543,9 +538,6 @@ function App() {
           }}
         />
       )
-      break
-    case 'settings':
-      content = <AuthenticatedRouteBoundary view="settings" onLogout={onLogout} />
       break
     case 'not-found':
       // Full-screen standalone — NOT wrapped in AuthenticatedRouteBoundary.
