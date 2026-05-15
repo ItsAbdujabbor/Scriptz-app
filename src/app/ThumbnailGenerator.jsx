@@ -732,6 +732,7 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
   onViewImage,
   onEditImage,
   onRegenerate,
+  onOneClickFix,
   canRegenerate = true,
 }) {
   // Rating is cached per-image in React Query (staleTime: Infinity) — a
@@ -758,15 +759,15 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
     onRegenerate?.(baseRegeneratePrompt)
   }, [onRegenerate, baseRegeneratePrompt])
   const handleOneClickFix = useCallback(() => {
-    if (!onRegenerate) return
-    if (recommendations.length > 0) {
-      const fixes = recommendations.slice(0, 3).join('; ')
-      onRegenerate(`${baseRegeneratePrompt} Apply these improvements: ${fixes}.`)
-    } else {
-      onRegenerate(baseRegeneratePrompt)
-    }
-  }, [onRegenerate, recommendations, baseRegeneratePrompt])
-  const canOneClickFix = !!onRegenerate && canRegenerate
+    if (!onOneClickFix) return
+    const fixes = recommendations.slice(0, 3)
+    const prompt =
+      fixes.length > 0
+        ? `Redesign this thumbnail with the following improvements:\n${fixes.map((f) => `- ${f}`).join('\n')}`
+        : `Redesign this thumbnail to make it more engaging and click-worthy for YouTube.`
+    onOneClickFix({ prompt, imageUrl: t?.image_url })
+  }, [onOneClickFix, recommendations, t])
+  const canOneClickFix = !!onOneClickFix && canRegenerate
 
   // The score pill mounts whenever there's *something* to show — a real
   // score, a loading state, or an error. The component handles the
@@ -916,6 +917,7 @@ const ThumbnailGridBlock = memo(function ThumbnailGridBlock({
   msgId,
   onReplaceThumbnail,
   onRegenerate,
+  onOneClickFix,
   onViewImage,
   onEditImage,
   canRegenerate = true,
@@ -934,6 +936,7 @@ const ThumbnailGridBlock = memo(function ThumbnailGridBlock({
             msgId={msgId}
             onReplaceThumbnail={onReplaceThumbnail}
             onRegenerate={onRegenerate}
+            onOneClickFix={onOneClickFix}
             onViewImage={onViewImage}
             onEditImage={onEditImage}
             canRegenerate={canRegenerate}
@@ -956,6 +959,7 @@ const ThumbnailImageBlock = memo(function ThumbnailImageBlock({
   msgId,
   onReplaceThumbnail,
   onRegenerate,
+  onOneClickFix,
   onViewImage,
   onEditImage,
   canRegenerate = true,
@@ -973,6 +977,7 @@ const ThumbnailImageBlock = memo(function ThumbnailImageBlock({
           msgId={msgId}
           onReplaceThumbnail={onReplaceThumbnail}
           onRegenerate={onRegenerate}
+          onOneClickFix={onOneClickFix}
           onViewImage={onViewImage}
           onEditImage={onEditImage}
           canRegenerate={canRegenerate}
@@ -1525,6 +1530,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
   msg,
   onReplaceThumbnail,
   onRegenerate,
+  onOneClickFix,
   onViewImage,
   onEditImage,
   onUseTitle,
@@ -1609,6 +1615,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
               msgId={msg.id}
               onReplaceThumbnail={onReplaceThumbnail}
               onRegenerate={onRegenerate}
+              onOneClickFix={onOneClickFix}
               onViewImage={onViewImage}
               onEditImage={onEditImage}
               canRegenerate
@@ -1671,6 +1678,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
                   msgId={msg.id}
                   onReplaceThumbnail={onReplaceThumbnail}
                   onRegenerate={onRegenerate}
+                  onOneClickFix={onOneClickFix}
                   onViewImage={onViewImage}
                   onEditImage={onEditImage}
                   canRegenerate
@@ -1770,6 +1778,7 @@ function chatMessageItemPropsEqual(prev, next) {
   if (
     prev.onReplaceThumbnail !== next.onReplaceThumbnail ||
     prev.onRegenerate !== next.onRegenerate ||
+    prev.onOneClickFix !== next.onOneClickFix ||
     prev.onViewImage !== next.onViewImage ||
     prev.onEditImage !== next.onEditImage ||
     prev.onUseTitle !== next.onUseTitle
@@ -4423,6 +4432,86 @@ export function ThumbnailGenerator({
     ]
   )
 
+  // One-click fix: redesigns the exact thumbnail that was clicked by
+  // passing its image URL as a reference image to the model. The user
+  // bubble shows the original thumbnail in reply-style so the thread
+  // reads as "fixing THIS one". No double-charge risk — one image out.
+  const handleOneClickFixWithImage = useCallback(
+    async ({ prompt, imageUrl }) => {
+      if (!prompt?.trim() || anyJobInFlight) return
+      if (submitGuardRef.current) return
+      submitGuardRef.current = true
+      const localIds = pushLocalAssistantMessage(prompt, {
+        userImageUrl: imageUrl || undefined,
+        content: '',
+        userRequest: prompt,
+        _promptPending: true,
+        _promptMode: 'prompt',
+        _promptCount: 1,
+      })
+      setPendingAssistant(true)
+      const submitIdempotencyKey =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `ocf-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
+      try {
+        const result = await chatMutation.mutateAsync({
+          message: prompt,
+          conversation_id: conversationId || undefined,
+          num_thumbnails: 1,
+          persona_id: selectedPersonaId || undefined,
+          style_id: selectedStyleId || undefined,
+          channel_id: channelId || undefined,
+          reference_image_urls: imageUrl ? [imageUrl] : undefined,
+          _idempotencyKey: submitIdempotencyKey,
+        })
+        const thumbnails = result?.thumbnails || []
+        const assistantContent =
+          result?.assistant_message?.content || (thumbnails.length > 0 ? '' : result?.content || '')
+        const assistantImageUrl = result?.assistant_message?.extra_data?.image_url || null
+        patchLocalAssistantMessage(localIds.assistantId, {
+          _promptPending: false,
+          content: assistantContent,
+          thumbnails,
+          imageUrl: assistantImageUrl,
+          userRequest: result?.assistant_message?.extra_data?.user_request || prompt,
+        })
+        if (result?.user_message || result?.assistant_message) {
+          linkLocalToServer(localIds, result, conversationId)
+        }
+        finishLoading()
+      } catch (err) {
+        const { code, message } = parseApiError(err, 'One-click fix failed')
+        setLocalOnlyMessages((prev) =>
+          prev.filter((m) => m.id !== localIds.userId && m.id !== localIds.assistantId)
+        )
+        setPendingAssistant(false)
+        pushFailureEntry({
+          mode: 'prompt',
+          userText: prompt,
+          errorCode: code,
+          errorMessage: message,
+          retryable: true,
+        })
+      } finally {
+        submitGuardRef.current = false
+      }
+    },
+    [
+      chatMutation,
+      conversationId,
+      selectedPersonaId,
+      selectedStyleId,
+      channelId,
+      anyJobInFlight,
+      finishLoading,
+      pushLocalAssistantMessage,
+      patchLocalAssistantMessage,
+      pushFailureEntry,
+      linkLocalToServer,
+    ]
+  )
+
   // Keep the per-mode submit refs pointing at the latest closures so the
   // failure-card retry dispatcher (and the toast Retry action) always
   // invoke the most recent handler with current state. Runs after every
@@ -5067,6 +5156,7 @@ export function ThumbnailGenerator({
                   msg={msg}
                   onReplaceThumbnail={handleReplaceThumbnail}
                   onRegenerate={handleRegenerateOne}
+                  onOneClickFix={handleOneClickFixWithImage}
                   onViewImage={openThumbLightbox}
                   onEditImage={openEditorForThumbnail}
                   onUseTitle={handleUseTitleAsPrompt}
