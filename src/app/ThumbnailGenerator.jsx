@@ -2123,8 +2123,10 @@ function shallowJsonEqual(a, b) {
 function buildMessagesFromApi(apiMessages = []) {
   return apiMessages.map((m) => {
     const isAssistant = m.role === 'assistant'
-    const ed = (isAssistant && m.extra_data) || {}
     const isUser = m.role === 'user'
+    // Read extra_data for both assistant AND user rows — user rows now
+    // carry extra_data.image_url (set by add_event from user_image_url).
+    const ed = m.extra_data || {}
     // Failure events: assistant row carries `kind: 'failure'` plus the
     // error metadata. Mark with `_kind: 'failure'` so the render dispatch
     // routes to FailedAttemptBlock; the prior user row's content gets
@@ -2193,12 +2195,10 @@ function buildMessagesFromApi(apiMessages = []) {
         _promptCount: ed.count || 1,
       }
     }
-    // User-message side: a persisted event flow stores the source
-    // thumbnail on the ASSISTANT row's `extra_data.user_image_url`.
-    // The user row in the chat thread reads the same field forwarded
-    // from its sibling so the bubble can render an image-only message.
-    // Strip the legacy "uploaded" sentinel stored before the S3-upload
-    // fix — it is not a real URL and would render as a broken image.
+    // User rows now carry their own extra_data.image_url (mirrored from
+    // the assistant's user_image_url by add_event). Old rows that pre-date
+    // this change fall back to the sibling-stitch in stitchPersistedUserImages.
+    // Strip the legacy "uploaded" sentinel — it is not a real URL.
     const toUrl = (v) => (v && v !== 'uploaded' ? v : null)
     return {
       id: m.id,
@@ -5093,20 +5093,14 @@ export function ThumbnailGenerator({
     // the result share one mounted container, so they can never both
     // be visible simultaneously.
     //
-    // Note: `userImageUrl` is intentionally NOT set on the local pair.
-    // The previous version put the source image on BOTH the user_local
-    // (rendered as a large user-bubble image) AND the assistant_local
-    // (rendered by `ThumbnailImageBlock` with the action toolbar) —
-    // the user saw two identical full-size thumbnails stacked, which
-    // they reported as the duplicate. The assistant card is the
-    // canonical place for the image: its toolbar lets the user
-    // download / edit / regenerate / one-click-fix without needing a
-    // second copy in the user bubble. The user bubble shows just the
-    // typed title (if any); when the title is empty the bubble is
-    // suppressed entirely by the render guard added below.
+    // `userImageUrl` feeds the user bubble so the user can see what
+    // they sent. The assistant card shows the same image with the
+    // full toolbar (score, actions). The user bubble renders it as a
+    // compact sent-image, not a duplicate full card, so no stacking.
     const localIds = pushLocalAssistantMessage(userText, {
       content: '',
       imageUrl,
+      userImageUrl: imageUrl,
       userRequest: '',
       analysis: null,
       _analyzePending: true,
@@ -5184,6 +5178,13 @@ export function ThumbnailGenerator({
         _analyzePending: false,
         imageUrl: storedImageUrl,
       })
+      // Also update the user bubble to the durable S3 URL so that the
+      // live session and a post-refresh session both show the same image.
+      if (storedImageUrl && storedImageUrl !== imageUrl) {
+        setLocalOnlyMessages((prev) =>
+          prev.map((m) => (m.id === localIds.userId ? { ...m, imageUrl: storedImageUrl } : m))
+        )
+      }
       resolved = true
       await finalizePersistedEvent(assistantServerId, {
         image_url: storedImageUrl,
