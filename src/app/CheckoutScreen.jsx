@@ -63,6 +63,8 @@ export function CheckoutScreen({ onClose }) {
   // 'idle' | 'mounting' | 'ready' | 'completed' | 'error'
   const [error, setError] = useState(null)
   const [retryNonce, setRetryNonce] = useState(0)
+  // Live totals from Paddle events — amounts are cents, divide by 100 to display.
+  const [paddleTotals, setPaddleTotals] = useState(null)
 
   // No session → bounce to pricing.
   useEffect(() => {
@@ -102,6 +104,19 @@ export function CheckoutScreen({ onClose }) {
       onEvent: (ev) => {
         if (cancelled) return
         const name = ev?.name || ev?.event_name
+        // Extract live totals (subtotal, tax, total) from any checkout event
+        // that carries them. Paddle sends amounts in cents (smallest unit).
+        const totals = ev?.data?.totals
+        if (totals && totals.total != null) {
+          const fmt = (cents) => `$${(Number(cents) / 100).toFixed(2)}`
+          setPaddleTotals({
+            subtotal: fmt(totals.subtotal ?? totals.total),
+            tax: Number(totals.tax ?? 0) > 0 ? fmt(totals.tax) : null,
+            total: fmt(totals.total),
+            currency: totals.currency_code || 'USD',
+          })
+        }
+
         if (name === 'checkout.loaded') {
           window.clearTimeout(readyFallback)
           window.clearTimeout(loadTimeout)
@@ -303,9 +318,9 @@ export function CheckoutScreen({ onClose }) {
           <div className="checkout-summary-divider" />
 
           <dl className="checkout-totals">
-            <div className="checkout-total-row checkout-total-row--grand">
+            <div className="checkout-total-row">
               <dt>Subtotal</dt>
-              <dd>{totalDueDisplay}</dd>
+              <dd>{paddleTotals?.subtotal ?? totalDueDisplay}</dd>
             </div>
             <div className="checkout-total-row checkout-total-row--muted">
               <dt className="checkout-total-row-label">
@@ -317,13 +332,17 @@ export function CheckoutScreen({ onClose }) {
                   aria-label="Sales tax or VAT calculated based on your billing country"
                 />
               </dt>
-              <dd>Calculated at payment</dd>
+              <dd>{paddleTotals ? (paddleTotals.tax ?? '$0.00') : 'Calculated at payment'}</dd>
+            </div>
+            <div className="checkout-total-row checkout-total-row--grand">
+              <dt>Total due today</dt>
+              <dd>{paddleTotals?.total ?? totalDueDisplay}</dd>
             </div>
           </dl>
 
           <p className="checkout-renewal">
-            Renews automatically every {renewalPeriod} for <strong>{totalDueDisplay}</strong>.
-            Cancel anytime.
+            Renews automatically every {renewalPeriod} for{' '}
+            <strong>{paddleTotals?.total ?? totalDueDisplay}</strong>. Cancel anytime.
           </p>
 
           <div className="checkout-trust">
