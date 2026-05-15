@@ -832,25 +832,49 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
               />
             )}
 
-            {/* Center-bottom floating action bar — frosted glass pill matches
-             *  the VideoOptimize thumbnail card convention. Buttons stop
-             *  propagation so the surrounding image-wrap click (lightbox)
-             *  doesn't fire. */}
+            {/* Bottom action area — two frosted pills side by side.
+             *  The group wrapper handles stopPropagation so neither pill
+             *  accidentally opens the lightbox. */}
             {t?.image_url ? (
               <div
-                className="thumb-batch-card-float"
-                role="toolbar"
-                aria-label="Thumbnail actions"
+                className="thumb-batch-card-float-group"
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
               >
-                {onEditImage ? (
-                  <button
-                    type="button"
+                {/* Primary actions pill: Edit · Download · OCF · Regenerate */}
+                <div
+                  className="thumb-batch-card-float"
+                  role="toolbar"
+                  aria-label="Thumbnail actions"
+                >
+                  {onEditImage ? (
+                    <button
+                      type="button"
+                      className="thumb-batch-card-float-btn"
+                      onClick={() => onEditImage(t.image_url)}
+                      aria-label="Edit in AI editor"
+                      title="Edit"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden
+                      >
+                        <path d="M14.7 5.3a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 9.7-9.7z" />
+                        <path d="M13 7l4 4" />
+                      </svg>
+                    </button>
+                  ) : null}
+                  <a
+                    href={t.image_url}
+                    download={`thumbnail-${label || index + 1}.png`}
                     className="thumb-batch-card-float-btn"
-                    onClick={() => onEditImage(t.image_url)}
-                    aria-label="Edit in AI editor"
-                    title="Edit"
+                    aria-label="Download thumbnail"
+                    title="Download"
                   >
                     <svg
                       viewBox="0 0 24 24"
@@ -861,39 +885,66 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
                       strokeLinejoin="round"
                       aria-hidden
                     >
-                      <path d="M14.7 5.3a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 9.7-9.7z" />
-                      <path d="M13 7l4 4" />
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
                     </svg>
-                  </button>
-                ) : null}
-                <a
-                  href={t.image_url}
-                  download={`thumbnail-${label || index + 1}.png`}
-                  className="thumb-batch-card-float-btn"
-                  aria-label="Download thumbnail"
-                  title="Download"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
-                  >
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                </a>
+                  </a>
+                  {canOneClickFix ? (
+                    <button
+                      type="button"
+                      className="thumb-batch-card-float-btn thumb-batch-card-float-btn--fix"
+                      onClick={handleOneClickFix}
+                      aria-label="One-click fix using AI recommendations"
+                      title={
+                        recommendations.length > 0
+                          ? `One-click fix — ${recommendations[0]}`
+                          : 'One-click fix'
+                      }
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden
+                      >
+                        <path d="M12 3l1.8 4.5L18.5 9.3 14 11l-2 4.7L10 11 5.5 9.3 10 7.5z" />
+                        <path d="M18.5 15.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" />
+                      </svg>
+                    </button>
+                  ) : null}
+                  {canRegenerate && onRegenerate ? (
+                    <button
+                      type="button"
+                      className="thumb-batch-card-float-btn"
+                      onClick={handleRegenerateClick}
+                      aria-label="Regenerate thumbnail"
+                      title="Regenerate"
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                        <path d="M12,2a10.032,10.032,0,0,1,7.122,3H16a1,1,0,0,0-1,1h0a1,1,0,0,0,1,1h4.143A1.858,1.858,0,0,0,22,5.143V1a1,1,0,0,0-1-1h0a1,1,0,0,0-1,1V3.078A11.981,11.981,0,0,0,.05,10.9a1.007,1.007,0,0,0,1,1.1h0a.982.982,0,0,0,.989-.878A10.014,10.014,0,0,1,12,2Z" />
+                        <path d="M22.951,12a.982.982,0,0,0-.989.878A9.986,9.986,0,0,1,4.878,19H8a1,1,0,0,0,1-1H9a1,1,0,0,0-1-1H3.857A1.856,1.856,0,0,0,2,18.857V23a1,1,0,0,0,1,1H3a1,1,0,0,0,1-1V20.922A11.981,11.981,0,0,0,23.95,13.1a1.007,1.007,0,0,0-1-1.1Z" />
+                      </svg>
+                    </button>
+                  ) : null}
+                </div>
+
+                {/* Feedback pill: thumbs up · thumbs down — separate pill,
+                 *  appears once the AI rating resolves (ratingId truthy). */}
                 {ratingId ? (
-                  <>
+                  <div
+                    className="thumb-batch-card-float-feedback"
+                    role="group"
+                    aria-label="Rate thumbnail"
+                  >
                     <button
                       type="button"
                       className={`thumb-batch-card-float-btn${currentFeedback === 1 ? ' thumb-batch-card-float-btn--liked' : ''}`}
                       onClick={() => handleFeedback(1)}
-                      disabled={feedbackPending || !ratingId}
+                      disabled={feedbackPending}
                       aria-label="Helpful"
                       aria-pressed={currentFeedback === 1}
                       title="Helpful"
@@ -915,7 +966,7 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
                       type="button"
                       className={`thumb-batch-card-float-btn${currentFeedback === -1 ? ' thumb-batch-card-float-btn--disliked' : ''}`}
                       onClick={() => handleFeedback(-1)}
-                      disabled={feedbackPending || !ratingId}
+                      disabled={feedbackPending}
                       aria-label="Not helpful"
                       aria-pressed={currentFeedback === -1}
                       title="Not helpful"
@@ -933,50 +984,7 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
                         <path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
                       </svg>
                     </button>
-                  </>
-                ) : null}
-                {canOneClickFix ? (
-                  <button
-                    type="button"
-                    className="thumb-batch-card-float-btn thumb-batch-card-float-btn--fix"
-                    onClick={handleOneClickFix}
-                    aria-label="One-click fix using AI recommendations"
-                    title={
-                      recommendations.length > 0
-                        ? `One-click fix — ${recommendations[0]}`
-                        : 'One-click fix'
-                    }
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden
-                    >
-                      <path d="M12 3l1.8 4.5L18.5 9.3 14 11l-2 4.7L10 11 5.5 9.3 10 7.5z" />
-                      <path d="M18.5 15.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" />
-                    </svg>
-                  </button>
-                ) : null}
-                {canRegenerate && onRegenerate ? (
-                  <button
-                    type="button"
-                    className="thumb-batch-card-float-btn"
-                    onClick={handleRegenerateClick}
-                    aria-label="Regenerate thumbnail"
-                    title="Regenerate"
-                  >
-                    {/* Refresh glyph from src/assets/refresh.svg —
-                     * fill-based icon (paths default to currentColor)
-                     * so it tints with the surrounding button colour. */}
-                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                      <path d="M12,2a10.032,10.032,0,0,1,7.122,3H16a1,1,0,0,0-1,1h0a1,1,0,0,0,1,1h4.143A1.858,1.858,0,0,0,22,5.143V1a1,1,0,0,0-1-1h0a1,1,0,0,0-1,1V3.078A11.981,11.981,0,0,0,.05,10.9a1.007,1.007,0,0,0,1,1.1h0a.982.982,0,0,0,.989-.878A10.014,10.014,0,0,1,12,2Z" />
-                      <path d="M22.951,12a.982.982,0,0,0-.989.878A9.986,9.986,0,0,1,4.878,19H8a1,1,0,0,0,1-1H9a1,1,0,0,0-1-1H3.857A1.856,1.856,0,0,0,2,18.857V23a1,1,0,0,0,1,1H3a1,1,0,0,0,1-1V20.922A11.981,11.981,0,0,0,23.95,13.1a1.007,1.007,0,0,0-1-1.1Z" />
-                    </svg>
-                  </button>
+                  </div>
                 ) : null}
               </div>
             ) : null}

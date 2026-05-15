@@ -886,16 +886,36 @@
  * bottom-left tail without clipping. */
 /* Center-bottom action bar — always visible, sits low inside the
  * image wrap so it anchors the card without competing with the art. */
-.thumb-batch-card-float {
+/* Wrapper that centres both pills (actions + feedback) as a flex row
+ * at the bottom of the card. stopPropagation is applied at this level
+ * so neither pill accidentally triggers the lightbox on the parent. */
+.thumb-batch-card-float-group {
   position: absolute;
   left: 50%;
   bottom: 6px;
-  /* translateZ(0) paired with the centering translate promotes the
-     float bar to its own layer on the same pixel grid as the card,
-     so the frosted pill no longer shows a hairline seam where it
-     meets the image underneath at zoom. */
   transform: translateX(-50%) translateZ(0);
   z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.thumb-batch-card-float {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 999px;
+  border: 0.5px solid rgba(255, 255, 255, 0.14);
+  background: #15151b;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -0.5px 0 rgba(255, 255, 255, 0.04),
+    0 4px 14px rgba(0, 0, 0, 0.32);
+}
+
+/* Feedback pill — identical frosted treatment, separate from actions */
+.thumb-batch-card-float-feedback {
   display: inline-flex;
   align-items: center;
   gap: 3px;
