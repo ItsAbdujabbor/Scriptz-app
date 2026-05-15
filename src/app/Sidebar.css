@@ -2594,6 +2594,20 @@
   text-overflow: ellipsis;
 }
 
+.sidebar-account-item-pro-badge {
+  flex-shrink: 0;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #a78bfa;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 4px;
+  padding: 1px 5px;
+  line-height: 1.4;
+}
+
 /* ── Nested AI-model picker ─────────────────────────────────────── */
 .sidebar-account-model__tag {
   flex-shrink: 0;

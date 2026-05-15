@@ -782,11 +782,13 @@ export function Sidebar({
   const handleOpenPersonas = () => {
     setAccountDialogOpen(false)
     closeMobile()
+    if (!isPaid) return goPro()
     onOpenPersonas?.()
   }
   const handleOpenStyles = () => {
     setAccountDialogOpen(false)
     closeMobile()
+    if (!isPaid) return goPro()
     onOpenStyles?.()
   }
   const handleNewChat = () => {
@@ -921,12 +923,14 @@ export function Sidebar({
             <IconPersonalization />
           </span>
           <span className="sidebar-account-item-label">Characters</span>
+          {!isPaid && <span className="sidebar-account-item-pro-badge">Pro</span>}
         </button>
         <button type="button" className="sidebar-account-item" onClick={handleOpenStyles}>
           <span className="sidebar-account-item-icon" aria-hidden>
             <IconStyles />
           </span>
           <span className="sidebar-account-item-label">Styles</span>
+          {!isPaid && <span className="sidebar-account-item-pro-badge">Pro</span>}
         </button>
         {/* Nested collapsible — AI Model picker */}
         <div
