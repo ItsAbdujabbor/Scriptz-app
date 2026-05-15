@@ -283,7 +283,17 @@ const MODEL_ORDER = { 'SRX-3': 0, 'SRX-2': 1 }
 // Single row in the model-tier picker. Owns its own hover state so the
 // info popover can open on hover, and it portals the popover to <body>
 // so the expanded panel's `overflow: hidden` can't clip it.
-function ModelTierRow({ tier, isActive, tag, info, pinned, isBusy, onPick, onTogglePin }) {
+function ModelTierRow({
+  tier,
+  isActive,
+  tag,
+  info,
+  pinned,
+  isBusy,
+  isLocked,
+  onPick,
+  onTogglePin,
+}) {
   const infoBtnRef = useRef(null)
   const [hovered, setHovered] = useState(false)
   const open = !!(info && (pinned || hovered))
@@ -301,6 +311,7 @@ function ModelTierRow({ tier, isActive, tag, info, pinned, isBusy, onPick, onTog
         'sidebar-account-model__row',
         isActive ? 'sidebar-account-model__row--active' : '',
         open ? 'sidebar-account-model__row--info-open' : '',
+        isLocked ? 'sidebar-account-model__row--locked' : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -316,7 +327,16 @@ function ModelTierRow({ tier, isActive, tag, info, pinned, isBusy, onPick, onTog
         <span className="sidebar-account-model__code">{tier.code}</span>
         <span className="sidebar-account-model__tag-sm">{tag}</span>
         <span className="sidebar-account-model__row-right" aria-hidden>
-          {isActive ? (
+          {isLocked ? (
+            <svg
+              className="sidebar-account-model__crown"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden
+            >
+              <path d="M2 19h20v2H2zM3 14l4-8 5 4 4-6 4 10H3z" />
+            </svg>
+          ) : isActive ? (
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -708,10 +728,9 @@ export function Sidebar({
   }, [collapsed])
 
   // Handler for the nested model-tier picker in the expanded account
-  // panel. Both tiers are available to every user, so a click always
-  // mutates the selection immediately (optimistic state lives in the
-  // hook). Paywall + credit balance gate actual generation.
+  // panel. SRX-3 (Max) is locked for free users — redirect to /#pro.
   const handlePickTier = (t) => {
+    if (!isPaid && t.code === 'SRX-3') return goPro()
     if (t.code === currentTier) return
     setTierMutation.mutate(t.code)
   }
@@ -976,6 +995,7 @@ export function Sidebar({
                 const info = MODEL_INFO[t.code] || ''
                 const pinned = openModelInfo === t.code
                 const isBusy = setTierMutation.isPending && setTierMutation.variables === t.code
+                const isLocked = !isPaid && t.code === 'SRX-3'
                 return (
                   <ModelTierRow
                     key={t.code}
@@ -985,6 +1005,7 @@ export function Sidebar({
                     info={info}
                     pinned={pinned}
                     isBusy={isBusy}
+                    isLocked={isLocked}
                     onPick={() => handlePickTier(t)}
                     onTogglePin={() => setOpenModelInfo(pinned ? null : t.code)}
                   />
