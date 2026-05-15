@@ -964,6 +964,32 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
 
   const handleDislikeCancel = useCallback(() => setShowDislikeDialog(false), [])
 
+  const handleDownload = useCallback(async () => {
+    const url = t?.image_url
+    if (!url) return
+    try {
+      const res = await fetch(url)
+      const blob = await res.blob()
+      const objUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = objUrl
+      a.download = `thumbnail-${label || index + 1}.png`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(objUrl)
+    } catch {
+      // Fall back to browser navigation if fetch fails (e.g. CORS)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `thumbnail-${label || index + 1}.png`
+      a.target = '_blank'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    }
+  }, [t?.image_url, label, index])
+
   // The score pill mounts whenever there's *something* to show — a real
   // score, a loading state, or an error. The component handles the
   // tier-colour palette + state-specific layout itself.
@@ -1037,10 +1063,10 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
                         </svg>
                       </button>
                     ) : null}
-                    <a
-                      href={t.image_url}
-                      download={`thumbnail-${label || index + 1}.png`}
+                    <button
+                      type="button"
                       className="thumb-batch-card-float-btn"
+                      onClick={handleDownload}
                       aria-label="Download thumbnail"
                       title="Download"
                     >
@@ -1057,7 +1083,7 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
                         <polyline points="7 10 12 15 17 10" />
                         <line x1="12" y1="15" x2="12" y2="3" />
                       </svg>
-                    </a>
+                    </button>
                     {canOneClickFix ? (
                       <button
                         type="button"
