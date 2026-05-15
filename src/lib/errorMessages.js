@@ -7,8 +7,8 @@
 
 const TITLES = {
   CONTENT_BLOCKED: "Couldn't accept that one",
-  PROVIDER_RATE_LIMITED: "We're a bit busy",
-  PROVIDER_BUSY: "We're a bit busy",
+  PROVIDER_RATE_LIMITED: 'High demand',
+  PROVIDER_BUSY: 'High demand',
   HIGH_DEMAND: 'High demand right now',
   // Server emits the lowercase `queue_full` code when the worker queue is
   // saturated (429 + auto-refund). Route it to the same human title as
@@ -16,9 +16,9 @@ const TITLES = {
   queue_full: 'High demand right now',
   QUEUE_FULL: 'High demand right now',
   PROVIDER_QUOTA_EXCEEDED: 'Daily limit reached',
-  PROVIDER_MISCONFIGURED: 'Working on a hiccup',
+  PROVIDER_MISCONFIGURED: 'Service issue',
   THUMBNAIL_BAD_REQUEST: 'Try a different prompt',
-  PROVIDER_UNAVAILABLE: 'Provider hiccup',
+  PROVIDER_UNAVAILABLE: 'Service unavailable',
   INSUFFICIENT_CREDITS: 'Need more credits',
 }
 

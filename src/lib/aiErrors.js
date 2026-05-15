@@ -126,14 +126,14 @@ function friendlyMessageFor({ code, status, serverMessage, retryAfterSeconds }) 
       return `High demand right now —${wait}`
     }
     case 'RATE_LIMITED':
-      return `We're a bit busy right now.${retryHint || ' Please give it a moment and try again.'} Thanks for your patience.`
+      return `Generation is taking longer than usual.${retryHint || ' Please try again in a moment.'}`
     case 'PROVIDER_UNAVAILABLE':
-      return `We're having a temporary issue on our end.${retryHint || ' Please try again in a moment.'} Thanks for bearing with us.`
+      return `Service is temporarily unavailable.${retryHint || ' Please try again in a moment.'}`
     case 'PROVIDER_ERROR':
       if (looksLikeProviderBilling) {
-        return "We're having trouble connecting to our AI provider right now. We're on it — please try again shortly. Thanks for your patience."
+        return 'Generation is temporarily unavailable. Please try again shortly.'
       }
-      return 'Something hiccupped on our end. Please try again — we appreciate your patience.'
+      return 'Generation failed. Please try again.'
     case 'CONTENT_BLOCKED':
       return 'This prompt or image was blocked by safety filters. Try rewording or using a different reference.'
     case 'INSUFFICIENT_CREDITS':
@@ -159,11 +159,11 @@ function friendlyMessageFor({ code, status, serverMessage, retryAfterSeconds }) 
       // to encourage retry; the message comes straight from the
       // server's structured response which already knows whether to
       // say "try again" or "contact support".
-      return serverMessage || 'Billing provider had a hiccup. Please try again.'
+      return serverMessage || 'Billing request failed. Please try again.'
     case 'PLAN_UPGRADE_REQUIRED':
       return 'This feature is on a higher plan. Upgrade to unlock it.'
     case 'IDEMPOTENT_REQUEST_IN_PROGRESS':
-      return 'Already working on that one — hang tight a second.'
+      return 'Request already in progress. Please wait a moment.'
     case 'BAD_REQUEST':
     case 'VALIDATION_ERROR':
       // Server messages here are usually specific + actionable
@@ -179,11 +179,11 @@ function friendlyMessageFor({ code, status, serverMessage, retryAfterSeconds }) 
     case 'CONFLICT':
       return serverMessage || 'That action conflicts with the current state. Try again.'
     case 'TIMEOUT':
-      return 'That took longer than expected. Please try again — sorry for the wait.'
+      return 'Request timed out. Please try again.'
     default: {
       // Catch upstream-billing wording even when there's no specific code.
       if (looksLikeProviderBilling) {
-        return "We're having trouble connecting to our AI provider right now. We're on it — please try again shortly. Thanks for your patience."
+        return 'Generation is temporarily unavailable. Please try again shortly.'
       }
       // Network-level failure — fetch() itself threw, never reached the
       // server. The browser produces ``TypeError: Failed to fetch`` /
@@ -199,7 +199,7 @@ function friendlyMessageFor({ code, status, serverMessage, retryAfterSeconds }) 
         return "Couldn't reach the server. Check your connection and try again in a moment."
       }
       if (status >= 500) {
-        return "Something on our side broke. We're looking into it — please try again. Thanks for your patience."
+        return 'An error occurred on our end. Please try again.'
       }
       // Last resort — surface the server message only if it's short and
       // doesn't look like internal/debug noise.
@@ -210,7 +210,7 @@ function friendlyMessageFor({ code, status, serverMessage, retryAfterSeconds }) 
       ) {
         return serverMessage
       }
-      return 'Something went wrong. Please try again — thanks for your patience.'
+      return 'Something went wrong. Please try again.'
     }
   }
 }
