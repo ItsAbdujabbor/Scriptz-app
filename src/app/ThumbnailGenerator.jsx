@@ -3682,11 +3682,15 @@ export function ThumbnailGenerator({
 
   // Open the AI region editor pre-loaded with an existing generated
   // thumbnail — invoked from the small pencil button on each card.
-  const openEditorForThumbnail = useCallback((url) => {
-    if (!url) return
-    setEditDialogUrl(url)
-    setShowEditDialog(true)
-  }, [])
+  const openEditorForThumbnail = useCallback(
+    (url) => {
+      if (!url) return
+      if (!requirePremium('edit', 'Edit')) return
+      setEditDialogUrl(url)
+      setShowEditDialog(true)
+    },
+    [requirePremium]
+  )
 
   useEffect(() => {
     const el = composerFooterRef.current
@@ -4745,6 +4749,7 @@ export function ThumbnailGenerator({
   // reads as "fixing THIS one". No double-charge risk — one image out.
   const handleOneClickFixWithImage = useCallback(
     async ({ prompt, imageUrl }) => {
+      if (!requirePremium('one_click_fix', 'One-click fix')) return
       if (!prompt?.trim() || anyJobInFlight) return
       if (submitGuardRef.current) return
       submitGuardRef.current = true
@@ -4805,6 +4810,7 @@ export function ThumbnailGenerator({
       }
     },
     [
+      requirePremium,
       chatMutation,
       conversationId,
       selectedPersonaId,
