@@ -494,7 +494,7 @@ function ThumbBatchCirclePicker({ value, onChange, disabled }) {
             aria-label="Concept count"
             style={popoverStyle}
           >
-            {[1, 2, 3, 4].map((n) => (
+            {[1, 2, 3, 4, 5, 6].map((n) => (
               <button
                 key={n}
                 type="button"
