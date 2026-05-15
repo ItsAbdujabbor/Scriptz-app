@@ -296,12 +296,24 @@ export function ProPricingContent({ onStartTrial }) {
   const ctaLabelFor = (meta) => {
     if (checkoutLoading === meta.tier) return 'Loading…'
     if (isCurrentTier(meta.tier)) return 'Current plan'
+
+    // Show "Scheduled" if this exact slug is the pending next-period change.
+    const slug = `${meta.tier}_${annual ? 'annual' : 'monthly'}`
+    if (subscription?.scheduled_plan_slug === slug) return 'Scheduled ✓'
+
     if (!user) return `Subscribe to ${meta.name}`
+
     const onPaddleSub = hasActiveSub && !subscription?.is_admin_granted
     if (onPaddleSub) {
       const rank = { starter: 0, creator: 1, ultimate: 2 }
-      const isUpgrade = (rank[meta.tier] ?? 0) > (rank[activeTier] ?? 0)
-      return isUpgrade ? `Upgrade to ${meta.name}` : `Switch to ${meta.name}`
+      const targetRank = rank[meta.tier] ?? 0
+      const currentRank = rank[activeTier] ?? 0
+
+      // Same tier — only the billing period differs.
+      if (meta.tier === activeTier) {
+        return annual ? 'Switch to Annual' : 'Switch to Monthly'
+      }
+      return targetRank > currentRank ? `Upgrade to ${meta.name}` : `Downgrade to ${meta.name}`
     }
     return `Subscribe to ${meta.name}`
   }
@@ -327,22 +339,33 @@ export function ProPricingContent({ onStartTrial }) {
       const onPaddleSub = hasActiveSub && !subscription?.is_admin_granted
       if (onPaddleSub) {
         const rank = { starter: 0, creator: 1, ultimate: 2 }
-        const isUpgrade = (rank[meta.tier] ?? 0) > (rank[activeTier] ?? 0)
+        const targetRank = rank[meta.tier] ?? 0
+        const currentRank = rank[activeTier] ?? 0
+        // Same tier: going annual is an upgrade (more value), going monthly is a downgrade.
+        // Higher tier: always immediate. Lower tier: schedule for next period.
+        const isUpgrade =
+          targetRank > currentRank || (meta.tier === activeTier && annual && !isAnnualActive)
         const timing = isUpgrade ? 'immediate' : 'next_period'
         await changePlan(token, { planSlug: slug, timing })
         refreshBillingState(queryClient)
+        if (timing === 'immediate') {
+          // Kick burst polling so the sidebar credit count updates the moment
+          // the Paddle webhook confirms credits have been refreshed.
+          useSubscriptionActivationStore.getState().start()
+        }
         celebrate(
           isUpgrade
             ? {
                 emoji: meta.tier === 'ultimate' ? '👑' : '🚀',
-                title: `Welcome to ${meta.name}!`,
-                subtitle: 'Your new plan is active and credits have been refreshed.',
+                title:
+                  meta.tier === activeTier ? `Switched to Annual!` : `Welcome to ${meta.name}!`,
+                subtitle: 'Your plan is active. Credits will refresh in a moment.',
                 variant: 'celebrate',
               }
             : {
                 emoji: '✅',
                 title: `Scheduled: ${meta.name}`,
-                subtitle: 'Your plan will switch at the end of the current billing period.',
+                subtitle: 'Your plan switches at the end of the current billing period.',
                 variant: 'success',
                 confetti: false,
               }
@@ -446,6 +469,9 @@ export function ProPricingContent({ onStartTrial }) {
           }
           const feats = buildFeatures(planForFeats, annual)
 
+          const slug = `${meta.tier}_${annual ? 'annual' : 'monthly'}`
+          const isScheduled = subscription?.scheduled_plan_slug === slug
+
           return (
             <div key={tier} className={`pro-card${featured ? ' pro-card--featured' : ''}`}>
               {featured ? <span className="pro-card-badge">Most popular</span> : null}
@@ -465,10 +491,10 @@ export function ProPricingContent({ onStartTrial }) {
 
               <button
                 type="button"
-                className={`pro-card-cta${current ? ' pro-card-cta--current' : ''}`}
+                className={`pro-card-cta${current || isScheduled ? ' pro-card-cta--current' : ''}`}
                 onClick={() => handleCta(meta)}
-                disabled={current || loading || checkoutLoading !== null}
-                aria-disabled={current || loading || checkoutLoading !== null}
+                disabled={current || isScheduled || loading || checkoutLoading !== null}
+                aria-disabled={current || isScheduled || loading || checkoutLoading !== null}
               >
                 {loading ? <span className="pro-card-cta-spinner" /> : null}
                 {ctaLabelFor(meta)}

@@ -482,6 +482,15 @@ export function BillingSettingsPanel({ active, onClose }) {
           </div>
         </div>
 
+        {/* Scheduled plan change (next-period downgrade or billing switch) */}
+        {subscription.scheduled_plan_slug && subscription.scheduled_effective_at ? (
+          <p className="bp-footnote bp-footnote--info">
+            Scheduled:{' '}
+            <strong>{subscription.scheduled_plan_name || subscription.scheduled_plan_slug}</strong>{' '}
+            plan takes effect on <strong>{fmtDate(subscription.scheduled_effective_at)}</strong>.
+          </p>
+        ) : null}
+
         {/* Cancel control — hidden for admin-granted subs because
             POST /api/billing/cancel returns 409 ADMIN_GRANTED_NO_CANCEL
             for them (their plan isn't on Paddle, so there's nothing to
