@@ -268,6 +268,9 @@ export function BillingSettingsPanel({ active, onClose }) {
       .filter((e) => INVOICE_KINDS.has(e.kind))
       .slice(0, 12)
       .map((e) => {
+        // amount_usd is annotated server-side from plan/pack prices.
+        // Fall back to nextAmount for subscription_grant if the server
+        // didn't supply it (e.g. old cached response).
         let amount = e.amount_usd != null ? Number(e.amount_usd) : null
         if (amount == null && e.kind === 'subscription_grant' && nextAmount != null) {
           amount = nextAmount
@@ -358,6 +361,8 @@ export function BillingSettingsPanel({ active, onClose }) {
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.billing.subscription })
     queryClient.invalidateQueries({ queryKey: queryKeys.billing.credits })
+    queryClient.invalidateQueries({ queryKey: queryKeys.billing.ledger })
+    queryClient.invalidateQueries({ queryKey: queryKeys.billing.paymentMethod })
   }
 
   return (
@@ -453,7 +458,16 @@ export function BillingSettingsPanel({ active, onClose }) {
             >
               Update card
             </a>
-          ) : null}
+          ) : (
+            <button
+              type="button"
+              className="bp-btn bp-btn--outline"
+              disabled
+              title="Payment management unavailable for this plan type"
+            >
+              Update card
+            </button>
+          )}
         </div>
 
         <div className="bp-grid-2">
