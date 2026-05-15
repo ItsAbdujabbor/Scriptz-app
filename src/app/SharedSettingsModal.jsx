@@ -27,8 +27,16 @@ export function SharedSettingsModal({ open, onClose, onLogout }) {
   // "Reset my data" clears server state + every cached artifact: React
   // Query entries, persona/style selection, onboarding prefs, sidebar
   // UI state. Auth session preserved.
+  // After clearing we reload the page with a clean URL so no stale React
+  // state, Zustand state, or hash-embedded conversation IDs survive.
   const clearLocalData = useCallback(() => {
     resetClientCachesForDataDelete()
+    // Strip the hash (which may carry a now-deleted conversation id) and
+    // reload so the app boots into a genuinely blank slate — no ghost
+    // conversations, personas, or styles cached anywhere.
+    setTimeout(() => {
+      window.location.replace(window.location.pathname + window.location.search)
+    }, 50)
   }, [])
 
   const handleLogout = useCallback(async () => {
