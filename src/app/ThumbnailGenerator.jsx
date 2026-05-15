@@ -5152,21 +5152,32 @@ export function ThumbnailGenerator({
         video_title: titleTrim || undefined,
         pending_message_id: assistantServerId ?? undefined,
       })
-      // Prime the per-image rating cache so the analyze card's
-      // ScorePill resolves instantly from cache instead of firing a
-      // second /rate (which would double-charge credits).
+      // For base64 uploads persistableUrl is null (data: URLs can't be
+      // stored). The rating response carries thumbnail_image_url — the
+      // S3 URL the backend uploaded the image to — which IS durable and
+      // can be persisted so the card survives a page refresh.
+      const storedImageUrl = persistableUrl || rating.thumbnail_image_url || null
+      // Prime the per-image rating cache keyed by BOTH the original
+      // imageUrl (used during this session) and storedImageUrl (used
+      // after a refresh, where msg.imageUrl = storedImageUrl). Without
+      // the second seed the refreshed card fires a redundant /rate call.
       seedThumbnailRating(queryClient, imageUrl, rating)
+      if (storedImageUrl && storedImageUrl !== imageUrl) {
+        seedThumbnailRating(queryClient, storedImageUrl, rating)
+      }
       // Patch the SAME local entry — no remount, smooth in-place
       // loader → analysis crossfade driven by AnimatePresence inside
-      // ChatMessageItem.
+      // ChatMessageItem. Also update imageUrl to the durable S3 URL so
+      // the card keeps its image even if the data: URL is GC'd.
       patchLocalAssistantMessage(localIds.assistantId, {
         analysis: rating,
         _analyzePending: false,
+        imageUrl: storedImageUrl,
       })
       resolved = true
       await finalizePersistedEvent(assistantServerId, {
-        image_url: persistableUrl,
-        user_image_url: persistableUrl,
+        image_url: storedImageUrl,
+        user_image_url: storedImageUrl,
         analysis: rating,
       })
     } catch (err) {
