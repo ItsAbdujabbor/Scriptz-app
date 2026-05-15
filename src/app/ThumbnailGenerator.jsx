@@ -1550,7 +1550,6 @@ const AnalyzeLoaderCard = memo(function AnalyzeLoaderCard({ imageUrl }) {
  * percentage text, no progress bar — the shimmer alone reads as
  * "thinking" and keeps the surface calm.
  */
-// Per-card width variation so no two cards look identical while generating
 const GEN_TITLE_WIDTHS = [72, 65, 78, 60, 74, 68, 56, 70, 63, 76, 58, 67]
 const GEN_REASON_WIDTHS = [48, 55, 40, 52, 44, 58, 50, 38, 54, 46, 61, 42]
 
@@ -1564,24 +1563,17 @@ const TitlesLoader = memo(function TitlesLoader({ count = 4 }) {
             key={i}
             className="thumb-title-card thumb-title-card--gen"
             style={{
-              '--card-i': i,
               '--title-w': `${GEN_TITLE_WIDTHS[i % GEN_TITLE_WIDTHS.length]}%`,
               '--reason-w': `${GEN_REASON_WIDTHS[i % GEN_REASON_WIDTHS.length]}%`,
-              animationDelay: `${i * 75}ms`,
+              animationDelay: `${i * 70}ms`,
             }}
             aria-hidden
           >
-            {/* Glowing left accent bar — pulses per card */}
-            <span className="thumb-title-card__gen-accent" />
-            {/* Number bubble */}
             <span className="thumb-title-card__index thumb-title-card__index--gen">{i + 1}</span>
-            {/* Body: animated write beams + score pill */}
             <span className="thumb-title-card__body">
-              <span className="thumb-title-card__gen-title-beam" />
-              <span className="thumb-title-card__gen-reason-beam" />
-              <span className="thumb-title-card__gen-score-pill" />
+              <span className="thumb-title-card__gen-line thumb-title-card__gen-line--title" />
+              <span className="thumb-title-card__gen-line thumb-title-card__gen-line--reason" />
             </span>
-            {/* Ghost action buttons */}
             <span className="thumb-title-card__gen-actions">
               <span className="thumb-title-card__gen-btn" />
               <span className="thumb-title-card__gen-btn thumb-title-card__gen-btn--primary" />

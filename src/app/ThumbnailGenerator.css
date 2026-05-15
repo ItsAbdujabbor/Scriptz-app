@@ -4304,16 +4304,6 @@
  * is thinking. No percentage chrome, no progress bar — the shimmer
  * alone reads as activity and keeps the surface calm. ──────────── */
 
-/* ── Generating-state cards ──────────────────────────────────────────
- * Same card shell as the result cards. Each card has its own internal
- * animation: a "write beam" that sweeps the title line from left to
- * right (like text being typed), a slower reason beam below, a
- * breathing score pill, ghost action buttons, and a glowing left
- * accent bar. CSS custom properties (--card-i, --title-w, --reason-w)
- * are injected per card so every row has unique widths and staggered
- * timing with no JS timer logic needed.
- * ─────────────────────────────────────────────────────────────────── */
-
 .thumb-titles-loader {
   width: 100%;
   max-width: 720px;
@@ -4321,190 +4311,59 @@
   margin-right: auto;
 }
 
-/* ─── Card modifier ──────────────────────────────────────────────── */
+/* ── Generating-state card modifier ──────────────────────────────── */
 
 .thumb-title-card--gen {
   cursor: default;
   pointer-events: none;
-  /* Card scans with a subtle diagonal highlight as it generates */
-  overflow: hidden;
+  animation:
+    thumb-title-card-in 0.52s cubic-bezier(0.22, 1, 0.36, 1) both,
+    thumb-gen-card-pulse 3s ease-in-out 0.6s infinite;
 }
 
-/* Diagonal light sweep across each card — very subtle, timed per card */
-.thumb-title-card--gen::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    108deg,
-    transparent 0%,
-    transparent 38%,
-    rgba(167, 139, 250, 0.055) 50%,
-    transparent 62%,
-    transparent 100%
-  );
-  background-size: 220% 100%;
-  animation: thumb-gen-card-scan 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  animation-delay: calc(var(--card-i, 0) * 0.18s);
-  border-radius: inherit;
-  pointer-events: none;
+.thumb-title-card--gen:hover {
+  transform: none;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 6px 20px rgba(0, 0, 0, 0.28);
 }
 
-@keyframes thumb-gen-card-scan {
-  0% {
-    background-position: 160% 0;
-  }
-  65%,
-  100% {
-    background-position: -60% 0;
-  }
-}
-
-/* ─── Left accent bar ────────────────────────────────────────────── */
-
-/* Positioned absolutely on the card's left edge; pulses in sync with
-   the write cycle so it brightens as the title beam draws. */
-.thumb-title-card__gen-accent {
-  position: absolute;
-  left: 0;
-  top: 10px;
-  bottom: 10px;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: linear-gradient(180deg, #c4b5fd 0%, #7c3aed 100%);
-  animation: thumb-gen-accent-pulse 2.6s ease-in-out infinite;
-  animation-delay: calc(var(--card-i, 0) * 0.18s);
-}
-
-@keyframes thumb-gen-accent-pulse {
+/* Single slow pulse on the border — the only animation on the card */
+@keyframes thumb-gen-card-pulse {
   0%,
   100% {
-    opacity: 0.22;
-    box-shadow: none;
-  }
-  45%,
-  60% {
-    opacity: 1;
-    box-shadow: 0 0 10px 3px rgba(124, 58, 237, 0.55);
-  }
-}
-
-/* ─── Index bubble ───────────────────────────────────────────────── */
-
-.thumb-title-card__index--gen {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.28);
-  animation: thumb-gen-index-pulse 2.6s ease-in-out infinite;
-  animation-delay: calc(var(--card-i, 0) * 0.18s);
-}
-
-@keyframes thumb-gen-index-pulse {
-  0%,
-  100% {
-    opacity: 0.4;
+    border-color: rgba(255, 255, 255, 0.08);
   }
   50% {
-    opacity: 1;
+    border-color: rgba(167, 139, 250, 0.3);
   }
 }
 
-/* ─── Write beams ────────────────────────────────────────────────── */
+/* Index bubble — dimmed, no animation */
+.thumb-title-card__index--gen {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.22);
+}
 
-/* Title beam — grows from left (0) to var(--title-w) like text being
-   typed. The background encodes a "cursor tip": bright right edge that
-   travels with the beam as it expands. */
-.thumb-title-card__gen-title-beam {
+/* Placeholder lines — static, no shimmer */
+.thumb-title-card__gen-line {
   display: block;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.thumb-title-card__gen-line--title {
   height: 0.92rem;
   width: var(--title-w, 70%);
-  border-radius: 5px;
-  transform-origin: left center;
-  background: linear-gradient(
-    90deg,
-    rgba(124, 58, 237, 0.12) 0%,
-    rgba(167, 139, 250, 0.24) 70%,
-    rgba(196, 181, 253, 0.82) 88%,
-    rgba(237, 233, 254, 0.95) 100%
-  );
-  animation: thumb-gen-beam-write 2.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
-  animation-delay: calc(var(--card-i, 0) * 0.18s);
 }
 
-/* Reason beam — narrower, delayed so it starts after the title beam
-   has reached about halfway across its width. */
-.thumb-title-card__gen-reason-beam {
-  display: block;
-  height: 0.7rem;
+.thumb-title-card__gen-line--reason {
+  height: 0.68rem;
   width: var(--reason-w, 48%);
-  border-radius: 4px;
-  transform-origin: left center;
-  background: linear-gradient(
-    90deg,
-    rgba(124, 58, 237, 0.08) 0%,
-    rgba(167, 139, 250, 0.17) 70%,
-    rgba(196, 181, 253, 0.6) 90%,
-    rgba(237, 233, 254, 0.75) 100%
-  );
-  animation: thumb-gen-beam-write 2.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
-  /* Reason starts 0.45 s after the title beam within this card's cycle */
-  animation-delay: calc(var(--card-i, 0) * 0.18s + 0.45s);
 }
 
-/* Both beams share the same write keyframe: expand from nothing, hold,
-   erase, pause — then repeat. The leading-edge glow (bright right stop
-   in the background gradient) naturally moves as the beam grows. */
-@keyframes thumb-gen-beam-write {
-  0% {
-    transform: scaleX(0.03);
-    opacity: 0;
-  }
-  6% {
-    opacity: 1;
-  }
-  55% {
-    transform: scaleX(1);
-    opacity: 1;
-  }
-  70% {
-    transform: scaleX(1);
-    opacity: 0.85;
-  }
-  84% {
-    transform: scaleX(0.03);
-    opacity: 0;
-  }
-  100% {
-    transform: scaleX(0.03);
-    opacity: 0;
-  }
-}
-
-/* ─── Score pill ghost ───────────────────────────────────────────── */
-
-.thumb-title-card__gen-score-pill {
-  display: block;
-  align-self: flex-start;
-  width: 44px;
-  height: 18px;
-  margin-top: 4px;
-  border-radius: 999px;
-  background: rgba(167, 139, 250, 0.14);
-  animation: thumb-gen-pill-breathe 2.6s ease-in-out infinite;
-  animation-delay: calc(var(--card-i, 0) * 0.18s + 0.7s);
-}
-
-@keyframes thumb-gen-pill-breathe {
-  0%,
-  100% {
-    opacity: 0.25;
-  }
-  55% {
-    opacity: 0.72;
-  }
-}
-
-/* ─── Ghost action buttons ───────────────────────────────────────── */
-
+/* Ghost action buttons — static */
 .thumb-title-card__gen-actions {
   display: inline-flex;
   align-items: center;
@@ -4519,25 +4378,13 @@
   height: 30px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  animation: thumb-gen-btn-breathe 2.6s ease-in-out infinite;
-  animation-delay: calc(var(--card-i, 0) * 0.18s + 0.55s);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .thumb-title-card__gen-btn--primary {
   width: 84px;
-  background: rgba(124, 58, 237, 0.1);
-  border-color: rgba(124, 58, 237, 0.18);
-}
-
-@keyframes thumb-gen-btn-breathe {
-  0%,
-  100% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 0.65;
-  }
+  background: rgba(124, 58, 237, 0.08);
+  border-color: rgba(124, 58, 237, 0.14);
 }
 
 @keyframes thumb-title-score-pop {
