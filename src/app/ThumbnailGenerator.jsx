@@ -967,14 +967,24 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
 
   const handleDislikeCancel = useCallback(() => setShowDislikeDialog(false), [])
 
-  const handleDownload = useCallback(() => {
+  const handleDownload = useCallback(async () => {
     const url = t?.image_url
     if (!url) return
     const num = typeof index === 'number' ? index + 1 : 1
     const filename = `clixa-ai-thumbnail-${num}.png`
 
-    // Data URLs (base64 fallback when S3 upload failed): convert to blob
-    // client-side so the proxy is never called with a non-http URL.
+    const triggerBlobDownload = (blob) => {
+      const blobUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 2000)
+    }
+
+    // Data URLs (base64 fallback when S3 upload failed): decode client-side.
     if (url.startsWith('data:')) {
       try {
         const [header, b64] = url.split(',')
@@ -982,32 +992,33 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
         const binary = atob(b64)
         const bytes = new Uint8Array(binary.length)
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-        const blob = new Blob([bytes], { type: mime })
-        const blobUrl = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = blobUrl
-        a.download = filename
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000)
+        triggerBlobDownload(new Blob([bytes], { type: mime }))
       } catch {
         toast.error('Could not download this thumbnail')
       }
       return
     }
 
-    // For CloudFront / S3 URLs: route through the backend proxy which adds
-    // Content-Disposition: attachment and follows any redirects server-side.
-    const proxyUrl =
-      `/api/thumbnails/download?` +
-      `url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`
-    const a = document.createElement('a')
-    a.href = proxyUrl
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    // CloudFront / S3 URLs: fetch via the backend proxy WITH the Bearer token
+    // (a plain <a href> click sends no Authorization header → 401 response
+    // saved as a PNG → corrupted file).
+    try {
+      const token = await getAccessTokenOrNull()
+      if (!token) {
+        toast.error('Please sign in to download')
+        return
+      }
+      const proxyUrl =
+        `/api/thumbnails/download?` +
+        `url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`
+      const resp = await fetch(proxyUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      triggerBlobDownload(await resp.blob())
+    } catch {
+      toast.error('Download failed — please try again')
+    }
   }, [t?.image_url, index])
 
   // The score pill mounts whenever there's *something* to show — a real
