@@ -1589,45 +1589,32 @@ const ChatMessageItem = memo(function ChatMessageItem({
            * flows have their own pending UI elsewhere in this card
            * (`_promptPending` block above), so the analyze swap
            * machinery is irrelevant. */}
-          {msg._analyzePending || (msg.analysis && msg.imageUrl) ? (
-            <motion.div
-              layout
-              transition={{ duration: 0.42, ease: IOS_EASE }}
-              style={{ width: '100%' }}
-            >
-              <AnimatePresence mode="wait" initial={false}>
-                {msg._analyzePending ? (
-                  <motion.div
-                    key="analyze-image-loader"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0, transition: { duration: 0.28, ease: IOS_EASE } }}
-                    transition={{ duration: 0.36, ease: IOS_EASE }}
-                  >
-                    <AnalyzeLoaderCard imageUrl={msg.imageUrl} />
-                  </motion.div>
-                ) : msg.imageUrl ? (
-                  <motion.div
-                    key="analyze-image-result"
-                    initial={{ opacity: 0, scale: 0.97 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.52, ease: IOS_EASE, delay: 0.06 }}
-                  >
-                    <ThumbnailImageBlock
-                      imageUrl={msg.imageUrl}
-                      userRequest={msg.userRequest}
-                      msgId={msg.id}
-                      onReplaceThumbnail={onReplaceThumbnail}
-                      onRegenerate={onRegenerate}
-                      onViewImage={onViewImage}
-                      onEditImage={onEditImage}
-                      canRegenerate
-                    />
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
-            </motion.div>
-          ) : msg.imageUrl ? (
+          {/* Analyze: show the scanning loader while pending so the user can
+               see which thumbnail is being rated. When the result lands,
+               the loader fades out and AnalysisBreakdown (below) reveals —
+               we intentionally do NOT re-show the thumbnail image here to
+               avoid duplicating the card already visible in the generation
+               message above. The score badge on that card updates
+               automatically via the seedThumbnailRating cache prime. */}
+          <AnimatePresence>
+            {msg._analyzePending && (
+              <motion.div
+                key="analyze-image-loader"
+                layout
+                style={{ width: '100%' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, transition: { duration: 0.28, ease: IOS_EASE } }}
+                transition={{ duration: 0.36, ease: IOS_EASE }}
+              >
+                <AnalyzeLoaderCard imageUrl={msg.imageUrl} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {/* Recreate / edit / faceswap results: show the returned image.
+               Analyze results (msg.analysis truthy) skip this block — the
+               thumbnail is already visible in the generation card above. */}
+          {!msg._analyzePending && msg.imageUrl && !msg.analysis && (
             <ThumbnailImageBlock
               imageUrl={msg.imageUrl}
               userRequest={msg.userRequest}
@@ -1638,7 +1625,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
               onEditImage={onEditImage}
               canRegenerate
             />
-          ) : null}
+          )}
           {/* Prompt / recreate in-place pending: when the placeholder is
            * pushed with `_promptPending: true`, render the existing
            * <ThumbnailGenFill> loader inside the SAME mounted card. When
