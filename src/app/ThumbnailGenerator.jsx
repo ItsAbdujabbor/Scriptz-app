@@ -1435,7 +1435,7 @@ function TitleIdeasBlock({ titles, onUseTitle }) {
             <div
               key={`${i}-${title}`}
               className="thumb-title-card"
-              style={{ animationDelay: `${Math.min(i * 32, 600)}ms` }}
+              style={{ animationDelay: `${Math.min(i * 60, 780)}ms` }}
             >
               <span className="thumb-title-card__index">{i + 1}</span>
               <span className="thumb-title-card__body">
@@ -1724,20 +1724,20 @@ const ChatMessageItem = memo(function ChatMessageItem({
                 {msg._titlesPending ? (
                   <motion.div
                     key="titles-loader"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.18, ease: IOS_EASE }}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                    transition={{ duration: 0.26, ease: IOS_EASE }}
                   >
                     <TitlesLoader count={msg.titleIdeasCount || 4} />
                   </motion.div>
                 ) : msg.titleIdeas?.length > 0 ? (
                   <motion.div
                     key="titles-populated"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.22, ease: IOS_EASE }}
+                    transition={{ duration: 0.32, ease: IOS_EASE }}
                   >
                     <TitleIdeasBlock titles={msg.titleIdeas} onUseTitle={onUseTitle} />
                   </motion.div>
