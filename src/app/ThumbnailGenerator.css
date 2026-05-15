@@ -2871,15 +2871,8 @@
 
 /* ── Expandable user bubble ──────────────────────────────────────────────── */
 
-/* Body wrapper — clamps height; transition is added via --animate class so
-   the initial snap to collapsed height is instant (no visible animation). */
-#coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw-body {
+#coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw {
   position: relative;
-  overflow: hidden;
-}
-
-#coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw-body--animate {
-  transition: height 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 #coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw-text {
@@ -2888,70 +2881,49 @@
   word-break: break-word;
 }
 
-/* Deep-purple veil — matches the bubble's bottom gradient colour so the fade
-   reads as the bubble itself tapering off rather than an opaque overlay.
-   Opacity transitions out smoothly when the message expands. */
+#coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw-text--clamped {
+  max-height: calc(10 * 1.55 * 0.95rem);
+  overflow: hidden;
+}
+
+/* Deep-purple fade veil — sits at the bottom of the clamped text, same angle
+   as the bubble gradient so it reads as a seamless colour fade, not an overlay. */
 #coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw-veil {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 5rem;
+  height: 4rem;
   background: linear-gradient(
     to bottom,
     transparent 0%,
-    rgba(86, 28, 175, 0.78) 52%,
-    rgba(72, 16, 155, 0.97) 100%
+    rgba(91, 33, 182, 0.72) 55%,
+    rgba(76, 20, 160, 0.96) 100%
   );
   pointer-events: none;
-  transition: opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  border-radius: 0 0 2px 14px;
 }
 
-/* Pill toggle — sits outside the overflow:hidden body so it's always visible */
+/* Show more / Show less toggle */
 #coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  margin-top: 0.42rem;
-  padding: 0.22rem 0.6rem 0.22rem 0.5rem;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(196, 181, 253, 0.28);
-  border-radius: 999px;
+  display: block;
+  margin-top: 0.45rem;
+  padding: 0;
+  background: none;
+  border: none;
   cursor: pointer;
-  font-size: 0.71rem;
+  font-size: 0.76rem;
   font-weight: 600;
-  letter-spacing: 0.025em;
-  color: rgba(233, 213, 255, 0.82);
-  line-height: 1;
+  letter-spacing: 0.01em;
+  color: rgba(233, 213, 255, 0.85);
   transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease;
-  user-select: none;
+    color 0.15s ease,
+    opacity 0.15s ease;
+  line-height: 1;
 }
 
 #coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw-toggle:hover {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(196, 181, 253, 0.5);
-  color: #fff;
-}
-
-#coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw-toggle:active {
-  background: rgba(255, 255, 255, 0.24);
-}
-
-/* Chevron rotates 180° when open */
-#coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--user .thumb-ubw-chevron {
-  transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
-  flex-shrink: 0;
-}
-
-#coach-panel-thumbnails
-  .coach-thread--thumb-panel
-  .coach-message--user
-  .thumb-ubw-toggle--open
-  .thumb-ubw-chevron {
-  transform: rotate(180deg);
+  color: #ffffff;
 }
 
 /* Stack gap for user messages — between the optional reference image and

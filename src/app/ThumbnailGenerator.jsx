@@ -4,7 +4,6 @@ import { createPortal } from 'react-dom'
 import {
   ArrowUp as LucideArrowUp,
   Check as LucideCheck,
-  ChevronDown as LucideChevronDown,
   CloudUpload as LucideUploadCloud,
   Copy as LucideCopy,
   Download as LucideDownload,
@@ -1784,65 +1783,41 @@ function TitleIdeasBlock({ titles, onUseTitle }) {
  * thread updates — the rest stays painted.
  */
 
-// 10 lines × line-height 1.55 × font-size 0.95rem ≈ 14.7rem
-const UBW_LINE_HEIGHT = 1.55
-const UBW_FONT_REM = 0.95
-const UBW_MAX_LINES = 10
+// 10 lines × line-height 1.55 × font-size 0.95rem = ~14.7rem
+const USER_BUBBLE_LINE_HEIGHT = 1.55
+const USER_BUBBLE_FONT_SIZE_REM = 0.95
+const USER_BUBBLE_MAX_LINES = 10
+const USER_BUBBLE_MAX_HEIGHT_REM =
+  USER_BUBBLE_MAX_LINES * USER_BUBBLE_LINE_HEIGHT * USER_BUBBLE_FONT_SIZE_REM
 
 function ExpandableUserMessage({ text }) {
   const [expanded, setExpanded] = useState(false)
-  // null = short message (no clamp needed); { full, clamped } = heights in px
-  const [heights, setHeights] = useState(null)
-  // animReady must be state (not ref) because it's read during render.
-  // Starts false so the first height snap is instant; flips true one rAF later.
-  const [animReady, setAnimReady] = useState(false)
+  const [needsClamp, setNeedsClamp] = useState(false)
   const textRef = useRef(null)
 
   useLayoutEffect(() => {
     const el = textRef.current
     if (!el) return
-    const rootFs = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-    const clampPx = UBW_MAX_LINES * UBW_LINE_HEIGHT * UBW_FONT_REM * rootFs
-    const fullPx = el.scrollHeight
-    if (fullPx > clampPx + 4) {
-      setHeights({ full: fullPx, clamped: Math.round(clampPx) })
-    } else {
-      setHeights(null)
-    }
+    // Temporarily remove max-height so we can measure full scrollHeight
+    el.style.maxHeight = 'none'
+    const full = el.scrollHeight
+    el.style.maxHeight = ''
+    const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+    const clampPx = USER_BUBBLE_MAX_HEIGHT_REM * rootFontSize
+    setNeedsClamp(full > clampPx + 4)
   }, [text])
 
-  // Enable CSS transition one frame after the initial height snap so we never
-  // animate the first collapse (which would look like content jumping).
-  useEffect(() => {
-    if (!heights) return
-    const id = requestAnimationFrame(() => setAnimReady(true))
-    return () => cancelAnimationFrame(id)
-  }, [heights])
-
-  const needsClamp = heights !== null
-  const currentH = needsClamp ? (expanded ? heights.full : heights.clamped) : undefined
+  const isClamped = needsClamp && !expanded
 
   return (
     <div className="thumb-ubw">
-      <div
-        className={`thumb-ubw-body${needsClamp && animReady ? ' thumb-ubw-body--animate' : ''}`}
-        style={needsClamp ? { height: currentH } : undefined}
-      >
-        <p ref={textRef} className="thumb-ubw-text">
-          {text}
-        </p>
-        {needsClamp && (
-          <div className="thumb-ubw-veil" style={{ opacity: expanded ? 0 : 1 }} aria-hidden />
-        )}
-      </div>
+      <p ref={textRef} className={`thumb-ubw-text${isClamped ? ' thumb-ubw-text--clamped' : ''}`}>
+        {text}
+      </p>
+      {isClamped && <div className="thumb-ubw-veil" aria-hidden />}
       {needsClamp && (
-        <button
-          type="button"
-          className={`thumb-ubw-toggle${expanded ? ' thumb-ubw-toggle--open' : ''}`}
-          onClick={() => setExpanded((e) => !e)}
-        >
-          <LucideChevronDown size={11} strokeWidth={2.8} className="thumb-ubw-chevron" />
-          <span>{expanded ? 'Show less' : 'Show more'}</span>
+        <button type="button" className="thumb-ubw-toggle" onClick={() => setExpanded((e) => !e)}>
+          {expanded ? 'Show less ↑' : 'Show more ↓'}
         </button>
       )}
     </div>
