@@ -165,10 +165,18 @@ function friendlyMessageFor({ code, status, serverMessage, retryAfterSeconds }) 
     case 'IDEMPOTENT_REQUEST_IN_PROGRESS':
       return 'Request already in progress. Please wait a moment.'
     case 'BAD_REQUEST':
-    case 'VALIDATION_ERROR':
-      // Server messages here are usually specific + actionable
-      // (e.g. "title too long"). Surface them directly.
+    case 'VALIDATION_ERROR': {
+      // Intercept known opaque provider errors that aren't actionable for users.
+      const rawLower = (serverMessage || '').toLowerCase()
+      if (rawLower.includes('invalid_mask_image_format') || rawLower.includes('mask size')) {
+        return 'Edit failed — something went wrong with the selection mask. Please try drawing the region again.'
+      }
+      if (rawLower.includes('image rejected') || rawLower.includes('image_generation_user_error')) {
+        return 'The image could not be edited. Try a different prompt or draw a smaller region.'
+      }
+      // Server messages here are usually specific + actionable (e.g. "title too long").
       return serverMessage || 'That input looks off — please double-check and try again.'
+    }
     case 'UNAUTHORIZED':
     case 'TOKEN_EXPIRED':
       return 'Your session expired. Please reload and sign in again.'

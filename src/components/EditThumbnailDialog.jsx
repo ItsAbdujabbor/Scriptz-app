@@ -991,7 +991,10 @@ export function EditThumbnailDialog({
     const ctx = canvas.getContext('2d')
     const scale = canvas.width / canvas.getBoundingClientRect().width
     const effectiveSize = brushSize * scale
-    const rgba = hexToRgba(color, 0.48)
+    // Paint at full alpha so the export mask is clean and the strokes don't
+    // compound opacity when painted over each other. CSS opacity on the
+    // canvas element provides the visual transparency without accumulation.
+    const rgba = hexToRgba(color, 1)
     baseSnapshotRef.current = snapshotCanvas()
     drawingRef.current = {
       tool,
@@ -1563,10 +1566,11 @@ export function EditThumbnailDialog({
               width: '100%',
               height: '100%',
               borderRadius: 16,
-              // Each stroke is painted at 0.48 alpha so the thumbnail stays
-              // visible through the overlay — colors are vibrant but not
-              // opaque. CSS opacity stays at 1 so strokes don't double-fade.
-              opacity: 1,
+              // Strokes are painted at alpha=1 for a clean export mask.
+              // CSS opacity 0.38 makes the whole overlay transparent so the
+              // thumbnail shows through without strokes accumulating darker
+              // when painted over multiple times.
+              opacity: 0.38,
               cursor: busy
                 ? 'default'
                 : tool === 'brush' || tool === 'eraser'
@@ -1592,7 +1596,7 @@ export function EditThumbnailDialog({
               width: '100%',
               height: '100%',
               borderRadius: 16,
-              opacity: 1,
+              opacity: 0.38,
               pointerEvents: 'none',
             }}
           />
@@ -1960,9 +1964,10 @@ export function EditThumbnailDialog({
           </p>
         )}
 
-        {/* Input area — only mounted in Edit mode; face-swap mode
-         * has no prompt textarea, just the persona pill + Generate
-         * button rendered by `<FaceSwapPanel>` above. */}
+        {/* Input area — only mounted in Edit mode. Styled to match the main
+         * thumbnail-generator composer: dark pill, textarea row, then a
+         * bottom action row with a compact batch picker on the left and the
+         * send button on the right. */}
         {mode === 'edit' && (
           <div
             className="etd-input-card"
@@ -1972,15 +1977,17 @@ export function EditThumbnailDialog({
               maxWidth: 720,
               display: 'flex',
               flexDirection: 'column',
-              gap: 6,
-              padding: '12px 14px',
+              gap: 0,
+              padding: '10px 14px 10px 16px',
               borderRadius: 22,
               background: '#1c1c24',
               border: '1px solid rgba(255, 255, 255, 0.14)',
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 16px rgba(0, 0, 0, 0.35)',
               animation: 'etd-fade-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) both',
+              boxSizing: 'border-box',
             }}
           >
+            {/* Textarea row */}
             <textarea
               ref={editTextareaRef}
               className="etd-input-textarea"
@@ -2001,28 +2008,35 @@ export function EditThumbnailDialog({
               }}
               style={{
                 width: '100%',
-                padding: '4px 2px',
-                fontSize: '0.92rem',
+                padding: '2px 0 8px',
+                fontSize: '0.93rem',
                 fontFamily: 'inherit',
-                color: 'rgba(255,255,255,0.95)',
+                color: 'rgba(255,255,255,0.92)',
                 background: 'transparent',
                 border: 'none',
                 outline: 'none',
-                lineHeight: 1.5,
+                lineHeight: 1.55,
                 resize: 'none',
-                minHeight: '2.6em',
+                minHeight: '2.2em',
                 maxHeight: '7em',
                 overflowY: 'auto',
                 boxSizing: 'border-box',
               }}
             />
+            {/* Bottom action row — batch picker left, send right */}
             <div
               className="etd-input-actions"
-              style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8,
+                paddingTop: 4,
+                borderTop: '1px solid rgba(255,255,255,0.06)',
+                marginTop: 2,
+              }}
             >
-              <div style={{ flex: 1 }}>
-                <BatchRowBtn value={batch} onChange={setBatch} disabled={busy} />
-              </div>
+              <BatchPicker value={batch} onChange={setBatch} disabled={busy} />
               <PrimaryActionBtn
                 onClick={handleSubmit}
                 disabled={!canSubmit}
