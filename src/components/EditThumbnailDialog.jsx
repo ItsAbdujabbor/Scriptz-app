@@ -21,6 +21,7 @@
  * work with.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   Square as LucideSquare,
@@ -760,24 +761,30 @@ export function EditThumbnailDialog({
         if (!canvas) return
         const naturalW = img.naturalWidth || img.width || 1536
         const naturalH = img.naturalHeight || img.height || 864
-        // Drive the stage's CSS aspect-ratio from the actual image so
-        // the card snaps from landscape (16:9) to portrait (9:16) to
-        // square cleanly — no letterboxing, no cropping.
-        setImageAspect(naturalW / naturalH)
-        // Match canvas intrinsic size to display pixels × DPR so strokes
-        // render at native sharpness with no downscaling blur.
+        // Force the stage to adopt the correct aspect-ratio BEFORE we measure it.
+        // Without flushSync, setImageAspect batches a React state update that
+        // hasn't been committed to the DOM yet — so getBoundingClientRect would
+        // return the old (wrong) stage dimensions, sizing the canvas incorrectly
+        // and causing a stretched / blurry mask.
+        flushSync(() => setImageAspect(naturalW / naturalH))
+        // Now measure the stage at its true rendered size.
         const stage = stageRef.current
         const stageRect = stage ? stage.getBoundingClientRect() : { width: 0, height: 0 }
         const dpr = Math.max(1, Math.round(window.devicePixelRatio || 1))
         dprRef.current = dpr
+        // Use measured width AND height so sub-pixel aspect-ratio rounding in
+        // the CSS engine doesn't introduce a 1-pixel stretch artefact.
         const cssW = stageRect.width > 10 ? stageRect.width : Math.min(1040, window.innerWidth - 44)
-        const cssH = Math.round(cssW * (naturalH / naturalW))
+        const cssH =
+          stageRect.height > 10 ? stageRect.height : Math.round(cssW * (naturalH / naturalW))
         const w = Math.max(1, Math.round(cssW * dpr))
         const h = Math.max(1, Math.round(cssH * dpr))
-        setCanvasDims({ w, h })
+        setCanvasDims({ w: Math.round(cssW), h: Math.round(cssH) })
         canvas.width = w
         canvas.height = h
-        canvas.getContext('2d').clearRect(0, 0, w, h)
+        // willReadFrequently opts into a CPU-readable backing store so getImageData
+        // (marching-ants contour + undo snapshots) avoids a GPU→CPU round-trip.
+        canvas.getContext('2d', { willReadFrequently: true }).clearRect(0, 0, w, h)
         if (overlay) {
           overlay.width = w
           overlay.height = h
@@ -1275,23 +1282,10 @@ export function EditThumbnailDialog({
     baseSnapshotRef.current = null
     if (snap) pushUndoPromise(imageDataToBlobPromise(snap))
     setHasDrawn(true)
-
-    // Binarize the alpha channel after every stroke commit: pixels that were
-    // anti-aliased by the canvas renderer (partial alpha) snap to either fully
-    // opaque (α > 64 → 255) or fully transparent (α ≤ 64 → 0). This makes
-    // stroke edges crisp and pixel-exact instead of feathered.
-    const maskCanvas = maskCanvasRef.current
-    if (maskCanvas) {
-      const mctx = maskCanvas.getContext('2d')
-      const id = mctx.getImageData(0, 0, maskCanvas.width, maskCanvas.height)
-      const d = id.data
-      for (let i = 3; i < d.length; i += 4) {
-        d[i] = d[i] > 64 ? 255 : 0
-      }
-      mctx.putImageData(id, 0, 0)
-    }
-
     // Allow showMarquee then recompute the marching-ants contour.
+    // Binarization (alpha-snap) happens only in exportMaskBase64, which is
+    // what the API receives — keeping the canvas anti-aliased here means
+    // smooth, Photoshop-style edges during real-time drawing.
     isDrawingRef.current = false
     computeAndSetContour()
   }
