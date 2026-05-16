@@ -57,6 +57,7 @@ import FailedGenerationCard from '../components/FailedGenerationCard'
 import { canvasToBase64Png } from '../lib/canvasToBase64'
 import { queryKeys } from '../lib/query/queryKeys'
 import { broadcastCacheEvent } from '../lib/query/broadcastSync'
+import { onShellEvent } from '../lib/shellEvents'
 import './ThumbnailGenerator.css'
 
 // Source-type options for the Recreate / Analyze / Edit tabbars. Icons
@@ -2966,6 +2967,28 @@ export function ThumbnailGenerator({
     // fires after the job completes.
     setPendingAssistant(false)
   }, [conversationId, releaseSubmissionLockImmediate])
+
+  // "New Chat" shell event — fired by the Sidebar whenever the user clicks
+  // the New Chat button. We listen here because `goToThumbnailConversation(null)`
+  // sets `window.location.hash = '#thumbnails'`, but if the hash is ALREADY
+  // '#thumbnails' (brand-new chat still being generated before the server
+  // returns an id), the browser fires NO hashchange event and the parent's
+  // setConversationId never runs — so conversationId stays null while the
+  // in-flight local messages are still visible. Listening to the shell event
+  // is the only way to catch that case and force-reset the chat surface.
+  useEffect(() => {
+    return onShellEvent('newChat', () => {
+      releaseSubmissionLockImmediate()
+      setPendingAssistant(false)
+      sawMessagesRef.current = false
+      setMessages([])
+      setLocalOnlyMessages((prev) => prev.filter((m) => m && m._conversationId != null))
+      setDraft('')
+      setSendError('')
+      setSendErrorMeta(null)
+    })
+  }, [releaseSubmissionLockImmediate])
+
   const chatMutation = useThumbnailChatMutation(handleConversationCreated)
   // (Removed: eager `useCreateThumbnailConversationMutation()` call.
   // The conv is now created exclusively by /chat/submit and the id
