@@ -732,6 +732,13 @@ export function EditThumbnailDialog({
 
   const editTextareaRef = useRef(null)
   const queryClient = useQueryClient()
+  // Abort control for in-flight editRegion / faceSwap calls.
+  // Lets the Cancel button abort mid-flight; also cleared in finally
+  // so the ref is always null when the dialog is idle.
+  const abortCtrlRef = useRef(null)
+  // Set to true when the user explicitly cancels so the success path
+  // in handleSubmit doesn't call onClose() on a race-winning request.
+  const cancelledRef = useRef(false)
 
   // Live per-tier credit cost for the action the user is about to take.
   // Backend charges the same cost for edit + faceswap, so one key covers both.
@@ -789,11 +796,11 @@ export function EditThumbnailDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose, busy, editPrompt])
 
+  // Abort any in-flight generation when the dialog unmounts so the
+  // hanging request doesn't settle into a detached component.
   useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     return () => {
-      document.body.style.overflow = prev
+      abortCtrlRef.current?.abort()
     }
   }, [])
 
@@ -1484,35 +1491,49 @@ export function EditThumbnailDialog({
   }
 
   /* ── Submit ───────────────────────────────────────────────────── */
-  async function callEditOnce(token, maskB64, pendingMessageId) {
+  async function callEditOnce(token, maskB64, pendingMessageId, signal) {
     const imageB64 = extractBase64FromDataUrl(imageUrl)
-    const res = await thumbnailsApi.editRegion(token, {
-      thumbnail_image_base64: imageB64 || undefined,
-      thumbnail_image_url: imageB64 ? undefined : imageUrl,
-      mask_base64: maskB64,
-      edit_prompt: editPrompt.trim(),
-      // Server finalizes the pre-persisted pending row in-place when
-      // this is set — the assistant row gets the image_url + flips
-      // pending=false even if the client disconnects mid-call. The
-      // parent's onSubmitFinalize below is the client-side safety net.
-      pending_message_id: pendingMessageId ?? undefined,
-    })
+    const res = await thumbnailsApi.editRegion(
+      token,
+      {
+        thumbnail_image_base64: imageB64 || undefined,
+        thumbnail_image_url: imageB64 ? undefined : imageUrl,
+        mask_base64: maskB64,
+        edit_prompt: editPrompt.trim(),
+        pending_message_id: pendingMessageId ?? undefined,
+      },
+      { signal }
+    )
     return res?.image_url || null
   }
 
-  async function callFaceSwapOnce(token, pendingMessageId) {
+  async function callFaceSwapOnce(token, pendingMessageId, signal) {
     const imageB64 = extractBase64FromDataUrl(imageUrl)
     const faceUrl = selectedPersona?.image_url
     const faceB64 = extractBase64FromDataUrl(faceUrl)
-    const res = await thumbnailsApi.faceSwap(token, {
-      thumbnail_image_base64: imageB64 || undefined,
-      thumbnail_image_url: imageB64 ? undefined : imageUrl,
-      face_image_base64: faceB64 || undefined,
-      face_image_url: faceB64 ? undefined : faceUrl,
-      extra_hint: editPrompt.trim() || undefined,
-      pending_message_id: pendingMessageId ?? undefined,
-    })
+    const res = await thumbnailsApi.faceSwap(
+      token,
+      {
+        thumbnail_image_base64: imageB64 || undefined,
+        thumbnail_image_url: imageB64 ? undefined : imageUrl,
+        face_image_base64: faceB64 || undefined,
+        face_image_url: faceB64 ? undefined : faceUrl,
+        extra_hint: editPrompt.trim() || undefined,
+        pending_message_id: pendingMessageId ?? undefined,
+      },
+      { signal }
+    )
     return res?.image_url || null
+  }
+
+  function handleCancel() {
+    cancelledRef.current = true
+    abortCtrlRef.current?.abort()
+    // setBusy/setError will be handled by the catch block via AbortError,
+    // but set them here immediately so the UI responds without waiting for
+    // the in-flight fetch to propagate the abort signal.
+    setBusy(false)
+    setError(null)
   }
 
   async function handleSubmit() {
@@ -1528,19 +1549,19 @@ export function EditThumbnailDialog({
 
     setError(null)
     setBusy(true)
+    cancelledRef.current = false
+
+    // 120 s client-side hard cap. The backend has its own timeout
+    // budget; this ensures the dialog never stays stuck "Generating…"
+    // if a network or server hang prevents a response from arriving.
+    const ctrl = new AbortController()
+    abortCtrlRef.current = ctrl
+    const timeoutId = setTimeout(() => ctrl.abort(), 120_000)
 
     const submitMode = mode
     const submitPrompt = submitMode === 'faceswap' ? '' : editPrompt || ''
     const submitPersona = submitMode === 'faceswap' ? selectedPersona : null
 
-    // Phase 1B pre-persist: write a pending placeholder pair to the
-    // active conversation BEFORE we hit the AI endpoint. If the user
-    // refreshes mid-edit the row is already on disk and the chat
-    // reload renders a pending card; the backend finalizes the row
-    // when /edit-region (or /face-swap) lands, even if the client
-    // disconnected. Best-effort: a persistence outage degrades to
-    // the legacy fire-and-forget behaviour rather than blocking the
-    // edit itself.
     // Build a composite preview (thumbnail + drawn mask) for the user's
     // chat bubble BEFORE making the AI call, so it's ready instantly.
     const maskPreviewDataUrl =
@@ -1569,34 +1590,28 @@ export function EditThumbnailDialog({
 
       let oneCall
       if (submitMode === 'faceswap') {
-        // Only the FIRST parallel call gets the pending_message_id — the
-        // backend's _finalize_pending_message is idempotent merge-style
-        // but passing the same id to N concurrent calls would race the
-        // final extra_data write. For batch>1 the parent's
-        // onSubmitFinalize below writes the combined `thumbnails` array
-        // client-side via the PATCH endpoint.
-        oneCall = () => callFaceSwapOnce(token, pendingMessageId)
+        oneCall = () => callFaceSwapOnce(token, pendingMessageId, ctrl.signal)
       } else {
-        // Resolve the mask once up-front so each batch call reuses it.
         const maskB64 = await exportMaskBase64()
-        oneCall = () => callEditOnce(token, maskB64, pendingMessageId)
+        oneCall = () => callEditOnce(token, maskB64, pendingMessageId, ctrl.signal)
       }
 
       const settled = await Promise.allSettled([oneCall()])
       const urls = settled.filter((r) => r.status === 'fulfilled' && r.value).map((r) => r.value)
       if (urls.length === 0) {
         const firstErr = settled.find((r) => r.status === 'rejected')
-        throw new Error(
-          firstErr?.reason?.message ||
-            (submitMode === 'faceswap' ? 'Face swap failed.' : 'No image returned.')
+        throw (
+          firstErr?.reason ||
+          new Error(submitMode === 'faceswap' ? 'Face swap failed.' : 'No image returned.')
         )
       }
+
+      // Guard: don't finalise or close if user cancelled while the
+      // request was in flight (race where abort resolved after done).
+      if (cancelledRef.current) return
+
       invalidateCredits(queryClient)
 
-      // Pre-persist + finalize lifecycle. When the parent opted into
-      // the new contract via onBeforeSubmit, it also owns finalizing
-      // the row + binding local optimistic state — the legacy onApply
-      // hook is skipped to avoid double-persistence.
       if (typeof onSubmitFinalize === 'function') {
         try {
           await onSubmitFinalize({
@@ -1615,6 +1630,33 @@ export function EditThumbnailDialog({
       }
       onClose?.()
     } catch (err) {
+      // AbortError = user hit Cancel or the 120 s timeout fired.
+      // Either way, reset to idle — no error toast for explicit cancel.
+      if (err?.name === 'AbortError' || ctrl.signal.aborted) {
+        setBusy(false)
+        if (!cancelledRef.current) {
+          // Timeout (not user cancel) — surface a friendly hint.
+          setError('Generation timed out. Please try again.')
+        }
+        // Best-effort: mark the pending row as failed so it shows as a
+        // retryable card on reload instead of a permanent spinner.
+        if (pendingMessageId && typeof onSubmitErrorFinalize === 'function') {
+          try {
+            await onSubmitErrorFinalize({
+              pendingMessageId,
+              mode: submitMode,
+              prompt: submitPrompt,
+              sourceImageUrl: imageUrl,
+              persona: submitPersona,
+              error: { friendly: 'Cancelled', code: 'CANCELLED', retryable: true },
+            })
+          } catch {
+            /* swallow */
+          }
+        }
+        return
+      }
+
       const friendly =
         friendlyMessage(err) ||
         (submitMode === 'faceswap'
@@ -1623,13 +1665,6 @@ export function EditThumbnailDialog({
       setError(friendly)
       setBusy(false)
 
-      // Failure persistence: parent flips the pending row to a
-      // `kind='failure'` record so the failed attempt survives reload.
-      // The backend also persists a failure row in its own error paths
-      // when pending_message_id was supplied — onSubmitErrorFinalize is
-      // a client-side PATCH safety net that ensures the row reflects
-      // the user-facing friendly message (the backend has the raw
-      // exception string, the client has the friendly translation).
       if (typeof onSubmitErrorFinalize === 'function') {
         try {
           await onSubmitErrorFinalize({
@@ -1638,20 +1673,12 @@ export function EditThumbnailDialog({
             prompt: submitPrompt,
             sourceImageUrl: imageUrl,
             persona: submitPersona,
-            error: {
-              friendly,
-              code: err?.code || null,
-              retryable: true,
-            },
+            error: { friendly, code: err?.code || null, retryable: true },
           })
         } catch {
-          /* swallow — the user-visible error in `friendly` is enough */
+          /* swallow */
         }
       } else {
-        // Legacy fallback: parent listener pushes the in-thread failure
-        // card from this single hook. Caller is responsible for ALSO
-        // persisting (the chat thread renders the local-only entry
-        // until parent's persistEvent finishes).
         try {
           onError?.({
             friendly,
@@ -1662,9 +1689,12 @@ export function EditThumbnailDialog({
             prompt: submitPrompt,
           })
         } catch {
-          /* never let the parent's error path mask the user-facing one */
+          /* swallow */
         }
       }
+    } finally {
+      clearTimeout(timeoutId)
+      abortCtrlRef.current = null
     }
   }
 
@@ -1690,6 +1720,7 @@ export function EditThumbnailDialog({
       closeOnEscape={!busy}
       size="wide"
       ariaLabel="Edit thumbnail"
+      className="etd-dialog-panel"
     >
       <style>{`
         @keyframes etd-spin { to { transform: rotate(360deg); } }
@@ -2051,6 +2082,27 @@ export function EditThumbnailDialog({
                       : 'Editing thumbnail…'}
                 </span>
                 <GenerationProgress estimatedDurationMs={30000} className="gen-progress--muted" />
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  style={{
+                    alignSelf: 'center',
+                    marginTop: 4,
+                    padding: '5px 18px',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                    borderRadius: 999,
+                    background: 'transparent',
+                    color: 'rgba(255,255,255,0.65)',
+                    fontSize: 12,
+                    fontWeight: 500,
+                    letterSpacing: '0.01em',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    transition: 'color 0.15s ease, border-color 0.15s ease',
+                  }}
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           )}

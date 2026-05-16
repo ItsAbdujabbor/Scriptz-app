@@ -164,6 +164,17 @@
   }
 }
 
+/* ── Dialog panel opacity override ─────────────────────────────── */
+/* The shared Dialog panel uses a semi-transparent glass background
+ * that compounds with the overlay's own glass, making the edit dialog
+ * look translucent. Override to a solid surface — the overlay blur
+ * still dims the background, and the canvas provides its own depth. */
+.etd-dialog-panel {
+  background: #16161c !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 /* ── Cross-breakpoint baselines (apply at every width) ─────────── */
 
 /* Single-line hint — applies at ALL widths. The textarea's natural
