@@ -55,6 +55,59 @@ const MASK_CSS_OPACITY = 0.72
 const MASK_THRESHOLD = 10
 const UNDO_CAP = 20
 
+/**
+ * Chaikin corner-cutting smoothing for a closed polygon.
+ * Each iteration replaces every edge with two points at 1/4 and 3/4
+ * along the edge, converging on a smooth quadratic B-spline.
+ * Input/output: Float32Array [x0,y0,x1,y1,...].
+ */
+function chaikinSmooth(input, iterations) {
+  let cur = input instanceof Float32Array ? input : new Float32Array(input)
+  for (let iter = 0; iter < iterations; iter++) {
+    const n = cur.length >> 1
+    const out = new Float32Array(n * 4)
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n
+      const x0 = cur[i * 2],
+        y0 = cur[i * 2 + 1]
+      const x1 = cur[j * 2],
+        y1 = cur[j * 2 + 1]
+      out[i * 4 + 0] = 0.75 * x0 + 0.25 * x1
+      out[i * 4 + 1] = 0.75 * y0 + 0.25 * y1
+      out[i * 4 + 2] = 0.25 * x0 + 0.75 * x1
+      out[i * 4 + 3] = 0.25 * y0 + 0.75 * y1
+    }
+    cur = out
+  }
+  return cur
+}
+
+/**
+ * Convert a flat [x,y,...] polygon to a smooth SVG closed path.
+ * Uses the midpoint-bezier technique: each original vertex becomes a
+ * quadratic bezier control point; midpoints between vertices are the
+ * on-curve anchors. This produces a C1-continuous curve with no
+ * visible corners even on coarse polygons.
+ */
+function polygonToSmoothPath(pts, scale) {
+  const n = pts.length >> 1
+  if (n < 3) return ''
+  const f = (v) => (v * scale).toFixed(1)
+  // Close smoothly: start at the midpoint of the last→first edge
+  const lx = pts[(n - 1) * 2],
+    ly = pts[(n - 1) * 2 + 1]
+  let d = `M${f((pts[0] + lx) / 2)},${f((pts[1] + ly) / 2)}`
+  for (let i = 0; i < n; i++) {
+    const cx = pts[i * 2],
+      cy = pts[i * 2 + 1]
+    const j = (i + 1) % n
+    const ex = (cx + pts[j * 2]) / 2
+    const ey = (cy + pts[j * 2 + 1]) / 2
+    d += `Q${f(cx)},${f(cy)},${f(ex)},${f(ey)}`
+  }
+  return d + 'Z'
+}
+
 const COLOR_SWATCHES = [
   '#EF4444', // red
   '#F59E0B', // amber
@@ -879,8 +932,11 @@ export function EditThumbnailDialog({
     const imageData = ctx.getImageData(0, 0, width, height)
     const data = imageData.data
 
-    // Even STEP so HS = STEP/2 is always an integer.
-    const raw = Math.max(2, Math.round(Math.max(width, height) / 300))
+    // Finer grid → more contour vertices → smoother outline after bezier
+    // smoothing. Dividing by 500 (was 300) gives STEP=4 for a 2000px canvas
+    // instead of STEP=6, so boundary vertices land every 2px rather than 3px.
+    // STEP must be even so HS=STEP/2 is always an integer.
+    const raw = Math.max(2, Math.round(Math.max(width, height) / 500))
     const STEP = raw % 2 === 0 ? raw : raw + 1
     const HS = STEP >> 1
     const cols = Math.ceil(width / STEP)
@@ -1002,18 +1058,25 @@ export function EditThumbnailDialog({
       return
     }
 
-    // ── Build SVG path string in CSS-pixel space (÷ DPR) ──────────
-    // Each loop becomes one M…L…L…Z path. stroke-dashoffset animates
-    // the dashes continuously around the closed perimeter — this is
-    // what produces the true marching-ants effect.
+    // ── Pass 3: Smooth + build SVG path in CSS-pixel space ───────────
+    // Two-step smoothing pipeline:
+    //   a) Chaikin corner-cutting (3 iters) — halves every polygon edge
+    //      3× so staircase vertices from the grid become dense curves.
+    //   b) Midpoint-bezier path — each smoothed vertex is a Q control
+    //      point; anchors are the midpoints between vertices. This is
+    //      C1-continuous and passes no straight-line segments through
+    //      the data, so the result looks organic and vector-quality.
+    //
+    // L (lineTo) commands were the root cause of the jagged look: they
+    // connected raw grid-aligned vertices with straight lines, making
+    // every contour look like a pixelated staircase.
     const inv = 1 / dprRef.current
-    const svgParts = loops.map((pts) => {
-      let d = `M${(pts[0] * inv).toFixed(1)},${(pts[1] * inv).toFixed(1)}`
-      for (let i = 2; i < pts.length; i += 2) {
-        d += `L${(pts[i] * inv).toFixed(1)},${(pts[i + 1] * inv).toFixed(1)}`
-      }
-      return d + 'Z'
-    })
+    const svgParts = loops
+      .map((rawPts) => {
+        const smoothed = chaikinSmooth(rawPts, 3)
+        return polygonToSmoothPath(smoothed, inv)
+      })
+      .filter(Boolean)
 
     setCanvasDims({ w: Math.round(width * inv), h: Math.round(height * inv) })
     setMarqueePath(svgParts.join(' '))
