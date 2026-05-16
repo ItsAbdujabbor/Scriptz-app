@@ -8,7 +8,7 @@ import './ThumbnailRater.css'
 
 const YOUTUBE_URL_RE = /https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[a-zA-Z0-9_-]+/
 
-const CRITERIA_ORDER = [
+const THUMBNAIL_CRITERIA_ORDER = [
   'visual_hierarchy',
   'subject_clarity',
   'emotional_hook',
@@ -19,6 +19,16 @@ const CRITERIA_ORDER = [
   'curiosity_gap',
   'composition',
   'production_polish',
+]
+
+const TITLE_CRITERIA_ORDER = [
+  'hook',
+  'clarity',
+  'specificity',
+  'value_promise',
+  'length_pacing',
+  'emotional_appeal',
+  'uniqueness',
 ]
 
 function extractYoutubeUrl(text) {
@@ -152,8 +162,65 @@ function CriterionCard({ entry }) {
   )
 }
 
+function SectionHeader({ children }) {
+  return <h3 className="thumb-section-header">{children}</h3>
+}
+
+function HeroCard({ grade, overallScore, ctrBand, oneLiner, label }) {
+  return (
+    <div className={`thumb-hero-card ${gradeTierClass(grade)}`}>
+      <div className="thumb-hero-grade-wrap">
+        <span className="thumb-hero-grade">{grade || '—'}</span>
+        <span className="thumb-hero-grade-label">{label || 'Grade'}</span>
+      </div>
+      <div className="thumb-hero-body">
+        <div className="thumb-hero-score-row">
+          <span className="thumb-hero-score">
+            {overallScore != null ? overallScore : '—'}
+            <span className="thumb-hero-score-max"> / 100</span>
+          </span>
+          {ctrBand && (
+            <span className={`thumb-ctr-pill ${ctrTierClass(ctrBand)}`}>
+              Predicted CTR · {ctrBand}
+            </span>
+          )}
+        </div>
+        {oneLiner && <p className="thumb-hero-oneliner">{oneLiner}</p>}
+      </div>
+    </div>
+  )
+}
+
+function TakeawaysGrid({ strengths, fixes }) {
+  if (!strengths?.length && !fixes?.length) return null
+  return (
+    <div className="thumb-takeaways-grid">
+      {strengths?.length > 0 && (
+        <div className="thumb-takeaway-card thumb-takeaway--strengths">
+          <span className="thumb-takeaway-title">Top strengths</span>
+          <ul className="thumb-takeaway-list">
+            {strengths.map((s, i) => (
+              <li key={`str-${i}`}>{s}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {fixes?.length > 0 && (
+        <div className="thumb-takeaway-card thumb-takeaway--fixes">
+          <span className="thumb-takeaway-title">Top fixes</span>
+          <ul className="thumb-takeaway-list">
+            {fixes.map((s, i) => (
+              <li key={`fix-${i}`}>{s}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /**
- * Thorough AI thumbnail analysis (POST /api/thumbnails/rate + optional /improve).
+ * Thorough AI analysis — thumbnail, title, or both (POST /api/thumbnails/analyze).
  */
 export function ThumbnailAnalyzePanel() {
   const [preview, setPreview] = useState(null)
@@ -161,7 +228,7 @@ export function ThumbnailAnalyzePanel() {
   const [videoTitle, setVideoTitle] = useState('')
   const [niche, setNiche] = useState('')
   const [loadingPreview, setLoadingPreview] = useState(false)
-  const [rating, setRating] = useState(null)
+  const [result, setResult] = useState(null)
   const [ratingId, setRatingId] = useState(null)
   const [loadingRate, setLoadingRate] = useState(false)
   const [rateError, setRateError] = useState('')
@@ -169,9 +236,12 @@ export function ThumbnailAnalyzePanel() {
   const [improvedUrl, setImprovedUrl] = useState(null)
   const fileInputRef = useRef(null)
 
+  // Either an image or a title is required to run analysis
+  const canAnalyze = Boolean(preview?.src || videoTitle.trim())
+
   const clearImage = useCallback(() => {
     setPreview(null)
-    setRating(null)
+    setResult(null)
     setRatingId(null)
     setRateError('')
     setImprovedUrl(null)
@@ -183,7 +253,7 @@ export function ThumbnailAnalyzePanel() {
     reader.onload = () => {
       const dataUrl = String(reader.result || '')
       setPreview({ kind: 'data', src: dataUrl })
-      setRating(null)
+      setResult(null)
       setRatingId(null)
       setImprovedUrl(null)
       setRateError('')
@@ -214,7 +284,7 @@ export function ThumbnailAnalyzePanel() {
       const res = await thumbnailsApi.fetchExistingThumbnail(token, url)
       if (!res?.thumbnail_url) throw new Error('No thumbnail found for that video')
       setPreview({ kind: 'url', src: res.thumbnail_url })
-      setRating(null)
+      setResult(null)
       setRatingId(null)
       setImprovedUrl(null)
     } catch (err) {
@@ -226,34 +296,31 @@ export function ThumbnailAnalyzePanel() {
     }
   }, [youtubeHint])
 
-  const runRate = useCallback(async () => {
-    if (!preview?.src) return
+  const runAnalyze = useCallback(async () => {
+    if (!canAnalyze) return
     setLoadingRate(true)
     setRateError('')
-    setRating(null)
+    setResult(null)
     setRatingId(null)
     setImprovedUrl(null)
     try {
       const token = await getAccessTokenOrNull()
-      if (!token) throw new Error('Sign in to analyze thumbnails')
-      let payload
-      if (preview.kind === 'data') {
-        const b64 = extractBase64FromDataUrl(preview.src)
-        if (!b64) throw new Error('Invalid image data')
-        payload = {
-          thumbnail_image_base64: b64,
-          video_title: videoTitle.trim() || undefined,
-          niche: niche.trim() || undefined,
-        }
-      } else {
-        payload = {
-          thumbnail_image_url: preview.src,
-          video_title: videoTitle.trim() || undefined,
-          niche: niche.trim() || undefined,
+      if (!token) throw new Error('Sign in to analyze')
+      const payload = {
+        video_title: videoTitle.trim() || undefined,
+        niche: niche.trim() || undefined,
+      }
+      if (preview?.src) {
+        if (preview.kind === 'data') {
+          const b64 = extractBase64FromDataUrl(preview.src)
+          if (!b64) throw new Error('Invalid image data')
+          payload.thumbnail_image_base64 = b64
+        } else {
+          payload.thumbnail_image_url = preview.src
         }
       }
-      const res = await thumbnailsApi.rate(token, payload)
-      setRating(res)
+      const res = await thumbnailsApi.analyze(token, payload)
+      setResult(res)
       setRatingId(res?.rating_id ?? null)
     } catch (err) {
       const { code, message } = parseApiError(err, 'Analysis failed')
@@ -262,7 +329,7 @@ export function ThumbnailAnalyzePanel() {
     } finally {
       setLoadingRate(false)
     }
-  }, [preview, videoTitle, niche])
+  }, [canAnalyze, preview, videoTitle, niche])
 
   const runImprove = useCallback(async () => {
     if (!ratingId) return
@@ -273,9 +340,9 @@ export function ThumbnailAnalyzePanel() {
       if (!token) throw new Error('Sign in required')
       const improveRes = await thumbnailsApi.improve(token, { rating_id: ratingId })
       const job = await pollJobUntilDone(token, improveRes?.job_id)
-      const result = job?.result_json
-      const improved = result?.improved_thumbnail || result?.improved
-      const imageUrl = improved?.image_url || result?.image_url
+      const jobResult = job?.result_json
+      const improved = jobResult?.improved_thumbnail || jobResult?.improved
+      const imageUrl = improved?.image_url || jobResult?.image_url
       if (imageUrl) setImprovedUrl(imageUrl)
       else throw new Error('No improved image in result')
     } catch (err) {
@@ -287,64 +354,76 @@ export function ThumbnailAnalyzePanel() {
     }
   }, [ratingId])
 
-  // Derive presentation values from the rating with legacy fallbacks.
-  const overallScore = useMemo(() => {
-    if (!rating) return null
-    const n = Number(rating.overall_score)
+  // ── Derived presentation values ──────────────────────────────────────────
+
+  const hasThumbnail = result?.has_thumbnail ?? false
+  const hasTitle = result?.has_title ?? false
+
+  const thumbGrade = useMemo(() => {
+    if (!result?.has_thumbnail) return null
+    if (result.overall_grade) return String(result.overall_grade)
+    return gradeFromScore(result.overall_score)
+  }, [result])
+
+  const thumbScore = useMemo(() => {
+    if (!result?.has_thumbnail || result.overall_score == null) return null
+    const n = Number(result.overall_score)
     return Number.isFinite(n) ? Math.round(n) : null
-  }, [rating])
+  }, [result])
 
-  const grade = useMemo(() => {
-    if (!rating) return null
-    if (rating.overall_grade) return String(rating.overall_grade)
-    return gradeFromScore(rating.overall_score)
-  }, [rating])
-
-  const orderedCriteria = useMemo(() => {
-    const arr = Array.isArray(rating?.criteria) ? rating.criteria.filter(Boolean) : []
+  const orderedThumbCriteria = useMemo(() => {
+    const arr = Array.isArray(result?.criteria) ? result.criteria.filter(Boolean) : []
     if (arr.length === 0) return []
     const byKey = new Map(arr.map((c) => [c?.key, c]))
     const ordered = []
-    for (const key of CRITERIA_ORDER) {
+    for (const key of THUMBNAIL_CRITERIA_ORDER) {
       if (byKey.has(key)) {
         ordered.push(byKey.get(key))
         byKey.delete(key)
       }
     }
-    // Append any unexpected keys at the end so we never drop server data.
     for (const remaining of byKey.values()) ordered.push(remaining)
     return ordered
-  }, [rating])
+  }, [result])
 
-  const topStrengths = useMemo(() => {
-    if (!rating) return []
-    if (Array.isArray(rating.top_strengths) && rating.top_strengths.length > 0) {
-      return rating.top_strengths.slice(0, 3)
+  const titleAnalysis = result?.title_analysis ?? null
+
+  const orderedTitleCriteria = useMemo(() => {
+    const arr = Array.isArray(titleAnalysis?.criteria) ? titleAnalysis.criteria.filter(Boolean) : []
+    if (arr.length === 0) return []
+    const byKey = new Map(arr.map((c) => [c?.key, c]))
+    const ordered = []
+    for (const key of TITLE_CRITERIA_ORDER) {
+      if (byKey.has(key)) {
+        ordered.push(byKey.get(key))
+        byKey.delete(key)
+      }
     }
-    if (Array.isArray(rating.strengths)) return rating.strengths.slice(0, 3)
-    return []
-  }, [rating])
+    for (const remaining of byKey.values()) ordered.push(remaining)
+    return ordered
+  }, [titleAnalysis])
 
-  const topFixes = useMemo(() => {
-    if (!rating) return []
-    if (Array.isArray(rating.top_fixes) && rating.top_fixes.length > 0) {
-      return rating.top_fixes.slice(0, 3)
-    }
-    if (Array.isArray(rating.recommendations)) return rating.recommendations.slice(0, 3)
-    return []
-  }, [rating])
+  const titleGrade = useMemo(() => {
+    if (!titleAnalysis) return null
+    if (titleAnalysis.grade) return String(titleAnalysis.grade)
+    return gradeFromScore(titleAnalysis.score)
+  }, [titleAnalysis])
 
-  const titleSynergy = rating?.title_synergy || null
-  const oneLiner = rating?.one_liner || rating?.specific_advice || ''
-  const ctrBand = rating?.predicted_ctr_band || ''
+  const titleScore = useMemo(() => {
+    if (!titleAnalysis || titleAnalysis.score == null) return null
+    const n = Number(titleAnalysis.score)
+    return Number.isFinite(n) ? Math.round(n) : null
+  }, [titleAnalysis])
+
+  const titleSynergy = result?.title_synergy ?? null
 
   return (
     <div className="thumb-rater thumb-analyze">
       <div className="thumb-rater-hero">
         <h2 className="thumb-rater-title">Analyze</h2>
         <p className="thumb-rater-sub">
-          Upload a thumbnail or fetch one from YouTube. You get a graded breakdown across 10
-          criteria, predicted CTR band, and the highest-leverage fixes.
+          Upload a thumbnail, enter a title, or both. Thumbnail analysis covers 10 visual criteria.
+          Title analysis scores 7 text-specific factors. With both you also get a synergy card.
         </p>
       </div>
 
@@ -371,7 +450,7 @@ export function ThumbnailAnalyzePanel() {
                 <IconUpload />
               </span>
               <span className="thumb-rater-drop-label">Drop an image or click to upload</span>
-              <span className="thumb-rater-drop-hint">PNG, JPG, WebP — 16:9 works best</span>
+              <span className="thumb-rater-drop-hint">PNG, JPG, WebP — optional</span>
             </button>
           ) : (
             <div className="thumb-rater-preview-wrap">
@@ -421,7 +500,7 @@ export function ThumbnailAnalyzePanel() {
             </button>
           </div>
           <label className="thumb-rater-label" htmlFor="thumb-analyze-title">
-            Video title (optional)
+            Video title
           </label>
           <input
             id="thumb-analyze-title"
@@ -429,7 +508,7 @@ export function ThumbnailAnalyzePanel() {
             className="thumb-rater-input"
             value={videoTitle}
             onChange={(e) => setVideoTitle(e.target.value.slice(0, 200))}
-            placeholder="Helps tailor the analysis to your topic"
+            placeholder="Enter a title to analyze it, or leave blank for thumbnail-only"
           />
           <label className="thumb-rater-label" htmlFor="thumb-analyze-niche">
             Niche (optional)
@@ -447,11 +526,16 @@ export function ThumbnailAnalyzePanel() {
             id="thumb-analyze-cta"
             type="button"
             className="thumb-rater-btn thumb-rater-btn--primary"
-            onClick={runRate}
-            disabled={!preview || loadingRate}
+            onClick={runAnalyze}
+            disabled={!canAnalyze || loadingRate}
           >
-            {loadingRate ? 'Running analysis…' : 'Run full analysis'}
+            {loadingRate ? 'Analyzing…' : 'Run analysis'}
           </button>
+          {!canAnalyze && (
+            <p className="thumb-rater-hint-text">
+              Add a thumbnail image or enter a title to begin.
+            </p>
+          )}
         </div>
       </div>
 
@@ -463,155 +547,140 @@ export function ThumbnailAnalyzePanel() {
         </div>
       )}
 
-      {rating && !loadingRate && (
+      {result && !loadingRate && (
         <div className="thumb-rater-results thumb-analyze-results">
-          {/* Hero card */}
-          <div className={`thumb-hero-card ${gradeTierClass(grade)}`}>
-            <div className="thumb-hero-grade-wrap">
-              <span className="thumb-hero-grade">{grade || '—'}</span>
-              <span className="thumb-hero-grade-label">Overall grade</span>
+          {/* ── Thumbnail analysis ─────────────────────────────────── */}
+          {hasThumbnail && (
+            <div className="thumb-analysis-section">
+              <SectionHeader>Thumbnail Analysis</SectionHeader>
+
+              <HeroCard
+                grade={thumbGrade}
+                overallScore={thumbScore}
+                ctrBand={result.predicted_ctr_band}
+                oneLiner={result.one_liner}
+                label="Thumbnail grade"
+              />
+
+              {orderedThumbCriteria.length > 0 ? (
+                <div className="thumb-criteria-grid">
+                  {orderedThumbCriteria.map((c, i) => (
+                    <CriterionCard key={c?.key || `thumb-crit-${i}`} entry={c} />
+                  ))}
+                </div>
+              ) : (
+                <div className="thumb-criteria-empty">
+                  Detailed criteria not available — re-run analysis.
+                </div>
+              )}
+
+              <TakeawaysGrid strengths={result.top_strengths} fixes={result.top_fixes} />
+
+              <div className="thumb-rater-improve-row">
+                <button
+                  type="button"
+                  className="thumb-rater-btn thumb-rater-btn--magic"
+                  onClick={runImprove}
+                  disabled={!ratingId || improving}
+                >
+                  {improving ? (
+                    <span className="thumb-rater-btn-loading">Improving…</span>
+                  ) : (
+                    <>
+                      <IconSparkle />
+                      AI improve thumbnail
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {improvedUrl && (
+                <div className="thumb-rater-improved">
+                  <span className="thumb-rater-section-title">Improved version</span>
+                  <img
+                    src={improvedUrl}
+                    alt="AI-improved thumbnail"
+                    className="thumb-rater-improved-img"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <div className="thumb-rater-improved-actions">
+                    <a
+                      className="thumb-rater-btn thumb-rater-btn--primary"
+                      href={improvedUrl}
+                      download
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Download
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="thumb-hero-body">
-              <div className="thumb-hero-score-row">
-                <span className="thumb-hero-score">
-                  {overallScore != null ? overallScore : '—'}
-                  <span className="thumb-hero-score-max"> / 100</span>
-                </span>
-                {ctrBand && (
-                  <span className={`thumb-ctr-pill ${ctrTierClass(ctrBand)}`}>
-                    Predicted CTR · {ctrBand}
-                  </span>
+          )}
+
+          {/* ── Title ↔ Thumbnail synergy (only when both provided) ─── */}
+          {hasThumbnail && hasTitle && titleSynergy && (
+            <div className="thumb-analysis-section">
+              <SectionHeader>Title ↔ Thumbnail Synergy</SectionHeader>
+              <div className="thumb-synergy-card">
+                <div className="thumb-synergy-head">
+                  <div className="thumb-synergy-meta">
+                    {titleSynergy.score != null && (
+                      <span className="thumb-synergy-score">
+                        {Number(titleSynergy.score).toFixed(titleSynergy.score % 1 === 0 ? 0 : 1)}
+                        <span className="thumb-criterion-score-max">/10</span>
+                      </span>
+                    )}
+                    {titleSynergy.verdict && (
+                      <span className={`thumb-verdict-pill ${verdictClass(titleSynergy.verdict)}`}>
+                        {titleSynergy.verdict}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {titleSynergy.explanation && (
+                  <p className="thumb-criterion-text">{titleSynergy.explanation}</p>
+                )}
+                {titleSynergy.suggestion && (
+                  <div className="thumb-criterion-suggest">
+                    <span className="thumb-criterion-suggest-label">Try this</span>
+                    <span className="thumb-criterion-suggest-text">{titleSynergy.suggestion}</span>
+                  </div>
                 )}
               </div>
-              {oneLiner && <p className="thumb-hero-oneliner">{oneLiner}</p>}
-              {(videoTitle || niche) && (
-                <div className="thumb-hero-meta">
-                  {videoTitle && (
-                    <span className="thumb-hero-meta-item">
-                      <span className="thumb-hero-meta-key">Title</span>
-                      <span className="thumb-hero-meta-val">{videoTitle}</span>
-                    </span>
-                  )}
-                  {niche && (
-                    <span className="thumb-hero-meta-item">
-                      <span className="thumb-hero-meta-key">Niche</span>
-                      <span className="thumb-hero-meta-val">{niche}</span>
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Criterion cards grid */}
-          {orderedCriteria.length > 0 ? (
-            <div className="thumb-criteria-grid">
-              {orderedCriteria.map((c, i) => (
-                <CriterionCard key={c?.key || `crit-${i}`} entry={c} />
-              ))}
-            </div>
-          ) : (
-            <div className="thumb-criteria-empty">
-              Detailed criteria not available — re-run analysis to get the new breakdown.
             </div>
           )}
 
-          {/* Title synergy (only when title was provided AND synergy returned) */}
-          {titleSynergy && (
-            <div className="thumb-synergy-card">
-              <div className="thumb-synergy-head">
-                <span className="thumb-synergy-title">Title ↔ Thumbnail</span>
-                <div className="thumb-synergy-meta">
-                  {titleSynergy.score != null && (
-                    <span className="thumb-synergy-score">
-                      {Number(titleSynergy.score).toFixed(titleSynergy.score % 1 === 0 ? 0 : 1)}
-                      <span className="thumb-criterion-score-max">/10</span>
-                    </span>
-                  )}
-                  {titleSynergy.verdict && (
-                    <span className={`thumb-verdict-pill ${verdictClass(titleSynergy.verdict)}`}>
-                      {titleSynergy.verdict}
-                    </span>
-                  )}
-                </div>
-              </div>
-              {titleSynergy.explanation && (
-                <p className="thumb-criterion-text">{titleSynergy.explanation}</p>
-              )}
-              {titleSynergy.suggestion && (
-                <div className="thumb-criterion-suggest">
-                  <span className="thumb-criterion-suggest-label">Try this</span>
-                  <span className="thumb-criterion-suggest-text">{titleSynergy.suggestion}</span>
-                </div>
-              )}
-            </div>
-          )}
+          {/* ── Title analysis ─────────────────────────────────────── */}
+          {hasTitle && titleAnalysis && (
+            <div className="thumb-analysis-section">
+              <SectionHeader>Title Analysis</SectionHeader>
 
-          {/* Strengths + Fixes */}
-          {(topStrengths.length > 0 || topFixes.length > 0) && (
-            <div className="thumb-takeaways-grid">
-              {topStrengths.length > 0 && (
-                <div className="thumb-takeaway-card thumb-takeaway--strengths">
-                  <span className="thumb-takeaway-title">Top strengths</span>
-                  <ul className="thumb-takeaway-list">
-                    {topStrengths.map((s, i) => (
-                      <li key={`str-${i}`}>{s}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {topFixes.length > 0 && (
-                <div className="thumb-takeaway-card thumb-takeaway--fixes">
-                  <span className="thumb-takeaway-title">Top fixes</span>
-                  <ul className="thumb-takeaway-list">
-                    {topFixes.map((s, i) => (
-                      <li key={`fix-${i}`}>{s}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="thumb-rater-improve-row">
-            <button
-              type="button"
-              className="thumb-rater-btn thumb-rater-btn--magic"
-              onClick={runImprove}
-              disabled={!ratingId || improving}
-            >
-              {improving ? (
-                <span className="thumb-rater-btn-loading">Improving…</span>
-              ) : (
-                <>
-                  <IconSparkle />
-                  AI improve thumbnail
-                </>
-              )}
-            </button>
-          </div>
-
-          {improvedUrl && (
-            <div className="thumb-rater-improved">
-              <span className="thumb-rater-section-title">Improved version</span>
-              <img
-                src={improvedUrl}
-                alt="AI-improved thumbnail"
-                className="thumb-rater-improved-img"
-                loading="lazy"
-                decoding="async"
+              <HeroCard
+                grade={titleGrade}
+                overallScore={titleScore}
+                oneLiner={titleAnalysis.one_liner}
+                label="Title grade"
               />
-              <div className="thumb-rater-improved-actions">
-                <a
-                  className="thumb-rater-btn thumb-rater-btn--primary"
-                  href={improvedUrl}
-                  download
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Download
-                </a>
-              </div>
+
+              {orderedTitleCriteria.length > 0 ? (
+                <div className="thumb-criteria-grid">
+                  {orderedTitleCriteria.map((c, i) => (
+                    <CriterionCard key={c?.key || `title-crit-${i}`} entry={c} />
+                  ))}
+                </div>
+              ) : (
+                <div className="thumb-criteria-empty">
+                  Detailed criteria not available — re-run analysis.
+                </div>
+              )}
+
+              <TakeawaysGrid
+                strengths={titleAnalysis.top_strengths}
+                fixes={titleAnalysis.top_fixes}
+              />
             </div>
           )}
         </div>

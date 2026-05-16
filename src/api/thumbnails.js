@@ -231,6 +231,12 @@ export const thumbnailsApi = {
   rate(accessToken, payload, fetchInit = {}) {
     return request('POST', '/api/thumbnails/rate', accessToken, payload, {}, fetchInit)
   },
+  /** Unified analyze — image, title, or both.
+   *  payload: { thumbnail_image_base64?, thumbnail_image_url?, video_title?, niche? }
+   *  Response: AnalyzeResponse with has_thumbnail / has_title flags */
+  analyze(accessToken, payload, fetchInit = {}) {
+    return request('POST', '/api/thumbnails/analyze', accessToken, payload, {}, fetchInit)
+  },
   rateFeedback(accessToken, ratingId, feedback, extra = {}) {
     return request('POST', `/api/thumbnails/ratings/${ratingId}/feedback`, accessToken, {
       feedback,
