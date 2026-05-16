@@ -669,6 +669,11 @@ export function EditThumbnailDialog({
   // itself stays in the DOM at all times.
   const [marqueePath, setMarqueePath] = useState('')
   const [canvasDims, setCanvasDims] = useState({ w: 1536, h: 864 })
+  // Exact CSS-pixel dimensions for the canvas elements. Set imperatively
+  // after image load so the canvas never displays at a non-integer CSS
+  // scale — fractional scaling from `width:100%` / CSS aspect-ratio
+  // causes bilinear blur even when the intrinsic size is DPR-correct.
+  const [canvasCssPx, setCanvasCssPx] = useState(null) // { w, h } | null
   const marqueeSvgRef = useRef(null) // imperative opacity control
   const isDrawingRef = useRef(false) // true between pointerDown and pointerUp
 
@@ -770,20 +775,30 @@ export function EditThumbnailDialog({
         // Now measure the stage at its true rendered size.
         const stage = stageRef.current
         const stageRect = stage ? stage.getBoundingClientRect() : { width: 0, height: 0 }
-        const dpr = Math.max(1, Math.round(window.devicePixelRatio || 1))
+        // Use the ACTUAL device pixel ratio — never round it. Rounding turns
+        // 1.25 → 1 (canvas too small → upscaled → pixelated) or 2.75 → 3
+        // (canvas too large → downscaled → blurry). The canvas intrinsic
+        // size is rounded to whole pixels; the DPR value stays fractional.
+        const dpr = Math.max(1, window.devicePixelRatio || 1)
         dprRef.current = dpr
-        // Use measured width AND height so sub-pixel aspect-ratio rounding in
-        // the CSS engine doesn't introduce a 1-pixel stretch artefact.
         const cssW = stageRect.width > 10 ? stageRect.width : Math.min(1040, window.innerWidth - 44)
         const cssH =
           stageRect.height > 10 ? stageRect.height : Math.round(cssW * (naturalH / naturalW))
+        // Intrinsic canvas size in physical pixels (integer — sub-pixel
+        // canvas dimensions are unsupported and cause rendering artefacts).
         const w = Math.max(1, Math.round(cssW * dpr))
         const h = Math.max(1, Math.round(cssH * dpr))
+        // Expose CSS-pixel dims so the JSX can set the canvas element's
+        // style.width / style.height to exact integer values. Letting
+        // `width: 100%` remain means the CSS engine can produce fractional
+        // pixel heights (e.g. 540.37px via aspect-ratio), forcing a
+        // non-integer scale factor that blurs every rendered stroke.
+        setCanvasCssPx({ w: Math.round(cssW), h: Math.round(cssH) })
         setCanvasDims({ w: Math.round(cssW), h: Math.round(cssH) })
         canvas.width = w
         canvas.height = h
-        // willReadFrequently opts into a CPU-readable backing store so getImageData
-        // (marching-ants contour + undo snapshots) avoids a GPU→CPU round-trip.
+        // willReadFrequently: browser keeps backing store CPU-accessible so
+        // getImageData (marching-ants + undo) skips the GPU→CPU round-trip.
         canvas.getContext('2d', { willReadFrequently: true }).clearRect(0, 0, w, h)
         if (overlay) {
           overlay.width = w
@@ -1106,24 +1121,36 @@ export function EditThumbnailDialog({
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
 
-    // Stamp a filled circle at the current sample — guarantees a
-    // perfect disc at every event even if the curve segment ends up
-    // degenerate, and fills any sub-pixel rendering gaps near caps.
-    ctx.beginPath()
-    ctx.arc(curr.x, curr.y, size / 2, 0, Math.PI * 2)
-    ctx.fill()
+    if (!prev1) {
+      // First sample of the stroke — a single arc fill is the only draw
+      // operation. A stroke with a round cap at a zero-length path is a
+      // degenerate sub-path and renders nothing, so we use arc+fill.
+      // IMPORTANT: do NOT also stroke a line here. The previous approach
+      // stamped an arc AND then stroked a segment, which caused two
+      // overlapping semi-transparent edges to compound at every sample
+      // point — producing a heavy, over-blurred ring that looked soft
+      // and low-resolution even on a sharp canvas.
+      ctx.beginPath()
+      ctx.arc(curr.x, curr.y, size / 2, 0, Math.PI * 2)
+      ctx.fill()
+      return
+    }
 
-    if (!prev1) return // first sample of the stroke — disc is enough
+    // For all subsequent samples: stroke only — no arc. The round lineCap
+    // produces a clean disc at the path endpoints without any double-draw.
     if (!prev2) {
-      // Second sample: straight line; round caps make joins seamless.
+      // Second sample: straight segment from prev1 to curr.
       ctx.beginPath()
       ctx.moveTo(prev1.x, prev1.y)
       ctx.lineTo(curr.x, curr.y)
       ctx.stroke()
       return
     }
-    // Three samples: quadratic curve through (mid(p0,p1)) → (mid(p1,p2))
-    // with p1 as control. Standard "smooth brush" curve.
+
+    // Third+ sample: quadratic Bézier through the midpoints of the rolling
+    // three-point window. The midpoint-to-midpoint curve is C1-continuous
+    // at every join (tangent matches between adjacent segments) so rapid
+    // pointer movement produces smooth curves with no visible polyline kinks.
     const m1 = { x: (prev2.x + prev1.x) / 2, y: (prev2.y + prev1.y) / 2 }
     const m2 = { x: (prev1.x + curr.x) / 2, y: (prev1.y + curr.y) / 2 }
     ctx.beginPath()
@@ -1767,14 +1794,17 @@ export function EditThumbnailDialog({
             }}
             style={{
               position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
+              top: 0,
+              left: 0,
+              // Explicit integer-pixel CSS size eliminates the fractional
+              // scaling that `width:100%` + CSS `aspect-ratio` can produce
+              // (e.g. 540.37px height). A non-integer CSS/intrinsic ratio
+              // forces the browser to bilinear-scale every painted stroke,
+              // blurring the canvas regardless of correct DPR sizing.
+              // Falls back to 100% before the image has loaded.
+              width: canvasCssPx ? `${canvasCssPx.w}px` : '100%',
+              height: canvasCssPx ? `${canvasCssPx.h}px` : '100%',
               borderRadius: 16,
-              // Strokes are painted at alpha=1 for a clean export mask.
-              // CSS opacity 0.48 keeps the thumbnail visible while the painted
-              // region is clearly legible — the marching ants border gives the
-              // precise boundary so the fill doesn't need to be fully opaque.
               opacity: 0.48,
               cursor: busy
                 ? 'default'
@@ -1785,21 +1815,15 @@ export function EditThumbnailDialog({
               pointerEvents: busy ? 'none' : 'auto',
             }}
           />
-          {/* Overlay: sibling canvas that renders the rect-tool preview
-              during pointermove without forcing a putImageData restore on
-              the mask canvas. pointer-events: none so all input still
-              flows to the mask canvas above. Matches mask opacity so the
-              preview blends identically with the committed strokes —
-              applies in both edit and face-swap modes now that drawing
-              is available in both. */}
           <canvas
             ref={overlayCanvasRef}
             aria-hidden
             style={{
               position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
+              top: 0,
+              left: 0,
+              width: canvasCssPx ? `${canvasCssPx.w}px` : '100%',
+              height: canvasCssPx ? `${canvasCssPx.h}px` : '100%',
               borderRadius: 16,
               opacity: 0.48,
               pointerEvents: 'none',
