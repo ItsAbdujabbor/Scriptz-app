@@ -648,7 +648,6 @@ export function EditThumbnailDialog({
 }) {
   const [mode, setMode] = useState('edit') // 'edit' | 'faceswap'
   const [editPrompt, setEditPrompt] = useState('')
-  const [batch, setBatch] = useState(1)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const { selectedPersona } = usePersonaStore()
@@ -668,7 +667,7 @@ export function EditThumbnailDialog({
 
   // Live per-tier credit cost for the action the user is about to take.
   // Backend charges the same cost for edit + faceswap, so one key covers both.
-  const { unit: unitCost, total: totalCost } = useCostOf('thumbnail_edit_faceswap', batch)
+  const { unit: unitCost } = useCostOf('thumbnail_edit_faceswap', 1)
 
   // Canvas refs
   const maskCanvasRef = useRef(null) // full natural resolution mask canvas — holds committed strokes
@@ -722,7 +721,7 @@ export function EditThumbnailDialog({
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onClose, busy, editPrompt, batch])
+  }, [onClose, busy, editPrompt])
 
   useEffect(() => {
     const prev = document.body.style.overflow
@@ -736,14 +735,12 @@ export function EditThumbnailDialog({
     editTextareaRef.current?.focus()
   }, [])
 
-  // Load the image + size the canvas to its natural dimensions, with a
-  // 1920-px-wide minimum so thumbnails that ship at low resolution
-  // still get a high-density paint surface. The canvas is then scaled
-  // DOWN to display via CSS — downscaling stays sharp under the
-  // browser's bilinear filter, whereas an upscaled canvas (low
-  // intrinsic res, larger CSS size) is what makes brush strokes look
-  // pixelated. The mask we send to the backend keeps the same density,
-  // which the region-edit service resizes back to the source image.
+  // Load the image + size the canvas to display-pixel density (CSS width × DPR).
+  // Sizing to 1920px and CSS-scaling down 2.67× is what made brush strokes look
+  // blurry — bilinear downscaling blurs every stroke. Setting canvas intrinsic
+  // size to displayWidth × devicePixelRatio means no downscaling occurs and every
+  // stroke renders at the native pixel density of the screen. The backend's PIL
+  // resize normalises the mask to the image's actual dimensions.
   useEffect(() => {
     let cancelled = false
     if (!imageUrl) return
@@ -754,16 +751,21 @@ export function EditThumbnailDialog({
         const canvas = maskCanvasRef.current
         const overlay = overlayCanvasRef.current
         if (!canvas) return
-        const MIN_CANVAS_W = 1920
         const naturalW = img.naturalWidth || img.width || 1536
         const naturalH = img.naturalHeight || img.height || 864
-        const aspect = naturalH / naturalW
         // Drive the stage's CSS aspect-ratio from the actual image so
         // the card snaps from landscape (16:9) to portrait (9:16) to
         // square cleanly — no letterboxing, no cropping.
         setImageAspect(naturalW / naturalH)
-        const w = Math.max(naturalW, MIN_CANVAS_W)
-        const h = Math.round(w * aspect)
+        // Match canvas intrinsic size to display pixels × DPR so strokes
+        // render at native sharpness with no downscaling blur.
+        const stage = stageRef.current
+        const stageRect = stage ? stage.getBoundingClientRect() : { width: 0, height: 0 }
+        const dpr = Math.max(1, Math.round(window.devicePixelRatio || 1))
+        const cssW = stageRect.width > 10 ? stageRect.width : Math.min(1040, window.innerWidth - 44)
+        const cssH = Math.round(cssW * (naturalH / naturalW))
+        const w = Math.max(1, Math.round(cssW * dpr))
+        const h = Math.max(1, Math.round(cssH * dpr))
         canvas.width = w
         canvas.height = h
         canvas.getContext('2d').clearRect(0, 0, w, h)
@@ -1253,7 +1255,7 @@ export function EditThumbnailDialog({
           prompt: submitPrompt,
           sourceImageUrl: imageUrl,
           persona: submitPersona,
-          batch,
+          batch: 1,
           maskPreviewDataUrl,
         })
         pendingMessageId = ctx?.pendingMessageId ?? null
@@ -1274,24 +1276,14 @@ export function EditThumbnailDialog({
         // final extra_data write. For batch>1 the parent's
         // onSubmitFinalize below writes the combined `thumbnails` array
         // client-side via the PATCH endpoint.
-        let firstCall = true
-        oneCall = () => {
-          const id = firstCall && batch === 1 ? pendingMessageId : null
-          firstCall = false
-          return callFaceSwapOnce(token, id)
-        }
+        oneCall = () => callFaceSwapOnce(token, pendingMessageId)
       } else {
         // Resolve the mask once up-front so each batch call reuses it.
         const maskB64 = await exportMaskBase64()
-        let firstCall = true
-        oneCall = () => {
-          const id = firstCall && batch === 1 ? pendingMessageId : null
-          firstCall = false
-          return callEditOnce(token, maskB64, id)
-        }
+        oneCall = () => callEditOnce(token, maskB64, pendingMessageId)
       }
 
-      const settled = await Promise.allSettled(Array.from({ length: batch }, () => oneCall()))
+      const settled = await Promise.allSettled([oneCall()])
       const urls = settled.filter((r) => r.status === 'fulfilled' && r.value).map((r) => r.value)
       if (urls.length === 0) {
         const firstErr = settled.find((r) => r.status === 'rejected')
@@ -1694,10 +1686,7 @@ export function EditThumbnailDialog({
                       ? 'Editing painted region…'
                       : 'Editing thumbnail…'}
                 </span>
-                <GenerationProgress
-                  estimatedDurationMs={30000 + Math.max(0, batch - 1) * 6000}
-                  className="gen-progress--muted"
-                />
+                <GenerationProgress estimatedDurationMs={30000} className="gen-progress--muted" />
               </div>
             </div>
           )}
@@ -1940,7 +1929,7 @@ export function EditThumbnailDialog({
             disabled={!canSubmit}
             onGenerate={handleSubmit}
             unitCost={unitCost}
-            totalCost={batch > 1 ? totalCost : unitCost}
+            totalCost={unitCost}
           />
         )}
 
@@ -2023,20 +2012,19 @@ export function EditThumbnailDialog({
                 boxSizing: 'border-box',
               }}
             />
-            {/* Bottom action row — batch picker left, send right */}
+            {/* Bottom action row — send button right-aligned */}
             <div
               className="etd-input-actions"
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                justifyContent: 'flex-end',
                 gap: 8,
                 paddingTop: 4,
                 borderTop: '1px solid rgba(255,255,255,0.06)',
                 marginTop: 2,
               }}
             >
-              <BatchPicker value={batch} onChange={setBatch} disabled={busy} />
               <PrimaryActionBtn
                 onClick={handleSubmit}
                 disabled={!canSubmit}
@@ -2044,7 +2032,7 @@ export function EditThumbnailDialog({
                 label="Generate"
                 busyLabel="Generating…"
                 icon={<IconArrowUp size={13} />}
-                creditCost={unitCost ? (batch > 1 ? totalCost : unitCost) : null}
+                creditCost={unitCost ?? null}
               />
             </div>
           </div>
