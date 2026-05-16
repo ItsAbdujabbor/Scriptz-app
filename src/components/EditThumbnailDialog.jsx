@@ -1619,7 +1619,7 @@ export function EditThumbnailDialog({
         }
         @keyframes etd-march {
           from { stroke-dashoffset: 0; }
-          to { stroke-dashoffset: -8; }
+          to { stroke-dashoffset: -6; }
         }
       `}</style>
 
@@ -1864,18 +1864,18 @@ export function EditThumbnailDialog({
           >
             <path
               d={marqueePath}
-              stroke="rgba(0,0,0,0.6)"
-              strokeWidth="2"
-              strokeDasharray="4 4"
+              stroke="rgba(0,0,0,0.55)"
+              strokeWidth="1"
+              strokeDasharray="3 3"
               strokeLinecap="butt"
               fill="none"
               style={{ animation: 'etd-march 1.2s linear infinite' }}
             />
             <path
               d={marqueePath}
-              stroke="rgba(255,255,255,0.95)"
-              strokeWidth="1.2"
-              strokeDasharray="4 4"
+              stroke="rgba(255,255,255,0.9)"
+              strokeWidth="0.6"
+              strokeDasharray="3 3"
               strokeLinecap="butt"
               fill="none"
               style={{ animation: 'etd-march 1.2s linear infinite', animationDelay: '-0.6s' }}
