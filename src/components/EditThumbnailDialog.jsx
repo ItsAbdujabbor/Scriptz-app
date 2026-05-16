@@ -661,6 +661,11 @@ export function EditThumbnailDialog({
   const [redoDepth, setRedoDepth] = useState(0)
   const [sizePopoverOpen, setSizePopoverOpen] = useState(false)
   const [colorPopoverOpen, setColorPopoverOpen] = useState(false)
+  // Marching ants — SVG path string of the selection boundary + canvas
+  // dimensions used as the SVG viewBox. Recomputed on each pointerUp,
+  // undo, redo, and clear. Empty string = no selection / nothing to draw.
+  const [marqueePath, setMarqueePath] = useState('')
+  const [canvasDims, setCanvasDims] = useState({ w: 1536, h: 864 })
 
   const editTextareaRef = useRef(null)
   const queryClient = useQueryClient()
@@ -673,19 +678,17 @@ export function EditThumbnailDialog({
   const maskCanvasRef = useRef(null) // full natural resolution mask canvas — holds committed strokes
   const overlayCanvasRef = useRef(null) // same-size sibling canvas — rect-tool in-progress preview only
   const stageRef = useRef(null) // the wrapper whose rect we measure
+  const dprRef = useRef(1) // device pixel ratio at last canvas resize
   // Custom brush cursor preview — a circle that tracks the pointer
   // while in brush/eraser mode. Position is updated imperatively
   // (`cursorPreviewRef.current.style.transform = …`) on every
   // pointermove so we don't burn React re-renders at ~60 fps.
   const cursorPreviewRef = useRef(null)
   const [cursorVisible, setCursorVisible] = useState(false)
-  // Marching-ants marquee — an SVG path-d string traced from the
-  // (Removed `marqueePath` state + the Moore-neighbor contour tracer
-  // that fed it — the marching-ants SVG overlay was removed per user
-  // request; the painted region is now communicated purely by the
-  // semi-transparent fill on the mask canvas. Saves ~100 lines of
-  // perimeter-tracing code and one rAF per stroke commit.)
-
+  // Marching-ants marquee — SVG path string recomputed on each stroke
+  // commit (pointerUp) and undo/redo/clear via computeAndSetContour.
+  // The previous implementation was removed; this is the new one.
+  // (Replaced old comment block)
   // Stage aspect-ratio — derived from the source thumbnail so the
   // editor adapts to landscape (16:9), portrait (9:16), and square
   // (1:1) thumbnails without cropping. Default 16:9 for the brief
@@ -762,10 +765,12 @@ export function EditThumbnailDialog({
         const stage = stageRef.current
         const stageRect = stage ? stage.getBoundingClientRect() : { width: 0, height: 0 }
         const dpr = Math.max(1, Math.round(window.devicePixelRatio || 1))
+        dprRef.current = dpr
         const cssW = stageRect.width > 10 ? stageRect.width : Math.min(1040, window.innerWidth - 44)
         const cssH = Math.round(cssW * (naturalH / naturalW))
         const w = Math.max(1, Math.round(cssW * dpr))
         const h = Math.max(1, Math.round(cssH * dpr))
+        setCanvasDims({ w, h })
         canvas.width = w
         canvas.height = h
         canvas.getContext('2d').clearRect(0, 0, w, h)
@@ -779,6 +784,7 @@ export function EditThumbnailDialog({
         setUndoDepth(0)
         setRedoDepth(0)
         setHasDrawn(false)
+        setMarqueePath('')
       })
       .catch(() => {
         /* image failed — drawing will no-op, edit still works as full-mask */
@@ -812,6 +818,126 @@ export function EditThumbnailDialog({
     document.addEventListener('pointerdown', onDocDown, true)
     return () => document.removeEventListener('pointerdown', onDocDown, true)
   }, [sizePopoverOpen, colorPopoverOpen])
+
+  /* ── Marching ants contour ────────────────────────────────────── */
+  // Runs marching-squares on a downsampled version of the mask canvas
+  // to extract an SVG path string that outlines the painted region.
+  // Called on every pointerUp / undo / redo / clear — NOT on pointermove.
+  // Converts canvas pixel coords → CSS pixel coords (÷ dpr) so the SVG
+  // viewBox lines up exactly with the canvas CSS size.
+  const computeAndSetContour = useCallback(() => {
+    const canvas = maskCanvasRef.current
+    if (!canvas || canvas.width === 0) {
+      setMarqueePath('')
+      return
+    }
+    const { width, height } = canvas
+    const ctx = canvas.getContext('2d')
+    const imageData = ctx.getImageData(0, 0, width, height)
+    const data = imageData.data
+
+    // Downsample step — larger = faster, slightly less accurate contour.
+    // Target ~300 cells across the longest axis.
+    const STEP = Math.max(2, Math.round(Math.max(width, height) / 300))
+    const cols = Math.ceil(width / STEP)
+    const rows = Math.ceil(height / STEP)
+
+    // Binary grid with 1-cell zero padding on every edge so the
+    // marching-squares outer loop never reads out-of-bounds.
+    const W = cols + 2
+    const grid = new Uint8Array(W * (rows + 2))
+    for (let gy = 0; gy < rows; gy++) {
+      for (let gx = 0; gx < cols; gx++) {
+        const px = Math.min(Math.round(gx * STEP + STEP / 2), width - 1)
+        const py = Math.min(Math.round(gy * STEP + STEP / 2), height - 1)
+        grid[(gy + 1) * W + (gx + 1)] = data[(py * width + px) * 4 + 3] > 64 ? 1 : 0
+      }
+    }
+
+    // Marching squares — emit one or two line segments per cell.
+    // Coordinates are in canvas-pixel space; we divide by dpr below.
+    const segs = []
+    for (let gy = 0; gy <= rows; gy++) {
+      for (let gx = 0; gx <= cols; gx++) {
+        const tl = grid[gy * W + gx] || 0
+        const tr = grid[gy * W + (gx + 1)] || 0
+        const bl = grid[(gy + 1) * W + gx] || 0
+        const br = grid[(gy + 1) * W + (gx + 1)] || 0
+        const code = (tl << 3) | (tr << 2) | (br << 1) | bl
+        if (code === 0 || code === 15) continue
+        const x0 = gx * STEP,
+          y0 = gy * STEP
+        const x1 = x0 + STEP,
+          y1 = y0 + STEP
+        const xm = x0 + STEP / 2,
+          ym = y0 + STEP / 2
+        switch (code) {
+          case 1:
+            segs.push(xm, y1, x0, ym)
+            break
+          case 2:
+            segs.push(x1, ym, xm, y1)
+            break
+          case 3:
+            segs.push(x1, ym, x0, ym)
+            break
+          case 4:
+            segs.push(xm, y0, x1, ym)
+            break
+          case 5:
+            segs.push(xm, y0, x0, ym)
+            segs.push(x1, ym, xm, y1)
+            break
+          case 6:
+            segs.push(xm, y0, xm, y1)
+            break
+          case 7:
+            segs.push(xm, y0, x0, ym)
+            break
+          case 8:
+            segs.push(x0, ym, xm, y0)
+            break
+          case 9:
+            segs.push(xm, y1, xm, y0)
+            break
+          case 10:
+            segs.push(x0, ym, xm, y1)
+            segs.push(xm, y0, x1, ym)
+            break
+          case 11:
+            segs.push(x1, ym, xm, y0)
+            break
+          case 12:
+            segs.push(x0, ym, x1, ym)
+            break
+          case 13:
+            segs.push(xm, y1, x1, ym)
+            break
+          case 14:
+            segs.push(x0, ym, xm, y1)
+            break
+          default:
+            break
+        }
+      }
+    }
+
+    if (segs.length === 0) {
+      setMarqueePath('')
+      return
+    }
+
+    // Convert canvas px → CSS px and build SVG path string.
+    const inv = 1 / dprRef.current
+    const parts = []
+    for (let i = 0; i < segs.length; i += 4) {
+      parts.push(
+        `M${(segs[i] * inv).toFixed(1)},${(segs[i + 1] * inv).toFixed(1)}` +
+          `L${(segs[i + 2] * inv).toFixed(1)},${(segs[i + 3] * inv).toFixed(1)}`
+      )
+    }
+    setMarqueePath(parts.join(' '))
+  }, [])
 
   /* ── Canvas drawing primitives ────────────────────────────────── */
   const getCanvasCoords = useCallback((e) => {
@@ -1083,6 +1209,24 @@ export function EditThumbnailDialog({
     baseSnapshotRef.current = null
     if (snap) pushUndoPromise(imageDataToBlobPromise(snap))
     setHasDrawn(true)
+
+    // Binarize the alpha channel after every stroke commit: pixels that were
+    // anti-aliased by the canvas renderer (partial alpha) snap to either fully
+    // opaque (α > 64 → 255) or fully transparent (α ≤ 64 → 0). This makes
+    // stroke edges crisp and pixel-exact instead of feathered.
+    const maskCanvas = maskCanvasRef.current
+    if (maskCanvas) {
+      const mctx = maskCanvas.getContext('2d')
+      const id = mctx.getImageData(0, 0, maskCanvas.width, maskCanvas.height)
+      const d = id.data
+      for (let i = 3; i < d.length; i += 4) {
+        d[i] = d[i] > 64 ? 255 : 0
+      }
+      mctx.putImageData(id, 0, 0)
+    }
+
+    // Recompute the marching-ants contour from the updated mask.
+    computeAndSetContour()
   }
 
   /* ── History actions ──────────────────────────────────────────── */
@@ -1098,10 +1242,11 @@ export function EditThumbnailDialog({
       setRedoDepth(redoStackRef.current.length)
       setHasDrawn(undoStackRef.current.length > 0)
       await restoreBlobToCanvas(prevPromise)
+      computeAndSetContour()
     } finally {
       undoBusyRef.current = false
     }
-  }, [snapshotCanvasAsBlobPromise, restoreBlobToCanvas])
+  }, [snapshotCanvasAsBlobPromise, restoreBlobToCanvas, computeAndSetContour])
 
   const handleRedo = useCallback(async () => {
     if (redoStackRef.current.length === 0 || undoBusyRef.current) return
@@ -1115,10 +1260,11 @@ export function EditThumbnailDialog({
       setRedoDepth(redoStackRef.current.length)
       setHasDrawn(true)
       await restoreBlobToCanvas(nextPromise)
+      computeAndSetContour()
     } finally {
       undoBusyRef.current = false
     }
-  }, [snapshotCanvasAsBlobPromise, restoreBlobToCanvas])
+  }, [snapshotCanvasAsBlobPromise, restoreBlobToCanvas, computeAndSetContour])
 
   const handleClear = useCallback(() => {
     const canvas = maskCanvasRef.current
@@ -1128,6 +1274,7 @@ export function EditThumbnailDialog({
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     if (snap) pushUndoPromise(imageDataToBlobPromise(snap))
     setHasDrawn(false)
+    setMarqueePath('')
   }, [snapshotCanvas, pushUndoPromise, imageDataToBlobPromise])
 
   /* ── Mask composite preview (for chat bubble display) ────────── */
@@ -1402,6 +1549,10 @@ export function EditThumbnailDialog({
           from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+        @keyframes etd-march {
+          from { stroke-dashoffset: 0; }
+          to   { stroke-dashoffset: -20; }
+        }
       `}</style>
 
       <div
@@ -1559,10 +1710,10 @@ export function EditThumbnailDialog({
               height: '100%',
               borderRadius: 16,
               // Strokes are painted at alpha=1 for a clean export mask.
-              // CSS opacity 0.38 makes the whole overlay transparent so the
-              // thumbnail shows through without strokes accumulating darker
-              // when painted over multiple times.
-              opacity: 0.38,
+              // CSS opacity 0.48 keeps the thumbnail visible while the painted
+              // region is clearly legible — the marching ants border gives the
+              // precise boundary so the fill doesn't need to be fully opaque.
+              opacity: 0.48,
               cursor: busy
                 ? 'default'
                 : tool === 'brush' || tool === 'eraser'
@@ -1588,16 +1739,61 @@ export function EditThumbnailDialog({
               width: '100%',
               height: '100%',
               borderRadius: 16,
-              opacity: 0.38,
+              opacity: 0.48,
               pointerEvents: 'none',
             }}
           />
 
-          {/* Marching-ants marquee was here — removed per user
-           * request. Painted region now reads through the
-           * semi-transparent mask fill on the canvas above; the
-           * supporting `marqueePath` state + Moore-neighbor contour
-           * tracer have been stripped from the component too. */}
+          {/* Marching-ants marquee — SVG overlay that outlines the painted
+           * selection using two offset dashed paths (white + dark) so the
+           * border is legible on both bright and dark regions of the image.
+           * `vector-effect="non-scaling-stroke"` keeps the stroke width in
+           * screen pixels regardless of the SVG viewBox scale, so the 2px
+           * border and 10/10 dashes look the same on every aspect ratio.
+           * The `etd-march` @keyframes drives the dashoffset so the ants
+           * animate. The SVG is hidden when nothing has been drawn (empty
+           * marqueePath) and also while the editor is busy (generation in
+           * progress shows the progress overlay on top anyway). */}
+          {hasDrawn && marqueePath && !busy && (
+            <svg
+              aria-hidden
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none',
+                overflow: 'visible',
+                borderRadius: 16,
+              }}
+              viewBox={`0 0 ${canvasDims.w / dprRef.current} ${canvasDims.h / dprRef.current}`}
+              preserveAspectRatio="none"
+            >
+              {/* White dashes */}
+              <path
+                d={marqueePath}
+                stroke="rgba(255,255,255,0.95)"
+                strokeWidth="2"
+                strokeDasharray="10 10"
+                strokeLinecap="butt"
+                fill="none"
+                vectorEffect="non-scaling-stroke"
+                style={{ animation: 'etd-march 0.45s linear infinite' }}
+              />
+              {/* Dark dashes offset by half period — creates classic black/white marching-ants look */}
+              <path
+                d={marqueePath}
+                stroke="rgba(0,0,0,0.75)"
+                strokeWidth="2"
+                strokeDasharray="10 10"
+                strokeDashoffset="10"
+                strokeLinecap="butt"
+                fill="none"
+                vectorEffect="non-scaling-stroke"
+                style={{ animation: 'etd-march 0.45s linear infinite' }}
+              />
+            </svg>
+          )}
 
           {/* Brush cursor preview — circle that follows the pointer
            * while a paint tool is active. Centre is the chosen colour
