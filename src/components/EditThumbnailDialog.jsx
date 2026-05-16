@@ -704,7 +704,9 @@ export function EditThumbnailDialog({
   const [editPrompt, setEditPrompt] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-  const { selectedPersona } = usePersonaStore()
+  const { selectedPersona, setSelectedPersona, clearSelectedPersona } = usePersonaStore()
+  const { data: personasData, isPending: personasPending } = usePersonasQuery()
+  const [charPickerOpen, setCharPickerOpen] = useState(false)
 
   // Drawing state
   const [tool, setTool] = useState('brush') // 'rect' | 'brush' | 'eraser'
@@ -2336,19 +2338,6 @@ export function EditThumbnailDialog({
           </div>
         </div>
 
-        {/* Face-swap panel — persona picker. Shown only when face-swap
-         * mode is active; the drawing toolbar above is hidden in this
-         * case so the UI stays focused. */}
-        {mode === 'faceswap' && (
-          <FaceSwapPanel
-            busy={busy}
-            disabled={!canSubmit}
-            onGenerate={handleSubmit}
-            unitCost={unitCost}
-            totalCost={unitCost}
-          />
-        )}
-
         {/* Error */}
         {error && (
           <p
@@ -2369,30 +2358,29 @@ export function EditThumbnailDialog({
           </p>
         )}
 
-        {/* Input area — only mounted in Edit mode. Styled to match the main
-         * thumbnail-generator composer: dark pill, textarea row, then a
-         * bottom action row with a compact batch picker on the left and the
-         * send button on the right. */}
-        {mode === 'edit' && (
-          <div
-            className="etd-input-card"
-            style={{
-              alignSelf: 'center',
-              width: '100%',
-              maxWidth: 720,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 0,
-              padding: '10px 14px 10px 16px',
-              borderRadius: 22,
-              background: '#1c1c24',
-              border: '1px solid rgba(255, 255, 255, 0.14)',
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 16px rgba(0, 0, 0, 0.35)',
-              animation: 'etd-fade-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) both',
-              boxSizing: 'border-box',
-            }}
-          >
-            {/* Textarea row */}
+        {/* Unified input card — always rendered so the dialog height
+         * stays identical when the user switches between Edit and Face
+         * swap. Only the top row changes: textarea in edit mode,
+         * persona picker row in face-swap mode. The card chrome, action
+         * row, and generate button are shared and never shift. */}
+        <div
+          className="etd-input-card"
+          style={{
+            alignSelf: 'center',
+            width: '100%',
+            maxWidth: 720,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 0,
+            padding: '10px 14px 10px 16px',
+            borderRadius: 22,
+            background: '#1c1c24',
+            border: '1px solid rgba(255, 255, 255, 0.14)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 16px rgba(0, 0, 0, 0.35)',
+            boxSizing: 'border-box',
+          }}
+        >
+          {mode === 'edit' ? (
             <textarea
               ref={editTextareaRef}
               className="etd-input-textarea"
@@ -2428,289 +2416,130 @@ export function EditThumbnailDialog({
                 boxSizing: 'border-box',
               }}
             />
-            {/* Bottom action row — send button right-aligned */}
-            <div
-              className="etd-input-actions"
+          ) : (
+            /* Persona picker row — same padding/min-height as the textarea
+             * so the card occupies exactly the same height in both modes. */
+            <button
+              type="button"
+              onClick={() => !busy && setCharPickerOpen(true)}
+              disabled={busy}
+              aria-haspopup="dialog"
+              aria-expanded={charPickerOpen}
+              aria-label={
+                selectedPersona ? `Character: ${selectedPersona.name}` : 'Pick a character'
+              }
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'flex-end',
                 gap: 8,
-                paddingTop: 4,
-                borderTop: '1px solid rgba(255,255,255,0.06)',
-                marginTop: 2,
+                width: '100%',
+                minHeight: '2.2em',
+                padding: '2px 0 8px',
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: 'rgba(255,255,255,0.92)',
+                cursor: busy ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit',
+                fontSize: '0.93rem',
+                textAlign: 'left',
+                boxSizing: 'border-box',
+                opacity: busy ? 0.55 : 1,
               }}
             >
-              <PrimaryActionBtn
-                onClick={handleSubmit}
-                disabled={!canSubmit}
-                busy={busy}
-                label="Generate"
-                busyLabel="Generating…"
-                icon={<IconArrowUp size={13} />}
-                creditCost={unitCost ?? null}
-              />
-            </div>
+              {selectedPersona ? (
+                <>
+                  <span
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: '50%',
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                      background: 'rgba(0,0,0,0.35)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                    }}
+                  >
+                    {selectedPersona.image_url && (
+                      <img
+                        src={selectedPersona.image_url}
+                        alt=""
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          display: 'block',
+                        }}
+                      />
+                    )}
+                  </span>
+                  <span style={{ flex: 1, lineHeight: 1.55 }}>{selectedPersona.name}</span>
+                  <span
+                    role="button"
+                    aria-label="Clear character"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      clearSelectedPersona()
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 20,
+                      height: 20,
+                      borderRadius: '50%',
+                      background: 'rgba(255,255,255,0.08)',
+                      color: 'rgba(255,255,255,0.7)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <IconX size={11} />
+                  </span>
+                </>
+              ) : (
+                <span style={{ color: 'rgba(255,255,255,0.35)', lineHeight: 1.55 }}>
+                  Pick a character to swap the face with…
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* Action row — shared across both modes, no divider */}
+          <div
+            className="etd-input-actions"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: 8,
+              paddingTop: 4,
+            }}
+          >
+            <PrimaryActionBtn
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              busy={busy}
+              label="Generate"
+              busyLabel={mode === 'faceswap' ? 'Swapping…' : 'Generating…'}
+              icon={<IconArrowUp size={13} />}
+              creditCost={unitCost ?? null}
+            />
           </div>
-        )}
+        </div>
+
+        <CharacterPickerDialog
+          open={charPickerOpen}
+          onClose={() => setCharPickerOpen(false)}
+          items={personasData?.items ?? []}
+          isPending={personasPending}
+          selectedId={selectedPersona?.id}
+          onSelect={(p) => {
+            setSelectedPersona(p)
+            setCharPickerOpen(false)
+          }}
+        />
       </div>
     </Dialog>
-  )
-}
-
-/**
- * FaceSwapPanel — bespoke face-swap UI for the editor.
- *
- *   ┌──────────────────────────────────────┐
- *   │  [face]  Persona name           [×]  │   ← pill picker (full-width)
- *   └──────────────────────────────────────┘
- *   ┌──────────────────────────────────────┐
- *   │            Generate · 12cr           │   ← primary CTA
- *   └──────────────────────────────────────┘
- *
- * Rolls its own pill trigger + popover (instead of embedding the
- * shared <PersonaSelector>) so every detail — the avatar size, the
- * gradient on the active state, the hairline border, the popover
- * surface — matches the editor's design language exactly. Click the
- * pill to open / dismiss the persona list; click outside to close.
- */
-function FaceSwapPanel({ busy, disabled, onGenerate, unitCost, totalCost }) {
-  const { selectedPersona, setSelectedPersona, clearSelectedPersona } = usePersonaStore()
-  const { data, isPending } = usePersonasQuery()
-  const [open, setOpen] = useState(false)
-
-  const items = data?.items ?? []
-  const cost = unitCost ? totalCost : null
-
-  // Locked pill geometry — same height in empty / selected states so
-  // the panel doesn't shift when the user picks (or clears) a character.
-  // 32-px avatar fits cleanly inside a 48-px tall capsule with 8 px of
-  // vertical breathing room either side. Padding stays the same in
-  // both states so the right-edge chevron / clear-X land on the same
-  // pixel column regardless of selection.
-  const PILL_HEIGHT = 48
-  const AVATAR = 32
-
-  return (
-    <div
-      style={{
-        alignSelf: 'center',
-        width: '100%',
-        maxWidth: 460,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
-        animation: 'etd-fade-in 0.24s cubic-bezier(0.32, 0.72, 0, 1) both',
-      }}
-    >
-      {/* Pill picker. The two visual states (empty vs selected)
-       * share the same silhouette: full-width capsule, white-grey
-       * hairline, soft inset highlight. Selected state lifts the
-       * border into a subtle violet to match the active mode tab.
-       * Tapping the pill opens a centered, fixed-size dialog (below)
-       * — no popover/dropdown, so the trigger doesn't need a wrapping
-       * positioning context. */}
-      <div>
-        <button
-          type="button"
-          onClick={() => !busy && setOpen(true)}
-          disabled={busy}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          aria-label={selectedPersona ? `Character: ${selectedPersona.name}` : 'Pick a character'}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            width: '100%',
-            height: PILL_HEIGHT,
-            padding: '0 14px 0 8px',
-            boxSizing: 'border-box',
-            border: `1px solid ${
-              open
-                ? 'rgba(167, 139, 250, 0.65)'
-                : selectedPersona
-                  ? 'rgba(167, 139, 250, 0.42)'
-                  : 'rgba(255, 255, 255, 0.12)'
-            }`,
-            borderRadius: 999,
-            background: selectedPersona
-              ? 'linear-gradient(180deg, rgba(139, 92, 246, 0.18) 0%, rgba(139, 92, 246, 0.07) 100%)'
-              : 'rgba(255, 255, 255, 0.04)',
-            color: '#ffffff',
-            cursor: busy ? 'not-allowed' : 'pointer',
-            fontFamily: 'inherit',
-            fontSize: 13,
-            fontWeight: 500,
-            // No outer purple drop-shadow when a persona is selected —
-            // the violet border + tinted background already communicate
-            // the active state, and the outer glow was reading as "this
-            // is a notification" rather than "this is a calm selected
-            // pill". Inset highlight stays for the same subtle top-edge
-            // shine the base state has.
-            boxShadow: selectedPersona
-              ? 'inset 0 1px 0 rgba(255, 255, 255, 0.08)'
-              : 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
-            transition:
-              'background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.12s cubic-bezier(0.33, 1, 0.68, 1)',
-            opacity: busy ? 0.55 : 1,
-          }}
-        >
-          {selectedPersona ? (
-            <>
-              <span
-                style={{
-                  width: AVATAR,
-                  height: AVATAR,
-                  borderRadius: '50%',
-                  overflow: 'hidden',
-                  flexShrink: 0,
-                  background: 'rgba(0, 0, 0, 0.35)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                }}
-              >
-                {selectedPersona.image_url && (
-                  <img
-                    src={selectedPersona.image_url}
-                    alt=""
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  />
-                )}
-              </span>
-              <span
-                style={{
-                  flex: 1,
-                  textAlign: 'left',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {selectedPersona.name}
-              </span>
-              <span
-                role="button"
-                aria-label="Clear character"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  clearSelectedPersona()
-                  setOpen(false)
-                }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 26,
-                  height: 26,
-                  borderRadius: '50%',
-                  background: 'rgba(0, 0, 0, 0.35)',
-                  color: 'rgba(255, 255, 255, 0.85)',
-                  flexShrink: 0,
-                  cursor: 'pointer',
-                }}
-              >
-                <IconX size={12} />
-              </span>
-            </>
-          ) : (
-            <>
-              {/* Same 32-px placeholder slot as the avatar so the
-               * empty / selected states share an identical layout
-               * grid — no chevron / label re-flow on selection. */}
-              <span
-                aria-hidden
-                style={{
-                  width: AVATAR,
-                  height: AVATAR,
-                  borderRadius: '50%',
-                  flexShrink: 0,
-                  background: 'rgba(255, 255, 255, 0.06)',
-                  border: '1px dashed rgba(255, 255, 255, 0.16)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'rgba(255, 255, 255, 0.55)',
-                }}
-              >
-                <IconFaceSwap size={14} />
-              </span>
-              <span style={{ flex: 1, textAlign: 'left', color: 'rgba(255, 255, 255, 0.65)' }}>
-                Pick a character
-              </span>
-              <span
-                style={{
-                  display: 'inline-flex',
-                  transform: open ? 'rotate(180deg)' : 'none',
-                  transition: 'transform 0.2s',
-                  color: 'rgba(255, 255, 255, 0.55)',
-                  flexShrink: 0,
-                }}
-              >
-                <IconChevron size={14} />
-              </span>
-            </>
-          )}
-        </button>
-      </div>
-
-      <CharacterPickerDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        items={items}
-        isPending={isPending}
-        selectedId={selectedPersona?.id}
-        onSelect={(p) => {
-          setSelectedPersona(p)
-          setOpen(false)
-        }}
-      />
-
-      {/* Generate — full-width primary pill. PrimaryPill at size=md
-       * here (not sm) because this is the only CTA on the screen. */}
-      <PrimaryPill
-        type="button"
-        size="md"
-        fullWidth
-        onClick={onGenerate}
-        disabled={disabled}
-        busy={busy}
-        busyLabel="Swapping…"
-        label={
-          cost ? (
-            <>
-              <span
-                aria-hidden
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  lineHeight: 1,
-                  paddingRight: '0.55rem',
-                  marginRight: '0.2rem',
-                  borderRight: '1px solid rgba(255, 255, 255, 0.22)',
-                }}
-              >
-                <IconZapFilled size={12} />
-                <span
-                  style={{
-                    fontVariantNumeric: 'tabular-nums',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    letterSpacing: '0.01em',
-                  }}
-                >
-                  {cost}
-                </span>
-              </span>
-              Generate
-            </>
-          ) : (
-            'Generate'
-          )
-        }
-        ariaLabel="Run face swap"
-      />
-    </div>
   )
 }
 
