@@ -820,11 +820,17 @@ export function EditThumbnailDialog({
   }, [sizePopoverOpen, colorPopoverOpen])
 
   /* ── Marching ants contour ────────────────────────────────────── */
-  // Runs marching-squares on a downsampled version of the mask canvas
-  // to extract an SVG path string that outlines the painted region.
-  // Called on every pointerUp / undo / redo / clear — NOT on pointermove.
-  // Converts canvas pixel coords → CSS pixel coords (÷ dpr) so the SVG
-  // viewBox lines up exactly with the canvas CSS size.
+  // Two-pass algorithm:
+  //   1. Marching squares: extracts unordered boundary segments from the
+  //      mask canvas at a coarse (≈300-cell) grid.
+  //   2. Path assembly: chains those segments into closed loops using an
+  //      endpoint hash-map (O(n)) so each loop becomes one continuous
+  //      M…L…Z path. A continuous path is REQUIRED for stroke-dashoffset
+  //      animation to march — disconnected M…L segments each get their
+  //      own independent dash phase and produce static noise instead.
+  //
+  // STEP must be even so all segment endpoints land on integers, which
+  // guarantees exact string-key matching in the endpoint map.
   const computeAndSetContour = useCallback(() => {
     const canvas = maskCanvasRef.current
     if (!canvas || canvas.width === 0) {
@@ -836,107 +842,143 @@ export function EditThumbnailDialog({
     const imageData = ctx.getImageData(0, 0, width, height)
     const data = imageData.data
 
-    // Downsample step — larger = faster, slightly less accurate contour.
-    // Target ~300 cells across the longest axis.
-    const STEP = Math.max(2, Math.round(Math.max(width, height) / 300))
+    // Even STEP so HS = STEP/2 is always an integer.
+    const raw = Math.max(2, Math.round(Math.max(width, height) / 300))
+    const STEP = raw % 2 === 0 ? raw : raw + 1
+    const HS = STEP >> 1
     const cols = Math.ceil(width / STEP)
     const rows = Math.ceil(height / STEP)
 
-    // Binary grid with 1-cell zero padding on every edge so the
-    // marching-squares outer loop never reads out-of-bounds.
-    const W = cols + 2
-    const grid = new Uint8Array(W * (rows + 2))
+    // Binary grid — 1-cell zero padding on every side avoids
+    // out-of-bounds reads in the marching-squares loop.
+    const GW = cols + 2
+    const grid = new Uint8Array(GW * (rows + 2))
     for (let gy = 0; gy < rows; gy++) {
       for (let gx = 0; gx < cols; gx++) {
-        const px = Math.min(Math.round(gx * STEP + STEP / 2), width - 1)
-        const py = Math.min(Math.round(gy * STEP + STEP / 2), height - 1)
-        grid[(gy + 1) * W + (gx + 1)] = data[(py * width + px) * 4 + 3] > 64 ? 1 : 0
+        const px = Math.min(gx * STEP + HS, width - 1)
+        const py = Math.min(gy * STEP + HS, height - 1)
+        grid[(gy + 1) * GW + (gx + 1)] = data[(py * width + px) * 4 + 3] > 64 ? 1 : 0
       }
     }
 
-    // Marching squares — emit one or two line segments per cell.
-    // Coordinates are in canvas-pixel space; we divide by dpr below.
-    const segs = []
+    // ── Pass 1: Marching squares → flat segment array ─────────────
+    // Flat layout: [x1, y1, x2, y2, ...] — all integers (canvas-px).
+    const sv = [] // segment values
     for (let gy = 0; gy <= rows; gy++) {
       for (let gx = 0; gx <= cols; gx++) {
-        const tl = grid[gy * W + gx] || 0
-        const tr = grid[gy * W + (gx + 1)] || 0
-        const bl = grid[(gy + 1) * W + gx] || 0
-        const br = grid[(gy + 1) * W + (gx + 1)] || 0
+        const tl = grid[gy * GW + gx] || 0
+        const tr = grid[gy * GW + (gx + 1)] || 0
+        const bl = grid[(gy + 1) * GW + gx] || 0
+        const br = grid[(gy + 1) * GW + (gx + 1)] || 0
         const code = (tl << 3) | (tr << 2) | (br << 1) | bl
         if (code === 0 || code === 15) continue
         const x0 = gx * STEP,
           y0 = gy * STEP
         const x1 = x0 + STEP,
           y1 = y0 + STEP
-        const xm = x0 + STEP / 2,
-          ym = y0 + STEP / 2
+        const xm = x0 + HS,
+          ym = y0 + HS
+        // prettier-ignore
         switch (code) {
-          case 1:
-            segs.push(xm, y1, x0, ym)
-            break
-          case 2:
-            segs.push(x1, ym, xm, y1)
-            break
-          case 3:
-            segs.push(x1, ym, x0, ym)
-            break
-          case 4:
-            segs.push(xm, y0, x1, ym)
-            break
-          case 5:
-            segs.push(xm, y0, x0, ym)
-            segs.push(x1, ym, xm, y1)
-            break
-          case 6:
-            segs.push(xm, y0, xm, y1)
-            break
-          case 7:
-            segs.push(xm, y0, x0, ym)
-            break
-          case 8:
-            segs.push(x0, ym, xm, y0)
-            break
-          case 9:
-            segs.push(xm, y1, xm, y0)
-            break
-          case 10:
-            segs.push(x0, ym, xm, y1)
-            segs.push(xm, y0, x1, ym)
-            break
-          case 11:
-            segs.push(x1, ym, xm, y0)
-            break
-          case 12:
-            segs.push(x0, ym, x1, ym)
-            break
-          case 13:
-            segs.push(xm, y1, x1, ym)
-            break
-          case 14:
-            segs.push(x0, ym, xm, y1)
-            break
-          default:
-            break
+          case  1: sv.push(xm,y1, x0,ym); break
+          case  2: sv.push(x1,ym, xm,y1); break
+          case  3: sv.push(x1,ym, x0,ym); break
+          case  4: sv.push(xm,y0, x1,ym); break
+          case  5: sv.push(xm,y0, x0,ym); sv.push(x1,ym, xm,y1); break
+          case  6: sv.push(xm,y0, xm,y1); break
+          case  7: sv.push(xm,y0, x0,ym); break
+          case  8: sv.push(x0,ym, xm,y0); break
+          case  9: sv.push(xm,y1, xm,y0); break
+          case 10: sv.push(x0,ym, xm,y1); sv.push(xm,y0, x1,ym); break
+          case 11: sv.push(x1,ym, xm,y0); break
+          case 12: sv.push(x0,ym, x1,ym); break
+          case 13: sv.push(xm,y1, x1,ym); break
+          case 14: sv.push(x0,ym, xm,y1); break
         }
       }
     }
 
-    if (segs.length === 0) {
+    const segN = sv.length >> 2 // sv.length / 4
+    if (segN === 0) {
       setMarqueePath('')
       return
     }
 
-    // Convert canvas px → CSS px and build SVG path string.
-    const inv = 1 / dprRef.current
-    const parts = []
-    for (let i = 0; i < segs.length; i += 4) {
-      parts.push(
-        `M${(segs[i] * inv).toFixed(1)},${(segs[i + 1] * inv).toFixed(1)}` +
-          `L${(segs[i + 2] * inv).toFixed(1)},${(segs[i + 3] * inv).toFixed(1)}`
-      )
+    // ── Pass 2: Assemble segments into closed loops ────────────────
+    // Build endpoint → [packed: segIdx<<1 | isAEnd] map.
+    // isAEnd=0 → this key is the A-endpoint; follow to B.
+    // isAEnd=1 → this key is the B-endpoint; follow to A.
+    const endMap = new Map()
+    const addEP = (k, i, isA) => {
+      let a = endMap.get(k)
+      if (!a) {
+        a = []
+        endMap.set(k, a)
+      }
+      a.push((i << 1) | (isA ? 0 : 1))
     }
-    setMarqueePath(parts.join(' '))
+    for (let i = 0; i < segN; i++) {
+      addEP(`${sv[i * 4]},${sv[i * 4 + 1]}`, i, true) // A-end → go to B
+      addEP(`${sv[i * 4 + 2]},${sv[i * 4 + 3]}`, i, false) // B-end → go to A
+    }
+
+    const used = new Uint8Array(segN)
+    const loops = [] // each loop: flat [x0,y0,x1,y1,...] integers
+
+    for (let si = 0; si < segN; si++) {
+      if (used[si]) continue
+      used[si] = 1
+
+      const pts = [sv[si * 4], sv[si * 4 + 1], sv[si * 4 + 2], sv[si * 4 + 3]]
+      let tx = sv[si * 4 + 2],
+        ty = sv[si * 4 + 3]
+
+      for (let guard = segN; guard > 0; guard--) {
+        const neighbors = endMap.get(`${tx},${ty}`)
+        if (!neighbors) break
+        let advanced = false
+        for (let ni = 0; ni < neighbors.length; ni++) {
+          const packed = neighbors[ni]
+          const idx = packed >> 1
+          if (used[idx]) continue
+          used[idx] = 1
+          // packed & 1 = 0 → we matched A-end → next point is B
+          // packed & 1 = 1 → we matched B-end → next point is A
+          const toA = (packed & 1) === 1
+          const nx = toA ? sv[idx * 4] : sv[idx * 4 + 2]
+          const ny = toA ? sv[idx * 4 + 1] : sv[idx * 4 + 3]
+          pts.push(nx, ny)
+          tx = nx
+          ty = ny
+          advanced = true
+          break
+        }
+        if (!advanced) break
+      }
+
+      if (pts.length >= 8) loops.push(pts) // at least 4 distinct points
+    }
+
+    if (loops.length === 0) {
+      setMarqueePath('')
+      return
+    }
+
+    // ── Build SVG path string in CSS-pixel space (÷ DPR) ──────────
+    // Each loop becomes one M…L…L…Z path. stroke-dashoffset animates
+    // the dashes continuously around the closed perimeter — this is
+    // what produces the true marching-ants effect.
+    const inv = 1 / dprRef.current
+    const svgParts = loops.map((pts) => {
+      let d = `M${(pts[0] * inv).toFixed(1)},${(pts[1] * inv).toFixed(1)}`
+      for (let i = 2; i < pts.length; i += 2) {
+        d += `L${(pts[i] * inv).toFixed(1)},${(pts[i + 1] * inv).toFixed(1)}`
+      }
+      return d + 'Z'
+    })
+
+    setCanvasDims({ w: Math.round(width * inv), h: Math.round(height * inv) })
+    setMarqueePath(svgParts.join(' '))
   }, [])
 
   /* ── Canvas drawing primitives ────────────────────────────────── */
@@ -1550,8 +1592,7 @@ export function EditThumbnailDialog({
           to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes etd-march {
-          from { stroke-dashoffset: 0; }
-          to   { stroke-dashoffset: -20; }
+          to { stroke-dashoffset: -14; }
         }
       `}</style>
 
@@ -1754,6 +1795,18 @@ export function EditThumbnailDialog({
            * animate. The SVG is hidden when nothing has been drawn (empty
            * marqueePath) and also while the editor is busy (generation in
            * progress shows the progress overlay on top anyway). */}
+          {/* Marching-ants selection overlay — only when something is painted
+           * and the editor is not busy. Uses TWO SVG passes on the same
+           * assembled closed-loop path:
+           *   1. A slightly thicker dark shadow pass for contrast on light
+           *      backgrounds.
+           *   2. The white dashes, offset by half the dash period so the
+           *      two layers create the classic black/white marching look.
+           * stroke-dasharray="8 6" (period=14) + @keyframes animating
+           * dashoffset by -14 each 0.6 s → smooth continuous march at
+           * ~23 CSS-px per second, matching the Figma selection speed.
+           * No vector-effect needed: the viewBox is in CSS-pixel coords
+           * (canvas-px ÷ DPR) so user-space units = screen pixels. */}
           {hasDrawn && marqueePath && !busy && (
             <svg
               aria-hidden
@@ -1766,31 +1819,30 @@ export function EditThumbnailDialog({
                 overflow: 'visible',
                 borderRadius: 16,
               }}
-              viewBox={`0 0 ${canvasDims.w / dprRef.current} ${canvasDims.h / dprRef.current}`}
+              viewBox={`0 0 ${canvasDims.w} ${canvasDims.h}`}
               preserveAspectRatio="none"
             >
-              {/* White dashes */}
+              {/* Shadow/contrast layer — dark dashes, slightly wider,
+               * offset by half period. Provides contrast on bright images. */}
               <path
                 d={marqueePath}
-                stroke="rgba(255,255,255,0.95)"
-                strokeWidth="2"
-                strokeDasharray="10 10"
+                stroke="rgba(0,0,0,0.65)"
+                strokeWidth="2.5"
+                strokeDasharray="8 6"
+                strokeDashoffset="7"
                 strokeLinecap="butt"
                 fill="none"
-                vectorEffect="non-scaling-stroke"
-                style={{ animation: 'etd-march 0.45s linear infinite' }}
+                style={{ animation: 'etd-march 0.6s linear infinite' }}
               />
-              {/* Dark dashes offset by half period — creates classic black/white marching-ants look */}
+              {/* White dashes — primary visible layer */}
               <path
                 d={marqueePath}
-                stroke="rgba(0,0,0,0.75)"
-                strokeWidth="2"
-                strokeDasharray="10 10"
-                strokeDashoffset="10"
+                stroke="rgba(255,255,255,0.97)"
+                strokeWidth="1.5"
+                strokeDasharray="8 6"
                 strokeLinecap="butt"
                 fill="none"
-                vectorEffect="non-scaling-stroke"
-                style={{ animation: 'etd-march 0.45s linear infinite' }}
+                style={{ animation: 'etd-march 0.6s linear infinite' }}
               />
             </svg>
           )}
