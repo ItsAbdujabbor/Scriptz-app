@@ -662,10 +662,14 @@ export function EditThumbnailDialog({
   const [sizePopoverOpen, setSizePopoverOpen] = useState(false)
   const [colorPopoverOpen, setColorPopoverOpen] = useState(false)
   // Marching ants — SVG path string of the selection boundary + canvas
-  // dimensions used as the SVG viewBox. Recomputed on each pointerUp,
-  // undo, redo, and clear. Empty string = no selection / nothing to draw.
+  // Marching ants — always-rendered SVG whose opacity is toggled
+  // imperatively so the CSS animation never restarts (no flicker).
+  // marqueePath + canvasDims drive the path/viewBox; the SVG element
+  // itself stays in the DOM at all times.
   const [marqueePath, setMarqueePath] = useState('')
   const [canvasDims, setCanvasDims] = useState({ w: 1536, h: 864 })
+  const marqueeSvgRef = useRef(null) // imperative opacity control
+  const isDrawingRef = useRef(false) // true between pointerDown and pointerUp
 
   const editTextareaRef = useRef(null)
   const queryClient = useQueryClient()
@@ -829,12 +833,23 @@ export function EditThumbnailDialog({
   //      animation to march — disconnected M…L segments each get their
   //      own independent dash phase and produce static noise instead.
   //
+  // Show/hide the marquee SVG without touching React state.
+  // The CSS animation keeps running while opacity=0 so when we restore
+  // opacity the ants resume mid-march — no restart, no flicker.
+  const showMarquee = useCallback(() => {
+    if (marqueeSvgRef.current) marqueeSvgRef.current.style.opacity = '1'
+  }, [])
+  const hideMarquee = useCallback(() => {
+    if (marqueeSvgRef.current) marqueeSvgRef.current.style.opacity = '0'
+  }, [])
+
   // STEP must be even so all segment endpoints land on integers, which
   // guarantees exact string-key matching in the endpoint map.
   const computeAndSetContour = useCallback(() => {
     const canvas = maskCanvasRef.current
     if (!canvas || canvas.width === 0) {
       setMarqueePath('')
+      hideMarquee()
       return
     }
     const { width, height } = canvas
@@ -961,6 +976,7 @@ export function EditThumbnailDialog({
 
     if (loops.length === 0) {
       setMarqueePath('')
+      hideMarquee()
       return
     }
 
@@ -979,7 +995,10 @@ export function EditThumbnailDialog({
 
     setCanvasDims({ w: Math.round(width * inv), h: Math.round(height * inv) })
     setMarqueePath(svgParts.join(' '))
-  }, [])
+    // Only reveal if not currently drawing (user might have started a new
+    // stroke before this async contour computation finished)
+    if (!isDrawingRef.current) showMarquee()
+  }, [hideMarquee, showMarquee])
 
   /* ── Canvas drawing primitives ────────────────────────────────── */
   const getCanvasCoords = useCallback((e) => {
@@ -1157,6 +1176,11 @@ export function EditThumbnailDialog({
     const pos = getCanvasCoords(e)
     if (!pos) return
     e.currentTarget.setPointerCapture?.(e.pointerId)
+    // Hide marching ants while drawing — avoids visual noise during the stroke
+    // and eliminates the "flickering" that happens when path state updates
+    // during active painting. The ants reappear after pointerUp.
+    isDrawingRef.current = true
+    hideMarquee()
     const canvas = maskCanvasRef.current
     const ctx = canvas.getContext('2d')
     const scale = canvas.width / canvas.getBoundingClientRect().width
@@ -1267,7 +1291,8 @@ export function EditThumbnailDialog({
       mctx.putImageData(id, 0, 0)
     }
 
-    // Recompute the marching-ants contour from the updated mask.
+    // Allow showMarquee then recompute the marching-ants contour.
+    isDrawingRef.current = false
     computeAndSetContour()
   }
 
@@ -1317,7 +1342,8 @@ export function EditThumbnailDialog({
     if (snap) pushUndoPromise(imageDataToBlobPromise(snap))
     setHasDrawn(false)
     setMarqueePath('')
-  }, [snapshotCanvas, pushUndoPromise, imageDataToBlobPromise])
+    hideMarquee()
+  }, [snapshotCanvas, pushUndoPromise, imageDataToBlobPromise, hideMarquee])
 
   /* ── Mask composite preview (for chat bubble display) ────────── */
   async function createMaskPreviewDataUrl() {
@@ -1592,7 +1618,8 @@ export function EditThumbnailDialog({
           to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes etd-march {
-          to { stroke-dashoffset: -14; }
+          from { stroke-dashoffset: 0; }
+          to { stroke-dashoffset: -8; }
         }
       `}</style>
 
@@ -1807,45 +1834,53 @@ export function EditThumbnailDialog({
            * ~23 CSS-px per second, matching the Figma selection speed.
            * No vector-effect needed: the viewBox is in CSS-pixel coords
            * (canvas-px ÷ DPR) so user-space units = screen pixels. */}
-          {hasDrawn && marqueePath && !busy && (
-            <svg
-              aria-hidden
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                pointerEvents: 'none',
-                overflow: 'visible',
-                borderRadius: 16,
-              }}
-              viewBox={`0 0 ${canvasDims.w} ${canvasDims.h}`}
-              preserveAspectRatio="none"
-            >
-              {/* Shadow/contrast layer — dark dashes, slightly wider,
-               * offset by half period. Provides contrast on bright images. */}
-              <path
-                d={marqueePath}
-                stroke="rgba(0,0,0,0.65)"
-                strokeWidth="2.5"
-                strokeDasharray="8 6"
-                strokeDashoffset="7"
-                strokeLinecap="butt"
-                fill="none"
-                style={{ animation: 'etd-march 0.6s linear infinite' }}
-              />
-              {/* White dashes — primary visible layer */}
-              <path
-                d={marqueePath}
-                stroke="rgba(255,255,255,0.97)"
-                strokeWidth="1.5"
-                strokeDasharray="8 6"
-                strokeLinecap="butt"
-                fill="none"
-                style={{ animation: 'etd-march 0.6s linear infinite' }}
-              />
-            </svg>
-          )}
+          {/* Marching-ants selection border. Always in DOM so the CSS
+           * animation keeps running while hidden (opacity 0) — when we
+           * reveal it (opacity 1) the ants resume mid-march with no
+           * restart flicker. Visibility is controlled imperatively via
+           * marqueeSvgRef: hidden during active stroke, shown on pointerUp.
+           *
+           * Two-layer classic look:
+           *   1. Dark shadow pass (strokeWidth 2, dasharray 4 4) for
+           *      contrast on bright areas.
+           *   2. White dashes (strokeWidth 1.2) offset by half a period
+           *      (animationDelay -0.6 s) so they fill the dark gaps.
+           * Period = 8 CSS px, cycle = 1.2 s → ~6.7 px/s march speed. */}
+          <svg
+            ref={marqueeSvgRef}
+            aria-hidden
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              pointerEvents: 'none',
+              overflow: 'visible',
+              borderRadius: 16,
+              opacity: 0,
+            }}
+            viewBox={`0 0 ${canvasDims.w} ${canvasDims.h}`}
+            preserveAspectRatio="none"
+          >
+            <path
+              d={marqueePath}
+              stroke="rgba(0,0,0,0.6)"
+              strokeWidth="2"
+              strokeDasharray="4 4"
+              strokeLinecap="butt"
+              fill="none"
+              style={{ animation: 'etd-march 1.2s linear infinite' }}
+            />
+            <path
+              d={marqueePath}
+              stroke="rgba(255,255,255,0.95)"
+              strokeWidth="1.2"
+              strokeDasharray="4 4"
+              strokeLinecap="butt"
+              fill="none"
+              style={{ animation: 'etd-march 1.2s linear infinite', animationDelay: '-0.6s' }}
+            />
+          </svg>
 
           {/* Brush cursor preview — circle that follows the pointer
            * while a paint tool is active. Centre is the chosen colour
