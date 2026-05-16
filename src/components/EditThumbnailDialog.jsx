@@ -648,7 +648,7 @@ export function EditThumbnailDialog({
 }) {
   const [mode, setMode] = useState('edit') // 'edit' | 'faceswap'
   const [editPrompt, setEditPrompt] = useState('')
-  const [batch] = useState(1)
+  const [batch, setBatch] = useState(1)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const { selectedPersona } = usePersonaStore()
@@ -991,7 +991,7 @@ export function EditThumbnailDialog({
     const ctx = canvas.getContext('2d')
     const scale = canvas.width / canvas.getBoundingClientRect().width
     const effectiveSize = brushSize * scale
-    const rgba = hexToRgba(color, 1)
+    const rgba = hexToRgba(color, 0.48)
     baseSnapshotRef.current = snapshotCanvas()
     drawingRef.current = {
       tool,
@@ -1125,6 +1125,25 @@ export function EditThumbnailDialog({
     setHasDrawn(false)
   }, [snapshotCanvas, pushUndoPromise, imageDataToBlobPromise])
 
+  /* ── Mask composite preview (for chat bubble display) ────────── */
+  async function createMaskPreviewDataUrl() {
+    if (!hasDrawn || !maskCanvasRef.current || !imageRef.current) return null
+    try {
+      const img = imageRef.current
+      const out = document.createElement('canvas')
+      out.width = img.naturalWidth || img.width || 1536
+      out.height = img.naturalHeight || img.height || 864
+      const ctx = out.getContext('2d')
+      ctx.drawImage(img, 0, 0, out.width, out.height)
+      ctx.globalAlpha = 0.65
+      ctx.drawImage(maskCanvasRef.current, 0, 0, out.width, out.height)
+      ctx.globalAlpha = 1
+      return canvasToBase64Png(out)
+    } catch {
+      return null
+    }
+  }
+
   /* ── Mask export ──────────────────────────────────────────────── */
   async function exportMaskBase64() {
     const canvas = maskCanvasRef.current
@@ -1218,6 +1237,11 @@ export function EditThumbnailDialog({
     // disconnected. Best-effort: a persistence outage degrades to
     // the legacy fire-and-forget behaviour rather than blocking the
     // edit itself.
+    // Build a composite preview (thumbnail + drawn mask) for the user's
+    // chat bubble BEFORE making the AI call, so it's ready instantly.
+    const maskPreviewDataUrl =
+      submitMode === 'edit' && hasDrawn ? await createMaskPreviewDataUrl() : null
+
     let pendingMessageId = null
     if (typeof onBeforeSubmit === 'function') {
       try {
@@ -1227,11 +1251,10 @@ export function EditThumbnailDialog({
           sourceImageUrl: imageUrl,
           persona: submitPersona,
           batch,
+          maskPreviewDataUrl,
         })
         pendingMessageId = ctx?.pendingMessageId ?? null
       } catch {
-        // Persistence layer hiccup — don't block the user from editing.
-        // The legacy onError + onApply fallbacks still kick in below.
         pendingMessageId = null
       }
     }
@@ -1482,6 +1505,10 @@ export function EditThumbnailDialog({
             aspectRatio: String(imageAspect),
             borderRadius: 16,
             overflow: 'hidden',
+            isolation: 'isolate',
+            // Force a GPU compositing layer so overflow:hidden + border-radius
+            // actually clips absolutely-positioned canvas children in Chrome/Safari.
+            transform: 'translateZ(0)',
             background: 'rgba(12, 10, 18, 0.55)',
             border: '0.5px solid rgba(255,255,255,0.12)',
             boxShadow: 'inset 0 0.5px 0 rgba(255,255,255,0.08), 0 14px 40px rgba(0,0,0,0.38)',
@@ -1495,13 +1522,14 @@ export function EditThumbnailDialog({
                 display: 'block',
                 width: '100%',
                 height: '100%',
-                objectFit: 'cover',
+                objectFit: 'contain',
+                borderRadius: 16,
                 userSelect: 'none',
                 pointerEvents: 'none',
               }}
               draggable={false}
-              loading="lazy"
-              decoding="async"
+              loading="eager"
+              decoding="sync"
             />
           ) : (
             <div
@@ -1534,32 +1562,17 @@ export function EditThumbnailDialog({
               inset: 0,
               width: '100%',
               height: '100%',
-              // Painted strokes are full-opacity on the canvas; CSS opacity
-              // makes the overlay look transparent. This means painting over
-              // the same spot twice doesn't accumulate darker — it stays one
-              // uniform transparent layer. Drawing is now available in BOTH
-              // edit and face-swap modes — the user can mark a region with
-              // the rectangle / brush in either mode. The strokes are
-              // visible in both modes so the user sees what they're
-              // painting. (Whether the mask is consumed by the API depends
-              // on the mode: edit-region uses it as a constraint; face-swap
-              // currently ignores it, treating the paint as a visual
-              // marker for the user's own reference until the backend
-              // grows mask support.)
-              opacity: MASK_CSS_OPACITY,
-              // Hide the native crosshair while in brush/eraser mode so
-              // only the custom circle preview is visible. Rect tool still
-              // uses crosshair so the corner-anchored drag is unambiguous.
+              borderRadius: 16,
+              // Each stroke is painted at 0.48 alpha so the thumbnail stays
+              // visible through the overlay — colors are vibrant but not
+              // opaque. CSS opacity stays at 1 so strokes don't double-fade.
+              opacity: 1,
               cursor: busy
                 ? 'default'
                 : tool === 'brush' || tool === 'eraser'
                   ? 'none'
                   : 'crosshair',
               touchAction: 'none',
-              // Allow painting in both edit and face-swap modes — the
-              // toolbar (rect / brush / eraser / size / colour) is
-              // already visible in both, and the canvas now accepts
-              // pointer input regardless of which mode tab is active.
               pointerEvents: busy ? 'none' : 'auto',
             }}
           />
@@ -1578,7 +1591,8 @@ export function EditThumbnailDialog({
               inset: 0,
               width: '100%',
               height: '100%',
-              opacity: MASK_CSS_OPACITY,
+              borderRadius: 16,
+              opacity: 1,
               pointerEvents: 'none',
             }}
           />
@@ -1710,10 +1724,8 @@ export function EditThumbnailDialog({
             gap: 12,
             padding: '7px 12px',
             borderRadius: 16,
-            background: 'rgba(14, 14, 18, 0.45)',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
-            backdropFilter: 'blur(22px) saturate(1.4)',
-            WebkitBackdropFilter: 'blur(22px) saturate(1.4)',
+            background: '#14141a',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
             flexWrap: 'wrap',
           }}
         >
@@ -1963,10 +1975,9 @@ export function EditThumbnailDialog({
               gap: 6,
               padding: '12px 14px',
               borderRadius: 22,
-              background:
-                'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 40%, rgba(255,255,255,0.01) 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 6px 22px rgba(0, 0, 0, 0.22)',
+              background: '#1c1c24',
+              border: '1px solid rgba(255, 255, 255, 0.14)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 16px rgba(0, 0, 0, 0.35)',
               animation: 'etd-fade-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) both',
             }}
           >
@@ -2007,8 +2018,11 @@ export function EditThumbnailDialog({
             />
             <div
               className="etd-input-actions"
-              style={{ display: 'flex', justifyContent: 'flex-end' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8 }}
             >
+              <div style={{ flex: 1 }}>
+                <BatchRowBtn value={batch} onChange={setBatch} disabled={busy} />
+              </div>
               <PrimaryActionBtn
                 onClick={handleSubmit}
                 disabled={!canSubmit}

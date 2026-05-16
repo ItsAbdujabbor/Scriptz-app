@@ -1495,12 +1495,20 @@ const ThumbnailGenFill = memo(function ThumbnailGenFill({
       aria-valuenow={pct}
       aria-busy={!done}
     >
-      <div className="thumb-gen-fill__bar" style={{ width: `${pct}%` }}>
-        <span className="thumb-gen-fill__sheen" aria-hidden="true" />
-      </div>
-      <div className="thumb-gen-fill__pct">
-        {pct}
-        <span className="thumb-gen-fill__pct-sign">%</span>
+      <div className="thumb-gen-fill__orb" aria-hidden="true" />
+      <div className="thumb-gen-fill__inner">
+        <div className="thumb-gen-fill__dots" aria-hidden="true">
+          <span className="thumb-gen-fill__dot" />
+          <span className="thumb-gen-fill__dot" />
+          <span className="thumb-gen-fill__dot" />
+        </div>
+        <div className="thumb-gen-fill__label">
+          <span className="thumb-gen-fill__pct">
+            {pct}
+            <span className="thumb-gen-fill__pct-sign">%</span>
+          </span>
+          <span className="thumb-gen-fill__status">Generating</span>
+        </div>
       </div>
     </div>
   )
@@ -2584,6 +2592,9 @@ export function ThumbnailGenerator({
   const [editDialogUrl, setEditDialogUrl] = useState(null)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [editFooterError, setEditFooterError] = useState('')
+  // Holds the composite (thumbnail + drawn mask) data URL from the editor
+  // so onSubmitFinalize can use it as the user-bubble image in the chat.
+  const editMaskPreviewRef = useRef(null)
   // Server-canonical chat thread. Every entry has a numeric server-assigned
   // id. Conversation refetches replace this wholesale — no merges, no
   // dedupe. Submit handlers commit the (user_message, assistant_message)
@@ -6108,15 +6119,9 @@ export function ThumbnailGenerator({
             setShowEditDialog(false)
             setEditDialogUrl(null)
           }}
-          onBeforeSubmit={async ({ mode, prompt, sourceImageUrl, persona }) => {
-            // Pre-persist a pending edit/faceswap event into the active
-            // conversation BEFORE the AI call. If the user refreshes
-            // mid-edit the conversation reload finds the placeholder row
-            // and renders a pending card; the backend finalizes the row
-            // when /edit-region (or /face-swap) lands even if the
-            // client never reconnects. The user-facing label mirrors
-            // what the row will say on reload — for edit we use the
-            // prompt, for face-swap we use the persona name.
+          onBeforeSubmit={async ({ mode, prompt, sourceImageUrl, persona, maskPreviewDataUrl }) => {
+            // Store the composite preview for use in onSubmitFinalize.
+            editMaskPreviewRef.current = maskPreviewDataUrl || null
             const kind = mode === 'faceswap' ? 'faceswap' : 'edit'
             const userText =
               mode === 'faceswap'
@@ -6131,15 +6136,16 @@ export function ThumbnailGenerator({
             return { pendingMessageId: prePersisted?.assistant_message?.id ?? null }
           }}
           onSubmitFinalize={async ({ pendingMessageId, mode, prompt, sourceImageUrl, urls }) => {
-            // Finalize the pending row with the actual result. Bind
-            // the local optimistic message to the server row so the
-            // chat doesn't double-render on the next refetch tick.
+            // Use the mask-composite preview for the user bubble (shows drawn
+            // region on the thumbnail). Falls back to the source URL.
+            const bubbleImageUrl = editMaskPreviewRef.current || sourceImageUrl
+            editMaskPreviewRef.current = null
             const userText = mode === 'faceswap' ? 'Face swap' : prompt || ''
             if (urls.length <= 1) {
               const localIds = pushLocalAssistantMessage('', {
                 content: '',
                 imageUrl: urls[0] || null,
-                userImageUrl: sourceImageUrl,
+                userImageUrl: bubbleImageUrl,
               })
               if (pendingMessageId != null) {
                 // Server has likely already PATCHed via pending_message_id
@@ -6189,7 +6195,7 @@ export function ThumbnailGenerator({
               const localIds = pushLocalAssistantMessage('', {
                 content: '',
                 thumbnails,
-                userImageUrl: sourceImageUrl,
+                userImageUrl: bubbleImageUrl,
               })
               if (pendingMessageId != null) {
                 await finalizePersistedEvent(pendingMessageId, {
