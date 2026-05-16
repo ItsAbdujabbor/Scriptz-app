@@ -957,7 +957,7 @@ export function EditThumbnailDialog({
       for (let gx = 0; gx < cols; gx++) {
         const px = Math.min(gx * STEP + HS, width - 1)
         const py = Math.min(gy * STEP + HS, height - 1)
-        grid[(gy + 1) * GW + (gx + 1)] = data[(py * width + px) * 4 + 3] > 64 ? 1 : 0
+        grid[(gy + 1) * GW + (gx + 1)] = data[(py * width + px) * 4 + 3] > MASK_THRESHOLD ? 1 : 0
       }
     }
 
