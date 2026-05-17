@@ -2706,16 +2706,30 @@ export function ThumbnailGenerator({
   // Structured metadata for the most recent sendError — lets the footer
   // render a Retry pill only when the error is retryable.
   const [sendErrorMeta, setSendErrorMeta] = useState(null)
-  // `pendingAssistant` gates submit handlers + composer disable while a
-  // chat-mode generation is running. The user-bubble + loader are no
-  // longer rendered as siblings (they live INSIDE the assistant card
-  // via `_promptPending` on the local placeholder), so the only
-  // remaining role of this flag is double-submit / disabled-state.
-  const [pendingAssistant, setPendingAssistant] = useState(false)
-  // Dialog shown when the user tries to open a new chat mid-generation.
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
-  // Callback to execute if the user confirms the cancel dialog.
-  const cancelDialogCallbackRef = useRef(null)
+  // Per-conversation pending tracking. Each key is String(conversationId) or
+  // "null" (for brand-new chats). Multiple conversations can generate
+  // simultaneously — each tracks its own pending state independently.
+  const [pendingConvIds, setPendingConvIds] = useState(() => new Set())
+  const markConvPending = useCallback((convId) => {
+    const key = convId == null ? 'null' : String(convId)
+    setPendingConvIds((prev) => {
+      const n = new Set(prev)
+      n.add(key)
+      return n
+    })
+  }, [])
+  const clearConvPending = useCallback((convId) => {
+    const key = convId == null ? 'null' : String(convId)
+    setPendingConvIds((prev) => {
+      const n = new Set(prev)
+      n.delete(key)
+      return n
+    })
+  }, [])
+  // Derived: is the currently-viewed conversation pending?
+  const pendingAssistant = pendingConvIds.has(
+    conversationId == null ? 'null' : String(conversationId)
+  )
   // ─── Submission lock ─────────────────────────────────────────────
   // Hard guard that holds the chat surface in a stable rendered state
   // from the moment the user hits send until the entire response →
@@ -3027,18 +3041,12 @@ export function ThumbnailGenerator({
     const current = conversationId == null ? null : Number(conversationId)
     if (current === target) return
     releaseSubmissionLockImmediate()
-    // Also clear the UI-level pending flag so the destination chat's
-    // composer is not locked by a job running for a different conversation.
-    // The localOnlyMessages placeholder for the original conversation stays
-    // in memory (filtered by _conversationId), so returning to that chat
-    // still shows the in-flight loader. finishLoading() will no-op when it
-    // fires after the job completes.
-    setPendingAssistant(false)
-    // Reset the synchronous submit guard so the destination chat's
-    // Enter / send-button handlers are not silently no-op'd. The guard
-    // stays true for the entire lifetime of the in-flight mutateAsync
-    // call; without this reset the new chat's textarea appears enabled
-    // (anyJobInFlight = false) but every submit attempt is dropped.
+    // With per-conversation pending tracking, we do NOT clear the pending
+    // state for the source conversation — it continues generating in the
+    // background. The localOnlyMessages placeholder stays pinned to the
+    // source conv id; returning to it shows the in-flight loader.
+    // We only reset the synchronous guard so the destination chat's
+    // submit handlers aren't silently blocked.
     submitGuardRef.current = false
   }, [conversationId, releaseSubmissionLockImmediate])
 
@@ -3052,39 +3060,22 @@ export function ThumbnailGenerator({
   // is the only way to catch that case and force-reset the chat surface.
   useEffect(() => {
     return onShellEvent('newChat', () => {
-      // If a generation is in progress, intercept and show a confirm dialog
-      // before abandoning the in-flight job. `isSubmittingRef.current` is a
-      // sync ref — always current even inside this stale-closure callback.
-      const doReset = () => {
-        releaseSubmissionLockImmediate()
-        setPendingAssistant(false)
-        submitGuardRef.current = false
-        sawMessagesRef.current = false
-        setMessages([])
-        setLocalOnlyMessages((prev) => prev.filter((m) => m && m._conversationId != null))
-        setDraft('')
-        setSendError('')
-        setSendErrorMeta(null)
-      }
-
-      if (isSubmittingRef.current) {
-        cancelDialogCallbackRef.current = () => {
-          // Fire-and-forget the server cancel — the poll loop will see
-          // status=failed and settle the mutation, triggering the credit
-          // invalidation in onError. We don't block navigation on the
-          // API call resolving.
-          const jobId = useThumbnailJobStatusStore.getState().status?.job_id
-          if (jobId) {
-            getAccessTokenOrNull().then((token) => {
-              if (token) thumbnailsApi.cancelChatJob(token, jobId).catch(() => {})
-            })
-          }
-          doReset()
-        }
-        setShowCancelConfirm(true)
-      } else {
-        doReset()
-      }
+      // Always open a new chat immediately — no confirm dialog. Any in-flight
+      // generation for the previous conversation continues server-side; its
+      // result hydrates into the conversation cache when the job finishes, so
+      // returning to that chat still shows the completed thumbnails. We only
+      // clear the null-conv pending state (brand-new chat) and reset the
+      // composer surface. Existing-conversation placeholders stay pinned to
+      // their _conversationId in localOnlyMessages and are unaffected.
+      releaseSubmissionLockImmediate()
+      clearConvPending(null)
+      submitGuardRef.current = false
+      sawMessagesRef.current = false
+      setMessages([])
+      setLocalOnlyMessages((prev) => prev.filter((m) => m && m._conversationId != null))
+      setDraft('')
+      setSendError('')
+      setSendErrorMeta(null)
     })
   }, [releaseSubmissionLockImmediate])
 
@@ -3381,7 +3372,7 @@ export function ThumbnailGenerator({
       setDraft('')
       setSendError('')
       setSendErrorMeta(null)
-      setPendingAssistant(false)
+      clearConvPending(null)
       setPromptImageDataUrl(null)
       setRecreateDraft('')
       setRecreateSourceImage(null)
@@ -3530,7 +3521,7 @@ export function ThumbnailGenerator({
     })
     if (hasAssistantThumbs) {
       clearPending(conversationId)
-      setPendingAssistant(false)
+      clearConvPending(conversationId)
       markSeen(conversationId)
     }
   }, [isCurrentConversationPending, conversationQuery.data, conversationId, clearPending, markSeen])
@@ -3914,19 +3905,20 @@ export function ThumbnailGenerator({
     return () => ro.disconnect()
   }, [thumbMode])
 
-  // Call on successful API completion. Drops the in-flight gate
-  // immediately so the composer re-enables. The loader is no longer
-  // a sibling — it lives inside the assistant card and is unmounted
-  // by the `_promptPending: false` patch the caller already applied
-  // before this runs. The result mounts in its place via the
-  // AnimatePresence crossfade in ChatMessageItem.
-  const finishLoading = useCallback(() => {
-    if (finishLoadingRef.current) {
-      clearTimeout(finishLoadingRef.current)
-      finishLoadingRef.current = null
-    }
-    setPendingAssistant(false)
-  }, [])
+  // Call on successful API completion. Clears the per-conversation pending
+  // flag for the conversation that was generating. The loader is no longer
+  // a sibling — it lives inside the assistant card and is unmounted by the
+  // `_promptPending: false` patch the caller already applied before this runs.
+  const finishLoading = useCallback(
+    (convId) => {
+      if (finishLoadingRef.current) {
+        clearTimeout(finishLoadingRef.current)
+        finishLoadingRef.current = null
+      }
+      clearConvPending(convId)
+    },
+    [clearConvPending]
+  )
 
   // Textarea auto-resize — SIMPLE version. `height: auto` measures the
   // natural height in the same layout pass; we immediately set the final
@@ -4479,7 +4471,8 @@ export function ThumbnailGenerator({
     // destination view renders without obstruction. The lock follows
     // the expected URL flip when the chat response creates a new
     // conv (null → respondedId) via `handleConversationCreated`.
-    beginSubmission(conversationId)
+    const submittingConvId = conversationId
+    beginSubmission(submittingConvId)
     setSendError('')
     setSendErrorMeta(null)
     // In-place pending pattern (matches analyze / titles): push the user
@@ -4501,7 +4494,7 @@ export function ThumbnailGenerator({
       _promptMode: thumbMode,
       _promptCount: numThumbnails,
     })
-    setPendingAssistant(true)
+    markConvPending(submittingConvId)
     setDraft('')
 
     // Make sure the conversation exists server-side BEFORE the chat
@@ -4583,7 +4576,7 @@ export function ThumbnailGenerator({
           linkLocalToServer(localIds, result, activeConversationId)
         }
       }
-      finishLoading()
+      finishLoading(submittingConvId)
       // Generation succeeded — if the user is still on this conversation,
       // they've "seen" it. If they left, leave the unread dot alone.
       if (activeConversationId) {
@@ -4673,7 +4666,7 @@ export function ThumbnailGenerator({
         { userLocalId: localIds.userId }
       )
       setDraft(combined)
-      setPendingAssistant(false)
+      clearConvPending(submittingConvId)
       if (activeConversationId) clearPending(activeConversationId)
     } finally {
       // Release the synchronous spam-guard the moment the handler
@@ -4872,6 +4865,7 @@ export function ThumbnailGenerator({
       if (!userRequest?.trim() || anyJobInFlight) return
       if (submitGuardRef.current) return
       submitGuardRef.current = true
+      const regenConvId = conversationId
       const localIds = pushLocalAssistantMessage(userRequest, {
         content: '',
         userRequest,
@@ -4879,7 +4873,7 @@ export function ThumbnailGenerator({
         _promptMode: 'prompt',
         _promptCount: 1,
       })
-      setPendingAssistant(true)
+      markConvPending(regenConvId)
       // Stable per-submit idempotency key — see handleSubmit for the
       // duplicate-conversation bug this guards against.
       const submitIdempotencyKey =
@@ -4910,13 +4904,13 @@ export function ThumbnailGenerator({
         if (result?.user_message || result?.assistant_message) {
           linkLocalToServer(localIds, result, conversationId)
         }
-        finishLoading()
+        finishLoading(regenConvId)
       } catch (err) {
         const { code, message } = parseApiError(err, 'Regeneration failed')
         setLocalOnlyMessages((prev) =>
           prev.filter((m) => m.id !== localIds.userId && m.id !== localIds.assistantId)
         )
-        setPendingAssistant(false)
+        clearConvPending(regenConvId)
         // Persist the failed regenerate as an inline thread card —
         // same pattern as every other submit handler. The card is
         // the single source of error UI (no top-of-screen toast,
@@ -4944,6 +4938,8 @@ export function ThumbnailGenerator({
       channelId,
       anyJobInFlight,
       finishLoading,
+      markConvPending,
+      clearConvPending,
       pushLocalAssistantMessage,
       patchLocalAssistantMessage,
       pushFailureEntry,
@@ -4962,6 +4958,7 @@ export function ThumbnailGenerator({
       if (!prompt?.trim() || anyJobInFlight) return
       if (submitGuardRef.current) return
       submitGuardRef.current = true
+      const ocfConvId = conversationId
       const localIds = pushLocalAssistantMessage(prompt, {
         userImageUrl: imageUrl || undefined,
         content: '',
@@ -4970,7 +4967,7 @@ export function ThumbnailGenerator({
         _promptMode: 'prompt',
         _promptCount: 1,
       })
-      setPendingAssistant(true)
+      markConvPending(ocfConvId)
       const submitIdempotencyKey =
         typeof crypto !== 'undefined' && crypto.randomUUID
           ? crypto.randomUUID()
@@ -5000,13 +4997,13 @@ export function ThumbnailGenerator({
         if (result?.user_message || result?.assistant_message) {
           linkLocalToServer(localIds, result, conversationId)
         }
-        finishLoading()
+        finishLoading(ocfConvId)
       } catch (err) {
         const { code, message } = parseApiError(err, 'One-click fix failed')
         setLocalOnlyMessages((prev) =>
           prev.filter((m) => m.id !== localIds.userId && m.id !== localIds.assistantId)
         )
-        setPendingAssistant(false)
+        clearConvPending(ocfConvId)
         pushFailureEntry({
           mode: 'prompt',
           userText: prompt,
@@ -5027,6 +5024,8 @@ export function ThumbnailGenerator({
       channelId,
       anyJobInFlight,
       finishLoading,
+      markConvPending,
+      clearConvPending,
       pushLocalAssistantMessage,
       patchLocalAssistantMessage,
       pushFailureEntry,
@@ -5075,6 +5074,7 @@ export function ThumbnailGenerator({
     // prose. The backend still receives `prompt: instructions` (the
     // recreate API endpoint encodes the operation, not the prompt).
     const userText = instructions
+    const recreateConvId = conversationId
     submitGuardRef.current = true
     setSendError('')
     setSendErrorMeta(null)
@@ -5091,7 +5091,7 @@ export function ThumbnailGenerator({
       _promptMode: 'recreate',
       _promptCount: numRecreateThumbnails,
     })
-    setPendingAssistant(true)
+    markConvPending(recreateConvId)
     setRecreateDraft('')
     setRecreateSourceImage(null)
     setRecreateUrlInput('')
@@ -5191,13 +5191,13 @@ export function ThumbnailGenerator({
           is_recreate: true,
         })
       }
-      finishLoading()
+      finishLoading(recreateConvId)
     } catch (err) {
       const { code, message } = parseApiError(err, 'Could not recreate thumbnail.')
       setLocalOnlyMessages((prev) =>
         prev.filter((m) => m.id !== localIds.userId && m.id !== localIds.assistantId)
       )
-      setPendingAssistant(false)
+      clearConvPending(recreateConvId)
       // Convert the pre-persisted pending row into a failure card via
       // PATCH so a future refresh still shows the error. Falls back to
       // pushFailureEntry when pre-persist didn't succeed.
@@ -5434,7 +5434,7 @@ export function ThumbnailGenerator({
           error_code: code,
           error_message: message,
           retryable: true,
-          user_image_url: imageUrl,
+          user_image_url: persistableUrl,
         })
       } else {
         pushFailureEntry({
@@ -6487,24 +6487,6 @@ export function ThumbnailGenerator({
         />
       )}
       {lightbox ? <ThumbnailLightbox url={lightbox.url} onClose={() => setLightbox(null)} /> : null}
-
-      {/* Cancel-generation confirmation dialog — shown when the user tries
-       *  to open a new chat while a thumbnail generation is running. */}
-      <AnimatePresence>
-        {showCancelConfirm && (
-          <CancelGenerationDialog
-            onConfirm={() => {
-              setShowCancelConfirm(false)
-              cancelDialogCallbackRef.current?.()
-              cancelDialogCallbackRef.current = null
-            }}
-            onDismiss={() => {
-              setShowCancelConfirm(false)
-              cancelDialogCallbackRef.current = null
-            }}
-          />
-        )}
-      </AnimatePresence>
     </div>
   )
 }
