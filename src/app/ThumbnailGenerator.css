@@ -4279,14 +4279,6 @@
   overflow-wrap: break-word;
 }
 
-.thumb-title-card__reason {
-  font-size: 0.78rem;
-  font-weight: 400;
-  line-height: 1.45;
-  color: rgba(229, 231, 235, 0.6);
-  overflow-wrap: break-word;
-}
-
 /* Score badge — sits inside the body column, under the reasoning, so
  * it reads as metadata about the title rather than chrome. Star
  * glyph + numeric score; tier-coloured by `titleScoreTier` so the

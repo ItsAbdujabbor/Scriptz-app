@@ -1790,9 +1790,6 @@ function TitleIdeasBlock({ titles, onUseTitle }) {
               <span className="thumb-title-card__index">{i + 1}</span>
               <span className="thumb-title-card__body">
                 <span className="thumb-title-card__title">{title}</span>
-                {t?.reasoning ? (
-                  <span className="thumb-title-card__reason">{t.reasoning}</span>
-                ) : null}
                 {Number.isFinite(t?.score) && (
                   <span
                     className={`thumb-title-card__score thumb-title-card__score--${titleScoreTier(t.score)}`}
