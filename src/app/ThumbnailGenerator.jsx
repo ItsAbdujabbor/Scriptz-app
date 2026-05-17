@@ -2966,6 +2966,12 @@ export function ThumbnailGenerator({
     // still shows the in-flight loader. finishLoading() will no-op when it
     // fires after the job completes.
     setPendingAssistant(false)
+    // Reset the synchronous submit guard so the destination chat's
+    // Enter / send-button handlers are not silently no-op'd. The guard
+    // stays true for the entire lifetime of the in-flight mutateAsync
+    // call; without this reset the new chat's textarea appears enabled
+    // (anyJobInFlight = false) but every submit attempt is dropped.
+    submitGuardRef.current = false
   }, [conversationId, releaseSubmissionLockImmediate])
 
   // "New Chat" shell event — fired by the Sidebar whenever the user clicks
@@ -2980,6 +2986,7 @@ export function ThumbnailGenerator({
     return onShellEvent('newChat', () => {
       releaseSubmissionLockImmediate()
       setPendingAssistant(false)
+      submitGuardRef.current = false
       sawMessagesRef.current = false
       setMessages([])
       setLocalOnlyMessages((prev) => prev.filter((m) => m && m._conversationId != null))
