@@ -32,7 +32,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test:run
+
   build-and-deploy:
+    needs: lint-and-test
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
