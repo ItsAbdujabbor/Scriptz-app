@@ -100,6 +100,8 @@ function humanizeKey(key) {
     .join(' ')
 }
 
+// ── Icons ────────────────────────────────────────────────────────────────────
+
 function IconSparkle() {
   return (
     <svg
@@ -134,6 +136,44 @@ function IconUpload() {
   )
 }
 
+function IconImage() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <polyline points="21 15 16 10 5 21" />
+    </svg>
+  )
+}
+
+function IconType() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="4 7 4 4 20 4 20 7" />
+      <line x1="9" y1="20" x2="15" y2="20" />
+      <line x1="12" y1="4" x2="12" y2="20" />
+    </svg>
+  )
+}
+
+// ── Small reusable pieces ─────────────────────────────────────────────────────
+
 function CriterionCard({ entry }) {
   const score = entry?.score
   const verdict = entry?.verdict || ''
@@ -162,8 +202,13 @@ function CriterionCard({ entry }) {
   )
 }
 
-function SectionHeader({ children }) {
-  return <h3 className="thumb-section-header">{children}</h3>
+function SectionHeader({ icon, children }) {
+  return (
+    <div className="thumb-section-header">
+      {icon && <span className="thumb-section-header-icon">{icon}</span>}
+      <h3 className="thumb-section-header-text">{children}</h3>
+    </div>
+  )
 }
 
 function HeroCard({ grade, overallScore, ctrBand, oneLiner, label }) {
@@ -219,8 +264,21 @@ function TakeawaysGrid({ strengths, fixes }) {
   )
 }
 
+// ── Analyze button label ──────────────────────────────────────────────────────
+
+function analyzeLabel(hasImage, hasTitle, loading) {
+  if (loading) return 'Analyzing…'
+  if (hasImage && hasTitle) return 'Analyze thumbnail + title'
+  if (hasImage) return 'Analyze thumbnail'
+  if (hasTitle) return 'Analyze title'
+  return 'Analyze'
+}
+
+// ── Main panel ────────────────────────────────────────────────────────────────
+
 /**
- * Thorough AI analysis — thumbnail, title, or both (POST /api/thumbnails/analyze).
+ * AI analysis panel — thumbnail, title, or both. Calls POST /api/thumbnails/analyze.
+ * Thumbnail and title are fully independent and both optional (at least one required).
  */
 export function ThumbnailAnalyzePanel() {
   const [preview, setPreview] = useState(null)
@@ -236,8 +294,11 @@ export function ThumbnailAnalyzePanel() {
   const [improvedUrl, setImprovedUrl] = useState(null)
   const fileInputRef = useRef(null)
 
-  // Either an image or a title is required to run analysis
-  const canAnalyze = Boolean(preview?.src || videoTitle.trim())
+  const hasImage = Boolean(preview?.src)
+  const hasTitle = Boolean(videoTitle.trim())
+  const canAnalyze = hasImage || hasTitle
+
+  // ── Input handlers ────────────────────────────────────────────────────────
 
   const clearImage = useCallback(() => {
     setPreview(null)
@@ -251,8 +312,7 @@ export function ThumbnailAnalyzePanel() {
     if (!file || !file.type.startsWith('image/')) return
     const reader = new FileReader()
     reader.onload = () => {
-      const dataUrl = String(reader.result || '')
-      setPreview({ kind: 'data', src: dataUrl })
+      setPreview({ kind: 'data', src: String(reader.result || '') })
       setResult(null)
       setRatingId(null)
       setImprovedUrl(null)
@@ -296,6 +356,8 @@ export function ThumbnailAnalyzePanel() {
     }
   }, [youtubeHint])
 
+  // ── Analyze ───────────────────────────────────────────────────────────────
+
   const runAnalyze = useCallback(async () => {
     if (!canAnalyze) return
     setLoadingRate(true)
@@ -331,6 +393,8 @@ export function ThumbnailAnalyzePanel() {
     }
   }, [canAnalyze, preview, videoTitle, niche])
 
+  // ── Improve ───────────────────────────────────────────────────────────────
+
   const runImprove = useCallback(async () => {
     if (!ratingId) return
     setImproving(true)
@@ -354,26 +418,26 @@ export function ThumbnailAnalyzePanel() {
     }
   }, [ratingId])
 
-  // ── Derived presentation values ──────────────────────────────────────────
+  // ── Derived result values ─────────────────────────────────────────────────
 
-  const hasThumbnail = result?.has_thumbnail ?? false
-  const hasTitle = result?.has_title ?? false
+  const resultHasThumbnail = result?.has_thumbnail ?? false
+  const resultHasTitle = result?.has_title ?? false
 
   const thumbGrade = useMemo(() => {
-    if (!result?.has_thumbnail) return null
+    if (!resultHasThumbnail) return null
     if (result.overall_grade) return String(result.overall_grade)
     return gradeFromScore(result.overall_score)
-  }, [result])
+  }, [result, resultHasThumbnail])
 
   const thumbScore = useMemo(() => {
-    if (!result?.has_thumbnail || result.overall_score == null) return null
+    if (!resultHasThumbnail || result.overall_score == null) return null
     const n = Number(result.overall_score)
     return Number.isFinite(n) ? Math.round(n) : null
-  }, [result])
+  }, [result, resultHasThumbnail])
 
   const orderedThumbCriteria = useMemo(() => {
     const arr = Array.isArray(result?.criteria) ? result.criteria.filter(Boolean) : []
-    if (arr.length === 0) return []
+    if (!arr.length) return []
     const byKey = new Map(arr.map((c) => [c?.key, c]))
     const ordered = []
     for (const key of THUMBNAIL_CRITERIA_ORDER) {
@@ -388,9 +452,20 @@ export function ThumbnailAnalyzePanel() {
 
   const titleAnalysis = result?.title_analysis ?? null
 
+  const titleGrade = useMemo(() => {
+    if (!titleAnalysis) return null
+    return titleAnalysis.grade || gradeFromScore(titleAnalysis.score)
+  }, [titleAnalysis])
+
+  const titleScore = useMemo(() => {
+    if (!titleAnalysis || titleAnalysis.score == null) return null
+    const n = Number(titleAnalysis.score)
+    return Number.isFinite(n) ? Math.round(n) : null
+  }, [titleAnalysis])
+
   const orderedTitleCriteria = useMemo(() => {
     const arr = Array.isArray(titleAnalysis?.criteria) ? titleAnalysis.criteria.filter(Boolean) : []
-    if (arr.length === 0) return []
+    if (!arr.length) return []
     const byKey = new Map(arr.map((c) => [c?.key, c]))
     const ordered = []
     for (const key of TITLE_CRITERIA_ORDER) {
@@ -403,92 +478,93 @@ export function ThumbnailAnalyzePanel() {
     return ordered
   }, [titleAnalysis])
 
-  const titleGrade = useMemo(() => {
-    if (!titleAnalysis) return null
-    if (titleAnalysis.grade) return String(titleAnalysis.grade)
-    return gradeFromScore(titleAnalysis.score)
-  }, [titleAnalysis])
-
-  const titleScore = useMemo(() => {
-    if (!titleAnalysis || titleAnalysis.score == null) return null
-    const n = Number(titleAnalysis.score)
-    return Number.isFinite(n) ? Math.round(n) : null
-  }, [titleAnalysis])
-
   const titleSynergy = result?.title_synergy ?? null
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="thumb-rater thumb-analyze">
+      {/* Page header */}
       <div className="thumb-rater-hero">
         <h2 className="thumb-rater-title">Analyze</h2>
         <p className="thumb-rater-sub">
-          Upload a thumbnail, enter a title, or both. Thumbnail analysis covers 10 visual criteria.
-          Title analysis scores 7 text-specific factors. With both you also get a synergy card.
+          Analyze your thumbnail, your title, or both — each independently scored. Add an image for
+          visual analysis. Add a title for text analysis. Add both for everything plus a synergy
+          check.
         </p>
       </div>
 
-      <div className="thumb-rater-grid">
-        <div
-          className="thumb-rater-drop"
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={handleDrop}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="thumb-rater-file-input"
-            onChange={(e) => applyFile(e.target.files?.[0])}
-          />
-          {!preview ? (
-            <button
-              type="button"
-              className="thumb-rater-drop-inner"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <span className="thumb-rater-drop-icon">
-                <IconUpload />
-              </span>
-              <span className="thumb-rater-drop-label">Drop an image or click to upload</span>
-              <span className="thumb-rater-drop-hint">PNG, JPG, WebP — optional</span>
-            </button>
-          ) : (
-            <div className="thumb-rater-preview-wrap">
-              <img
-                src={preview.src}
-                alt="Thumbnail to analyze"
-                className="thumb-rater-preview-img"
-                loading="lazy"
-                decoding="async"
-              />
-              <div className="thumb-rater-preview-actions">
-                <button type="button" className="thumb-rater-text-btn" onClick={clearImage}>
-                  Remove
-                </button>
-                <button
-                  type="button"
-                  className="thumb-rater-text-btn"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  Replace
-                </button>
-              </div>
+      {/* ── Two-column input ─────────────────────────────────────── */}
+      <div className="thumb-inputs-grid">
+        {/* LEFT — Thumbnail input */}
+        <div className={`thumb-input-panel ${hasImage ? 'thumb-input-panel--active' : ''}`}>
+          <div className="thumb-input-panel-header">
+            <span className="thumb-input-panel-icon">
+              <IconImage />
+            </span>
+            <div>
+              <span className="thumb-input-panel-label">Thumbnail</span>
+              <span className="thumb-input-panel-optional">optional</span>
             </div>
-          )}
-        </div>
+            {hasImage && <span className="thumb-input-ready">Ready</span>}
+          </div>
 
-        <div className="thumb-rater-side">
-          <label className="thumb-rater-label" htmlFor="thumb-analyze-yt">
-            Or paste YouTube URL
-          </label>
-          <div className="thumb-rater-yt-row">
+          <div
+            className="thumb-rater-drop"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+          >
             <input
-              id="thumb-analyze-yt"
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="thumb-rater-file-input"
+              onChange={(e) => applyFile(e.target.files?.[0])}
+            />
+            {!preview ? (
+              <button
+                type="button"
+                className="thumb-rater-drop-inner"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <span className="thumb-rater-drop-icon">
+                  <IconUpload />
+                </span>
+                <span className="thumb-rater-drop-label">Drop an image or click to upload</span>
+                <span className="thumb-rater-drop-hint">PNG, JPG, WebP — 16:9 works best</span>
+              </button>
+            ) : (
+              <div className="thumb-rater-preview-wrap">
+                <img
+                  src={preview.src}
+                  alt="Thumbnail to analyze"
+                  className="thumb-rater-preview-img"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div className="thumb-rater-preview-actions">
+                  <button type="button" className="thumb-rater-text-btn" onClick={clearImage}>
+                    Remove
+                  </button>
+                  <button
+                    type="button"
+                    className="thumb-rater-text-btn"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Replace
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="thumb-input-yt-row">
+            <input
               type="text"
               className="thumb-rater-input"
               value={youtubeHint}
               onChange={(e) => setYoutubeHint(e.target.value)}
-              placeholder="https://www.youtube.com/watch?v=…"
+              placeholder="Or paste YouTube URL to fetch thumbnail…"
             />
             <button
               type="button"
@@ -496,22 +572,45 @@ export function ThumbnailAnalyzePanel() {
               onClick={fetchYoutubeThumb}
               disabled={loadingPreview}
             >
-              {loadingPreview ? 'Fetching…' : 'Fetch'}
+              {loadingPreview ? '…' : 'Fetch'}
             </button>
           </div>
-          <label className="thumb-rater-label" htmlFor="thumb-analyze-title">
-            Video title
-          </label>
-          <input
-            id="thumb-analyze-title"
-            type="text"
-            className="thumb-rater-input"
+        </div>
+
+        {/* Divider */}
+        <div className="thumb-inputs-divider">
+          <div className="thumb-inputs-divider-line" />
+          <span className="thumb-inputs-divider-text">and / or</span>
+          <div className="thumb-inputs-divider-line" />
+        </div>
+
+        {/* RIGHT — Title input */}
+        <div className={`thumb-input-panel ${hasTitle ? 'thumb-input-panel--active' : ''}`}>
+          <div className="thumb-input-panel-header">
+            <span className="thumb-input-panel-icon">
+              <IconType />
+            </span>
+            <div>
+              <span className="thumb-input-panel-label">Title</span>
+              <span className="thumb-input-panel-optional">optional</span>
+            </div>
+            {hasTitle && <span className="thumb-input-ready">Ready</span>}
+          </div>
+
+          <textarea
+            className="thumb-rater-input thumb-title-textarea"
             value={videoTitle}
             onChange={(e) => setVideoTitle(e.target.value.slice(0, 200))}
-            placeholder="Enter a title to analyze it, or leave blank for thumbnail-only"
+            placeholder="Paste or type your video title here…"
+            rows={4}
           />
+          <p className="thumb-input-hint">
+            Scored on hook strength, clarity, specificity, value promise, length, emotional appeal,
+            and originality.
+          </p>
+
           <label className="thumb-rater-label" htmlFor="thumb-analyze-niche">
-            Niche (optional)
+            Niche / context (optional)
           </label>
           <input
             id="thumb-analyze-niche"
@@ -519,40 +618,43 @@ export function ThumbnailAnalyzePanel() {
             className="thumb-rater-input"
             value={niche}
             onChange={(e) => setNiche(e.target.value.slice(0, 100))}
-            placeholder="e.g. tech, fitness, gaming"
+            placeholder="e.g. tech, fitness, gaming — sharpens both analyses"
           />
-
-          <button
-            id="thumb-analyze-cta"
-            type="button"
-            className="thumb-rater-btn thumb-rater-btn--primary"
-            onClick={runAnalyze}
-            disabled={!canAnalyze || loadingRate}
-          >
-            {loadingRate ? 'Analyzing…' : 'Run analysis'}
-          </button>
-          {!canAnalyze && (
-            <p className="thumb-rater-hint-text">
-              Add a thumbnail image or enter a title to begin.
-            </p>
-          )}
         </div>
+      </div>
+
+      {/* Analyze button */}
+      <div className="thumb-analyze-cta">
+        <button
+          type="button"
+          className="thumb-rater-btn thumb-rater-btn--primary thumb-rater-btn--cta"
+          onClick={runAnalyze}
+          disabled={!canAnalyze || loadingRate}
+        >
+          {analyzeLabel(hasImage, hasTitle, loadingRate)}
+        </button>
+        {!canAnalyze && (
+          <p className="thumb-rater-hint-text">
+            Upload a thumbnail, enter a title, or both to start.
+          </p>
+        )}
       </div>
 
       {rateError && <div className="thumb-rater-error">{rateError}</div>}
 
       {loadingRate && (
         <div className="thumb-analyze-loading">
-          <GenerationProgress estimatedDurationMs={14000} />
+          <GenerationProgress estimatedDurationMs={hasImage && hasTitle ? 18000 : 10000} />
         </div>
       )}
 
+      {/* ── Results ─────────────────────────────────────────────── */}
       {result && !loadingRate && (
         <div className="thumb-rater-results thumb-analyze-results">
-          {/* ── Thumbnail analysis ─────────────────────────────────── */}
-          {hasThumbnail && (
+          {/* Thumbnail analysis */}
+          {resultHasThumbnail && (
             <div className="thumb-analysis-section">
-              <SectionHeader>Thumbnail Analysis</SectionHeader>
+              <SectionHeader icon={<IconImage />}>Thumbnail Analysis</SectionHeader>
 
               <HeroCard
                 grade={thumbGrade}
@@ -620,8 +722,8 @@ export function ThumbnailAnalyzePanel() {
             </div>
           )}
 
-          {/* ── Title ↔ Thumbnail synergy (only when both provided) ─── */}
-          {hasThumbnail && hasTitle && titleSynergy && (
+          {/* Title ↔ Thumbnail synergy — only when both were analyzed */}
+          {resultHasThumbnail && resultHasTitle && titleSynergy && (
             <div className="thumb-analysis-section">
               <SectionHeader>Title ↔ Thumbnail Synergy</SectionHeader>
               <div className="thumb-synergy-card">
@@ -653,10 +755,10 @@ export function ThumbnailAnalyzePanel() {
             </div>
           )}
 
-          {/* ── Title analysis ─────────────────────────────────────── */}
-          {hasTitle && titleAnalysis && (
+          {/* Title analysis */}
+          {resultHasTitle && titleAnalysis && (
             <div className="thumb-analysis-section">
-              <SectionHeader>Title Analysis</SectionHeader>
+              <SectionHeader icon={<IconType />}>Title Analysis</SectionHeader>
 
               <HeroCard
                 grade={titleGrade}
