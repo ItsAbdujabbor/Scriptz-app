@@ -24,6 +24,12 @@ import { openCreditsModal } from '../creditsModalBus'
 // carrying `.status === 402` and `.code`, which flows here.
 const PRICING_CODES = new Set(['NO_ACTIVE_SUBSCRIPTION', 'PLAN_UPGRADE_REQUIRED'])
 
+// Debounce guard: if multiple concurrent queries all fail with
+// INSUFFICIENT_CREDITS (e.g. a burst of queries on an empty account), only
+// open the credits modal once per 500ms instead of firing it N times.
+let _creditsModalLastOpened = 0
+const CREDITS_MODAL_DEBOUNCE_MS = 500
+
 function maybeRedirectToPaywall(error) {
   if (!error) return
   if (error.status !== 402 && error.code !== 'PLAN_UPGRADE_REQUIRED') return
@@ -35,10 +41,13 @@ function maybeRedirectToPaywall(error) {
 
   if (code === 'INSUFFICIENT_CREDITS') {
     // Out of credits — open the credit marketplace so they can top up.
-    // `creditsModalBus` has zero imports (no circular risk) and is a
-    // synchronous window-event dispatch, so the modal opens immediately
-    // on the 402 instead of after a chunk-resolution microtask.
-    openCreditsModal()
+    // Debounce so concurrent 402s from multiple queries only open the
+    // modal once rather than stacking rapid-fire open events.
+    const now = Date.now()
+    if (now - _creditsModalLastOpened > CREDITS_MODAL_DEBOUNCE_MS) {
+      _creditsModalLastOpened = now
+      openCreditsModal()
+    }
     return
   }
 

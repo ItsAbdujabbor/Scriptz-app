@@ -17,12 +17,11 @@
  * refetch surfaces it via `is_pending`.
  */
 import { useQueryClient } from '@tanstack/react-query'
-import { useCallback } from 'react'
+import { useCallback, useEffect, useReducer } from 'react'
 
 import { thumbnailsApi } from '../api/thumbnails'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { queryKeys } from '../lib/query/queryKeys'
-import { useThumbnailConversationsQuery } from '../queries/thumbnails/thumbnailQueries'
 
 const LEGACY_STORAGE_KEY = 'scriptz_thumb_chat_activity'
 
@@ -75,14 +74,22 @@ function patchRowEverywhere(qc, conversationId, patch) {
  */
 export function useThumbnailChatActivityStore(selector) {
   const queryClient = useQueryClient()
-  // STM-01: subscribe to the canonical sidebar conversation list so this
-  // hook re-renders whenever the list cache changes (new message, seen
-  // bump, pending flip). Without this subscription the derived
-  // `pending`/`lastSeenAt` maps were computed once via `useMemo([qc])`
-  // and never updated — `queryClient` is a stable ref, so the maps
-  // froze at mount-time values. We read `.data` only as a re-render
-  // trigger; the maps below are derived from the full cache each render.
-  useThumbnailConversationsQuery()
+  // STM-01: re-render whenever ANY thumbnail conversation query updates.
+  // We subscribe to the QueryCache directly instead of mounting a specific
+  // useThumbnailConversationsQuery() call, which would create a second query
+  // with default params {} that diverges from the sidebar's active paginated
+  // query key. The cache subscription fires on any update to any query whose
+  // key starts with ['thumbnails', 'conversations'].
+  const [, tick] = useReducer((x) => x + 1, 0)
+  useEffect(() => {
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      const key = event?.query?.queryKey
+      if (Array.isArray(key) && key[0] === 'thumbnails' && key[1] === 'conversations') {
+        tick()
+      }
+    })
+    return unsubscribe
+  }, [queryClient])
 
   const markSeen = useCallback(
     async (conversationId) => {

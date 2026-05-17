@@ -101,11 +101,13 @@ export function Dialog({
     }
   }, [open])
 
-  // Escape closes the dialog.
+  // Escape closes the dialog. Guard with dialogRef.current so the listener
+  // can't fire onClose during the brief window between React rendering null
+  // (open=false) and the useEffect cleanup removing this listener.
   useEffect(() => {
     if (!open || !closeOnEscape) return
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.()
+      if (e.key === 'Escape' && dialogRef.current) onClose?.()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)

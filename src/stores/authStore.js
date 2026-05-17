@@ -251,6 +251,10 @@ export const useAuthStore = create((set, get) => ({
         return accessToken || null
       }
       get()._applySession(next)
+      // If clearSession() was called concurrently while the refresh was in
+      // flight, _applySession above became a no-op (the guard returned
+      // early). Don't hand the caller a valid token for a cleared session.
+      if (_sessionCleared) return null
       return next.accessToken
     })()
     try {
@@ -344,6 +348,13 @@ export const useAuthStore = create((set, get) => ({
     const { refreshToken } = get()
     if (!refreshToken) return
     const next = await refreshSession(refreshToken)
-    if (next) get()._applySession(next)
+    if (next === 'invalid') {
+      // Backend revoked the refresh token — treat the same as the proactive
+      // refresh path: clear the session so the user is prompted to re-login.
+      get().clearSession()
+    } else if (next) {
+      get()._applySession(next)
+    }
+    // null = transient failure; keep current session intact, caller retries.
   },
 }))
