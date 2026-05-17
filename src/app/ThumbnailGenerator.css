@@ -754,17 +754,9 @@
   }
 }
 
-/* Scale dots + percentage down inside the 2-col grid (cards are smaller) */
+/* Scale percentage down inside the 2-col grid (cards are smaller) */
 .thumb-batch-grid .thumb-gen-fill__pct {
   font-size: clamp(18px, 4vw, 36px);
-}
-.thumb-batch-grid .thumb-gen-fill__dot {
-  width: 7px;
-  height: 7px;
-}
-.thumb-batch-grid .thumb-gen-fill__orb {
-  width: 130px;
-  height: 130px;
 }
 
 /* Thumbnail card — matches the composer/input-bar glass recipe exactly:
@@ -3985,113 +3977,68 @@
   justify-content: center;
   overflow: hidden;
   contain: paint;
-  background: radial-gradient(ellipse at 50% 55%, rgba(91, 33, 182, 0.16) 0%, transparent 68%);
 }
 
-/* Pulsing violet orb behind the dots — provides ambient depth */
-.thumb-gen-fill__orb {
+.thumb-gen-fill__bar {
   position: absolute;
-  width: 200px;
-  height: 200px;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(109, 40, 217, 0.28) 0%,
-    rgba(91, 33, 182, 0.08) 55%,
-    transparent 75%
-  );
-  animation: thumbFillOrb 3.2s ease-in-out infinite alternate;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 0%;
+  background: linear-gradient(90deg, #4c1d95 0%, #6d28d9 35%, #7c3aed 70%, #8b5cf6 100%);
+  transition: width 0.18s linear;
+  will-change: width;
+  overflow: hidden;
+}
+
+/* Soft white sheen that sweeps across the filled bar on loop */
+.thumb-gen-fill__sheen {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
   pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.06) 35%,
+    rgba(255, 255, 255, 0.22) 50%,
+    rgba(255, 255, 255, 0.06) 65%,
+    transparent 100%
+  );
+  transform: translateX(-60%);
+  animation: thumbGenSheen 2.2s linear infinite;
+  will-change: transform;
 }
 
-@keyframes thumbFillOrb {
-  from {
-    transform: scale(0.75);
-    opacity: 0.5;
+@keyframes thumbGenSheen {
+  0% {
+    transform: translateX(-60%);
   }
-  to {
-    transform: scale(1.25);
-    opacity: 1;
+  100% {
+    transform: translateX(160%);
   }
 }
 
-/* Column: dots row + label */
-.thumb-gen-fill__inner {
+/* Centred percentage overlay — tabular numerals keep digit width stable */
+.thumb-gen-fill__pct {
   position: relative;
   z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 18px;
-}
-
-/* Three-dot wave — each dot pulses in sequence */
-.thumb-gen-fill__dots {
-  display: flex;
-  gap: 10px;
-}
-
-.thumb-gen-fill__dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: rgba(139, 92, 246, 0.9);
-  animation: thumbFillDot 1.5s ease-in-out infinite;
-}
-
-.thumb-gen-fill__dot:nth-child(2) {
-  animation-delay: 0.22s;
-}
-.thumb-gen-fill__dot:nth-child(3) {
-  animation-delay: 0.44s;
-}
-
-@keyframes thumbFillDot {
-  0%,
-  70%,
-  100% {
-    transform: scale(0.55);
-    opacity: 0.35;
-  }
-  35% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-/* Label row: compact percentage + "Generating" status */
-.thumb-gen-fill__label {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-}
-
-.thumb-gen-fill__pct {
   display: inline-flex;
   align-items: baseline;
   gap: 0.04em;
-  font-size: clamp(28px, 7vw, 52px);
+  font-size: clamp(48px, 12vw, 96px);
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: rgba(255, 255, 255, 0.88);
+  color: #fff;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
   user-select: none;
 }
 
-.thumb-gen-fill__status {
-  font-size: 0.7rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.38);
-  pointer-events: none;
-  user-select: none;
-}
-
 .thumb-gen-fill__pct-sign {
-  font-size: 0.52em;
+  font-size: 0.55em;
   font-weight: 600;
   opacity: 0.85;
   margin-left: 0.05em;

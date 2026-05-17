@@ -1495,20 +1495,12 @@ const ThumbnailGenFill = memo(function ThumbnailGenFill({
       aria-valuenow={pct}
       aria-busy={!done}
     >
-      <div className="thumb-gen-fill__orb" aria-hidden="true" />
-      <div className="thumb-gen-fill__inner">
-        <div className="thumb-gen-fill__dots" aria-hidden="true">
-          <span className="thumb-gen-fill__dot" />
-          <span className="thumb-gen-fill__dot" />
-          <span className="thumb-gen-fill__dot" />
-        </div>
-        <div className="thumb-gen-fill__label">
-          <span className="thumb-gen-fill__pct">
-            {pct}
-            <span className="thumb-gen-fill__pct-sign">%</span>
-          </span>
-          <span className="thumb-gen-fill__status">Generating</span>
-        </div>
+      <div className="thumb-gen-fill__bar" style={{ width: `${pct}%` }}>
+        <span className="thumb-gen-fill__sheen" aria-hidden="true" />
+      </div>
+      <div className="thumb-gen-fill__pct">
+        {pct}
+        <span className="thumb-gen-fill__pct-sign">%</span>
       </div>
     </div>
   )
