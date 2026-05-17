@@ -332,9 +332,21 @@ export function useUpdateThumbnailConversationMutation() {
     onSuccess: (data, variables) => {
       const id = variables?.conversationId
       if (id != null && data) {
-        queryClient.setQueryData(queryKeys.thumbnails.conversation(id), (old) =>
-          old && typeof old === 'object' ? { ...old, ...data } : old
-        )
+        // STM-02: the conversation detail cache is nested as
+        // `{ conversation, messages: { items, ... } }`. The API returns a
+        // FLAT conversation patch (e.g. `{ id, title, ... }`). Spreading
+        // it at the top level (`{ ...old, ...data }`) left
+        // `old.conversation.title` stale, so a rename never showed in the
+        // open thread header. Merge into the nested `conversation` object
+        // instead. Fall back gracefully if the cached entry is itself a
+        // flat conversation (e.g. an older shape) so we never wipe it.
+        queryClient.setQueryData(queryKeys.thumbnails.conversation(id), (old) => {
+          if (!old || typeof old !== 'object') return old
+          if (old.conversation) {
+            return { ...old, conversation: { ...old.conversation, ...data } }
+          }
+          return { ...old, ...data }
+        })
         mergeThumbnailConversationsListCache(queryClient, id, data)
       }
       return data

@@ -27,8 +27,25 @@ function IconCrown() {
  *
  * `memo`-wrapped so parent re-renders don't re-render the tab row
  * unless its own props actually change.
+ *
+ * ARIA tab pattern: each button is given a stable `id` and points at
+ * its panel via `aria-controls`. `idPrefix` namespaces the ids so
+ * multiple tab rows on one page don't collide. Consumers wire the
+ * matching panel with `role="tabpanel"`, `id={`${idPrefix}-panel-${value}`}`
+ * and `aria-labelledby={`${idPrefix}-tab-${value}`}`. The `panelId`
+ * helper is exported for that purpose.
  */
-function ThumbPillTabsImpl({ options, value, onChange, ariaLabel, align = 'left' }) {
+export const tabId = (idPrefix, value) => `${idPrefix}-tab-${value}`
+export const panelId = (idPrefix, value) => `${idPrefix}-panel-${value}`
+
+function ThumbPillTabsImpl({
+  options,
+  value,
+  onChange,
+  ariaLabel,
+  align = 'left',
+  idPrefix = 'thumbtabs',
+}) {
   const alignClass = align === 'right' ? ' thumb-gen-pill-tab-group--right' : ''
   return (
     <div className={`thumb-gen-pill-tab-group${alignClass}`} role="tablist" aria-label={ariaLabel}>
@@ -39,16 +56,22 @@ function ThumbPillTabsImpl({ options, value, onChange, ariaLabel, align = 'left'
             key={opt.value}
             type="button"
             role="tab"
+            id={tabId(idPrefix, opt.value)}
+            aria-controls={panelId(idPrefix, opt.value)}
             aria-selected={active}
+            tabIndex={active ? 0 : -1}
             className={`thumb-gen-pill-tab${active ? ' thumb-gen-pill-tab--active' : ''}${opt.premium ? ' thumb-gen-pill-tab--premium' : ''}`}
             onClick={() => onChange(opt.value)}
           >
             {opt.icon}
             <span>{opt.label}</span>
             {opt.premium ? (
-              <span className="clixa-pro-crown" aria-hidden>
-                <IconCrown />
-              </span>
+              <>
+                <span className="clixa-pro-crown" aria-hidden>
+                  <IconCrown />
+                </span>
+                <span className="sr-only"> (Pro feature)</span>
+              </>
             ) : null}
           </button>
         )

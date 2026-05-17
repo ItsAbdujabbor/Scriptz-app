@@ -262,12 +262,18 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
               {!isPending &&
                 items.length > 0 &&
                 items.map((s) => (
-                  <button
+                  <div
                     key={s.id}
-                    type="button"
                     className={`style-selector-option ${s.id === selectedStyleId ? 'is-selected' : ''}`}
                     onClick={() => handleSelect(s)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        handleSelect(s)
+                      }
+                    }}
                     role="option"
+                    tabIndex={0}
                     aria-selected={s.id === selectedStyleId}
                   >
                     {s.image_url && (
@@ -284,7 +290,7 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
                         <IconCheck />
                       </span>
                     )}
-                  </button>
+                  </div>
                 ))}
             </div>
 

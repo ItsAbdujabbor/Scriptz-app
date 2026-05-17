@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Zap } from 'lucide-react'
 
 import { Dialog } from './ui'
@@ -106,23 +106,37 @@ export function CreditPacksModal({ open, onClose }) {
   const [catalog, setCatalog] = useState(null)
   const [loadingPack, setLoadingPack] = useState(null)
   const [error, setError] = useState(null)
+  const [fetchError, setFetchError] = useState(false)
   const { data: credits } = useCreditsQuery({ refetchInterval: open ? 5000 : false })
 
-  useEffect(() => {
-    if (!open) return
+  // Load the pack catalog. Tracks a distinct `fetchError` so a failed
+  // load shows an actionable retry instead of an indefinite skeleton.
+  const loadCatalog = useCallback(() => {
     let alive = true
     setError(null)
+    setFetchError(false)
     getPlans()
       .then((d) => {
-        if (alive) setCatalog(d)
+        if (alive) {
+          setCatalog(d)
+          setFetchError(false)
+        }
       })
       .catch(() => {
-        if (alive) setCatalog(null)
+        if (alive) {
+          setCatalog(null)
+          setFetchError(true)
+        }
       })
     return () => {
       alive = false
     }
-  }, [open])
+  }, [])
+
+  useEffect(() => {
+    if (!open) return undefined
+    return loadCatalog()
+  }, [open, loadCatalog])
 
   const packs = useMemo(() => decoratePacks(catalog?.packs || []), [catalog])
 
@@ -212,7 +226,14 @@ export function CreditPacksModal({ open, onClose }) {
           </div>
         )}
 
-        {!catalog ? (
+        {fetchError ? (
+          <div className="cpm-error-state" role="alert">
+            <p>Couldn&apos;t load credit packs. Please try again.</p>
+            <button type="button" className="cpm-retry-btn" onClick={loadCatalog}>
+              Retry
+            </button>
+          </div>
+        ) : !catalog ? (
           <SkeletonRows />
         ) : packs.length === 0 ? (
           <p className="cpm-empty">No credit packs available right now.</p>

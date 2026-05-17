@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { userApi } from '../api/user'
 import { profileApi } from '../api/profile'
-import { youtubeApi } from '../api/youtube'
 
 const STORAGE_KEY = 'clixa_onboarding'
 const LEGACY_STORAGE_KEY = 'scriptz_onboarding'
@@ -76,10 +75,6 @@ const PERSIST_KEYS = [
   'youtube',
 ]
 
-const YOUTUBE_BOOTSTRAP_TTL_MS = 60 * 1000
-let youtubeBootstrapCache = null
-let youtubeBootstrapInFlight = null
-
 function persist(getState) {
   const state = getState()
   const s = {}
@@ -98,15 +93,6 @@ function toYouTubeState(data = {}) {
     subscriberCount: data.subscriberCount ?? data.subscriber_count ?? null,
     viewCount: data.viewCount ?? data.view_count ?? null,
     videoCount: data.videoCount ?? data.video_count ?? null,
-  }
-}
-
-function buildBootstrapResult(list = {}, info = null) {
-  const channels = list.channels || []
-  return {
-    channels,
-    activeChannelId: list.active_channel_id || channels[0]?.channel_id || info?.channel_id || null,
-    info,
   }
 }
 
@@ -166,63 +152,13 @@ export const useOnboardingStore = create((set, get) => ({
     persist(get)
   },
 
-  async bootstrapYouTube(accessToken, { force = false } = {}) {
-    if (!accessToken) {
-      get().setYouTube(false, {})
-      return buildBootstrapResult()
-    }
-
-    const now = Date.now()
-    if (
-      !force &&
-      youtubeBootstrapCache?.accessToken === accessToken &&
-      youtubeBootstrapCache.expiresAt > now
-    ) {
-      const cached = youtubeBootstrapCache.result
-      if (cached?.info) get().setYouTube(true, cached.info)
-      return cached
-    }
-
-    if (!force && youtubeBootstrapInFlight?.accessToken === accessToken) {
-      return youtubeBootstrapInFlight.promise
-    }
-
-    const promise = (async () => {
-      const list = await youtubeApi.listChannels(accessToken)
-      const channels = list.channels || []
-      if (channels.length === 0) {
-        get().setYouTube(false, {})
-        const emptyResult = buildBootstrapResult(list, null)
-        youtubeBootstrapCache = {
-          accessToken,
-          expiresAt: Date.now() + YOUTUBE_BOOTSTRAP_TTL_MS,
-          result: emptyResult,
-        }
-        return emptyResult
-      }
-
-      const activeChannelId = list.active_channel_id || channels[0]?.channel_id
-      const info = activeChannelId
-        ? await youtubeApi.getChannelInfo(accessToken, activeChannelId)
-        : null
-      if (info) get().setYouTube(true, info)
-
-      const result = buildBootstrapResult(list, info)
-      youtubeBootstrapCache = {
-        accessToken,
-        expiresAt: Date.now() + YOUTUBE_BOOTSTRAP_TTL_MS,
-        result,
-      }
-      return result
-    })()
-
-    youtubeBootstrapInFlight = { accessToken, promise }
-    return promise.finally(() => {
-      if (youtubeBootstrapInFlight?.promise === promise) {
-        youtubeBootstrapInFlight = null
-      }
-    })
-  },
+  // STM-06: `bootstrapYouTube` (and its module-level TTL cache) was
+  // removed. It called `youtubeApi.listChannels` / `getChannelInfo`,
+  // which no longer exist — the full YouTube account integration was
+  // deleted and `api/youtube.js` only exposes thumbnail fetching now.
+  // Any call would have thrown. The local `youtube` profile field is
+  // still kept (it's surfaced by Thumbnails.jsx and synced via
+  // preferences/profile), only the dead OAuth bootstrap path is gone.
 
   /** Update channel in backend (PUT /api/profile/channel/{channel_id}). Call after connect/switch. */
   async syncChannelToBackend(accessToken, channelId, channelData = {}) {

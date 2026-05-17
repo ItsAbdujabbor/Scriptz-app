@@ -17,11 +17,12 @@ import { createPortal } from 'react-dom'
 import { onToast } from '../lib/toast'
 import './ToastStack.css'
 
-// Only one toast on screen at a time — new toasts REPLACE the old one
-// rather than piling up as a vertical list. Pages that need to surface
-// multiple distinct things over time can chain manually; the common
-// "user clicked retry, error came back" case shouldn't paint twice.
-const STACK_CAP = 1
+// Up to 3 toasts on screen at once. Capping at 1 meant a success toast
+// could silently swallow an error fired moments later (or vice-versa) —
+// users never saw the failure. With a small stack, distinct events
+// (e.g. "saved" + a later "upload failed") both stay visible, and
+// errors get drop-priority over non-errors when the stack is full.
+const STACK_CAP = 3
 // 4 seconds — short enough to feel snappy, long enough to read a
 // one-line error. Pages can override per-call via `toast({ duration })`.
 const DEFAULT_DURATION = 4000
@@ -77,10 +78,33 @@ export function ToastStack() {
           closing: false,
         }
         setToasts((prev) => {
-          // STACK_CAP === 1 → the new toast REPLACES whatever's on
-          // screen instead of piling up. The replaced one mounts/
-          // unmounts cleanly because of the keyed list render below.
+          // Newest first. Under the cap → just prepend.
           const merged = [next, ...prev]
+          if (merged.length <= STACK_CAP) return merged
+
+          // Over the cap. An incoming error must never be dropped in
+          // favour of a non-error: if everything we'd otherwise keep is
+          // non-error, evict the oldest non-error to make room for it.
+          if (tone === 'error') {
+            const trimmed = merged.slice(0, STACK_CAP)
+            const errorWouldSurvive = trimmed.some((t) => t.tone === 'error')
+            if (errorWouldSurvive) return trimmed
+            // Drop the oldest non-error (last in the kept window) so the
+            // new error stays on screen.
+            let lastNonErrorIdx = -1
+            for (let i = trimmed.length - 1; i >= 0; i--) {
+              if (trimmed[i].tone !== 'error') {
+                lastNonErrorIdx = i
+                break
+              }
+            }
+            if (lastNonErrorIdx >= 0) {
+              trimmed.splice(lastNonErrorIdx, 1)
+            }
+            return trimmed
+          }
+
+          // Non-error incoming: standard newest-wins truncation.
           return merged.slice(0, STACK_CAP)
         })
       }),

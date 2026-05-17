@@ -107,6 +107,12 @@ export function Dropdown({
       triggerRef.current?.focus()
       return
     }
+    if (e.key === 'Tab') {
+      // Close the menu and let the browser move focus naturally — do NOT
+      // preventDefault, otherwise focus gets stuck on a now-hidden menu.
+      setOpen(false)
+      return
+    }
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       setFocusIndex((i) => (i + 1) % options.length)

@@ -15,6 +15,19 @@ import { identify, track } from '../lib/analytics'
 let ensureSessionInFlight = null
 let accessTokenInFlight = null
 
+// AUTH-06: the proactive-refresh interval handle lives at module scope,
+// NOT in Zustand state. An interval id is a non-serializable runtime
+// handle — keeping it in the store leaked it into any state snapshot /
+// devtools / persisted dump and meant a `set()` could clobber it.
+let _proactiveRefreshInterval = null
+
+// AUTH-04: guards the logout-while-refresh race. `clearSession()` sets
+// this true and any in-flight `refreshSession()` promise that resolves
+// AFTER the clear must NOT call `_applySession` (that would resurrect a
+// session the user just logged out of). `_applySession` resets it to
+// false for the next legitimate sign-in.
+let _sessionCleared = false
+
 function tokensExpired(expiresAt, leewayMs = 60_000) {
   if (!expiresAt) return true
   return Date.now() >= expiresAt - leewayMs
@@ -57,7 +70,6 @@ export const useAuthStore = create((set, get) => ({
   expiresAt: null,
   isLoading: false,
   error: null,
-  _refreshIntervalId: null,
 
   _applySession(session) {
     if (!session) {
@@ -67,6 +79,13 @@ export const useAuthStore = create((set, get) => ({
       rumClearUser()
       return
     }
+    // AUTH-04: if the session was cleared (logout) while a refresh was
+    // still in flight, that refresh's late resolution must NOT revive
+    // the session. Drop it silently — the user explicitly logged out.
+    if (_sessionCleared) return
+    // A legitimate new session is being applied — re-arm the guard so a
+    // future logout can once again block a stale in-flight refresh.
+    _sessionCleared = false
     const user = mapUser(session.user)
     // Only stamp the last-user-id when we actually got a user payload.
     // Passing null here would call `touchLastUserId(null)`, which (if a
@@ -96,6 +115,16 @@ export const useAuthStore = create((set, get) => ({
   },
 
   clearSession() {
+    // AUTH-04: set the guard FIRST, before anything async can interleave.
+    // Any `refreshSession()` promise already in flight (proactive-refresh
+    // tick, getValidAccessToken) will resolve later; the guard makes its
+    // `_applySession` a no-op so a logged-out session can't be revived.
+    _sessionCleared = true
+    // Drop the in-flight promise handles so a subsequent sign-in starts
+    // a fresh refresh rather than awaiting a stale one bound to the old
+    // refresh token.
+    accessTokenInFlight = null
+    ensureSessionInFlight = null
     get()._stopProactiveRefresh()
     clearSession()
     touchLastUserId(null)
@@ -109,31 +138,33 @@ export const useAuthStore = create((set, get) => ({
     set({ error: null })
   },
 
+  // AUTH-06: interval handle is a module-level closure variable, never
+  // Zustand state. `set()` must only ever carry serializable session
+  // data.
   _stopProactiveRefresh() {
-    const id = get()._refreshIntervalId
-    if (id) {
-      clearInterval(id)
-      set({ _refreshIntervalId: null })
+    if (_proactiveRefreshInterval) {
+      clearInterval(_proactiveRefreshInterval)
+      _proactiveRefreshInterval = null
     }
   },
 
   _startProactiveRefresh() {
-    if (get()._refreshIntervalId) return
-    const id = setInterval(async () => {
+    if (_proactiveRefreshInterval) return // already running
+    _proactiveRefreshInterval = setInterval(async () => {
       const { refreshToken, expiresAt } = get()
       if (!refreshToken || !expiresAt) return
       if (Date.now() < expiresAt - 120_000) return
       const next = await refreshSession(refreshToken)
       // 'invalid' = backend revoked the refresh token; clear session.
       // null      = transient (network/5xx); keep session, retry next tick.
-      // object    = success; apply it.
+      // object    = success; apply it. (`_applySession` itself no-ops if
+      //             the session was cleared mid-refresh — AUTH-04.)
       if (next === 'invalid') {
         get().clearSession()
       } else if (next) {
         get()._applySession(next)
       }
     }, 60_000)
-    set({ _refreshIntervalId: id })
   },
 
   /**

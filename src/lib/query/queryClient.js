@@ -1,37 +1,52 @@
 import { QueryClient, QueryCache, MutationCache } from '@tanstack/react-query'
 import { aiAwareShouldRetry, aiAwareRetryDelay } from '../aiErrors'
+import { openCreditsModal } from '../creditsModalBus'
 
-// Global paywall interceptor — any query or mutation that comes back as
-// 402 with one of the recognised paywall codes redirects the user to
-// the pricing screen.
+// Global paywall handling. Any query or mutation that comes back as a
+// 402 with one of the recognised paywall codes routes the user to the
+// right surface — WITHOUT a red "failed" toast:
 //
 //   NO_ACTIVE_SUBSCRIPTION → tried to use a premium-only feature
 //                            (Persona / Styles / Edit / Score /
-//                            One-click fix / Max model)
+//                            One-click fix / Max model) → /pro
+//   PLAN_UPGRADE_REQUIRED  → subscribed but on too low a tier for the
+//                            requested feature (Starter → Creator+
+//                            gate) → /pro
 //   INSUFFICIENT_CREDITS   → ran out of credits on a credit-deductible
 //                            feature (Generate / Recreate / Analyze /
-//                            Titles)
+//                            Titles) → open the credit-packs modal
 //
-// Both redirect to /pro silently — no error banner.
-// See src/lib/paywallInterceptor.js for the full rationale —
-// PLAN_UPGRADE_REQUIRED is included so Starter-tier users hitting
-// a Creator+ feature route to /pro cleanly instead of seeing a
-// red "failed" toast.
-const PAYWALL_CODES = new Set([
-  'NO_ACTIVE_SUBSCRIPTION',
-  'INSUFFICIENT_CREDITS',
-  'PLAN_UPGRADE_REQUIRED',
-])
+// This is the SINGLE source of paywall routing. The previous global
+// fetch monkey-patch (src/lib/paywallInterceptor.js) was deleted: it
+// rewrote 402 → fake-200-null before React Query ever saw the response,
+// which silently swallowed the error and made these handlers dead code
+// (SEC-07). With the centralized apiFetch, a 402 now throws an ApiError
+// carrying `.status === 402` and `.code`, which flows here.
+const PRICING_CODES = new Set(['NO_ACTIVE_SUBSCRIPTION', 'PLAN_UPGRADE_REQUIRED'])
 
 function maybeRedirectToPaywall(error) {
   if (!error) return
-  if (error.status !== 402) return
+  if (error.status !== 402 && error.code !== 'PLAN_UPGRADE_REQUIRED') return
+  // ApiError carries `.code` directly; keep the legacy body fallbacks
+  // for any error object that didn't pass through apiFetch.
   const code = error.code || error.body?.error?.code || error.body?.detail?.code
-  if (!code || !PAYWALL_CODES.has(code)) return
+  if (!code) return
   if (typeof window === 'undefined') return
-  // Avoid loop if we're already on the pricing page.
-  if ((window.location.hash || '').replace(/^#/, '').startsWith('pro')) return
-  window.location.hash = 'pro'
+
+  if (code === 'INSUFFICIENT_CREDITS') {
+    // Out of credits — open the credit marketplace so they can top up.
+    // `creditsModalBus` has zero imports (no circular risk) and is a
+    // synchronous window-event dispatch, so the modal opens immediately
+    // on the 402 instead of after a chunk-resolution microtask.
+    openCreditsModal()
+    return
+  }
+
+  if (PRICING_CODES.has(code)) {
+    // Avoid a redirect loop if we're already on the pricing page.
+    if ((window.location.hash || '').replace(/^#/, '').startsWith('pro')) return
+    window.location.hash = 'pro'
+  }
 }
 
 export function createAppQueryClient() {

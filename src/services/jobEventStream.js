@@ -40,6 +40,28 @@ let _lastEventId = null
 
 const MAX_RECONNECT_DELAY_MS = 30_000
 const BASE_RECONNECT_DELAY_MS = 1_000
+// If the backend never sends the `connected` handshake within this
+// window the socket is effectively dead-on-arrival (proxy buffering a
+// never-flushed response, hung LB, half-open TCP). EventSource's
+// `onerror` does NOT fire for a silently-stalled-but-open connection,
+// so without this guard the stream would hang forever with no events
+// and no reconnect. Force-close + back off instead.
+const CONNECT_TIMEOUT_MS = 15_000
+
+let _connectTimer = null
+// Coarse connection state for the poll-loop coordination (STM-03).
+// 'disconnected' until the backend `connected` handshake lands; back
+// to 'disconnected' on any error / forced close / disconnect. When
+// 'connected', the thumbnail poll loop throttles itself way down
+// (SSE is the live channel; polling is just a safety net).
+let _connectionState = 'disconnected'
+
+function clearConnectTimer() {
+  if (_connectTimer) {
+    clearTimeout(_connectTimer)
+    _connectTimer = null
+  }
+}
 
 function clearReconnect() {
   if (_reconnectTimer) {
@@ -141,6 +163,12 @@ function openStream(token) {
     } catch {}
     _eventSource = null
   }
+  // The previous connection's watchdog is no longer relevant — a fresh
+  // one is armed below for the new EventSource. Until the new handshake
+  // lands we're not delivering live events, so the poll loop should run
+  // at full cadence again.
+  clearConnectTimer()
+  _connectionState = 'disconnected'
 
   // Resume from the last stream_event_id we observed so the backend's
   // durable-replay path streams missed events before tailing live.
@@ -166,11 +194,31 @@ function openStream(token) {
   }
   _eventSource = es
 
+  // Arm the connect-timeout watchdog. Cleared by the `connected`
+  // handshake (success) or `onerror` (transport failure → its own
+  // backoff). If neither fires within the window the connection is
+  // silently stalled; force a reconnect so the user isn't stuck on a
+  // dead stream with the poll fallback as the only lifeline.
+  clearConnectTimer()
+  _connectTimer = setTimeout(() => {
+    _connectTimer = null
+    if (_eventSource !== es) return // already replaced/closed
+    console.warn('[jobEventStream] connect timeout — forcing reconnect')
+    _connectionState = 'disconnected'
+    try {
+      es.close()
+    } catch {}
+    _eventSource = null
+    scheduleReconnect()
+  }, CONNECT_TIMEOUT_MS)
+
   es.addEventListener('connected', () => {
-    // Reset the reconnect counter on successful handshake — the next
-    // disconnect should retry quickly, not back off as if we'd been
-    // failing for a while.
+    // Handshake landed — cancel the watchdog and reset the reconnect
+    // counter so the next disconnect retries quickly rather than
+    // backing off as if we'd been failing for a while.
+    clearConnectTimer()
     _reconnectAttempt = 0
+    _connectionState = 'connected'
   })
 
   // The runner publishes `job.queued`, `job.running`, `job.retry`,
@@ -208,6 +256,8 @@ function openStream(token) {
     // backoff and no awareness of token expiry. We force-close and
     // reschedule with backoff so a 401 (expired token) doesn't burn
     // CPU in a tight reconnect loop.
+    clearConnectTimer()
+    _connectionState = 'disconnected'
     try {
       es.close()
     } catch {}
@@ -246,11 +296,27 @@ export function disconnectJobEventStream() {
   // Reset the durable-replay cursor on logout so the next login
   // doesn't bleed events across users.
   _lastEventId = null
+  _connectionState = 'disconnected'
   clearReconnect()
+  clearConnectTimer()
   if (_eventSource) {
     try {
       _eventSource.close()
     } catch {}
     _eventSource = null
   }
+}
+
+/**
+ * True only once the backend `connected` handshake has landed and the
+ * stream hasn't errored / been torn down since. The thumbnail poll loop
+ * (`src/api/thumbnails.js`) reads this to back its cadence way off while
+ * SSE is the live channel — avoiding SSE + 1s polling both writing the
+ * same job-status store every second (STM-03). Returns false during the
+ * connect window, on any error, and after disconnect, so the poll loop
+ * automatically resumes full cadence whenever SSE isn't actually
+ * delivering events.
+ */
+export function isSSEConnected() {
+  return _connectionState === 'connected'
 }

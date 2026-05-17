@@ -26,12 +26,34 @@ const CHANNEL_NAME = 'clixa-cache'
 
 let _channel = null
 
+// RT-03: a BroadcastChannel holds an open IPC port until explicitly
+// closed. Without this, navigating away / bfcache eviction leaks the
+// port (and its message queue). Register the unload close exactly once.
+let _unloadHooked = false
+function hookUnloadClose() {
+  if (_unloadHooked || typeof window === 'undefined') return
+  _unloadHooked = true
+  // `pagehide` fires for both normal unload and bfcache freeze and is
+  // more reliable than `beforeunload` on mobile Safari.
+  window.addEventListener('pagehide', () => {
+    if (_channel) {
+      try {
+        _channel.close()
+      } catch {
+        /* already closing/closed — ignore */
+      }
+      _channel = null
+    }
+  })
+}
+
 function getChannel() {
   if (typeof window === 'undefined') return null
   if (typeof BroadcastChannel === 'undefined') return null
   if (_channel) return _channel
   try {
     _channel = new BroadcastChannel(CHANNEL_NAME)
+    hookUnloadClose()
   } catch {
     _channel = null
   }
@@ -70,8 +92,12 @@ export function subscribeCacheEvents(handler) {
   const listener = (e) => {
     try {
       handler(e.data)
-    } catch {
-      /* never let a handler error kill the listener */
+    } catch (err) {
+      // STM-07: never let a handler error kill the listener — but a
+      // silently-swallowed error here previously hid real cross-tab
+      // cache-sync bugs (a malformed delta would just vanish). Log it
+      // so it's visible in the console / error reporting.
+      console.error('[broadcastSync] Cache event handler error:', err, 'event:', e?.data)
     }
   }
   ch.addEventListener('message', listener)

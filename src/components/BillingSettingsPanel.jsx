@@ -16,8 +16,8 @@
  *   │  Cancel subscription / footer note               │
  *   └──────────────────────────────────────────────────┘
  *
- *   ┌─ Recent Invoices ───────────────────────────────┐
- *   │  list of invoices  /  empty state                │
+ *   ┌─ Transaction History ───────────────────────────┐
+ *   │  list of transactions  /  empty state            │
  *   └──────────────────────────────────────────────────┘
  *
  * One outer card per section. Inside, rows are placed directly on
@@ -102,13 +102,23 @@ function nextBillingAmountUSD(subscription) {
   return null
 }
 
-/* ───────────────────── invoice synthesis ───────────────────────── */
-/* Until the backend exposes a real invoice feed, we derive money-flow
- * rows from the credit ledger's purchase / grant / refund kinds.
+/* ───────────────────── transaction synthesis ───────────────────── */
+/* NOTE: these rows are SYNTHESIZED from the credit ledger's
+ * purchase / grant / refund kinds — they are NOT real Paddle invoices
+ * (no invoice number, no PDF, amounts are annotated server-side from
+ * plan/pack prices rather than the actual charged total incl. tax).
+ * The section is labelled "Transaction History" rather than
+ * "Invoices" so the UI doesn't overstate what this data is.
+ *
+ * TODO: replace this whole synthesis path with real invoice data once
+ * a `GET /api/billing/invoices` endpoint exists (proper invoice IDs,
+ * tax-inclusive totals, downloadable receipts). At that point this
+ * ledger-derived fallback can be deleted entirely.
+ *
  * Per-feature usage debits are intentionally excluded — they aren't
- * invoices. */
-const INVOICE_KINDS = new Set(['subscription_grant', 'pack_purchase', 'refund'])
-const INVOICE_LABELS = {
+ * money-flow transactions. */
+const TRANSACTION_KINDS = new Set(['subscription_grant', 'pack_purchase', 'refund'])
+const TRANSACTION_LABELS = {
   subscription_grant: 'Subscription renewal',
   pack_purchase: 'Credit pack',
   refund: 'Refund',
@@ -262,10 +272,10 @@ export function BillingSettingsPanel({ active, onClose }) {
 
   const nextAmount = useMemo(() => nextBillingAmountUSD(subscription), [subscription])
 
-  const invoices = useMemo(() => {
+  const transactions = useMemo(() => {
     if (!ledger?.entries) return []
     return ledger.entries
-      .filter((e) => INVOICE_KINDS.has(e.kind))
+      .filter((e) => TRANSACTION_KINDS.has(e.kind))
       .slice(0, 12)
       .map((e) => {
         // amount_usd is annotated server-side from plan/pack prices.
@@ -277,7 +287,7 @@ export function BillingSettingsPanel({ active, onClose }) {
         }
         return {
           id: e.id,
-          label: INVOICE_LABELS[e.kind] || 'Invoice',
+          label: TRANSACTION_LABELS[e.kind] || 'Transaction',
           date: e.created_at,
           amount,
           status: e.kind === 'refund' ? 'refunded' : 'paid',
@@ -327,11 +337,11 @@ export function BillingSettingsPanel({ active, onClose }) {
 
         <section className="bp-card">
           <div className="bp-card-header">
-            <h2 className="bp-section-title">Recent Invoices</h2>
+            <h2 className="bp-section-title">Transaction History</h2>
           </div>
           <div className="bp-empty">
-            <p className="bp-empty-title">No invoices available yet.</p>
-            <p className="bp-empty-sub">Your invoice history will appear here.</p>
+            <p className="bp-empty-title">No transactions yet.</p>
+            <p className="bp-empty-sub">Your payment and refund history will appear here.</p>
           </div>
         </section>
       </div>
@@ -545,19 +555,22 @@ export function BillingSettingsPanel({ active, onClose }) {
         )}
       </section>
 
-      {/* ─────────── Recent Invoices ─────────── */}
+      {/* ─────────── Transaction History ─────────── */}
+      {/* NOTE: synthesized from the credit ledger, not real Paddle
+          invoices — see the "transaction synthesis" block near the top
+          of this file. Swap for GET /api/billing/invoices when it ships. */}
       <section className="bp-card">
         <div className="bp-card-header">
-          <h2 className="bp-section-title">Recent Invoices</h2>
+          <h2 className="bp-section-title">Transaction History</h2>
         </div>
 
-        {invoices.length === 0 ? (
+        {transactions.length === 0 ? (
           <div className="bp-empty">
-            <p className="bp-empty-title">No invoices available yet.</p>
-            <p className="bp-empty-sub">Your invoice history will appear here.</p>
+            <p className="bp-empty-title">No transactions yet.</p>
+            <p className="bp-empty-sub">Your payment and refund history will appear here.</p>
           </div>
         ) : (
-          <div className="bp-invoices" role="table" aria-label="Recent invoices">
+          <div className="bp-invoices" role="table" aria-label="Transaction history">
             <div className="bp-invoice-row bp-invoice-row--head" role="row">
               <span role="columnheader">Description</span>
               <span role="columnheader">Date</span>
@@ -566,21 +579,21 @@ export function BillingSettingsPanel({ active, onClose }) {
                 Amount
               </span>
             </div>
-            {invoices.map((inv) => (
-              <div key={inv.id} className="bp-invoice-row" role="row">
+            {transactions.map((txn) => (
+              <div key={txn.id} className="bp-invoice-row" role="row">
                 <span role="cell" className="bp-invoice-label">
-                  {inv.label}
+                  {txn.label}
                 </span>
                 <span role="cell" className="bp-invoice-date">
-                  {fmtDate(inv.date)}
+                  {fmtDate(txn.date)}
                 </span>
                 <span role="cell">
-                  <span className={`bp-status bp-status--${inv.status}`}>
-                    {inv.status[0].toUpperCase() + inv.status.slice(1)}
+                  <span className={`bp-status bp-status--${txn.status}`}>
+                    {txn.status[0].toUpperCase() + txn.status.slice(1)}
                   </span>
                 </span>
                 <span role="cell" className="bp-invoice-amount">
-                  {inv.amount != null ? fmtUSD(inv.amount) : '—'}
+                  {txn.amount != null ? fmtUSD(txn.amount) : '—'}
                 </span>
               </div>
             ))}

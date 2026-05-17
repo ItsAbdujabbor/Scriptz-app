@@ -9,7 +9,7 @@
  * needs. All inner class names are scoped under `.pro-screen` so this
  * file does not affect the landing-page pricing or any other module.
  */
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { ProPricingContent } from './ProPricingContent'
 import './ProScreen.css'
 
@@ -32,9 +32,35 @@ function CloseGlyph() {
 }
 
 export function ProScreen({ onClose }) {
+  const rootRef = useRef(null)
+  const closeBtnRef = useRef(null)
+  const triggerRef = useRef(null)
+
   const handleClose = useCallback(() => {
     onClose?.()
   }, [onClose])
+
+  // This is a full-page takeover, not a modal dialog — so it carries
+  // `role="region"` rather than `role="dialog"`. We still need to manage
+  // focus: pull it into the surface on open (first heading if present,
+  // else the close button) and return it to whatever opened the screen
+  // on unmount.
+  useEffect(() => {
+    triggerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+
+    const heading = rootRef.current?.querySelector('h1, h2, [role="heading"]')
+    if (heading) {
+      if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1')
+      heading.focus()
+    } else {
+      closeBtnRef.current?.focus()
+    }
+
+    return () => {
+      triggerRef.current?.focus?.()
+    }
+  }, [])
 
   // Esc closes — same contract every modal in the app exposes.
   useEffect(() => {
@@ -65,12 +91,7 @@ export function ProScreen({ onClose }) {
   }, [])
 
   return (
-    <div
-      className="pro-screen"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Pricing"
-    >
+    <div ref={rootRef} className="pro-screen" role="region" aria-label="Upgrade to Pro">
       {/* Animated background blobs — drift slowly to give the surface
        *  a "living" feel without burning paint. Sit at z-index 0,
        *  below content (z-index 2). */}
@@ -81,6 +102,7 @@ export function ProScreen({ onClose }) {
       </div>
 
       <button
+        ref={closeBtnRef}
         type="button"
         className="pro-screen-close"
         onClick={handleClose}

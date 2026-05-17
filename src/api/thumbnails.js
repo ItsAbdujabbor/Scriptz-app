@@ -1,9 +1,9 @@
 /** Thumbnail generation and chat API. */
-import { getApiBaseUrl } from '../lib/env.js'
-import { parseApiError } from '../lib/aiErrors.js'
+import { apiFetch } from '../lib/apiFetch.js'
 import { useThumbnailJobStatusStore } from '../stores/thumbnailJobStatusStore.js'
 import { getAppQueryClient } from '../lib/sessionReset.js'
 import { invalidateCredits } from '../queries/billing/creditsQueries.js'
+import { isSSEConnected } from '../services/jobEventStream.js'
 
 /**
  * Refresh the credits badge from anywhere in the transport layer. No-ops
@@ -35,47 +35,31 @@ function newIdempotencyKey() {
   )
 }
 
+/**
+ * Thin shim onto the centralized apiFetch. Keeps the legacy
+ * (method, path, accessToken, body, headers, fetchInit) signature every
+ * caller in this module uses. `headers['Idempotency-Key']` is lifted to
+ * apiFetch's first-class `idempotencyKey` option; `fetchInit.signal` is
+ * threaded straight through so AbortController cancellation works.
+ */
 function request(method, path, accessToken, body = null, headers = {}, fetchInit = {}) {
-  const url = getApiBaseUrl() + path
-  const h = { 'Content-Type': 'application/json', ...headers }
-  if (accessToken) h.Authorization = `Bearer ${accessToken}`
-
-  const opts = { method, headers: h, ...fetchInit }
-  if (body != null) opts.body = JSON.stringify(body)
-
-  return fetch(url, opts).then(async (res) => {
-    const contentType = res.headers.get('Content-Type') || ''
-    const isJson = contentType.includes('application/json')
-    const data = isJson ? await res.json().catch(() => ({})) : {}
-    if (!res.ok) {
-      // Rich error: status, code, retryAfterMs, feature — see lib/aiErrors.
-      throw parseApiError(res, data)
-    }
-    return data
-  })
-}
-
-function fetchThumbnailUrl(accessToken, youtubeUrl) {
-  const base = getApiBaseUrl()
-  const url = `${base}/api/thumbnails/youtube/fetch-existing?youtube_url=${encodeURIComponent(youtubeUrl)}`
-  return fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    },
-  }).then(async (r) => {
-    if (!r.ok) {
-      const data = await r.json().catch(() => ({}))
-      throw parseApiError(r, data)
-    }
-    return r.json()
+  const { 'Idempotency-Key': idempotencyKey, ...restHeaders } = headers || {}
+  return apiFetch(path, {
+    method,
+    body: body ?? undefined,
+    token: accessToken,
+    idempotencyKey: idempotencyKey || undefined,
+    signal: fetchInit?.signal,
+    headers: restHeaders,
   })
 }
 
 export const thumbnailsApi = {
   fetchExistingThumbnail(accessToken, youtubeUrl) {
-    return fetchThumbnailUrl(accessToken, youtubeUrl)
+    return apiFetch(
+      `/api/thumbnails/youtube/fetch-existing?youtube_url=${encodeURIComponent(youtubeUrl)}`,
+      { method: 'POST', token: accessToken }
+    )
   },
   generateConcepts(accessToken, payload) {
     return request('POST', '/api/thumbnails/concepts', accessToken, payload)
@@ -310,12 +294,53 @@ export const thumbnailsApi = {
 // frontend's mutation hook stays unchanged (resolves with a
 // ThumbnailChatResponse); only the transport changes underneath.
 
-const POLL_INTERVAL_MS = 1000
+const POLL_INITIAL_INTERVAL = 1_000
+const POLL_MAX_INTERVAL = 15_000
+const POLL_BACKOFF_FACTOR = 1.5
+// When the SSE stream is the live channel, polling is just a safety
+// net — drop to a slow heartbeat so the two transports don't both
+// write the job-status store every second (STM-03).
+const POLL_SSE_ACTIVE_INTERVAL = 10_000
 const POLL_TIMEOUT_MS = 180_000 // 3 min hard cap; the worker has its
 //   own ~30s retry budget per job
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+// Jittered exponential backoff, applied ONLY after a poll error. A
+// clean tick resets back to the initial interval. ±20% jitter so a
+// transient backend blip doesn't sync-up retries across every open tab
+// into a thundering herd. Capped at POLL_MAX_INTERVAL.
+function backoffInterval(consecutiveErrors) {
+  const raw = POLL_INITIAL_INTERVAL * Math.pow(POLL_BACKOFF_FACTOR, consecutiveErrors)
+  const capped = Math.min(raw, POLL_MAX_INTERVAL)
+  return Math.round(capped * (0.8 + Math.random() * 0.4))
+}
+
+// Cadence for the *success* path. SSE connected → slow heartbeat;
+// otherwise the normal 1s tick.
+function steadyInterval() {
+  return isSSEConnected() ? POLL_SSE_ACTIVE_INTERVAL : POLL_INITIAL_INTERVAL
+}
+
+/**
+ * Abort-aware sleep. Resolves after `ms`, OR rejects with an AbortError
+ * the instant `signal` fires — so cancelling a generation doesn't have
+ * to wait out the remaining poll interval before unwinding.
+ */
+function sleep(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('Aborted', 'AbortError'))
+      return
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    function onAbort() {
+      clearTimeout(timer)
+      reject(new DOMException('Aborted', 'AbortError'))
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
 }
 
 /**
@@ -324,26 +349,73 @@ function sleep(ms) {
  * Resolves with the final ThumbnailChatResponse or throws an error
  * shaped like the legacy sync route's failures (so existing catch
  * blocks in the caller continue to work unchanged).
+ *
+ * API-02: the loop checks the abort signal at the top of every
+ * iteration AND the sleep between ticks is abort-aware, so a caller
+ * that aborts mid-poll (component unmount, user cancel) unwinds within
+ * milliseconds instead of one full poll interval.
+ *
+ * IMG-03: on abort we also fire POST /chat-jobs/{id}/cancel so the
+ * worker stops + refunds server-side instead of grinding on a
+ * generation nobody is waiting for.
+ *
+ * IMG-02: poll *errors* back off exponentially (1s → 15s, ±20% jitter)
+ * instead of hammering a struggling backend every second.
+ *
+ * STM-03: on the success path the cadence drops to a 10s heartbeat
+ * whenever the SSE stream is connected (SSE is then the live channel;
+ * polling is only a correctness backstop).
  */
 async function pollThumbnailChatJob(accessToken, jobId, fetchInit = {}) {
   const start = Date.now()
+  const signal = fetchInit?.signal
   const path = `/api/thumbnails/chat-jobs/${encodeURIComponent(jobId)}`
+
+  // IMG-03: when the caller aborts (unmount / explicit user cancel),
+  // tell the backend to stop the job so it isn't left running (and so
+  // credits are refunded server-side). Best-effort and fire-and-forget
+  // — a fresh token is resolved by apiFetch; we deliberately do NOT
+  // pass the (now-aborted) signal so the cancel request itself can land.
+  if (signal && !signal.aborted) {
+    signal.addEventListener(
+      'abort',
+      () => {
+        if (!jobId) return
+        Promise.resolve()
+          .then(() => thumbnailsApi.cancelChatJob(accessToken, jobId))
+          .catch((e) => console.warn('[polling] Failed to cancel job on abort:', e))
+      },
+      { once: true }
+    )
+  }
+
   // Periodic credit-badge refresh during the poll loop. The backend may
   // adjust the balance mid-job (e.g. partial refund, tiered upcharge);
-  // surfacing those within ~10s instead of at job-end avoids the "badge
-  // dips then jumps back" UX. 6 ticks × POLL_INTERVAL_MS = ~9s cadence.
+  // surfacing those promptly avoids the "badge dips then jumps back" UX.
   let tickCount = 0
   const REFRESH_EVERY_N_TICKS = 6
+  // Consecutive *error* count drives the exponential backoff; reset to
+  // zero on every clean tick.
+  let consecutiveErrors = 0
   while (Date.now() - start < POLL_TIMEOUT_MS) {
+    // Bail immediately if the caller aborted (unmount / explicit cancel).
+    signal?.throwIfAborted()
+
     let s
     try {
       s = await request('GET', path, accessToken, null, {}, fetchInit)
     } catch (err) {
-      // Network blip — keep polling unless caller's signal says stop.
-      if (fetchInit?.signal?.aborted) throw err
-      await sleep(POLL_INTERVAL_MS)
+      // Abort is terminal — propagate so the caller stops waiting.
+      if (err?.name === 'AbortError' || signal?.aborted) throw err
+      // Network blip — exponential backoff so a struggling backend
+      // isn't hammered every second (abort-aware sleep).
+      consecutiveErrors += 1
+      await sleep(backoffInterval(consecutiveErrors), signal)
       continue
     }
+
+    // Clean response — reset the error backoff.
+    consecutiveErrors = 0
 
     useThumbnailJobStatusStore.getState().update(s)
 
@@ -378,7 +450,10 @@ async function pollThumbnailChatJob(accessToken, jobId, fetchInit = {}) {
       refreshCreditsBadge()
     }
 
-    await sleep(POLL_INTERVAL_MS)
+    // STM-03: slow heartbeat while SSE is the live channel, full
+    // cadence otherwise. Re-evaluated every tick so a mid-job SSE
+    // drop transparently speeds polling back up.
+    await sleep(steadyInterval(), signal)
   }
   // Soft timeout — don't claim failure; let the user wait or retry.
   // Refund logic already handled server-side regardless; refresh the

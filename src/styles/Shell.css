@@ -1,0 +1,364 @@
+/**
+ * Shell.css — app-shell layout rules extracted from the retired
+ * Dashboard.css / Optimize.css views.
+ *
+ * `<AppShellLoading>` (and `<AppShellLayout shellOnly>`) need the flex
+ * grid that positions the sidebar + main column: `.dashboard-app-shell`,
+ * `.dashboard-shell-unified` (split/merged), and the `.coach-page`-scoped
+ * desktop/mobile shell overrides including the `.coach-main-wrap`
+ * floating-card treatment. The Dashboard / Optimize routes themselves are
+ * gone, so rather than importing two ~12k-line dead stylesheets purely
+ * for these rules, the load-bearing subset lives here.
+ *
+ * Keep selectors verbatim (still scoped under `.coach-page` /
+ * `.dashboard-app-shell`) so the visual result is byte-identical to what
+ * the old imports produced.
+ */
+
+.dashboard-app-shell {
+  position: relative;
+  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  width: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  align-items: stretch;
+}
+
+.dashboard-shell-unified {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  flex-direction: row;
+  align-items: stretch;
+  box-sizing: border-box;
+  transition:
+    gap var(--app-shell-surface-dur, 0.24s)
+      var(--app-shell-surface-ease, cubic-bezier(0.33, 1, 0.68, 1)),
+    box-shadow var(--app-shell-surface-dur, 0.24s)
+      var(--app-shell-surface-ease, cubic-bezier(0.33, 1, 0.68, 1)),
+    border-radius var(--app-shell-surface-dur, 0.24s)
+      var(--app-shell-surface-ease, cubic-bezier(0.33, 1, 0.68, 1)),
+    background-color var(--app-shell-surface-dur, 0.24s)
+      var(--app-shell-surface-ease, cubic-bezier(0.33, 1, 0.68, 1));
+}
+
+/* SaaS shell (desktop): expanded = sidebar on canvas + floating main; collapsed = one wide card, rail inset with left padding only */
+@media (min-width: 1025px) {
+  .dashboard-page,
+  .coach-page {
+    /* Single timing for the whole shell collapse — sidebar width,
+     * content reflow, and topbar pill all move together as one unit. */
+    --app-shell-surface-dur: 0.24s;
+    --app-shell-surface-ease: cubic-bezier(0.33, 1, 0.68, 1);
+    /* Asymmetric gutters: tight left/right (6px) keeps the sidebar
+     * close to the screen edge; generous top/bottom (14px) makes the
+     * rounded card read as a "windowed pane" rather than full-height,
+     * with visible breathing room above and below. */
+    --dash-shell-outer-pad: 6px;
+    --dash-shell-outer-pad-y: 14px;
+    --dash-shell-rail-inset: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: var(--dash-shell-outer-pad-y) var(--dash-shell-outer-pad);
+    padding-top: calc(var(--dash-shell-outer-pad-y) + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(var(--dash-shell-outer-pad-y) + env(safe-area-inset-bottom, 0px));
+    padding-left: max(var(--dash-shell-outer-pad), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--dash-shell-outer-pad), env(safe-area-inset-right, 0px));
+    /* Outer gutter — visible through transparent sidebar rail */
+    background: var(--dash-surface-sidebar) !important;
+    overflow-x: hidden;
+    transition: padding var(--app-shell-surface-dur) var(--app-shell-surface-ease);
+  }
+
+  .dashboard-page .dashboard-app-shell,
+  .coach-page .dashboard-app-shell {
+    width: 100%;
+    max-width: none;
+    min-height: calc(100dvh - (2 * var(--dash-shell-outer-pad-y)));
+    height: calc(100dvh - (2 * var(--dash-shell-outer-pad-y)));
+    max-height: calc(100dvh - (2 * var(--dash-shell-outer-pad-y)));
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0;
+    overflow: visible;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+    transition:
+      gap var(--app-shell-surface-dur) var(--app-shell-surface-ease),
+      padding var(--app-shell-surface-dur) var(--app-shell-surface-ease);
+  }
+
+  /* Sidebar: no viewport sticky — fill app shell so collapsed rail matches container height */
+  .dashboard-page .dashboard-app-shell .app-sidebar,
+  .coach-page .dashboard-app-shell .app-sidebar {
+    position: relative;
+    top: auto;
+    min-height: 0;
+    background: transparent !important;
+  }
+
+  .dashboard-page .dashboard-app-shell--sidebar-expanded,
+  .coach-page .dashboard-app-shell--sidebar-expanded,
+  .dashboard-page .dashboard-app-shell--sidebar-collapsed,
+  .coach-page .dashboard-app-shell--sidebar-collapsed {
+    gap: 0;
+  }
+
+  /* Split: sidebar outside the main card — gutter morphs with shell */
+  .dashboard-page .dashboard-app-shell .dashboard-shell-unified--split,
+  .coach-page .dashboard-app-shell .dashboard-shell-unified--split {
+    gap: clamp(0.4rem, 1vw, 0.6rem);
+    border-radius: 0;
+    overflow: visible;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  /* Merged: sidebar floats, main is the full card */
+  .dashboard-page .dashboard-app-shell .dashboard-shell-unified--merged,
+  .coach-page .dashboard-app-shell .dashboard-shell-unified--merged {
+    gap: 0;
+    border-radius: 0;
+    overflow: visible;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  /* Merged rail: shell is the frame; inner rail uses two stacked cards
+   * (Sidebar). Uniform 3px inner padding so the rail cards sit visually
+   * centred on every edge; rail-inset (6px margin) handles the gutter
+   * to the shell. */
+  .dashboard-page .dashboard-app-shell .dashboard-shell-unified--merged .app-sidebar,
+  .coach-page .dashboard-app-shell .dashboard-shell-unified--merged .app-sidebar {
+    flex-shrink: 0;
+    align-self: stretch;
+    min-height: 0;
+    max-height: 100%;
+    height: 100%;
+    margin: var(--dash-shell-rail-inset);
+    padding: 3px;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    background: transparent !important;
+    z-index: 2;
+    position: relative;
+    transition:
+      width var(--sidebar-transition-close, 240ms cubic-bezier(0.33, 1, 0.68, 1)),
+      margin var(--app-shell-surface-dur) var(--app-shell-surface-ease),
+      padding var(--app-shell-surface-dur) var(--app-shell-surface-ease);
+  }
+
+  .dashboard-page .dashboard-app-shell .dashboard-shell-unified--merged .app-sidebar.collapsed,
+  .coach-page .dashboard-app-shell .dashboard-shell-unified--merged .app-sidebar.collapsed {
+    transition:
+      width var(--sidebar-transition-open, 240ms cubic-bezier(0.33, 1, 0.68, 1)),
+      margin var(--app-shell-surface-dur) var(--app-shell-surface-ease),
+      padding var(--app-shell-surface-dur) var(--app-shell-surface-ease);
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+   * Layout — sidebar sits OUTSIDE the screen container (main-wrap).
+   *
+   * The merged shell is a transparent flex row. The visible big
+   * rounded card chrome lives on `.dashboard-main-wrap` (rule
+   * further down — its colour/borders never change when the
+   * sidebar toggles). The collapsed sidebar is a separate small
+   * rounded card floating to the left of it, with a visible gap.
+   * ───────────────────────────────────────────────────────────── */
+  .dashboard-page .dashboard-app-shell .dashboard-shell-unified--merged,
+  .coach-page .dashboard-app-shell .dashboard-shell-unified--merged {
+    background: transparent;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    overflow: visible;
+  }
+
+  /* Collapsed sidebar — stays IN flex flow with width animating
+   * smoothly from 232 → 0. The screen container's width is also
+   * a flex child of the same row, so it grows in lockstep — one
+   * unified, synchronised motion. Rail contents are hidden via
+   * display:none (Sidebar.css) and the only visible affordance,
+   * the logo / expand button, escapes the shrinking box via
+   * `position: fixed` so it doesn't get clipped during the
+   * transition. */
+  .dashboard-page .dashboard-app-shell .app-sidebar.collapsed,
+  .coach-page .dashboard-app-shell .app-sidebar.collapsed {
+    position: relative;
+    z-index: 2;
+    width: 0;
+    height: 100%;
+    align-self: stretch;
+    margin: 0;
+    padding: 0;
+    background: transparent !important;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    overflow: visible;
+    contain: layout style;
+    /* Same timing as the shell's gap/padding/border-radius
+     * transitions — everything moves together. */
+    transition: width var(--app-shell-surface-dur) var(--app-shell-surface-ease);
+  }
+
+  /* Split: sidebar on canvas — flush strip */
+  .dashboard-page .dashboard-app-shell .dashboard-shell-unified--split .app-sidebar,
+  .coach-page .dashboard-app-shell .dashboard-shell-unified--split .app-sidebar {
+    flex-shrink: 0;
+    height: 100%;
+    align-self: stretch;
+    min-height: 0;
+    max-height: 100%;
+    padding: 0;
+    margin: 0;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    background: transparent !important;
+    z-index: 2;
+    position: relative;
+    transition:
+      width var(--sidebar-transition-close, 240ms cubic-bezier(0.33, 1, 0.68, 1)),
+      margin var(--app-shell-surface-dur) var(--app-shell-surface-ease),
+      padding var(--app-shell-surface-dur) var(--app-shell-surface-ease),
+      border-radius var(--app-shell-surface-dur) var(--app-shell-surface-ease),
+      box-shadow var(--app-shell-surface-dur) var(--app-shell-surface-ease),
+      border-color var(--app-shell-surface-dur) var(--app-shell-surface-ease),
+      background-color var(--app-shell-surface-dur) var(--app-shell-surface-ease);
+  }
+
+  .dashboard-page .dashboard-app-shell .dashboard-shell-unified--split .app-sidebar.collapsed,
+  .coach-page .dashboard-app-shell .dashboard-shell-unified--split .app-sidebar.collapsed {
+    transition:
+      width var(--sidebar-transition-open, 240ms cubic-bezier(0.33, 1, 0.68, 1)),
+      margin var(--app-shell-surface-dur) var(--app-shell-surface-ease),
+      padding var(--app-shell-surface-dur) var(--app-shell-surface-ease),
+      border-radius var(--app-shell-surface-dur) var(--app-shell-surface-ease),
+      box-shadow var(--app-shell-surface-dur) var(--app-shell-surface-ease),
+      border-color var(--app-shell-surface-dur) var(--app-shell-surface-ease),
+      background-color var(--app-shell-surface-dur) var(--app-shell-surface-ease);
+  }
+
+  @supports not (background: color-mix(in srgb, black 1%, white)) {
+    .dashboard-page,
+    .coach-page {
+      --dash-surface-sidebar: #0e0e10;
+    }
+  }
+
+  /* Split: floating main column — lighter shadow for subtle depth */
+  .dashboard-page .dashboard-app-shell .dashboard-shell-unified--split .dashboard-main-wrap,
+  .dashboard-page .dashboard-app-shell .dashboard-shell-unified--split .coach-main-wrap,
+  .coach-page .dashboard-app-shell .dashboard-shell-unified--split .dashboard-main-wrap,
+  .coach-page .dashboard-app-shell .dashboard-shell-unified--split .coach-main-wrap {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    border-radius: 24px;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.055),
+      0 12px 32px rgba(0, 0, 0, 0.22),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    z-index: 1;
+    position: relative;
+    transition:
+      box-shadow var(--app-shell-surface-dur) var(--app-shell-surface-ease),
+      border-radius var(--app-shell-surface-dur) var(--app-shell-surface-ease);
+  }
+
+  /* Merged: main is the full card (sidebar floats over it) — same light shadow */
+  .dashboard-page .dashboard-app-shell .dashboard-shell-unified--merged .dashboard-main-wrap,
+  .dashboard-page .dashboard-app-shell .dashboard-shell-unified--merged .coach-main-wrap,
+  .coach-page .dashboard-app-shell .dashboard-shell-unified--merged .dashboard-main-wrap,
+  .coach-page .dashboard-app-shell .dashboard-shell-unified--merged .coach-main-wrap {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    border-radius: 24px;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.055),
+      0 12px 32px rgba(0, 0, 0, 0.22),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    border: none;
+    z-index: 1;
+    position: relative;
+    transition:
+      box-shadow var(--app-shell-surface-dur) var(--app-shell-surface-ease),
+      border-radius var(--app-shell-surface-dur) var(--app-shell-surface-ease);
+  }
+}
+
+@media (min-width: 1025px) and (prefers-reduced-motion: reduce) {
+  .dashboard-page,
+  .coach-page {
+    --app-shell-surface-dur: 0.01ms;
+  }
+
+  .dashboard-page .dashboard-app-shell .app-sidebar.collapsed,
+  .coach-page .dashboard-app-shell .app-sidebar.collapsed {
+    animation: none !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .dashboard-shell-unified {
+    display: contents;
+  }
+
+  /* Note: NO mobile overrides on `.app-sidebar` here. The mobile
+   * sidebar is a slide-in drawer (position: fixed, z-index: 100,
+   * solid surface) defined in Sidebar.css. Stripping its
+   * background or z-index used to make the drawer invisible AND
+   * stack it behind the dim overlay. */
+
+  .dashboard-page .dashboard-app-shell,
+  .coach-page .dashboard-app-shell {
+    max-width: none;
+    border-radius: 0;
+    min-height: 100dvh;
+    height: 100dvh;
+    max-height: none;
+    box-shadow: none;
+    gap: 0;
+  }
+
+  .dashboard-page .dashboard-app-shell .dashboard-main-wrap,
+  .coach-page .dashboard-app-shell .coach-main-wrap {
+    border-radius: 0;
+    box-shadow: none;
+    z-index: auto;
+  }
+}
+
+.dashboard-main-wrap {
+  flex: 1;
+  min-width: 0;
+  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  overscroll-behavior: none;
+  background: var(--dash-surface-page);
+}

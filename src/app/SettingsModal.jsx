@@ -201,8 +201,24 @@ function ConfirmSheet({
   children,
 }) {
   if (!open) return null
+  // Own the Escape key while this nested confirm is open: stop it from
+  // bubbling up to SettingsModal's document-level Escape handler (which
+  // would otherwise close the whole settings modal underneath). Escape
+  // here just dismisses the confirm sheet.
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation()
+      if (!busy) onCancel?.()
+    }
+  }
   return (
-    <div className="s-confirm-overlay" role="dialog" aria-modal="true" onClick={onCancel}>
+    <div
+      className="s-confirm-overlay"
+      role="dialog"
+      aria-modal="true"
+      onClick={onCancel}
+      onKeyDown={handleKeyDown}
+    >
       <div className="s-confirm" onClick={(e) => e.stopPropagation()}>
         <h4 className="s-confirm-title">{title}</h4>
         {body ? <p className="s-confirm-body">{body}</p> : null}
@@ -436,11 +452,15 @@ export function SettingsModal({
   const [delAcctBusy, setDelAcctBusy] = useState(false)
   const [delAcctError, setDelAcctError] = useState('')
 
-  // Escape closes; while open, lock body scroll.
+  // Escape closes; while open, lock body scroll. When a nested
+  // ConfirmSheet (Danger Zone) is open, Escape belongs to it — don't
+  // also tear down the parent settings modal underneath.
   useEffect(() => {
     if (!open) return undefined
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.()
+      if (e.key !== 'Escape') return
+      if (delDataOpen || delAcctOpen) return
+      onClose?.()
     }
     document.addEventListener('keydown', onKey)
     const prevOverflow = document.body.style.overflow
@@ -449,7 +469,7 @@ export function SettingsModal({
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = prevOverflow
     }
-  }, [open, onClose])
+  }, [open, onClose, delDataOpen, delAcctOpen])
 
   if (!open) return null
 
@@ -559,7 +579,11 @@ export function SettingsModal({
                   </button>
                 ) : null}
                 <div className="s-hero-avatar-wrap">
-                  <Avatar name={user?.email} size="xl" />
+                  <Avatar
+                    name={user?.email}
+                    src={user?.picture || user?.picture_url || user?.avatar_url || null}
+                    size="xl"
+                  />
                 </div>
                 <div className="s-hero-info">
                   <h2 className="s-hero-greeting">{greetingFromEmail(user?.email)}</h2>

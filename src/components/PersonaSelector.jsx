@@ -289,12 +289,18 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
               {!isPending &&
                 items.length > 0 &&
                 items.map((p) => (
-                  <button
+                  <div
                     key={p.id}
-                    type="button"
                     className={`persona-selector-option ${p.id === selectedPersonaId ? 'is-selected' : ''}`}
                     onClick={() => handleSelect(p)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        handleSelect(p)
+                      }
+                    }}
                     role="option"
+                    tabIndex={0}
                     aria-selected={p.id === selectedPersonaId}
                   >
                     <span className="persona-selector-option-img">
@@ -322,7 +328,7 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
                         <IconCheck />
                       </span>
                     )}
-                  </button>
+                  </div>
                 ))}
             </div>
 

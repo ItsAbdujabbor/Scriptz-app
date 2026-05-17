@@ -286,11 +286,17 @@ function isRetryableCode(code, extra) {
   ].includes(code)
 }
 
+// Backend accepts num_thumbnails 1–6 (ge=1, le=6 in
+// app/schemas/thumbnail_chat.py). Keep this option set in sync with
+// that limit — previously capped at 4, which silently hid valid
+// 5/6-image batches the API supports.
 const BATCH_COUNT_OPTIONS = [
   { value: '1', label: '1×', hint: 'Single image' },
   { value: '2', label: '2×', hint: '2 variations' },
   { value: '3', label: '3×', hint: '3 variations' },
   { value: '4', label: '4×', hint: '4 variations' },
+  { value: '5', label: '5×', hint: '5 variations' },
+  { value: '6', label: '6×', hint: '6 variations' },
 ]
 
 function parseThumbModeFromHash() {

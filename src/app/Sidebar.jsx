@@ -167,34 +167,6 @@ const IconX = () => (
   </svg>
 )
 
-const ScriptzMark = () => (
-  <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
-    <defs>
-      <linearGradient
-        id="scriptzMarkGradient"
-        x1="6"
-        y1="5"
-        x2="26"
-        y2="27"
-        gradientUnits="userSpaceOnUse"
-      >
-        <stop stopColor="#c4b5fd" />
-        <stop offset="0.55" stopColor="#8b5cf6" />
-        <stop offset="1" stopColor="#6366f1" />
-      </linearGradient>
-    </defs>
-    <rect x="3" y="3" width="26" height="26" rx="9" fill="url(#scriptzMarkGradient)" />
-    <path
-      d="M20.4 10.6h-6.2c-1.7 0-2.8.87-2.8 2.18 0 1.3.96 1.83 2.62 2.17l2.22.46c1.07.22 1.56.48 1.56 1.08 0 .66-.6 1.08-1.67 1.08h-5.34"
-      stroke="white"
-      strokeWidth="2.15"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <circle cx="22.75" cy="11.25" r="1.6" fill="rgba(255,255,255,0.92)" />
-  </svg>
-)
-
 const IconSettings = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <circle cx="12" cy="12" r="3" />
@@ -229,21 +201,6 @@ const IconCpu = () => (
     <path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" />
   </svg>
 )
-const IconLogOut = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden
-  >
-    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-    <polyline points="16 17 21 12 16 7" />
-    <line x1="21" y1="12" x2="9" y2="12" />
-  </svg>
-)
 const IconUsage = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M12 20V10" />
@@ -251,27 +208,6 @@ const IconUsage = () => (
     <path d="M6 20v-4" />
   </svg>
 )
-const IconNotifications = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-  </svg>
-)
-const IconHelp = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <circle cx="12" cy="12" r="10" />
-    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-    <path d="M12 17h.01" />
-  </svg>
-)
-const IconLogout = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-    <polyline points="16 17 21 12 16 7" />
-    <line x1="21" y1="12" x2="9" y2="12" />
-  </svg>
-)
-
 function goToThumbnailConversation(conversationId = null) {
   window.location.hash = conversationId ? `#thumbnails?id=${conversationId}` : '#thumbnails'
 }

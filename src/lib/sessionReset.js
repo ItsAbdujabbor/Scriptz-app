@@ -12,6 +12,8 @@ import { resetSubscriptionPrefetchFlag } from './query/prefetchSubscription'
 import { resetCreditsPrefetchFlag } from '../queries/billing/creditsQueries'
 import { clearSubscriptionCache } from './query/subscriptionCache'
 import { API_AUTH_STORAGE_KEY } from './authMode'
+import { useOptimisticOpStore } from '../stores/useOptimisticOpStore'
+import { clearAll as clearPendingActions } from '../stores/pendingActionStore'
 
 let queryClientRef = null
 
@@ -62,6 +64,39 @@ try {
   }
 } catch {
   /* ignore */
+}
+
+/**
+ * Clear in-flight optimistic / pending-action bookkeeping.
+ *
+ * AUTH-01: `useOptimisticOpStore` persists optimistic thumbnail ops to
+ * localStorage (`clixa-pending-ops-v1`). Without clearing it on a user
+ * switch / logout, account A's in-flight "pending" ops resurrect in
+ * account B's chat on the next mount (ghost loading cards, wrong
+ * conversation bindings).
+ *
+ * AUTH-02: `pendingActionStore` keeps a synchronous localStorage queue
+ * (`clixa-pending-actions-v1`) of recreate/analyze/titles/edit tickets.
+ * Same leak across the same browser — clear it too.
+ *
+ * Best-effort: a failure here must never block the rest of the reset.
+ */
+function clearInFlightOpBookkeeping() {
+  try {
+    // Sweep first (clears anything past the stale window), then hard-reset
+    // the in-memory map and wipe the persisted snapshot so a remount can't
+    // rehydrate the previous user's ops.
+    useOptimisticOpStore.getState().sweepStale?.()
+    useOptimisticOpStore.setState({ ops: {} })
+    useOptimisticOpStore.persist?.clearStorage?.()
+  } catch (_) {
+    /* ignore */
+  }
+  try {
+    clearPendingActions()
+  } catch (_) {
+    /* ignore */
+  }
 }
 
 function removeMilestoneVisitKeys() {
@@ -131,6 +166,8 @@ export function resetClientCachesForDataDelete() {
   } catch (_) {
     /* ignore */
   }
+
+  clearInFlightOpBookkeeping()
 }
 
 /**
@@ -191,4 +228,9 @@ export function resetClientCachesForUserChange() {
   } catch (_) {
     /* ignore */
   }
+
+  // AUTH-01 / AUTH-02: drop in-flight optimistic ops + pending-action
+  // tickets so account A's queued thumbnail work doesn't bleed into
+  // account B on a shared browser (logout routes through here).
+  clearInFlightOpBookkeeping()
 }

@@ -33,6 +33,13 @@ const OAUTH_INTENT_KEY = 'clixa_oauth_intent'
 // so `marketing_consent_at` is set at user creation time. Only meaningful for
 // signups; ignored on plain logins.
 const MARKETING_CONSENT_KEY = 'clixa_marketing_consent'
+// The hash route the user was on when they kicked off OAuth. The IdP
+// round-trip blows away the hash, so without stashing it a user who
+// clicked "Sign in" from a deep link (e.g. #settings, #pro) lands back
+// on the generic #thumbnails screen instead of where they intended.
+// Captured in buildAuthorizeUrl(), consumed in consumeOAuthCallback().
+const OAUTH_RETURN_TO_KEY = 'clixa_oauth_return_to'
+const DEFAULT_RETURN_HASH = '#thumbnails'
 
 export function setMarketingConsent(value) {
   try {
@@ -78,6 +85,24 @@ export function clearOAuthIntent() {
     sessionStorage.removeItem(OAUTH_INTENT_KEY)
   } catch {
     /* ignore */
+  }
+}
+
+/**
+ * Read-and-clear the hash route the user was on when they started the
+ * OAuth flow (set in `buildAuthorizeUrl`). Returns a normalized hash
+ * string (always leading '#') or the default thumbnails hash when there
+ * was nothing useful to restore. One-shot: the key is removed on read so
+ * a later non-OAuth dialog open can't pick up a stale destination.
+ */
+export function consumeOAuthReturnTo() {
+  try {
+    const v = sessionStorage.getItem(OAUTH_RETURN_TO_KEY)
+    sessionStorage.removeItem(OAUTH_RETURN_TO_KEY)
+    if (!v || typeof v !== 'string') return DEFAULT_RETURN_HASH
+    return v.startsWith('#') ? v : `#${v}`
+  } catch {
+    return DEFAULT_RETURN_HASH
   }
 }
 
@@ -168,6 +193,18 @@ export async function buildAuthorizeUrl(provider) {
   sessionStorage.setItem(PKCE_VERIFIER_KEY, verifier)
   sessionStorage.setItem(OAUTH_STATE_KEY, state)
   sessionStorage.setItem(OAUTH_PROVIDER_KEY, provider)
+  // Remember where the user was so the post-callback routing can send
+  // them back instead of defaulting to #thumbnails. Skip auth-screen
+  // hashes (#signin/#login/#signup/#register) — returning to those
+  // after a successful sign-in would just be a dead end.
+  try {
+    const h = (typeof window !== 'undefined' && window.location.hash) || ''
+    const bare = h.replace(/^#/, '').split('?')[0].trim().toLowerCase()
+    const isAuthHash = ['signin', 'login', 'signup', 'register', ''].includes(bare)
+    sessionStorage.setItem(OAUTH_RETURN_TO_KEY, isAuthHash ? DEFAULT_RETURN_HASH : h)
+  } catch {
+    /* sessionStorage unavailable — callback will fall back to default */
+  }
 
   const params = new URLSearchParams({
     response_type: 'code',

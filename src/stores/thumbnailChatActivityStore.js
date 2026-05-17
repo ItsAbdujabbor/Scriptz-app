@@ -17,11 +17,12 @@
  * refetch surfaces it via `is_pending`.
  */
 import { useQueryClient } from '@tanstack/react-query'
-import { useCallback, useMemo } from 'react'
+import { useCallback } from 'react'
 
 import { thumbnailsApi } from '../api/thumbnails'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { queryKeys } from '../lib/query/queryKeys'
+import { useThumbnailConversationsQuery } from '../queries/thumbnails/thumbnailQueries'
 
 const LEGACY_STORAGE_KEY = 'scriptz_thumb_chat_activity'
 
@@ -74,6 +75,14 @@ function patchRowEverywhere(qc, conversationId, patch) {
  */
 export function useThumbnailChatActivityStore(selector) {
   const queryClient = useQueryClient()
+  // STM-01: subscribe to the canonical sidebar conversation list so this
+  // hook re-renders whenever the list cache changes (new message, seen
+  // bump, pending flip). Without this subscription the derived
+  // `pending`/`lastSeenAt` maps were computed once via `useMemo([qc])`
+  // and never updated — `queryClient` is a stable ref, so the maps
+  // froze at mount-time values. We read `.data` only as a re-render
+  // trigger; the maps below are derived from the full cache each render.
+  useThumbnailConversationsQuery()
 
   const markSeen = useCallback(
     async (conversationId) => {
@@ -124,12 +133,15 @@ export function useThumbnailChatActivityStore(selector) {
     [queryClient]
   )
 
-  // Pre-compute the legacy `pending` / `lastSeenAt` maps so old selectors
-  // that reach for them keep returning sensible (server-derived) values.
-  // Pending rows use the row's `last_message_at` (or `pending_until`) as
-  // their timestamp — both are server-authoritative and stable across
-  // renders, which keeps useMemo pure (no Date.now() in render).
-  const { pending, lastSeenAt } = useMemo(() => {
+  // Derive the legacy `pending` / `lastSeenAt` maps fresh on every render
+  // so old selectors that reach for them keep returning current
+  // (server-derived) values. This is intentionally NOT memoized: the
+  // previous `useMemo([queryClient])` keyed on a stable ref and so froze
+  // the maps at mount-time (STM-01). The computation is a cheap synchronous
+  // cache read and the `useThumbnailConversationsQuery()` subscription
+  // above guarantees a re-render whenever the underlying data changes,
+  // so recomputing each render is both correct and inexpensive.
+  const { pending, lastSeenAt } = (() => {
     const lists = queryClient.getQueriesData({ queryKey: ['thumbnails', 'conversations'] })
     const pendingMap = {}
     const seenMap = {}
@@ -146,7 +158,7 @@ export function useThumbnailChatActivityStore(selector) {
       }
     }
     return { pending: pendingMap, lastSeenAt: seenMap }
-  }, [queryClient])
+  })()
 
   const state = {
     pending,

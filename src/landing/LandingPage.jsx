@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import './styles.css'
 import './header/header.css'
 import './hero/hero.css'
@@ -10,7 +10,6 @@ import './sections/pricing/pricing.css'
 import './sections/faq/faq.css'
 import './sections/final-cta/final-cta.css'
 import './footer/footer.css'
-import './demo-modal/demo-modal.css'
 
 import { Header } from './components/Header'
 import { Hero } from './components/Hero'
@@ -21,10 +20,16 @@ import { SocialProof } from './components/SocialProof'
 import { Pricing } from './components/Pricing'
 import { FinalCta } from './components/FinalCta'
 import { Footer } from './components/Footer'
-import { DemoModal } from './components/DemoModal'
 import { rafThrottle } from '../lib/rafThrottle'
 
 export function LandingPage() {
+  // Billing-period toggle lifted into React state and handed to
+  // <ProPricingContent> (via <Pricing>) as a controlled prop. Replaces
+  // the previous imperative querySelectorAll DOM manipulation, which
+  // targeted a legacy pricing markup (`.pri-toggle-btn`, `.pri-cur`, …)
+  // that no longer exists after the pricing UI was unified.
+  const [billingPeriod, setBillingPeriod] = useState('monthly')
+
   useEffect(() => {
     const headerEl = document.getElementById('header')
 
@@ -39,64 +44,6 @@ export function LandingPage() {
     window.addEventListener('scroll', throttledHeaderScroll, { passive: true })
     updateHeaderScroll()
     headerEl?.classList.add('header-ready')
-
-    /* ── 2. Demo modal open/close (data-attribute driven) ──────────────── */
-    const demoModal = document.getElementById('demo-modal')
-    const openDemoButtons = document.querySelectorAll('[data-open-demo]')
-    const closeDemoButtons = document.querySelectorAll('[data-close-demo]')
-
-    const openDemo = (e) => {
-      if (e) e.preventDefault()
-      if (!demoModal) return
-      demoModal.setAttribute('aria-hidden', 'false')
-      document.body.style.overflow = 'hidden'
-    }
-    const closeDemo = () => {
-      if (!demoModal) return
-      demoModal.setAttribute('aria-hidden', 'true')
-      document.body.style.overflow = ''
-    }
-
-    openDemoButtons.forEach((btn) => btn.addEventListener('click', openDemo))
-    closeDemoButtons.forEach((btn) => btn.addEventListener('click', closeDemo))
-    const onDemoEscape = (e) => {
-      if (e.key === 'Escape') closeDemo()
-    }
-    demoModal?.addEventListener('keydown', onDemoEscape)
-
-    /* ── 3. Pricing billing toggle (monthly ↔ annual) ──────────────────── */
-    const pricingSection = document.getElementById('pricing')
-    const priBtns = pricingSection?.querySelectorAll('.pri-toggle-btn') ?? []
-    const priClickHandlers = []
-    if (pricingSection) {
-      const priSaveMsg = pricingSection.querySelector('.pri-annual-msg')
-      const priCurEls = pricingSection.querySelectorAll('.pri-cur')
-      const priOldEls = pricingSection.querySelectorAll('.pri-old')
-      const priBilledEls = pricingSection.querySelectorAll('.pri-billed')
-      const priMoEls = pricingSection.querySelectorAll('.pri-billed-mo')
-
-      const applyPricingMode = (mode) => {
-        const annual = mode === 'annual'
-        priBtns.forEach((btn) =>
-          btn.classList.toggle('pri-toggle-active', btn.dataset.period === mode)
-        )
-        priSaveMsg?.classList.toggle('pri-show', annual)
-        priCurEls.forEach((el) => {
-          const monthly = el.getAttribute('data-monthly')
-          const annualPrice = el.getAttribute('data-annual')
-          el.textContent = annual ? annualPrice : monthly
-        })
-        priOldEls.forEach((el) => el.classList.toggle('pri-hidden', !annual))
-        priBilledEls.forEach((el) => el.classList.toggle('pri-hidden', !annual))
-        priMoEls.forEach((el) => el.classList.toggle('pri-hidden', annual))
-      }
-
-      priBtns.forEach((btn) => {
-        const handler = () => applyPricingMode(btn.dataset.period || 'monthly')
-        btn.addEventListener('click', handler)
-        priClickHandlers.push({ btn, handler })
-      })
-    }
 
     /* Header nav scroll-spy intentionally omitted — section headlines
      * are the visual anchor; highlighting a nav link as the user scrolls
@@ -123,10 +70,6 @@ export function LandingPage() {
     return () => {
       window.removeEventListener('scroll', throttledHeaderScroll)
       throttledHeaderScroll.cancel()
-      openDemoButtons.forEach((btn) => btn.removeEventListener('click', openDemo))
-      closeDemoButtons.forEach((btn) => btn.removeEventListener('click', closeDemo))
-      demoModal?.removeEventListener('keydown', onDemoEscape)
-      priClickHandlers.forEach(({ btn, handler }) => btn.removeEventListener('click', handler))
       navLinks.forEach((link) => link.removeEventListener('click', handleNavClick))
     }
   }, [])
@@ -134,14 +77,13 @@ export function LandingPage() {
   return (
     <>
       <Header />
-      <DemoModal />
       <main id="main-content">
         <Hero />
         <AnotherTen />
         <Solution />
         <Results />
         <SocialProof />
-        <Pricing />
+        <Pricing billingPeriod={billingPeriod} onBillingPeriodChange={setBillingPeriod} />
         <FinalCta />
         <Footer />
       </main>

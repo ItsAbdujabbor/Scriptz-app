@@ -21,12 +21,13 @@ import {
 import { useStyleStore } from '../stores/styleStore'
 import { thumbnailsApi } from '../api/thumbnails'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
-import { extractYoutubeUrl } from '../lib/youtubeUrl'
+import { extractYoutubeUrl, youtubeThumbnailFromUrl } from '../lib/youtubeUrl'
 import { useObjectURL } from '../lib/useObjectURL'
 import { Dialog } from '../components/ui/Dialog'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import { InlineSpinner, SkeletonCard, SkeletonGroup } from '../components/ui'
 import { friendlyMessage } from '../lib/aiErrors'
+import { toast } from '../lib/toast'
 import './StylesModal.css'
 
 const STYLE_NAME_MAX = 40
@@ -320,8 +321,13 @@ export function StylesModal({ onClose }) {
       setCreateError('Paste a valid YouTube watch or youtu.be link.')
       return
     }
-    if (!createYoutubePreview) {
-      setCreateError('Wait for the thumbnail preview, or check the link.')
+    // Don't block submission on the preview. The preview is a nicety
+    // (and its backend lookup can fail transiently); the link itself is
+    // the source of truth. Fall back to YouTube's own CDN thumbnail so
+    // a failed preview never traps the user.
+    const imageUrl = createYoutubePreview || youtubeThumbnailFromUrl(url)
+    if (!imageUrl) {
+      setCreateError('Could not resolve a thumbnail for this link. Check the URL.')
       return
     }
     const name = createName.trim() || 'My Style'
@@ -329,7 +335,7 @@ export function StylesModal({ onClose }) {
     try {
       const style = await createFromUrlMutation.mutateAsync({
         name,
-        image_url: createYoutubePreview,
+        image_url: imageUrl,
       })
       setSelectedStyle(style)
       clearCreateForm()
@@ -353,8 +359,14 @@ export function StylesModal({ onClose }) {
       await updateMutation.mutateAsync({ styleId: editingId, payload: { name } })
       setEditingId(null)
       setEditName('')
-    } catch (_) {
-      /* keep form open */
+    } catch (err) {
+      // Keep the edit form open so the typed name isn't lost, but
+      // surface the failure instead of swallowing it silently.
+      console.error('Style rename failed:', err)
+      toast.error(friendlyMessage(err) || 'Could not rename style. Please try again.', {
+        title: 'Rename failed',
+        code: err?.code,
+      })
     }
   }
 
@@ -690,9 +702,7 @@ export function StylesModal({ onClose }) {
                     <PrimaryButton
                       type="submit"
                       disabled={
-                        createFromUrlMutation.isPending ||
-                        !createYoutubePreview ||
-                        !extractYoutubeUrl(createYoutubeUrl)
+                        createFromUrlMutation.isPending || !extractYoutubeUrl(createYoutubeUrl)
                       }
                       busy={createFromUrlMutation.isPending}
                       busyLabel="Creating…"

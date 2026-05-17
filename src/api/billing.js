@@ -1,24 +1,16 @@
 /** Billing / Paddle API client. */
-import { getApiBaseUrl } from '../lib/env.js'
-import { parseApiError } from '../lib/aiErrors.js'
+import { apiFetch } from '../lib/apiFetch.js'
 
-function request(method, path, accessToken, body = null) {
-  const url = getApiBaseUrl() + path
-  const headers = { 'Content-Type': 'application/json' }
-  if (accessToken) headers.Authorization = `Bearer ${accessToken}`
-  const opts = { method, headers }
-  if (body != null) opts.body = JSON.stringify(body)
-
-  return fetch(url, opts).then(async (res) => {
-    const ct = res.headers.get('Content-Type') || ''
-    const data = ct.includes('application/json') ? await res.json().catch(() => ({})) : {}
-    if (!res.ok) {
-      // Rich error with status / code / retryAfterMs — see lib/aiErrors.
-      // Frontend mappers and React Query retry logic both read these
-      // structured fields without parsing the message string.
-      throw parseApiError(res, data)
-    }
-    return data
+function request(method, path, accessToken, body = null, fetchInit = {}) {
+  // accessToken is `null` for public endpoints (plans / feature-costs) and
+  // a string for authenticated ones. Pass it through verbatim so apiFetch
+  // never auto-resolves a token for the public routes. `fetchInit.signal`
+  // is threaded through for cancellable calls (e.g. /sync backstop).
+  return apiFetch(path, {
+    method,
+    body: body ?? undefined,
+    token: accessToken,
+    signal: fetchInit?.signal,
   })
 }
 
@@ -89,8 +81,8 @@ export function changePlan(accessToken, { planSlug, priceId, timing = 'immediate
  * Returns the freshly-reconciled SubscriptionOut (same shape as
  * `getSubscription`).
  */
-export function syncSubscription(accessToken) {
-  return request('POST', '/api/billing/sync', accessToken)
+export function syncSubscription(accessToken, fetchInit = {}) {
+  return request('POST', '/api/billing/sync', accessToken, null, fetchInit)
 }
 
 export function getPaymentMethod(accessToken) {

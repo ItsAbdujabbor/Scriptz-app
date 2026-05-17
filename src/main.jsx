@@ -11,7 +11,6 @@ import App from './App.jsx'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { createAppQueryClient } from './lib/query/queryClient'
 import { setAppQueryClient } from './lib/sessionReset'
-import { installPaywallInterceptor } from './lib/paywallInterceptor'
 import { installConversationLRU } from './queries/thumbnails/conversationLRU'
 import { subscribeCacheEvents } from './lib/query/broadcastSync'
 import { queryKeys } from './lib/query/queryKeys'
@@ -25,7 +24,11 @@ initAnalytics({ apiBaseUrl: import.meta.env.VITE_API_BASE_URL || '' })
 if (typeof window !== 'undefined') {
   window.addEventListener('load', () => trackPageView())
 }
-installPaywallInterceptor()
+// Paywall handling lives in the QueryClient's QueryCache/MutationCache
+// onError hooks (see lib/query/queryClient.js). The old global
+// fetch monkey-patch was removed — it converted 402 → fake-200-null,
+// which masked the real error from React Query and made that handler
+// dead code (SEC-07).
 
 if (typeof document !== 'undefined') {
   const syncHidden = () => {

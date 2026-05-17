@@ -155,12 +155,17 @@ export function SubscriptionActivationSplash() {
 
   const planLabel = capitalize(subscription?.plan_name || subscription?.tier || 'Pro')
 
+  const handleDismiss = () => {
+    stopActivation()
+    setPhase('hidden')
+    wasActivatingRef.current = false
+  }
+
   return (
     <AnimatePresence>
       <motion.div
         className="sub-splash-backdrop"
-        role="dialog"
-        aria-modal="true"
+        role="status"
         aria-live="polite"
         aria-label="Subscription activation"
         initial={{ opacity: 0 }}
@@ -175,6 +180,17 @@ export function SubscriptionActivationSplash() {
           exit={{ opacity: 0, y: 8, scale: 0.98 }}
           transition={{ duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
         >
+          {phase === 'activating' && (
+            <button
+              type="button"
+              className="sub-splash-close"
+              onClick={handleDismiss}
+              aria-label="Dismiss"
+            >
+              <X size={18} strokeWidth={2} />
+            </button>
+          )}
+
           {phase === 'activating' && isPack && (
             <>
               <div className="sub-splash-spinner" aria-hidden="true" />
@@ -255,11 +271,7 @@ export function SubscriptionActivationSplash() {
               <button
                 type="button"
                 className="sub-splash-close"
-                onClick={() => {
-                  stopActivation()
-                  setPhase('hidden')
-                  wasActivatingRef.current = false
-                }}
+                onClick={handleDismiss}
                 aria-label="Dismiss"
               >
                 <X size={18} strokeWidth={2} />

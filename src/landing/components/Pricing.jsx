@@ -11,11 +11,13 @@
 import { ProPricingContent } from '../../app/ProPricingContent'
 import '../../app/ProScreen.css'
 
-export function Pricing() {
+export function Pricing({ billingPeriod, onBillingPeriodChange }) {
   return (
     <section id="pricing" className="pro-pricing-host landing-pricing-wrap" aria-label="Pricing">
       <div className="pro-screen-inner">
         <ProPricingContent
+          billingPeriod={billingPeriod}
+          onBillingPeriodChange={onBillingPeriodChange}
           onStartTrial={() => {
             if (typeof window !== 'undefined') window.location.hash = 'register'
           }}

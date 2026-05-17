@@ -2,25 +2,17 @@
  * Video Optimize Thumbnail API — generate, list, delete.
  * Separate from thumbnail chat. Stored per video.
  */
-import { getApiBaseUrl } from '../lib/env.js'
-import { parseApiError } from '../lib/aiErrors.js'
+import { apiFetch } from '../lib/apiFetch.js'
 
 function request(method, path, accessToken, body = null, extraHeaders = {}) {
-  const url = getApiBaseUrl() + path
-  const h = { 'Content-Type': 'application/json', ...extraHeaders }
-  if (accessToken) h['Authorization'] = `Bearer ${accessToken}`
-  const opts = { method, headers: h }
-  if (body != null) opts.body = JSON.stringify(body)
-  return fetch(url, opts).then(async (res) => {
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      // Throw the rich Error from parseApiError — carries status, code,
-      // retryAfterMs, feature so React Query's retry logic + the UI's
-      // friendlyMessage helper can both read structured fields without
-      // re-parsing strings.
-      throw parseApiError(res, data)
-    }
-    return data
+  // API-03: apiFetch only parses JSON when Content-Type says so, so the
+  // old unconditional `res.json()` (which threw on empty 204 bodies) is
+  // gone — empty responses now resolve to `null` instead of crashing.
+  return apiFetch(path, {
+    method,
+    body: body ?? undefined,
+    token: accessToken,
+    headers: extraHeaders,
   })
 }
 
@@ -56,16 +48,15 @@ export const videoThumbnailsApi = {
   generate(
     accessToken,
     { video_id, channel_id, message, num_thumbnails, persona_id, style_id },
-    { idempotencyKey } = {},
+    { idempotencyKey } = {}
   ) {
     const key = idempotencyKey || newIdempotencyKey()
-    return request(
-      'POST',
-      '/api/video-thumbnails/generate',
-      accessToken,
-      { video_id, channel_id, message, num_thumbnails, persona_id, style_id },
-      { 'Idempotency-Key': key },
-    )
+    return apiFetch('/api/video-thumbnails/generate', {
+      method: 'POST',
+      body: { video_id, channel_id, message, num_thumbnails, persona_id, style_id },
+      token: accessToken,
+      idempotencyKey: key,
+    })
   },
 
   list(accessToken, videoId) {
@@ -92,17 +83,7 @@ export const videoThumbnailsApi = {
 
   /** GET /api/jobs/{job_id} — poll for progress on an async generation. */
   getJob(accessToken, jobId) {
-    return fetch(getApiBaseUrl() + `/api/jobs/${encodeURIComponent(jobId)}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-    }).then(async (res) => {
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw parseApiError(res, data)
-      return data
-    })
+    return request('GET', `/api/jobs/${encodeURIComponent(jobId)}`, accessToken)
   },
 
   /**

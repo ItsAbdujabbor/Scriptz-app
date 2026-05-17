@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from 'react'
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import { getAccessTokenOrNull } from '../lib/query/authToken'
 import { thumbnailsApi } from '../api/thumbnails'
 import { toast } from '../lib/toast'
@@ -42,12 +42,40 @@ function extractBase64FromDataUrl(dataUrl) {
   return i >= 0 ? dataUrl.slice(i + 8) : null
 }
 
-async function pollJobUntilDone(token, jobId, intervalMs = 2000, maxAttempts = 60) {
+/**
+ * Poll an improve-job until terminal.
+ *
+ * RT-02: `isCancelled` is checked before every network call and before
+ * each sleep so that when the component unmounts (or the user navigates
+ * away) the loop exits promptly instead of running to completion in the
+ * background and then calling setState on an unmounted component. The
+ * sleep is also abortable so we don't wait out the full 2s interval
+ * after a cancel.
+ */
+async function pollJobUntilDone(
+  token,
+  jobId,
+  { intervalMs = 2000, maxAttempts = 60, isCancelled = () => false } = {}
+) {
   for (let i = 0; i < maxAttempts; i++) {
+    if (isCancelled()) throw new DOMException('Aborted', 'AbortError')
     const job = await thumbnailsApi.getJob(token, jobId)
+    if (isCancelled()) throw new DOMException('Aborted', 'AbortError')
     if (job?.status === 'done') return job
     if (job?.status === 'failed') throw new Error(job?.error || 'Improvement failed')
-    await new Promise((r) => setTimeout(r, intervalMs))
+    await new Promise((resolve) => {
+      const t = setTimeout(resolve, intervalMs)
+      // Cheap cancellation poll — checks twice per interval so an
+      // unmount mid-sleep unwinds within ~1s rather than the full 2s.
+      const c = setInterval(() => {
+        if (isCancelled()) {
+          clearTimeout(t)
+          clearInterval(c)
+          resolve()
+        }
+      }, intervalMs / 2)
+      setTimeout(() => clearInterval(c), intervalMs)
+    })
   }
   throw new Error('Improvement timed out')
 }
@@ -293,6 +321,18 @@ export function ThumbnailAnalyzePanel() {
   const [improving, setImproving] = useState(false)
   const [improvedUrl, setImprovedUrl] = useState(null)
   const fileInputRef = useRef(null)
+  // RT-02: flips true on unmount. The improve poll loop reads this via
+  // a closure so it stops polling (and stops calling setState) once the
+  // component is gone — otherwise the loop kept running in the
+  // background for up to 2 minutes and warned about state updates on an
+  // unmounted component.
+  const unmountedRef = useRef(false)
+  useEffect(() => {
+    unmountedRef.current = false
+    return () => {
+      unmountedRef.current = true
+    }
+  }, [])
 
   const hasImage = Boolean(preview?.src)
   const hasTitle = Boolean(videoTitle.trim())
@@ -403,18 +443,28 @@ export function ThumbnailAnalyzePanel() {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Sign in required')
       const improveRes = await thumbnailsApi.improve(token, { rating_id: ratingId })
-      const job = await pollJobUntilDone(token, improveRes?.job_id)
+      const job = await pollJobUntilDone(token, improveRes?.job_id, {
+        isCancelled: () => unmountedRef.current,
+      })
+      // RT-02: component unmounted while we were polling — bail before
+      // touching state. (pollJobUntilDone already throws AbortError on
+      // unmount, but guard here too in case it resolved on the same
+      // tick the unmount fired.)
+      if (unmountedRef.current) return
       const jobResult = job?.result_json
       const improved = jobResult?.improved_thumbnail || jobResult?.improved
       const imageUrl = improved?.image_url || jobResult?.image_url
       if (imageUrl) setImprovedUrl(imageUrl)
       else throw new Error('No improved image in result')
     } catch (err) {
+      // Swallow the unmount-triggered abort — there's no UI left to
+      // show an error in, and it isn't a real failure.
+      if (err?.name === 'AbortError' || unmountedRef.current) return
       const { code, message } = parseApiError(err, 'Improvement failed')
       setRateError(message)
       toast.error(message, { code: code || undefined, title: friendlyTitleFor(code) })
     } finally {
-      setImproving(false)
+      if (!unmountedRef.current) setImproving(false)
     }
   }, [ratingId])
 

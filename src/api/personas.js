@@ -1,22 +1,8 @@
 /** Personas API — list, CRUD, favorites, AI generation. */
-import { getApiBaseUrl } from '../lib/env.js'
-import { parseApiError } from '../lib/aiErrors.js'
+import { apiFetch } from '../lib/apiFetch.js'
 
 function request(method, path, accessToken, body = null, headers = {}) {
-  const url = getApiBaseUrl() + path
-  const h = { 'Content-Type': 'application/json', ...headers }
-  if (accessToken) h.Authorization = `Bearer ${accessToken}`
-
-  const opts = { method, headers: h }
-  if (body != null) opts.body = JSON.stringify(body)
-
-  return fetch(url, opts).then(async (res) => {
-    const contentType = res.headers.get('Content-Type') || ''
-    const isJson = contentType.includes('application/json')
-    const data = isJson ? await res.json().catch(() => ({})) : {}
-    if (!res.ok) throw parseApiError(res, data)
-    return data
-  })
+  return apiFetch(path, { method, body: body ?? undefined, token: accessToken, headers })
 }
 
 export const personasApi = {
@@ -35,22 +21,15 @@ export const personasApi = {
     return request('POST', '/api/personas', accessToken, payload)
   },
   createFromImages(accessToken, formData) {
-    const url = getApiBaseUrl() + '/api/personas/generate-from-images'
-    const headers = {}
-    if (accessToken) headers.Authorization = `Bearer ${accessToken}`
-    // FormData must include 'name' as required by API (no Content-Type - fetch sets multipart boundary)
+    // FormData must include 'name' as required by API. apiFetch's rawBody
+    // mode sends the FormData untouched and omits Content-Type so the
+    // browser sets the multipart boundary itself.
     if (!formData.get('name')) formData.append('name', 'My Persona')
-
-    return fetch(url, {
+    return apiFetch('/api/personas/generate-from-images', {
       method: 'POST',
-      headers,
       body: formData,
-    }).then(async (res) => {
-      const contentType = res.headers.get('Content-Type') || ''
-      const isJson = contentType.includes('application/json')
-      const data = isJson ? await res.json().catch(() => ({})) : {}
-      if (!res.ok) throw parseApiError(res, data)
-      return data
+      rawBody: true,
+      token: accessToken,
     })
   },
   update(accessToken, personaId, payload) {

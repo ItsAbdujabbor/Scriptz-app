@@ -5,8 +5,7 @@ import { useEffect, useRef, useState } from 'react'
  * loaded for the first time. Keeps the <img> element cheap until the
  * element approaches the viewport.
  */
-const BLANK_PIXEL =
-  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+const BLANK_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
 
 /**
  * LazyImg — drop-in `<img>` that defers loading until the element
@@ -41,15 +40,22 @@ export function LazyImg({ src, alt = '', className = '', rootMargin = '800px', .
           io.disconnect()
         }
       },
-      { rootMargin, threshold: 0 },
+      { rootMargin, threshold: 0 }
     )
     io.observe(el)
     return () => io.disconnect()
   }, [loaded, rootMargin])
 
-  // Whenever `src` changes, reset so the observer loads the new URL.
+  // When `src` changes to a *different* URL, keep the previously loaded
+  // image visible while the new one decodes — don't slam it back to the
+  // blank pixel. Cached images then appear instantly with no flash; only
+  // the intrinsic dimensions reset (the new image reports its own on
+  // load). If the element was never loaded yet, leave `loaded` false so
+  // the IntersectionObserver still gates the first fetch.
+  const prevSrcRef = useRef(src)
   useEffect(() => {
-    setLoaded(false)
+    if (src === prevSrcRef.current) return
+    prevSrcRef.current = src
     setDims(null)
   }, [src])
 

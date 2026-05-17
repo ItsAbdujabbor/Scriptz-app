@@ -11,8 +11,10 @@ import { PrimaryPill } from './ui/PrimaryPill'
 import './NotFound.css'
 
 export function NotFound({ isAuthenticated = false, onGoHome }) {
-  const target = isAuthenticated ? '/#dashboard' : '/'
-  const ctaLabel = isAuthenticated ? 'Back to dashboard' : 'Back to home'
+  // #dashboard was retired — authenticated users land on the Thumbnails
+  // workspace, which is the app's current home surface.
+  const target = isAuthenticated ? '/#thumbnails' : '/'
+  const ctaLabel = isAuthenticated ? 'Go to Thumbnails' : 'Back to home'
 
   const goHome = () => {
     if (typeof onGoHome === 'function') {
@@ -31,7 +33,9 @@ export function NotFound({ isAuthenticated = false, onGoHome }) {
         <span className="notfound-bg-blob notfound-bg-blob--b" />
       </div>
       <div className="notfound-content">
-        <span className="notfound-404" aria-hidden="true">404</span>
+        <span className="notfound-404" aria-hidden="true">
+          404
+        </span>
         <h1 className="notfound-title" id="notfound-title">
           Oops! Screen not found
         </h1>

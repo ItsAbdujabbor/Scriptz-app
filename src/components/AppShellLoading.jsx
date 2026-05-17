@@ -2,13 +2,12 @@ import { useAuthStore } from '../stores/authStore'
 import { AppShellLayout } from './AppShellLayout'
 import { Sidebar } from '../app/Sidebar'
 import '../app/Sidebar.css'
-// These imports look unused but they're load-bearing — Dashboard.css owns
-// `.dashboard-app-shell` + `.dashboard-shell-unified` (the flex grid every
-// authenticated view sits in, see AuthenticatedRoutes.jsx). Optimize.css
-// holds shared `.coach-*` empty-state rules. Don't drop them just because
-// the Dashboard / Optimize routes are retired.
-import '../app/Dashboard.css'
-import '../app/Optimize.css'
+// Shell.css holds the load-bearing app-shell layout rules
+// (`.dashboard-app-shell`, `.dashboard-shell-unified`, the `.coach-page`
+// desktop/mobile overrides + `.coach-main-wrap` card) extracted from the
+// now-retired Dashboard.css / Optimize.css views, so the loading shell
+// no longer drags in ~12k lines of dead stylesheet.
+import '../styles/Shell.css'
 import './AppShellLoading.css'
 
 /**

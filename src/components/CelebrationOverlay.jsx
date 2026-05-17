@@ -16,6 +16,28 @@ import { createPortal } from 'react-dom'
 import { onCelebrate } from '../lib/celebrate'
 import './CelebrationOverlay.css'
 
+/**
+ * Tracks the user's `prefers-reduced-motion` setting and stays in sync
+ * if they change it at runtime. When reduced motion is requested we skip
+ * the confetti entirely (it's pure decoration) and still show the card.
+ */
+function usePrefersReducedMotion() {
+  const [prefersReduced, setPrefersReduced] = useState(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  })
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const handler = (e) => setPrefersReduced(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
+  return prefersReduced
+}
+
 // A few pastel / premium accent colors for the confetti.
 const COLORS = [
   '#a78bfa',
@@ -49,6 +71,7 @@ function makeConfettiPieces(count = 70) {
 export function CelebrationOverlay() {
   const [current, setCurrent] = useState(null) // { title, subtitle, emoji, variant, duration, confetti }
   const [closing, setClosing] = useState(false)
+  const prefersReducedMotion = usePrefersReducedMotion()
 
   useEffect(
     () =>
@@ -77,7 +100,11 @@ export function CelebrationOverlay() {
     }
   }, [current])
 
-  const pieces = useMemo(() => (current?.confetti ? makeConfettiPieces() : []), [current])
+  // Confetti is decorative only — suppress it when the user asked for
+  // reduced motion. The congrats card itself still renders.
+  const showConfetti = !!current?.confetti && !prefersReducedMotion
+
+  const pieces = useMemo(() => (showConfetti ? makeConfettiPieces() : []), [showConfetti])
 
   if (!current || typeof document === 'undefined') return null
 
@@ -89,7 +116,7 @@ export function CelebrationOverlay() {
       aria-live="polite"
       aria-atomic="true"
     >
-      {current.confetti && (
+      {showConfetti && (
         <div className="celebrate-confetti" aria-hidden>
           {pieces.map((p) => (
             <span

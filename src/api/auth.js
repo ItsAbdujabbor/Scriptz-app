@@ -1,67 +1,59 @@
 /**
  * Auth API client — login, register, refresh, logout.
  * In dev: use same origin ('') so Vite proxy forwards /api to the backend (avoids CORS OPTIONS).
- * In production: VITE_API_BASE_URL or fallback http://localhost:8000.
+ * In production: VITE_API_BASE_URL or fallback inferred from window.location.
  */
 
-import { getApiBaseUrl } from '../lib/env.js'
-import { parseApiError } from '../lib/aiErrors.js'
+import { apiFetch, getApiBaseUrl } from '../lib/apiFetch.js'
 
-function request(method, path, body, useAuth = false, token = null) {
-  const url = getApiBaseUrl() + path
-  const headers = { 'Content-Type': 'application/json' }
-  if (useAuth && token) headers['Authorization'] = `Bearer ${token}`
-  const opts = { method, headers }
-  if (body != null) opts.body = JSON.stringify(body)
-  return fetch(url, opts).then(async (res) => {
-    const contentType = res.headers.get('Content-Type') || ''
-    const isJson = contentType.indexOf('application/json') !== -1
-    const data = isJson ? await res.json().catch(() => ({})) : {}
-    if (!res.ok) {
-      // Auth-specific: validation errors come back as a list — keep
-      // surfacing the first item's message via the parser. For everything
-      // else, parseApiError already handles the unified envelope.
-      const err = parseApiError(res, data)
-      // Pydantic validation errors arrive as `[{loc, msg, type}, ...]` —
-      // pull the first msg into `serverMessage` so friendlyMessage shows
-      // the specific field message (e.g. "password too short") instead
-      // of the generic VALIDATION_ERROR fallback.
-      const detail = data?.detail
-      if (Array.isArray(detail) && detail[0] && typeof detail[0].msg === 'string') {
-        err.serverMessage = detail[0].msg
-        err.message = detail[0].msg
-      }
-      throw err
+/**
+ * Auth endpoints are public (no bearer) — except change-password /
+ * delete-account which take an explicit token. We pass `token` through
+ * to apiFetch verbatim (`null` → anonymous, string → bearer) so the
+ * store's auto-resolution never kicks in for the unauthenticated routes.
+ *
+ * Pydantic validation errors arrive as `{detail: [{loc, msg, type}, ...]}`.
+ * parseApiError handles the unified envelope + object-shaped `detail`, but
+ * not the array form, so we post-process here to surface the first field
+ * message (e.g. "password too short") instead of a generic fallback.
+ */
+async function authRequest(method, path, body, token = null) {
+  try {
+    return await apiFetch(path, { method, body, token })
+  } catch (err) {
+    const detail = err?.body?.detail
+    if (Array.isArray(detail) && detail[0] && typeof detail[0].msg === 'string') {
+      err.serverMessage = detail[0].msg
+      err.message = detail[0].msg
     }
-    return data
-  })
+    throw err
+  }
 }
 
 export const authApi = {
   login(email, password) {
-    return request('POST', '/api/auth/login', { email, password }, false)
+    return authRequest('POST', '/api/auth/login', { email, password })
   },
   register(email, password, username = null) {
-    return request('POST', '/api/auth/register', { email, password, username }, false)
+    return authRequest('POST', '/api/auth/register', { email, password, username })
   },
   refresh(refreshToken) {
-    return request('POST', '/api/auth/refresh', { refresh_token: refreshToken }, false)
+    return authRequest('POST', '/api/auth/refresh', { refresh_token: refreshToken })
   },
   logout(refreshToken) {
-    return request('POST', '/api/auth/logout', { refresh_token: refreshToken }, false)
+    return authRequest('POST', '/api/auth/logout', { refresh_token: refreshToken })
   },
   forgotPassword(email) {
-    return request('POST', '/api/auth/forgot-password', { email }, false)
+    return authRequest('POST', '/api/auth/forgot-password', { email })
   },
   resetPassword(token, newPassword) {
-    return request('POST', '/api/auth/reset-password', { token, new_password: newPassword }, false)
+    return authRequest('POST', '/api/auth/reset-password', { token, new_password: newPassword })
   },
   changePassword(currentPassword, newPassword, accessToken) {
-    return request(
+    return authRequest(
       'POST',
       '/api/auth/change-password',
       { current_password: currentPassword, new_password: newPassword },
-      true,
       accessToken
     )
   },
@@ -71,7 +63,7 @@ export const authApi = {
     if (password != null && String(password).trim() !== '') {
       body.password = String(password).trim()
     }
-    return request('POST', '/api/auth/delete-account', body, true, accessToken)
+    return authRequest('POST', '/api/auth/delete-account', body, accessToken)
   },
 }
 

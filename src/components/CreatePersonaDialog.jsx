@@ -6,11 +6,13 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { useCreatePersonaFromImagesMutation } from '../queries/personas/personaQueries'
+import { useCostOf } from '../queries/billing/creditsQueries'
 import { onOpenCreatePersonaDialog } from '../lib/personaModalBus'
 import { Dialog } from './ui/Dialog'
 import { InlineSpinner } from './ui'
 import { useObjectURL } from '../lib/useObjectURL'
 import { friendlyMessage } from '../lib/aiErrors'
+import { PERSONA_NAME_MAX_LENGTH } from '../lib/constants'
 
 const SLOT_IMG_STYLE = {
   width: '100%',
@@ -37,6 +39,9 @@ export function CreatePersonaDialog() {
   const [error, setError] = useState('')
   const fileRefs = useRef({ front: null, left: null, right: null })
   const mutation = useCreatePersonaFromImagesMutation()
+  // Live, tier-aware credit cost for persona generation. Falls back to
+  // 45 if the feature-costs catalog hasn't loaded yet.
+  const { unit: personaCost } = useCostOf('persona_generate')
 
   const close = () => {
     setOpen(false)
@@ -232,8 +237,8 @@ export function CreatePersonaDialog() {
           type="text"
           placeholder="Character name"
           value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={120}
+          onChange={(e) => setName(e.target.value.slice(0, PERSONA_NAME_MAX_LENGTH))}
+          maxLength={PERSONA_NAME_MAX_LENGTH}
           required
           style={{
             display: 'block',
@@ -323,7 +328,7 @@ export function CreatePersonaDialog() {
               <svg viewBox="0 0 24 24" width={10} height={10} fill="currentColor" aria-hidden>
                 <path d="M13 2 3 14h7l-1 8 11-13h-8l1-7z" />
               </svg>
-              45
+              {personaCost || 45}
             </span>
           </button>
         </div>

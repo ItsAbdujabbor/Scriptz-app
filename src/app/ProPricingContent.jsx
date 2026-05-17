@@ -227,9 +227,23 @@ const PERKS = [
   },
 ]
 
-export function ProPricingContent({ onStartTrial }) {
-  const [annual, setAnnual] = useState(false)
+export function ProPricingContent({ onStartTrial, billingPeriod, onBillingPeriodChange }) {
+  // The billing-period toggle can be driven externally (controlled — e.g.
+  // the landing page lifts it into React state) or fall back to internal
+  // state when no controlling props are passed (the in-app #pro screen).
+  const isControlled = billingPeriod != null
+  const [internalAnnual, setInternalAnnual] = useState(false)
+  const annual = isControlled ? billingPeriod === 'annual' : internalAnnual
+  const setAnnual = (next) => {
+    const value = typeof next === 'function' ? next(annual) : next
+    if (isControlled) {
+      onBillingPeriodChange?.(value ? 'annual' : 'monthly')
+    } else {
+      setInternalAnnual(value)
+    }
+  }
   const [plans, setPlans] = useState(null)
+  const [plansError, setPlansError] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(null)
   const [checkoutError, setCheckoutError] = useState(null)
   const annualSavingsPct = useMemo(() => computeAnnualSavingsPct(), [])
@@ -241,12 +255,19 @@ export function ProPricingContent({ onStartTrial }) {
 
   useEffect(() => {
     let alive = true
+    setPlansError(false)
     getPlans()
       .then((data) => {
-        if (alive) setPlans(data)
+        if (alive) {
+          setPlans(data)
+          setPlansError(false)
+        }
       })
       .catch(() => {
-        if (alive) setPlans(null)
+        if (alive) {
+          setPlans(null)
+          setPlansError(true)
+        }
       })
     // Warm Paddle.js while the user is reading the pricing page so the
     // checkout iframe paints almost instantly when they click a plan.
@@ -432,6 +453,12 @@ export function ProPricingContent({ onStartTrial }) {
           </p>
         ) : null}
 
+        {plansError ? (
+          <p role="alert" className="pro-checkout-error">
+            Unable to load pricing right now. Please refresh the page and try again.
+          </p>
+        ) : null}
+
         <div className="pro-billing">
           <ThumbPillTabs
             ariaLabel="Billing cycle"
@@ -494,8 +521,22 @@ export function ProPricingContent({ onStartTrial }) {
                 type="button"
                 className={`pro-card-cta${current || isScheduled ? ' pro-card-cta--current' : ''}`}
                 onClick={() => handleCta(meta)}
-                disabled={current || isScheduled || loading || checkoutLoading !== null}
-                aria-disabled={current || isScheduled || loading || checkoutLoading !== null}
+                disabled={
+                  current ||
+                  isScheduled ||
+                  loading ||
+                  checkoutLoading !== null ||
+                  !plans ||
+                  plansError
+                }
+                aria-disabled={
+                  current ||
+                  isScheduled ||
+                  loading ||
+                  checkoutLoading !== null ||
+                  !plans ||
+                  plansError
+                }
               >
                 {loading ? <span className="pro-card-cta-spinner" /> : null}
                 {ctaLabelFor(meta)}

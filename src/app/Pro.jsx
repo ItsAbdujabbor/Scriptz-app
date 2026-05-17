@@ -1,15 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/authStore'
 import { useOnboardingStore } from '../stores/onboardingStore'
-import { youtubeApi } from '../api/youtube'
 import { AppShellLayout } from '../components/AppShellLayout'
 import { Sidebar } from './Sidebar'
 import { SettingsModal } from './SettingsModal'
 import { ProPricingContent } from './ProPricingContent'
 import { useUserPreferencesQuery } from '../queries/user/preferencesQueries'
 import { useUserProfileQuery } from '../queries/user/profileQueries'
-import { queryKeys } from '../lib/query/queryKeys'
 /* Sidebar.css, SettingsModal.css, Dashboard.css imported by AuthenticatedRoutes */
 import './Pro.css'
 
@@ -29,7 +26,6 @@ export function Pro({ onLogout, shellManaged }) {
     videoFormat,
     uploadFrequency,
     youtube,
-    setYouTube,
     setPreferredLanguage,
     setNiche,
     setVideoFormat,
@@ -46,17 +42,17 @@ export function Pro({ onLogout, shellManaged }) {
     setUseFirstPerson,
     clearLocalData,
     syncChannelToBackend,
-    syncToBackend,
-    bootstrapYouTube,
   } = useOnboardingStore()
-
-  const queryClient = useQueryClient()
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsSection, setSettingsSection] = useState('account')
-  const [youtubeChannels, setYoutubeChannels] = useState([])
-  const [youtubeLoading, setYoutubeLoading] = useState(false)
-  const [youtubeOAuthError, setYoutubeOAuthError] = useState(null)
+  // STM-06: YouTube account integration removed. SettingsModal no longer
+  // renders a YouTube section, but still accepts these (now-inert) props
+  // — pass stable empty placeholders instead of dead component state.
+  const youtubeChannels = []
+  const youtubeLoading = false
+  const youtubeOAuthError = null
+  const setYoutubeOAuthError = () => {}
 
   const userPreferencesQuery = useUserPreferencesQuery()
   const userProfileQuery = useUserProfileQuery()
@@ -122,66 +118,21 @@ export function Pro({ onLogout, shellManaged }) {
     window.location.hash = 'register'
   }
 
-  const handleConnectYouTube = async () => {
-    setYoutubeOAuthError(null)
-    const token = await getValidAccessToken()
-    if (!token) return
-    setYoutubeLoading(true)
-    try {
-      const url = await youtubeApi.getAuthorizationUrl(token)
-      window.location.href = url
-    } catch (e) {
-      setYoutubeOAuthError(e?.message || 'Could not start connection.')
-      setYoutubeLoading(false)
-    }
-  }
-
-  const handleDisconnectYouTube = () => {
-    setYouTube(false)
-    setYoutubeChannels([])
-  }
-
-  const handleSwitchChannel = async (channelId) => {
-    if (!channelId) return
-    const token = await getValidAccessToken()
-    if (!token) return
-    try {
-      const info = await youtubeApi.getChannelInfo(token, channelId)
-      setYouTube(true, {
-        channelId: info.channel_id,
-        channel_title: info.channel_title,
-        profile_image: info.profile_image,
-        subscriberCount: info.subscriberCount ?? info.subscriber_count,
-        viewCount: info.viewCount ?? info.view_count,
-        videoCount: info.videoCount ?? info.video_count,
-      })
-      await syncChannelToBackend?.(token, channelId, info)
-      await syncToBackend(token)
-      queryClient.invalidateQueries({ queryKey: queryKeys.user.preferences })
-    } catch (_) {
-      setYoutubeOAuthError('Could not switch channel.')
-    }
-  }
+  // STM-06: The full YouTube account integration was removed
+  // (api/youtube.js now only fetches thumbnails — no OAuth, no channel
+  // listing). These handlers used to call `youtubeApi.getAuthorizationUrl`
+  // / `getChannelInfo` and `onboardingStore.bootstrapYouTube`, all of
+  // which no longer exist and would throw on invoke. SettingsModal does
+  // not render a YouTube section anymore, so these are kept only as
+  // inert prop fillers for its (now-unused) youtube props rather than
+  // re-threading a dead prop contract.
+  const handleConnectYouTube = () => {}
+  const handleDisconnectYouTube = () => {}
+  const handleSwitchChannel = () => {}
 
   useEffect(() => {
     clearError?.()
   }, [clearError])
-
-  useEffect(() => {
-    let cancelled = false
-    getValidAccessToken().then(async (token) => {
-      if (!token || cancelled) return
-      try {
-        const bootstrap = await bootstrapYouTube(token)
-        if (!cancelled) setYoutubeChannels(bootstrap.channels || [])
-      } catch (_) {
-        if (!cancelled) setYoutubeChannels([])
-      }
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [bootstrapYouTube, getValidAccessToken])
 
   const innerContent = (
     <div className="dashboard-main-scroll">

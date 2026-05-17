@@ -20,7 +20,7 @@
  *
  *   Wrapping the payload with a version + timestamp lets us evolve the
  *   shape later without parsing junk written by an older build, and lets
- *   us age out stale entries (24h ceiling — see MAX_AGE_MS).
+ *   us age out stale entries (4h ceiling — see MAX_AGE_MS).
  *
  *   Logout MUST call `clearSubscriptionCache()` (wired into
  *   `lib/sessionReset.js`) so a different user signing in on the same
@@ -29,11 +29,15 @@
 const KEY = 'clixa_sub_cache_v1'
 const VERSION = 1
 
-// 24 hours. Server cache is 2 minutes and React Query refetches every
-// 15s while the app is open, so anything older than 24h is almost
-// certainly from a stale tab the user closed days ago — safer to drop
-// it than to flash an old plan.
-const MAX_AGE_MS = 24 * 60 * 60 * 1000
+// 4 hours. Server cache is 2 minutes and React Query refetches every
+// 15s while the app is open, so the cache only matters for the very
+// first paint after a cold load. 24h was too aggressive: a user whose
+// plan changed (cancellation, expiry, downgrade) while away could come
+// back to a stale "Pro" seed for a noticeable beat before the network
+// refetch corrects it. 4h still kills the Free→Pro flash for anyone
+// returning within a normal session gap while bounding how wrong the
+// optimistic seed can be.
+const MAX_AGE_MS = 4 * 60 * 60 * 1000
 
 /**
  * Read the cached subscription payload. Returns the parsed
@@ -69,10 +73,7 @@ export function cacheSubscription(sub) {
       localStorage.removeItem(KEY)
       return
     }
-    localStorage.setItem(
-      KEY,
-      JSON.stringify({ v: VERSION, ts: Date.now(), sub })
-    )
+    localStorage.setItem(KEY, JSON.stringify({ v: VERSION, ts: Date.now(), sub }))
   } catch {
     /* storage may be blocked (incognito, quota) — silent fail. The
      * UI will still work; it just won't get the no-flash benefit on

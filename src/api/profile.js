@@ -3,22 +3,10 @@
  * GET/PUT /api/profile, GET/PUT /api/profile/channel/{channel_id}
  */
 
-import { getApiBaseUrl } from '../lib/env.js'
-import { parseApiError } from '../lib/aiErrors.js'
+import { apiFetch } from '../lib/apiFetch.js'
 
 function request(method, path, body, accessToken) {
-  const url = getApiBaseUrl() + path
-  const headers = { 'Content-Type': 'application/json' }
-  if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`
-  const opts = { method, headers }
-  if (body != null) opts.body = JSON.stringify(body)
-  return fetch(url, opts).then(async (res) => {
-    const contentType = res.headers.get('Content-Type') || ''
-    const isJson = contentType.indexOf('application/json') !== -1
-    const data = isJson ? await res.json().catch(() => ({})) : {}
-    if (!res.ok) throw parseApiError(res, data)
-    return data
-  })
+  return apiFetch(path, { method, body: body ?? undefined, token: accessToken })
 }
 
 /**
@@ -37,11 +25,21 @@ export const profileApi = {
 
   /** GET /api/profile/channel/{channel_id} — get channel information */
   getChannel(accessToken, channelId) {
-    return request('GET', `/api/profile/channel/${encodeURIComponent(channelId)}`, null, accessToken)
+    return request(
+      'GET',
+      `/api/profile/channel/${encodeURIComponent(channelId)}`,
+      null,
+      accessToken
+    )
   },
 
   /** PUT /api/profile/channel/{channel_id} — create or update channel information */
   updateChannel(accessToken, channelId, channel) {
-    return request('PUT', `/api/profile/channel/${encodeURIComponent(channelId)}`, channel, accessToken)
+    return request(
+      'PUT',
+      `/api/profile/channel/${encodeURIComponent(channelId)}`,
+      channel,
+      accessToken
+    )
   },
 }

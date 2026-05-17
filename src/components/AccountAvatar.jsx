@@ -39,7 +39,12 @@ export default function AccountAvatar({
   useEffect(() => {
     setGravatarErrored(false)
     setHash(null)
-    if (!email) return
+    if (!email) return undefined
+    // Skip the Gravatar sha256 entirely while a working Google profile
+    // photo is being shown — that branch renders first and the hash
+    // would never be used. We only need Gravatar once `pictureUrl` is
+    // absent or has errored out.
+    if (pictureUrl && !pictureErrored) return undefined
     let cancelled = false
     sha256Hex(email.trim().toLowerCase()).then((h) => {
       if (!cancelled) setHash(h)
@@ -47,7 +52,7 @@ export default function AccountAvatar({
     return () => {
       cancelled = true
     }
-  }, [email])
+  }, [email, pictureUrl, pictureErrored])
 
   if (pictureUrl && !pictureErrored) {
     return (

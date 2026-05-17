@@ -165,8 +165,7 @@ export function AuthDialog({ onClose, oauthInProgress = false }) {
                   type="button"
                   className="auth-oauth is-coming-soon"
                   disabled
-                  aria-disabled="true"
-                  title="Sign in with Apple is coming soon"
+                  title="Apple Sign-In coming soon"
                 >
                   <span className="auth-oauth-icon">
                     <AppleIcon />

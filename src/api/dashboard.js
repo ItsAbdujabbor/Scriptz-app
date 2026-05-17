@@ -4,22 +4,15 @@
  * Uses same base URL as auth; send X-Channel-Id for channel-scoped endpoints.
  */
 
-import { getApiBaseUrl } from '../lib/env.js'
-import { parseApiError } from '../lib/aiErrors.js'
+import { apiFetch } from '../lib/apiFetch.js'
 
 function request(method, path, accessToken, body = null, headers = {}, channelId = null) {
-  const url = getApiBaseUrl() + path
-  const h = { 'Content-Type': 'application/json', ...headers }
-  if (accessToken) h['Authorization'] = `Bearer ${accessToken}`
-  if (channelId) h['X-Channel-Id'] = channelId
-  const opts = { method, headers: h }
-  if (body != null) opts.body = JSON.stringify(body)
-  return fetch(url, opts).then(async (res) => {
-    const contentType = res.headers.get('Content-Type') || ''
-    const isJson = contentType.indexOf('application/json') !== -1
-    const data = isJson ? await res.json().catch(() => ({})) : {}
-    if (!res.ok) throw parseApiError(res, data)
-    return data
+  return apiFetch(path, {
+    method,
+    body: body ?? undefined,
+    token: accessToken,
+    channelId: channelId || undefined,
+    headers,
   })
 }
 

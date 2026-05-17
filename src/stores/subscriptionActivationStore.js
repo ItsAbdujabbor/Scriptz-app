@@ -26,6 +26,14 @@ import { create } from 'zustand'
 
 const ACTIVATION_TIMEOUT_MS = 60_000
 
+// Module-scoped AbortController for the in-flight `/api/billing/sync`
+// fired from `start()`. The sync runs in a fire-and-forget IIFE; without
+// an abort handle a `stop()`/`reset()` (logout, successful activation)
+// can't cancel it, so a slow sync resolves AFTER teardown and races the
+// store back into a stale shape. One controller at a time — a fresh
+// `start()` aborts any previous sync before opening a new one.
+let _syncAbortController = null
+
 export const useSubscriptionActivationStore = create((set, get) => ({
   isPending: false,
   /** True once the burst has timed out without an active subscription
@@ -49,8 +57,32 @@ export const useSubscriptionActivationStore = create((set, get) => ({
   packBaseline: 0,
 
   start(opts = {}) {
-    const existing = get()._timeoutId
+    // Idempotency guard. `start()` has multiple call sites for a single
+    // checkout: CheckoutScreen on Paddle's `checkout.completed`, and
+    // ProPricingContent when it detects `?checkout=success` in the hash
+    // on the post-redirect landing — both fire within the same burst
+    // window. Without this guard the second call resets the 60s timeout,
+    // so the burst window effectively never expires and the
+    // PaymentProcessingBanner backstop is delayed indefinitely.
+    //
+    // Guard ONLY on `isPending` (a burst actively in flight), NOT on
+    // `timeoutFired`: a previous burst that timed out is terminal, and a
+    // genuine retry (user re-attempts checkout after the banner showed)
+    // MUST be able to start a fresh burst. Those retry call sites don't
+    // explicitly reset() first, so blocking on timeoutFired here would
+    // wedge the retry. Starting a new burst below clears timeoutFired
+    // anyway (see the final set()).
+    if (get().isPending) return
+    const state = get()
+
+    const existing = state._timeoutId
     if (existing) clearTimeout(existing)
+
+    // Cancel any sync still in flight from a previous burst before
+    // opening a new one — at most one outstanding /sync at a time.
+    _syncAbortController?.abort()
+    _syncAbortController = new AbortController()
+    const { signal } = _syncAbortController
 
     const isSubKind = (opts.kind || 'subscription') === 'subscription'
 
@@ -74,10 +106,12 @@ export const useSubscriptionActivationStore = create((set, get) => ({
             import('../api/billing'),
             import('../lib/query/authToken'),
           ])
+          if (signal.aborted) return
           const token = await getAccessTokenOrNull()
-          if (token) await syncSubscription(token)
+          if (token && !signal.aborted) await syncSubscription(token, { signal })
         } catch {
-          /* surfaced by the timeout banner if it never lands */
+          /* aborted (stop/reset) or network — surfaced by the timeout
+             banner if the activation never lands */
         }
       })()
     }
@@ -95,9 +129,10 @@ export const useSubscriptionActivationStore = create((set, get) => ({
           import('../api/billing'),
           import('../lib/query/authToken'),
         ])
+        if (signal.aborted) return
         const token = await getAccessTokenOrNull()
-        if (!token) return
-        const fresh = await syncSubscription(token)
+        if (!token || signal.aborted) return
+        const fresh = await syncSubscription(token, { signal })
         if (
           fresh &&
           (fresh.status === 'active' || fresh.status === 'trialing' || fresh.status === 'past_due')
@@ -108,8 +143,9 @@ export const useSubscriptionActivationStore = create((set, get) => ({
           set({ timeoutFired: false })
         }
       } catch {
-        // Network error / 502 — leave the banner up so the user has
-        // recourse. They'll see the message + support email link.
+        // Aborted (stop/reset), network error, or 502 — leave the banner
+        // up so the user has recourse. They'll see the message + support
+        // email link.
       }
     }, ACTIVATION_TIMEOUT_MS)
     set({
@@ -126,6 +162,11 @@ export const useSubscriptionActivationStore = create((set, get) => ({
   stop() {
     const existing = get()._timeoutId
     if (existing) clearTimeout(existing)
+    // Cancel any in-flight /api/billing/sync from start()/timeout so it
+    // can't resolve after teardown and race the store back into a stale
+    // shape (e.g. re-setting timeoutFired after a successful activation).
+    _syncAbortController?.abort()
+    _syncAbortController = null
     // Note: kind/pack/packBaseline are intentionally kept so the splash
     // can still render the "+200 credits added!" / "You're on Starter!"
     // success ribbon after stop() fires. They're cleared on the next
@@ -141,6 +182,8 @@ export const useSubscriptionActivationStore = create((set, get) => ({
   reset() {
     const existing = get()._timeoutId
     if (existing) clearTimeout(existing)
+    _syncAbortController?.abort()
+    _syncAbortController = null
     set({
       isPending: false,
       startedAt: 0,

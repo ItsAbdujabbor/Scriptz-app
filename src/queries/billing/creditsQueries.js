@@ -34,8 +34,20 @@ export function useCreditsQuery(options = {}) {
     },
     staleTime: queryFreshness.short,
     gcTime: queryFreshness.long,
-    refetchOnWindowFocus: true,
+    // STM-04: during the activation burst the 1s `refetchInterval`
+    // already drives fast polling; leaving `refetchOnWindowFocus` on
+    // means a tab-focus event fires a SECOND concurrent fetch right
+    // next to an interval tick (double request, double webhook-race
+    // churn). Disable focus-refetch in burst mode — the interval has
+    // it covered. Outside burst, focus-refetch stays on for freshness.
+    refetchOnWindowFocus: !isActivating,
     refetchInterval: isActivating ? 1_000 : 30_000,
+    // Pause polling while the tab is hidden to avoid pointless
+    // background traffic — EXCEPT during the activation burst, where
+    // the user may have switched tabs (e.g. to complete Paddle
+    // checkout in another tab) and we still need to detect the
+    // post-webhook balance change to flip the success ribbon.
+    refetchIntervalInBackground: isActivating,
     ...options,
   })
 }
@@ -78,8 +90,13 @@ export function useSubscriptionQuery() {
     },
     staleTime: queryFreshness.short,
     gcTime: queryFreshness.long,
-    refetchOnWindowFocus: true,
+    // STM-04: same rationale as useCreditsQuery — disable focus-refetch
+    // during the burst so a tab focus doesn't double-fire alongside the
+    // 1s interval; keep background polling alive during the burst so a
+    // checkout completed in another tab is still detected.
+    refetchOnWindowFocus: !isActivating,
     refetchInterval: isActivating ? 1_000 : 15_000,
+    refetchIntervalInBackground: isActivating,
   })
 }
 
@@ -159,6 +176,12 @@ export function refreshBillingState(queryClient) {
   queryClient.invalidateQueries({ queryKey: queryKeys.billing.subscription })
   queryClient.invalidateQueries({ queryKey: queryKeys.billing.credits })
   queryClient.invalidateQueries({ queryKey: queryKeys.billing.ledger })
+  // Payment-method / billing-address also moves on plan changes, card
+  // updates, and cancellations. Without this the BillingSettingsPanel's
+  // card-on-file + billing-address tiles stay stale after a payment
+  // event while every sibling surface refreshed (1-min staleTime on
+  // `usePaymentMethodQuery` otherwise hides the change for up to a min).
+  queryClient.invalidateQueries({ queryKey: queryKeys.billing.paymentMethod })
 }
 
 /**

@@ -1,6 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from './stores/authStore'
+import { consumeOAuthReturnTo } from './lib/oauthClient'
 import { BannedScreen } from './auth/BannedScreen'
 // AuthDialog is an eager import — see comment by the lazy block below.
 import { AuthDialog } from './auth/AuthDialog'
@@ -225,6 +226,17 @@ function App() {
   // fires, dropping the user on the landing page instead of routing
   // them into the thumbnail generator.
   const wasOAuthCallbackRef = useRef(urlIsOAuthCallback())
+  // AUTH-05: the hash route the user was on when they kicked off OAuth.
+  // Resolved (read-and-cleared from sessionStorage) exactly once when we
+  // confirm this render is a successful OAuth callback, then used by the
+  // welcome-splash hand-off so a deep-link sign-in (#settings, #pro, a
+  // specific thumbnail conversation) returns the user where they
+  // intended instead of dumping them on the generic #thumbnails screen.
+  const oauthReturnToRef = useRef(null)
+  // Remembers the hash the user was on before opening #pro, so closing
+  // the pricing takeover returns them where they came from (e.g.
+  // #settings) instead of always dumping them on #thumbnails.
+  const preProHashRef = useRef('')
   const accessToken = useAuthStore((s) => s.accessToken)
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
@@ -285,6 +297,10 @@ function App() {
           // it left users on the landing page in dev StrictMode.
           if (wasOAuthCallbackRef.current) {
             wasOAuthCallbackRef.current = false
+            // Resolve the pre-OAuth deep-link destination ONCE here (it
+            // read-and-clears sessionStorage). The welcome-splash
+            // hand-off below navigates here instead of #thumbnails.
+            oauthReturnToRef.current = consumeOAuthReturnTo()
             setShowWelcomeSplash(true)
           } else if (!hash) {
             // Returning user with a saved session, no dialog, no callback.
@@ -308,6 +324,14 @@ function App() {
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
+
+  // Track the last hash that wasn't #pro so handleProClose can restore it.
+  useEffect(() => {
+    if (view !== 'pro') {
+      const h = (typeof window !== 'undefined' && window.location.hash) || ''
+      preProHashRef.current = h.replace(/^#/, '')
+    }
+  }, [view])
 
   // Sync authDialogOpen with the auth view. Opening / closing the dialog
   // via the X button or successful auth both flip `view` first; this
@@ -385,8 +409,15 @@ function App() {
       setShowWelcomeSplash(false)
       setAuthDialogOpen(false)
       setOauthCallbackPending(false)
-      window.location.hash = 'thumbnails'
-      setView('thumbnails')
+      // AUTH-05: restore the pre-OAuth deep-link destination if we have
+      // one (consumed once in the ensureSession .then), else the
+      // generic thumbnails home. Derive the view from getView() so a
+      // deep hash like "#thumbnails/<id>" or "#settings" resolves to
+      // the right shell view rather than being force-set to thumbnails.
+      const dest = oauthReturnToRef.current || '#thumbnails'
+      oauthReturnToRef.current = null
+      window.location.hash = dest.replace(/^#/, '')
+      setView(getView())
     }
   })
   const completeWelcomeSplash = useCallback(() => {
@@ -493,7 +524,12 @@ function App() {
   if (isShellView) {
     const shellViewProp = view === 'pro' ? 'thumbnails' : view
     const handleProClose = () => {
-      const next = accessToken ? 'thumbnails' : ''
+      // Prefer returning to wherever the user was before opening #pro
+      // (e.g. #settings). Fall back to #thumbnails when there's no
+      // meaningful prior hash or it was #pro itself.
+      const prior = preProHashRef.current
+      const restorable = prior && prior !== 'pro' ? prior : 'thumbnails'
+      const next = accessToken ? restorable : ''
       if (next) {
         window.location.hash = next
       } else {

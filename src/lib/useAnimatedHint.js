@@ -17,15 +17,31 @@ export function useAnimatedHint(hints, options = {}) {
 
   useEffect(() => {
     if (paused || length < 2) return
+    // STM-05: the interval spawns an inner setTimeout (and that in turn
+    // a requestAnimationFrame). `clearInterval` alone does NOT cancel a
+    // timeout/rAF already in flight when the component unmounts — that
+    // callback then runs `setIndex`/`setPhase` on an unmounted component
+    // (React warning + a leaked timer). Track both inner handles and
+    // clear them in cleanup.
+    let innerTimeout = null
+    let innerRaf = null
     const id = setInterval(() => {
       setPhase('exiting')
-      setTimeout(() => {
+      innerTimeout = setTimeout(() => {
+        innerTimeout = null
         setIndex((prev) => (prev + 1) % length)
         setPhase('entering')
-        requestAnimationFrame(() => setPhase('visible'))
+        innerRaf = requestAnimationFrame(() => {
+          innerRaf = null
+          setPhase('visible')
+        })
       }, transitionMs)
     }, intervalMs)
-    return () => clearInterval(id)
+    return () => {
+      clearInterval(id)
+      if (innerTimeout != null) clearTimeout(innerTimeout)
+      if (innerRaf != null) cancelAnimationFrame(innerRaf)
+    }
   }, [paused, length, intervalMs, transitionMs])
 
   return {

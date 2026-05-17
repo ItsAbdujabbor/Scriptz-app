@@ -29,6 +29,8 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import { InlineSpinner } from '../components/ui'
 import { useObjectURL } from '../lib/useObjectURL'
 import { friendlyMessage } from '../lib/aiErrors'
+import { PERSONA_NAME_MAX_LENGTH } from '../lib/constants'
+import { toast } from '../lib/toast'
 import './PersonasModal.css'
 
 /**
@@ -147,10 +149,11 @@ const PHOTO_SLOTS = [
   { key: 'right', label: 'Right' },
 ]
 
-// Persona names are short labels (a nickname for the face) — 40 chars
+// Persona names are short labels (a nickname for the face) — the cap
 // covers everything reasonable while keeping the card grid tidy. The
-// counter under the input warns the user as they approach the cap.
-const PERSONA_NAME_MAX = 40
+// counter under the input warns the user as they approach it. Shared
+// with CreatePersonaDialog via lib/constants so the two flows can't drift.
+const PERSONA_NAME_MAX = PERSONA_NAME_MAX_LENGTH
 
 /* ── Inline icons ─────────────────────────────────────────────────── */
 
@@ -535,8 +538,14 @@ export function PersonasModal({ onClose }) {
       await updateMutation.mutateAsync({ personaId: editingId, payload: { name } })
       setEditingId(null)
       setEditName('')
-    } catch (_) {
-      /* stay in edit mode on error */
+    } catch (err) {
+      // Stay in edit mode so the user keeps their typed name, but tell
+      // them the rename didn't take instead of failing silently.
+      console.error('Persona rename failed:', err)
+      toast.error(friendlyMessage(err) || 'Could not rename character. Please try again.', {
+        title: 'Rename failed',
+        code: err?.code,
+      })
     }
   }
 
@@ -932,8 +941,8 @@ export function PersonasModal({ onClose }) {
       {/* Bulk-remove confirm — wipes everything visible in the grid. */}
       <ConfirmDialog
         open={confirmDeleteAll}
-        title={`Delete all ${filteredItems.length} character${filteredItems.length === 1 ? '' : 's'}?`}
-        description="This permanently removes every character you've created. Cannot be undone."
+        title={`Delete all ${personalItems.length} character${personalItems.length === 1 ? '' : 's'}?`}
+        description="This permanently removes every character you've created. Demo characters stay. Cannot be undone."
         confirmLabel="Delete all"
         cancelLabel="Cancel"
         danger

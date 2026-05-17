@@ -14,9 +14,23 @@
  *     <p>…</p>
  *   </Dialog>
  */
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import './Dialog.css'
+
+/**
+ * Collect tab-reachable elements inside `container`, skipping anything
+ * inside a hidden / aria-hidden subtree (those aren't focusable in
+ * practice and would create dead stops in the trap).
+ */
+function getFocusableElements(container) {
+  if (!container) return []
+  return Array.from(
+    container.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+  ).filter((el) => !el.closest('[hidden]') && !el.closest('[aria-hidden="true"]'))
+}
 
 export function Dialog({
   open,
@@ -31,6 +45,62 @@ export function Dialog({
   className = '',
   overlayClassName = '',
 }) {
+  const dialogRef = useRef(null)
+  const triggerRef = useRef(null)
+
+  // Focus trap: keep keyboard focus inside the dialog while it's open,
+  // move focus in on open, and restore it to the triggering element on
+  // close. Works for every consumer (PersonasModal, StylesModal,
+  // SettingsModal, ConfirmDialog, BillingDialog, CreditPacksModal) since
+  // they all render their content as children of the panel.
+  useEffect(() => {
+    if (!open) return
+
+    // Remember whatever had focus so we can restore it on close.
+    triggerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+
+    // Move focus into the dialog (first focusable, else the panel itself
+    // so screen-reader / keyboard users aren't left on the page behind).
+    const focusable = getFocusableElements(dialogRef.current)
+    if (focusable.length) {
+      focusable[0].focus()
+    } else {
+      dialogRef.current?.focus()
+    }
+
+    function handleKeyDown(e) {
+      if (e.key !== 'Tab') return
+      const els = getFocusableElements(dialogRef.current)
+      if (!els.length) {
+        // Nothing focusable — keep focus pinned on the panel.
+        e.preventDefault()
+        dialogRef.current?.focus()
+        return
+      }
+      const first = els[0]
+      const last = els[els.length - 1]
+      const active = document.activeElement
+
+      if (e.shiftKey) {
+        if (active === first || !dialogRef.current?.contains(active)) {
+          e.preventDefault()
+          last.focus()
+        }
+      } else if (active === last || !dialogRef.current?.contains(active)) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      // Restore focus to whatever opened the dialog.
+      triggerRef.current?.focus?.()
+    }
+  }, [open])
+
   // Escape closes the dialog.
   useEffect(() => {
     if (!open || !closeOnEscape) return
@@ -64,6 +134,8 @@ export function Dialog({
       role="presentation"
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         className={['ui-dialog-panel', `ui-dialog-panel--${size}`, className]
           .filter(Boolean)
           .join(' ')}
