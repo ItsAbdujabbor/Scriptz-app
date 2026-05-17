@@ -249,6 +249,13 @@ export const thumbnailsApi = {
   getJob(accessToken, jobId) {
     return request('GET', `/api/jobs/${jobId}`, accessToken)
   },
+  cancelChatJob(accessToken, jobId) {
+    return request(
+      'POST',
+      `/api/thumbnails/chat-jobs/${encodeURIComponent(jobId)}/cancel`,
+      accessToken
+    )
+  },
   editRegion(accessToken, payload, fetchInit = {}) {
     return request('POST', '/api/thumbnails/edit-region', accessToken, payload, {}, fetchInit)
   },

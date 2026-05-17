@@ -856,6 +856,70 @@ function DislikeReasonDialog({ onSubmit, onCancel, submitting, reasons = DISLIKE
   )
 }
 
+function CancelGenerationDialog({ onConfirm, onDismiss }) {
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') onDismiss()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onDismiss])
+
+  return createPortal(
+    <motion.div
+      className="thumb-cancel-gen-backdrop"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+      onClick={onDismiss}
+    >
+      <motion.div
+        className="thumb-cancel-gen-dialog"
+        initial={{ opacity: 0, y: 14, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 10, scale: 0.96 }}
+        transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cancel-gen-title"
+      >
+        <div className="thumb-cancel-gen-icon" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+        </div>
+        <p className="thumb-cancel-gen-title" id="cancel-gen-title">
+          Stop current generation?
+        </p>
+        <p className="thumb-cancel-gen-body">
+          Opening a new chat will stop the thumbnail that&apos;s currently being generated. Any
+          credits used will be refunded.
+        </p>
+        <div className="thumb-cancel-gen-actions">
+          <button type="button" className="thumb-cancel-gen-keep" onClick={onDismiss}>
+            Keep generating
+          </button>
+          <button type="button" className="thumb-cancel-gen-stop" onClick={onConfirm}>
+            Stop &amp; open new chat
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>,
+    document.body
+  )
+}
+
 const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
   t,
   index,
@@ -2648,6 +2712,10 @@ export function ThumbnailGenerator({
   // via `_promptPending` on the local placeholder), so the only
   // remaining role of this flag is double-submit / disabled-state.
   const [pendingAssistant, setPendingAssistant] = useState(false)
+  // Dialog shown when the user tries to open a new chat mid-generation.
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  // Callback to execute if the user confirms the cancel dialog.
+  const cancelDialogCallbackRef = useRef(null)
   // ─── Submission lock ─────────────────────────────────────────────
   // Hard guard that holds the chat surface in a stable rendered state
   // from the moment the user hits send until the entire response →
@@ -2984,15 +3052,39 @@ export function ThumbnailGenerator({
   // is the only way to catch that case and force-reset the chat surface.
   useEffect(() => {
     return onShellEvent('newChat', () => {
-      releaseSubmissionLockImmediate()
-      setPendingAssistant(false)
-      submitGuardRef.current = false
-      sawMessagesRef.current = false
-      setMessages([])
-      setLocalOnlyMessages((prev) => prev.filter((m) => m && m._conversationId != null))
-      setDraft('')
-      setSendError('')
-      setSendErrorMeta(null)
+      // If a generation is in progress, intercept and show a confirm dialog
+      // before abandoning the in-flight job. `isSubmittingRef.current` is a
+      // sync ref — always current even inside this stale-closure callback.
+      const doReset = () => {
+        releaseSubmissionLockImmediate()
+        setPendingAssistant(false)
+        submitGuardRef.current = false
+        sawMessagesRef.current = false
+        setMessages([])
+        setLocalOnlyMessages((prev) => prev.filter((m) => m && m._conversationId != null))
+        setDraft('')
+        setSendError('')
+        setSendErrorMeta(null)
+      }
+
+      if (isSubmittingRef.current) {
+        cancelDialogCallbackRef.current = () => {
+          // Fire-and-forget the server cancel — the poll loop will see
+          // status=failed and settle the mutation, triggering the credit
+          // invalidation in onError. We don't block navigation on the
+          // API call resolving.
+          const jobId = useThumbnailJobStatusStore.getState().status?.job_id
+          if (jobId) {
+            getAccessTokenOrNull().then((token) => {
+              if (token) thumbnailsApi.cancelChatJob(token, jobId).catch(() => {})
+            })
+          }
+          doReset()
+        }
+        setShowCancelConfirm(true)
+      } else {
+        doReset()
+      }
     })
   }, [releaseSubmissionLockImmediate])
 
@@ -6367,6 +6459,24 @@ export function ThumbnailGenerator({
         />
       )}
       {lightbox ? <ThumbnailLightbox url={lightbox.url} onClose={() => setLightbox(null)} /> : null}
+
+      {/* Cancel-generation confirmation dialog — shown when the user tries
+       *  to open a new chat while a thumbnail generation is running. */}
+      <AnimatePresence>
+        {showCancelConfirm && (
+          <CancelGenerationDialog
+            onConfirm={() => {
+              setShowCancelConfirm(false)
+              cancelDialogCallbackRef.current?.()
+              cancelDialogCallbackRef.current = null
+            }}
+            onDismiss={() => {
+              setShowCancelConfirm(false)
+              cancelDialogCallbackRef.current = null
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
