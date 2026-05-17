@@ -373,16 +373,25 @@ async function pollThumbnailChatJob(accessToken, jobId, fetchInit = {}) {
 
   // IMG-03: when the caller aborts (unmount / explicit user cancel),
   // tell the backend to stop the job so it isn't left running (and so
-  // credits are refunded server-side). Best-effort and fire-and-forget
-  // — a fresh token is resolved by apiFetch; we deliberately do NOT
-  // pass the (now-aborted) signal so the cancel request itself can land.
+  // credits are refunded server-side). Best-effort and fire-and-forget.
+  //
+  // We call apiFetch directly (without an explicit token) so it resolves
+  // a fresh access token via getValidAccessToken() at fire time. Passing
+  // the captured `accessToken` variable would send a potentially-stale
+  // token if the abort fires after a token rotation (every 15 min).
+  // We deliberately do NOT pass the (now-aborted) signal so the cancel
+  // request itself can still land after the poll signal has fired.
   if (signal && !signal.aborted) {
     signal.addEventListener(
       'abort',
       () => {
         if (!jobId) return
         Promise.resolve()
-          .then(() => thumbnailsApi.cancelChatJob(accessToken, jobId))
+          .then(() =>
+            apiFetch(`/api/thumbnails/chat-jobs/${encodeURIComponent(jobId)}/cancel`, {
+              method: 'POST',
+            })
+          )
           .catch((e) => console.warn('[polling] Failed to cancel job on abort:', e))
       },
       { once: true }

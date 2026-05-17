@@ -71,7 +71,7 @@ export const useAuthStore = create((set, get) => ({
   isLoading: false,
   error: null,
 
-  _applySession(session) {
+  _applySession(session, { fresh = false } = {}) {
     if (!session) {
       get()._stopProactiveRefresh()
       touchLastUserId(null)
@@ -79,12 +79,15 @@ export const useAuthStore = create((set, get) => ({
       rumClearUser()
       return
     }
-    // AUTH-04: if the session was cleared (logout) while a refresh was
-    // still in flight, that refresh's late resolution must NOT revive
-    // the session. Drop it silently — the user explicitly logged out.
-    if (_sessionCleared) return
-    // A legitimate new session is being applied — re-arm the guard so a
-    // future logout can once again block a stale in-flight refresh.
+    // AUTH-04: if the session was cleared (logout) while a background
+    // refresh was still in flight, that refresh's late resolution must
+    // NOT revive the session. Drop it silently — the user explicitly
+    // logged out. `fresh: true` bypasses this guard for explicit logins
+    // (OAuth callback, ensureSession after a fresh navigate-back) where
+    // the user has actively re-initiated auth after logging out.
+    if (_sessionCleared && !fresh) return
+    // Re-arm the guard so a future logout can once again block a stale
+    // in-flight background refresh from reviving the session.
     _sessionCleared = false
     const user = mapUser(session.user)
     // Only stamp the last-user-id when we actually got a user payload.
@@ -176,7 +179,10 @@ export const useAuthStore = create((set, get) => ({
     try {
       const fromCallback = await consumeOAuthCallback()
       if (fromCallback) {
-        get()._applySession(fromCallback)
+        // Explicit OAuth callback = fresh user-initiated login. Use
+        // { fresh: true } so a prior logout's _sessionCleared guard
+        // doesn't silently block the incoming session (AUTH-04).
+        get()._applySession(fromCallback, { fresh: true })
         return
       }
     } catch (err) {
