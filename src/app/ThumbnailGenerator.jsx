@@ -5115,8 +5115,12 @@ export function ThumbnailGenerator({
     // local entry to the server IDs immediately. If pre-persist fails
     // we still let generation run — the UI just won't survive a
     // mid-flight refresh in that one case.
+    // Strip base64 data URLs before persisting — multi-MB payloads
+    // cause the POST to fail silently (same fix as analyze handler).
+    const persistableSourceUrl =
+      sourceImageUrl && !sourceImageUrl.startsWith('data:') ? sourceImageUrl : null
     const prePersisted = await persistPendingEvent('recreate', userText, {
-      user_image_url: sourceImageUrl,
+      user_image_url: persistableSourceUrl,
       user_request: instructions,
       is_recreate: true,
       mode: 'recreate',
@@ -5164,7 +5168,7 @@ export function ThumbnailGenerator({
         // backends and to keep the cache fresh in the same tick.
         await finalizePersistedEvent(assistantServerId, {
           image_url: imageUrl,
-          user_image_url: sourceImageUrl,
+          user_image_url: persistableSourceUrl,
           user_request: instructions,
           is_recreate: true,
         })
@@ -5182,7 +5186,7 @@ export function ThumbnailGenerator({
         })
         await finalizePersistedEvent(assistantServerId, {
           thumbnails,
-          user_image_url: sourceImageUrl,
+          user_image_url: persistableSourceUrl,
           user_request: instructions,
           is_recreate: true,
         })
@@ -5205,7 +5209,7 @@ export function ThumbnailGenerator({
           error_code: code,
           error_message: message,
           retryable: true,
-          user_image_url: sourceImageUrl,
+          user_image_url: persistableSourceUrl,
           user_request: instructions,
         })
       } else {
@@ -6215,20 +6219,38 @@ export function ThumbnailGenerator({
               mode === 'faceswap'
                 ? `Face swap${persona?.name ? ` · ${persona.name}` : ''}`
                 : prompt || ''
+            // Strip base64 data URLs — large payloads cause POST to fail silently.
+            const persistableSrc =
+              sourceImageUrl && !sourceImageUrl.startsWith('data:') ? sourceImageUrl : null
             const prePersisted = await persistPendingEvent(kind, userText, {
-              user_image_url: sourceImageUrl,
+              user_image_url: persistableSrc,
               user_request: userText,
               mode,
               ...(persona?.image_url ? { persona_image_url: persona.image_url } : {}),
             })
-            return { pendingMessageId: prePersisted?.assistant_message?.id ?? null }
+            return {
+              pendingMessageId: prePersisted?.assistant_message?.id ?? null,
+              pendingUserMessageId: prePersisted?.user_message?.id ?? null,
+              pendingConversationId: prePersisted?.conversation_id ?? null,
+            }
           }}
-          onSubmitFinalize={async ({ pendingMessageId, mode, prompt, sourceImageUrl, urls }) => {
+          onSubmitFinalize={async ({
+            pendingMessageId,
+            pendingUserMessageId,
+            pendingConversationId,
+            mode,
+            prompt,
+            sourceImageUrl,
+            urls,
+          }) => {
             // Use the mask-composite preview for the user bubble (shows drawn
             // region on the thumbnail). Falls back to the source URL.
             const bubbleImageUrl = editMaskPreviewRef.current || sourceImageUrl
             editMaskPreviewRef.current = null
             const userText = mode === 'faceswap' ? 'Face swap' : prompt || ''
+            // Strip base64 data URLs before persisting.
+            const persistableSrc =
+              sourceImageUrl && !sourceImageUrl.startsWith('data:') ? sourceImageUrl : null
             if (urls.length <= 1) {
               const localIds = pushLocalAssistantMessage('', {
                 content: '',
@@ -6242,23 +6264,21 @@ export function ThumbnailGenerator({
                 await finalizePersistedEvent(pendingMessageId, {
                   kind: mode === 'faceswap' ? 'faceswap' : 'edit',
                   image_url: urls[0] || null,
-                  user_image_url: sourceImageUrl,
+                  user_image_url: persistableSrc,
                   user_request: userText,
                 })
-                // Bind local optimistic IDs to the server row so the
-                // post-finalize refetch doesn't ghost-render a duplicate.
-                if (conversationId) {
+                // Bind BOTH local optimistic IDs to their server rows so the
+                // post-finalize refetch doesn't ghost-render duplicates.
+                const convIdForLink = pendingConversationId || conversationId
+                if (convIdForLink) {
                   linkLocalToServer(
                     localIds,
                     {
-                      conversation_id: conversationId,
-                      // pendingMessageId is the assistant row id; user
-                      // row id isn't returned here. linkLocalToServer
-                      // tolerates undefined user_message and just binds
-                      // the assistant side.
+                      conversation_id: convIdForLink,
+                      user_message: pendingUserMessageId ? { id: pendingUserMessageId } : undefined,
                       assistant_message: { id: pendingMessageId },
                     },
-                    conversationId
+                    convIdForLink
                   )
                 }
               } else {
@@ -6268,7 +6288,7 @@ export function ThumbnailGenerator({
                   '',
                   {
                     image_url: urls[0] || null,
-                    user_image_url: sourceImageUrl,
+                    user_image_url: persistableSrc,
                   }
                 )
                 if (persisted) linkLocalToServer(localIds, persisted, conversationId)
@@ -6289,17 +6309,19 @@ export function ThumbnailGenerator({
                 await finalizePersistedEvent(pendingMessageId, {
                   kind: mode === 'faceswap' ? 'faceswap' : 'edit',
                   thumbnails,
-                  user_image_url: sourceImageUrl,
+                  user_image_url: persistableSrc,
                   user_request: userText,
                 })
-                if (conversationId) {
+                const convIdForLink = pendingConversationId || conversationId
+                if (convIdForLink) {
                   linkLocalToServer(
                     localIds,
                     {
-                      conversation_id: conversationId,
+                      conversation_id: convIdForLink,
+                      user_message: pendingUserMessageId ? { id: pendingUserMessageId } : undefined,
                       assistant_message: { id: pendingMessageId },
                     },
-                    conversationId
+                    convIdForLink
                   )
                 }
               } else {
@@ -6308,7 +6330,7 @@ export function ThumbnailGenerator({
                   '',
                   {
                     thumbnails,
-                    user_image_url: sourceImageUrl,
+                    user_image_url: persistableSrc,
                   }
                 )
                 if (persisted) linkLocalToServer(localIds, persisted, conversationId)
@@ -6334,6 +6356,8 @@ export function ThumbnailGenerator({
             const editMode = mode || 'edit'
             const userText = mode === 'faceswap' ? '' : prompt || ''
             const failureKind = editMode === 'faceswap' ? 'faceswap' : 'edit'
+            const persistableSrc =
+              sourceImageUrl && !sourceImageUrl.startsWith('data:') ? sourceImageUrl : null
             pushFailureEntry({
               mode: failureKind,
               userText,
@@ -6355,7 +6379,7 @@ export function ThumbnailGenerator({
                 error_code: error?.code || null,
                 error_message: error?.friendly || 'Edit failed.',
                 retryable: !!error?.retryable,
-                user_image_url: sourceImageUrl,
+                user_image_url: persistableSrc,
                 user_request: userText,
               })
             } else {
@@ -6367,7 +6391,7 @@ export function ThumbnailGenerator({
                 error_code: error?.code || null,
                 error_message: error?.friendly || 'Edit failed.',
                 retryable: !!error?.retryable,
-                user_image_url: sourceImageUrl,
+                user_image_url: persistableSrc,
                 user_request: userText,
               })
             }
@@ -6382,6 +6406,8 @@ export function ThumbnailGenerator({
             const failureKind = editMode === 'faceswap' ? 'faceswap' : 'edit'
             const userText = err?.prompt || ''
             const sourceImageUrl = err?.baseImageUrl || editDialogUrl
+            const persistableSrc =
+              sourceImageUrl && !sourceImageUrl.startsWith('data:') ? sourceImageUrl : null
             pushFailureEntry({
               mode: failureKind,
               userText,
@@ -6409,7 +6435,7 @@ export function ThumbnailGenerator({
               error_code: err?.code || null,
               error_message: err?.friendly || 'Edit failed.',
               retryable: !!err?.retryable,
-              user_image_url: sourceImageUrl,
+              user_image_url: persistableSrc,
               user_request: userText,
             })
           }}
@@ -6421,6 +6447,8 @@ export function ThumbnailGenerator({
             // prose), so we render an image-only user message.
             const urls = Array.isArray(result) ? result : [result]
             const sourceImageUrl = editDialogUrl
+            const persistableSrc =
+              sourceImageUrl && !sourceImageUrl.startsWith('data:') ? sourceImageUrl : null
             if (urls.length <= 1) {
               const localIds = pushLocalAssistantMessage('', {
                 content: '',
@@ -6429,7 +6457,7 @@ export function ThumbnailGenerator({
               })
               const persisted = await persistEvent('edit', '', {
                 image_url: urls[0] || null,
-                user_image_url: sourceImageUrl,
+                user_image_url: persistableSrc,
               })
               if (persisted) linkLocalToServer(localIds, persisted, conversationId)
             } else {
@@ -6446,7 +6474,7 @@ export function ThumbnailGenerator({
               })
               const persisted = await persistEvent('edit', '', {
                 thumbnails,
-                user_image_url: sourceImageUrl,
+                user_image_url: persistableSrc,
               })
               if (persisted) linkLocalToServer(localIds, persisted, conversationId)
             }

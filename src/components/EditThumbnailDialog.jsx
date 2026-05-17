@@ -1570,6 +1570,8 @@ export function EditThumbnailDialog({
       submitMode === 'edit' && hasDrawn ? await createMaskPreviewDataUrl() : null
 
     let pendingMessageId = null
+    let pendingUserMessageId = null
+    let pendingConversationId = null
     if (typeof onBeforeSubmit === 'function') {
       try {
         const ctx = await onBeforeSubmit({
@@ -1581,6 +1583,8 @@ export function EditThumbnailDialog({
           maskPreviewDataUrl,
         })
         pendingMessageId = ctx?.pendingMessageId ?? null
+        pendingUserMessageId = ctx?.pendingUserMessageId ?? null
+        pendingConversationId = ctx?.pendingConversationId ?? null
       } catch {
         pendingMessageId = null
       }
@@ -1618,6 +1622,8 @@ export function EditThumbnailDialog({
         try {
           await onSubmitFinalize({
             pendingMessageId,
+            pendingUserMessageId,
+            pendingConversationId,
             mode: submitMode,
             prompt: submitPrompt,
             sourceImageUrl: imageUrl,
