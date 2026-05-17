@@ -30,7 +30,7 @@ function paddleDispatch(ev) {
   // checkout.ping.size fires on every iframe resize (dozens per session).
   // Only log named events that we'd actually act on.
   const name = ev?.name
-  if (name) {
+  if (name && import.meta.env.DEV) {
     // eslint-disable-next-line no-console
     console.info('[Paddle]', name, ev)
   }
@@ -62,13 +62,15 @@ export function loadPaddle(clientTokenOverride) {
     if (paddleEnvironment() === 'sandbox') {
       Paddle.Environment.set('sandbox')
     }
-    // eslint-disable-next-line no-console
-    console.info(
-      '[Paddle:init] token prefix:',
-      String(token).slice(0, 8),
-      'env:',
-      paddleEnvironment()
-    )
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.info(
+        '[Paddle:init] token prefix:',
+        String(token).slice(0, 8),
+        'env:',
+        paddleEnvironment()
+      )
+    }
     Paddle.Initialize({ token, eventCallback: paddleDispatch })
     return Paddle
   })()
@@ -161,8 +163,10 @@ export async function openPaddleInlineCheckout({
   } catch {
     /* nothing to close */
   }
-  // eslint-disable-next-line no-console
-  console.info('[Paddle:open] transactionId:', transactionId, 'target:', frameTargetClass)
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.info('[Paddle:open] transactionId:', transactionId, 'target:', frameTargetClass)
+  }
   Paddle.Checkout.open({
     transactionId,
     settings: {

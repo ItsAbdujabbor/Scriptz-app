@@ -7,6 +7,10 @@ import { Sidebar } from './app/Sidebar'
 import { CreatePersonaDialog } from './components/CreatePersonaDialog'
 import { BillingDialog } from './components/BillingDialog'
 import { ToastStack } from './components/ToastStack'
+import ActivationListener from './components/ActivationListener'
+import { CelebrationOverlay } from './components/CelebrationOverlay'
+import { SubscriptionActivationSplash } from './components/SubscriptionActivationSplash'
+import { PaymentProcessingBanner } from './components/PaymentProcessingBanner'
 import { connectJobEventStream, disconnectJobEventStream } from './services/jobEventStream'
 // Each view is its own lazy chunk — Dashboard / Optimize / Billing are
 // temporarily hidden from the UI.
@@ -185,6 +189,17 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
        *  Thumbnails does not — the toast lived inside AppShellLayout
        *  before, which meant the thumbnail screen had no toast UI). */}
       <ToastStack />
+
+      {/* Post-checkout billing UX — mounted here so activation polling,
+       *  celebration, and the "still confirming" banner fire on ALL
+       *  screens including Thumbnails, which does not use AppShellLayout.
+       *  Previously these only mounted inside AppShellLayout, so a user
+       *  landing back on #thumbnails after checkout never saw the splash
+       *  or had their subscription status updated. */}
+      <ActivationListener />
+      <CelebrationOverlay />
+      <SubscriptionActivationSplash />
+      <PaymentProcessingBanner />
     </div>
   )
 }

@@ -519,13 +519,8 @@ export function PersonasModal({ onClose }) {
       // out of devtools for debugging.
       setIsGenerating(false)
       setGenDone(false)
-      console.error('Persona create failed:', err)
       const friendly = friendlyMessage(err)
-      const detail =
-        err?.code || err?.status
-          ? ` [${err?.code || ''}${err?.status ? ` ${err.status}` : ''}]`
-          : ''
-      setCreateError((friendly || err?.message || 'Could not create character.') + detail)
+      setCreateError(friendly || err?.message || 'Could not create character.')
     }
   }
 
@@ -541,7 +536,6 @@ export function PersonasModal({ onClose }) {
     } catch (err) {
       // Stay in edit mode so the user keeps their typed name, but tell
       // them the rename didn't take instead of failing silently.
-      console.error('Persona rename failed:', err)
       toast.error(friendlyMessage(err) || 'Could not rename character. Please try again.', {
         title: 'Rename failed',
         code: err?.code,

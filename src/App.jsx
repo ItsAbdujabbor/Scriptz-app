@@ -1,4 +1,13 @@
-import { useState, useEffect, useLayoutEffect, useRef, useCallback, lazy, Suspense } from 'react'
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+  lazy,
+  Suspense,
+  Component,
+} from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from './stores/authStore'
 import { consumeOAuthReturnTo } from './lib/oauthClient'
@@ -374,12 +383,16 @@ function App() {
 
   useEffect(() => {
     if (!sessionChecked) return
+    // Don't redirect while an OAuth callback is resolving — there's a brief
+    // window between the callback URL landing and the session being applied
+    // where accessToken is null even though login is in progress.
+    if (oauthCallbackPending) return
     const appViews = ['thumbnails', 'pro', 'checkout', 'settings']
     if (appViews.includes(view) && !accessToken) {
       window.location.hash = 'signin'
       setView('auth')
     }
-  }, [view, accessToken, sessionChecked])
+  }, [view, accessToken, sessionChecked, oauthCallbackPending])
 
   useEffect(() => {
     if (!sessionChecked || !accessToken) return
@@ -591,4 +604,44 @@ function App() {
   return <Suspense fallback={null}>{content}</Suspense>
 }
 
-export default App
+class AppErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { error: null }
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error }
+  }
+
+  componentDidCatch(error, info) {
+     
+    console.error('[AppErrorBoundary]', error, info.componentStack)
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: '2rem', textAlign: 'center', color: '#ff6b6b' }}>
+          <h2>Something went wrong</h2>
+          <p>Please refresh the page. If the problem persists, contact support.</p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{ marginTop: '1rem', padding: '0.5rem 1.5rem' }}
+          >
+            Refresh
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+export default function AppWithErrorBoundary() {
+  return (
+    <AppErrorBoundary>
+      <App />
+    </AppErrorBoundary>
+  )
+}

@@ -304,13 +304,8 @@ export function StylesModal({ onClose }) {
       setSelectedStyle(style)
       clearCreateForm()
     } catch (err) {
-      console.error('Style upload failed:', err)
       const friendly = friendlyMessage(err)
-      const detail =
-        err?.code || err?.status
-          ? ` [${err?.code || ''}${err?.status ? ` ${err.status}` : ''}]`
-          : ''
-      setCreateError((friendly || err?.message || 'Could not create style.') + detail)
+      setCreateError(friendly || err?.message || 'Could not create style.')
     }
   }
 
@@ -340,13 +335,8 @@ export function StylesModal({ onClose }) {
       setSelectedStyle(style)
       clearCreateForm()
     } catch (err) {
-      console.error('Style create-from-url failed:', err)
       const friendly = friendlyMessage(err)
-      const detail =
-        err?.code || err?.status
-          ? ` [${err?.code || ''}${err?.status ? ` ${err.status}` : ''}]`
-          : ''
-      setCreateError((friendly || err?.message || 'Could not create style from link.') + detail)
+      setCreateError(friendly || err?.message || 'Could not create style from link.')
     }
   }
 
@@ -362,7 +352,6 @@ export function StylesModal({ onClose }) {
     } catch (err) {
       // Keep the edit form open so the typed name isn't lost, but
       // surface the failure instead of swallowing it silently.
-      console.error('Style rename failed:', err)
       toast.error(friendlyMessage(err) || 'Could not rename style. Please try again.', {
         title: 'Rename failed',
         code: err?.code,
