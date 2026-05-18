@@ -623,6 +623,7 @@ class AppErrorBoundary extends Component {
 
   render() {
     if (this.state.error) {
+      const msg = this.state.error?.message || String(this.state.error)
       return (
         <div
           style={{
@@ -642,6 +643,35 @@ class AppErrorBoundary extends Component {
           <p style={{ margin: 0, color: '#aaa' }}>
             Please refresh the page. If the problem persists, contact support.
           </p>
+          <details
+            style={{
+              marginTop: '0.25rem',
+              maxWidth: '560px',
+              textAlign: 'left',
+              fontSize: '0.8rem',
+              color: '#666',
+              cursor: 'pointer',
+            }}
+          >
+            <summary style={{ color: '#888', userSelect: 'none' }}>Error details</summary>
+            <pre
+              style={{
+                marginTop: '0.5rem',
+                padding: '0.75rem',
+                background: '#111',
+                border: '1px solid #2a2a2a',
+                borderRadius: '6px',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                color: '#f87171',
+                fontSize: '0.75rem',
+                maxHeight: '200px',
+                overflow: 'auto',
+              }}
+            >
+              {msg}
+            </pre>
+          </details>
           <button
             onClick={() => window.location.reload()}
             style={{

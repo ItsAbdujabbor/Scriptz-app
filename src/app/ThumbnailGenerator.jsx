@@ -1,4 +1,13 @@
-import { useState, useCallback, useMemo, useRef, useEffect, useLayoutEffect, memo } from 'react'
+import {
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  memo,
+  Component,
+} from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createPortal } from 'react-dom'
 import {
@@ -60,6 +69,41 @@ import { broadcastCacheEvent } from '../lib/query/broadcastSync'
 import { onShellEvent } from '../lib/shellEvents'
 import { VirtualizedMessageList } from './VirtualizedMessageList'
 import './ThumbnailGenerator.css'
+
+class ChatErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { error: null }
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error }
+  }
+
+  componentDidCatch(error, info) {
+    console.error('[ChatErrorBoundary]', error, info.componentStack)
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="coach-thread-state coach-thread-error">
+          <p className="coach-thread-error__msg">
+            Chat failed to render. ({this.state.error?.message || 'unknown error'})
+          </p>
+          <button
+            type="button"
+            className="coach-thread-error__retry"
+            onClick={() => this.setState({ error: null })}
+          >
+            Retry
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 // Source-type options for the Recreate / Analyze / Edit tabbars. Icons
 // built once as JSX constants so `ThumbPillTabs`'s memoised props stay
@@ -5604,15 +5648,17 @@ export function ThumbnailGenerator({
            *   • startReached fires when near the top (load older messages)
            *   • atTopStateChange drives isScrolled header collapse state */}
           {!isHistoryLoading && !isEmptyScreen && (
-            <VirtualizedMessageList
-              messages={renderedMessages}
-              hasMoreOlder={hasMoreOlder}
-              isLoadingOlder={isLoadingOlder}
-              onLoadOlder={handleLoadOlder}
-              onAtTopChange={(atTop) => setIsScrolled(!atTop)}
-              renderItem={renderMessage}
-              conversationId={conversationId}
-            />
+            <ChatErrorBoundary>
+              <VirtualizedMessageList
+                messages={renderedMessages}
+                hasMoreOlder={hasMoreOlder}
+                isLoadingOlder={isLoadingOlder}
+                onLoadOlder={handleLoadOlder}
+                onAtTopChange={(atTop) => setIsScrolled(!atTop)}
+                renderItem={renderMessage}
+                conversationId={conversationId}
+              />
+            </ChatErrorBoundary>
           )}
         </div>
 
