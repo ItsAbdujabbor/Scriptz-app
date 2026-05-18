@@ -3077,6 +3077,7 @@ export function ThumbnailGenerator({
       clearConvPending(null)
       submitGuardRef.current = false
       sawMessagesRef.current = false
+      hasInitialScrollRef.current = false
       setMessages([])
       setLocalOnlyMessages((prev) => prev.filter((m) => m && m._conversationId != null))
       setDraft('')
@@ -3509,6 +3510,7 @@ export function ThumbnailGenerator({
     // / linkLocalToServer); long-running tabs accumulate a small
     // amount of harmless residue that hard-refresh clears.
     sawMessagesRef.current = false
+    hasInitialScrollRef.current = false
   }, [conversationId])
 
   // Auto-recovery: if we're polling because a generation was in flight AND the
@@ -3766,6 +3768,9 @@ export function ThumbnailGenerator({
   if (renderedMessages.length > 0 || pendingAssistant) {
     sawMessagesRef.current = true
   }
+  // True after the first instant snap-to-bottom on conversation open.
+  // Resets on conversation switch so each new conversation starts at bottom instantly.
+  const hasInitialScrollRef = useRef(false)
   // NOTE: the latch is wiped from the `prevConversationIdRef` effect
   // above (alongside `setLocalOnlyMessages([])`) so the two wipes share
   // one "is this a REAL chat switch?" decision. Wiping unconditionally
@@ -3814,7 +3819,16 @@ export function ThumbnailGenerator({
   // user-visible delta only, so the chat surface no longer jumps
   // during background cache updates.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    const el = messagesEndRef.current
+    if (!el) return
+    if (!hasInitialScrollRef.current) {
+      // First time messages appear in this conversation — jump to bottom instantly
+      // so the user never sees the thread scrolling down from the top.
+      el.scrollIntoView({ behavior: 'instant', block: 'end' })
+      hasInitialScrollRef.current = true
+    } else {
+      el.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }
   }, [renderedMessages.length, pendingAssistant])
 
   // Mobile soft-keyboard handling. When the keyboard opens, the visual
