@@ -3078,6 +3078,7 @@ export function ThumbnailGenerator({
       submitGuardRef.current = false
       sawMessagesRef.current = false
       hasInitialScrollRef.current = false
+      firstRenderedIdRef.current = null
       setMessages([])
       setLocalOnlyMessages((prev) => prev.filter((m) => m && m._conversationId != null))
       setDraft('')
@@ -3511,6 +3512,7 @@ export function ThumbnailGenerator({
     // amount of harmless residue that hard-refresh clears.
     sawMessagesRef.current = false
     hasInitialScrollRef.current = false
+    firstRenderedIdRef.current = null
   }, [conversationId])
 
   // Auto-recovery: if we're polling because a generation was in flight AND the
@@ -3771,6 +3773,10 @@ export function ThumbnailGenerator({
   // True after the first instant snap-to-bottom on conversation open.
   // Resets on conversation switch so each new conversation starts at bottom instantly.
   const hasInitialScrollRef = useRef(false)
+  // Tracks the ID of the first (oldest-visible) rendered message. When it
+  // changes we know older messages were prepended — skip scroll-to-bottom and
+  // let overflow-anchor: auto on .coach-thread keep the user's position stable.
+  const firstRenderedIdRef = useRef(null)
   // NOTE: the latch is wiped from the `prevConversationIdRef` effect
   // above (alongside `setLocalOnlyMessages([])`) so the two wipes share
   // one "is this a REAL chat switch?" decision. Wiping unconditionally
@@ -3825,6 +3831,16 @@ export function ThumbnailGenerator({
   useLayoutEffect(() => {
     const el = messagesEndRef.current
     if (!el) return
+
+    // Detect whether older messages were prepended (load-older page) by
+    // checking if the first visible message ID changed. When it does, the
+    // user is reading history and must not be disturbed — overflow-anchor:auto
+    // on .coach-thread keeps their position stable natively.
+    const firstId = renderedMessages.length > 0 ? (renderedMessages[0]?.id ?? null) : null
+    const prevFirstId = firstRenderedIdRef.current
+    firstRenderedIdRef.current = firstId
+    if (prevFirstId != null && firstId !== prevFirstId) return
+
     if (!hasInitialScrollRef.current) {
       // Only snap once there are messages to scroll to; skip the loading state
       // where renderedMessages is still empty (messagesEndRef is at the top).
