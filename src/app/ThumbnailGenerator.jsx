@@ -2870,6 +2870,12 @@ export function ThumbnailGenerator({
   }, [])
   const threadRef = useRef(null)
   const messagesEndRef = useRef(null)
+  // true = user is at (or near) the bottom; auto-scroll fires only then.
+  // Starts true so the initial render always lands at the newest message.
+  const isNearBottomRef = useRef(true)
+  // Tracks the conversationId that was current when the scroll effect last ran.
+  // A mismatch signals a conversation switch → instant scroll instead of smooth.
+  const convIdForScrollRef = useRef(conversationId)
   const composerFooterRef = useRef(null)
   const textareaRef = useRef(null)
   const recreateTextareaRef = useRef(null)
@@ -3817,8 +3823,23 @@ export function ThumbnailGenerator({
   // user-visible delta only, so the chat surface no longer jumps
   // during background cache updates.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [renderedMessages.length, pendingAssistant])
+    const thread = threadRef.current
+    if (!thread) return
+    const isConvSwitch = convIdForScrollRef.current !== conversationId
+    convIdForScrollRef.current = conversationId
+    if (isConvSwitch) {
+      // Instant jump on conversation switch — no smooth-scroll through history.
+      thread.scrollTop = thread.scrollHeight
+      isNearBottomRef.current = true
+      return
+    }
+    // New message or pending indicator change — only smooth-scroll when
+    // the user is already at (or near) the bottom. If they scrolled up to
+    // read history, leave their position alone.
+    if (isNearBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }
+  }, [conversationId, renderedMessages.length, pendingAssistant])
 
   // Mobile soft-keyboard handling. When the keyboard opens, the visual
   // viewport shrinks but the layout viewport (window.innerHeight) does
@@ -3867,6 +3888,7 @@ export function ThumbnailGenerator({
       raf = 0
       const next = root.scrollTop > 8
       setIsScrolled((prev) => (prev === next ? prev : next))
+      isNearBottomRef.current = root.scrollHeight - root.scrollTop - root.clientHeight <= 150
     }
     const onScroll = () => {
       if (raf) return

@@ -21,7 +21,8 @@
  * work with.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { flushSync } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
+import { useFloatingPosition } from '../lib/useFloatingPosition'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   Square as LucideSquare,
@@ -707,6 +708,7 @@ export function EditThumbnailDialog({
   const { selectedPersona, setSelectedPersona, clearSelectedPersona } = usePersonaStore()
   const { data: personasData, isPending: personasPending } = usePersonasQuery()
   const [charPickerOpen, setCharPickerOpen] = useState(false)
+  const charPickerTriggerRef = useRef(null)
 
   // Drawing state
   const [tool, setTool] = useState('brush') // 'rect' | 'brush' | 'eraser'
@@ -2426,10 +2428,11 @@ export function EditThumbnailDialog({
             /* Persona picker row — same padding/min-height as the textarea
              * so the card occupies exactly the same height in both modes. */
             <button
+              ref={charPickerTriggerRef}
               type="button"
-              onClick={() => !busy && setCharPickerOpen(true)}
+              onClick={() => !busy && setCharPickerOpen((o) => !o)}
               disabled={busy}
-              aria-haspopup="dialog"
+              aria-haspopup="listbox"
               aria-expanded={charPickerOpen}
               aria-label={
                 selectedPersona ? `Character: ${selectedPersona.name}` : 'Pick a character'
@@ -2536,6 +2539,7 @@ export function EditThumbnailDialog({
         <CharacterPickerDialog
           open={charPickerOpen}
           onClose={() => setCharPickerOpen(false)}
+          triggerRef={charPickerTriggerRef}
           items={personasData?.items ?? []}
           isPending={personasPending}
           selectedId={selectedPersona?.id}
@@ -2550,31 +2554,39 @@ export function EditThumbnailDialog({
 }
 
 /**
- * CharacterPickerDialog — centered, fixed-size dialog that lists every
- * character the user can swap onto the thumbnail.
- *
- *   ┌──────────────────────────────────────┐
- *   │  Pick a character              [×]   │  ← header
- *   ├──────────────────────────────────────┤
- *   │  ┌──┐ ┌──┐ ┌──┐                      │
- *   │  │..│ │..│ │..│  ← responsive grid   │
- *   │  └──┘ └──┘ └──┘                      │
- *   └──────────────────────────────────────┘
- *
- * Sits on top of the editor dialog (the parent <Dialog> uses the same
- * portal + max z-index so this one stacks above it). The panel is
- * width-capped at 480px and height-capped at min(560px, 88vh) so the
- * footprint is identical regardless of how many characters there are
- * — the grid scrolls inside. On mobile the panel goes full-width
- * minus the overlay's 12px gutter and adopts a 2-column grid.
+ * CharacterPickerDialog — compact floating popover anchored to its trigger.
+ * Matches the PersonaSelector / StyleSelector visual language: 220px panel,
+ * pill-shaped dark surface, list rows, purple Create pill at the footer.
  */
-function CharacterPickerDialog({ open, onClose, items, isPending, selectedId, onSelect }) {
-  // Escape closes ONLY the picker, not the parent editor underneath.
-  // We register on the capture phase and call stopImmediatePropagation
-  // so the parent <Dialog> + the editor's manual keydown listener (both
-  // attached on document, in the bubble phase) never run for this key
-  // event. Without this, hitting Escape inside the picker would unmount
-  // the whole editor in one keystroke.
+function CharacterPickerDialog({
+  open,
+  onClose,
+  triggerRef,
+  items,
+  isPending,
+  selectedId,
+  onSelect,
+}) {
+  const { popoverRef, style: popoverStyle } = useFloatingPosition({
+    triggerRef,
+    open,
+    placement: 'top-start',
+    offset: 8,
+  })
+
+  // Close on outside click (trigger + popover are both checked)
+  useEffect(() => {
+    if (!open) return
+    const handleClick = (e) => {
+      const inTrigger = triggerRef?.current?.contains(e.target)
+      const inPopover = popoverRef.current?.contains(e.target)
+      if (!inTrigger && !inPopover) onClose?.()
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open, onClose, triggerRef, popoverRef])
+
+  // Escape closes only this picker, not the parent editor
   useEffect(() => {
     if (!open) return
     const onKey = (e) => {
@@ -2587,186 +2599,161 @@ function CharacterPickerDialog({ open, onClose, items, isPending, selectedId, on
     return () => document.removeEventListener('keydown', onKey, true)
   }, [open, onClose])
 
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      size="sm"
-      ariaLabel="Pick a character"
-      className="etd-char-picker"
-      closeOnEscape={false}
-    >
+  if (!open) return null
+
+  return createPortal(
+    <>
       <style>{`
-        /* Doubled-class specificity so we beat .ui-dialog-panel--sm's
-         * 400px max-width without resorting to !important. */
-        .etd-char-picker.etd-char-picker {
-          /* Fixed footprint so the dialog never grows or shrinks based
-           * on the number of characters. The grid below scrolls inside. */
-          width: 100%;
-          max-width: 480px;
-          height: min(560px, calc(100dvh - 48px));
+        .etd-cpop {
+          position: fixed;
+          width: 220px;
+          padding: 14px 8px;
+          background: #1c1c24;
+          border: 1px solid rgba(255,255,255,0.12);
+          border-radius: 22px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.32);
+          z-index: 9999;
+          animation: etd-cpop-in 0.18s cubic-bezier(0.4,0,0.2,1) both;
         }
-        .etd-char-picker__head {
+        @keyframes etd-cpop-in {
+          from { opacity: 0; transform: translateY(4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .etd-cpop-header {
+          padding: 4px 10px 8px;
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.5);
+        }
+        .etd-cpop-inner {
+          max-height: 260px;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+        }
+        .etd-cpop-inner::-webkit-scrollbar { width: 4px; }
+        .etd-cpop-inner::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.08);
+          border-radius: 999px;
+        }
+        .etd-cpop-empty {
+          padding: 10px 12px;
+          color: rgba(255,255,255,0.45);
+          font-size: 12px;
+          text-align: center;
+        }
+        .etd-cpop-row {
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          padding: 16px 18px 12px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-          flex: 0 0 auto;
+          gap: 10px;
+          width: 100%;
+          min-height: 36px;
+          padding: 5px 12px;
+          border: none;
+          border-radius: 9999px;
+          background: transparent;
+          color: rgba(229,231,235,0.78);
+          font-size: 0.8rem;
+          font-weight: 500;
+          font-family: inherit;
+          text-align: left;
+          cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease;
         }
-        .etd-char-picker__title {
-          margin: 0;
-          font-size: 15px;
-          font-weight: 600;
+        .etd-cpop-row + .etd-cpop-row { margin-top: 2px; }
+        .etd-cpop-row:hover { background: rgba(255,255,255,0.06); color: #fff; }
+        .etd-cpop-row[aria-selected='true'] {
+          background: rgba(255,255,255,0.08);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), inset 0 0 0 1px rgba(255,255,255,0.06);
           color: #fff;
-          letter-spacing: 0.005em;
         }
-        .etd-char-picker__close {
-          width: 32px;
-          height: 32px;
-          padding: 0;
+        .etd-cpop-avatar {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          overflow: hidden;
+          flex-shrink: 0;
+          background: rgba(0,0,0,0.35);
+          border: 1px solid rgba(255,255,255,0.1);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .etd-cpop-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .etd-cpop-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .etd-cpop-badge {
+          padding: 2px 5px;
+          border-radius: 4px;
+          background: rgba(255,255,255,0.08);
+          color: rgba(255,255,255,0.6);
+          font-size: 9px;
+          text-transform: uppercase;
+        }
+        .etd-cpop-check {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          border: 0.5px solid rgba(255, 255, 255, 0.18);
-          border-radius: 999px;
-          background: rgba(12, 10, 22, 0.5);
-          color: rgba(255, 255, 255, 0.85);
-          cursor: pointer;
-          font-family: inherit;
+          margin-left: auto;
+          flex-shrink: 0;
         }
-        .etd-char-picker__body {
-          flex: 1 1 auto;
-          min-height: 0;
-          overflow-y: auto;
-          padding: 14px;
-          -webkit-overflow-scrolling: touch;
+        .etd-cpop-check svg { width: 13px; height: 13px; }
+        .etd-cpop-footer {
+          position: relative;
+          margin: 6px -2px 0;
+          padding: 10px 0 2px;
         }
-        .etd-char-picker__empty {
-          display: flex;
+        .etd-cpop-footer::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 12px; right: 12px;
+          height: 1px;
+          background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 15%, rgba(255,255,255,0.12) 85%, transparent 100%);
+          pointer-events: none;
+        }
+        .etd-cpop-create {
+          position: relative;
+          display: inline-flex;
           align-items: center;
           justify-content: center;
-          height: 100%;
-          padding: 20px;
-          font-size: 13px;
-          color: rgba(255, 255, 255, 0.55);
-          text-align: center;
-        }
-        .etd-char-picker__grid {
-          display: grid;
-          /* Auto-fills as many ~120px tiles as the body width allows;
-           * desktop tends to land on 3 columns, mobile on 2. */
-          grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-          gap: 10px;
-        }
-        .etd-char-picker__tile {
-          position: relative;
-          display: flex;
-          flex-direction: column;
-          align-items: stretch;
-          gap: 8px;
-          padding: 8px 8px 10px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 14px;
-          background: rgba(255, 255, 255, 0.04);
-          color: rgba(229, 231, 235, 0.92);
-          font-family: inherit;
-          font-size: 12.5px;
-          font-weight: 500;
-          text-align: center;
-          cursor: pointer;
-          transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s cubic-bezier(0.33, 1, 0.68, 1);
-        }
-        .etd-char-picker__tile:hover {
-          background: rgba(255, 255, 255, 0.07);
-          border-color: rgba(255, 255, 255, 0.16);
-        }
-        .etd-char-picker__tile:active {
-          transform: scale(0.98);
-        }
-        .etd-char-picker__tile[aria-selected='true'] {
-          background: linear-gradient(180deg, rgba(139, 92, 246, 0.22) 0%, rgba(139, 92, 246, 0.08) 100%);
-          border-color: rgba(167, 139, 250, 0.6);
-          color: #fff;
-          /* No outer purple drop-shadow — the violet border + tinted
-           * gradient background already communicate the selection.
-           * Inset highlight stays for the subtle top-edge shine. */
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-        }
-        .etd-char-picker__avatar {
+          gap: 6px;
           width: 100%;
-          aspect-ratio: 1 / 1;
-          border-radius: 10px;
-          overflow: hidden;
-          background: rgba(0, 0, 0, 0.35);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-        .etd-char-picker__avatar img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        }
-        .etd-char-picker__name {
-          width: 100%;
-          line-height: 1.3;
-          /* Two-line clamp so long names don't break the tile height. */
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-          word-break: break-word;
-        }
-        .etd-char-picker__badge {
-          position: absolute;
-          top: 8px;
-          right: 8px;
-          padding: 2px 7px;
+          height: 34px;
+          padding: 0 14px;
+          border: none;
           border-radius: 999px;
-          font-size: 9px;
+          background: var(--accent-gradient);
+          color: #fff;
+          font: inherit;
+          font-size: 12px;
           font-weight: 600;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-          color: rgba(255, 255, 255, 0.92);
-          background: rgba(0, 0, 0, 0.62);
-          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+          cursor: pointer;
+          outline: none;
+          overflow: hidden;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+          transition: filter 0.18s ease, transform 0.15s ease;
         }
-        @media (max-width: 480px) {
-          .etd-char-picker__head { padding: 14px 14px 10px; }
-          .etd-char-picker__body { padding: 12px; }
-          .etd-char-picker__grid {
-            /* Two columns on phones — the auto-fill above lands at 2
-             * naturally, but the explicit rule guarantees it across
-             * the narrowest devices. */
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-          }
-        }
+        .etd-cpop-create svg { width: 12px; height: 12px; }
+        .etd-cpop-create:hover { filter: brightness(1.08); }
+        .etd-cpop-create:active { transform: scale(0.95); filter: brightness(0.92); }
       `}</style>
+      <div
+        ref={popoverRef}
+        className="etd-cpop"
+        style={popoverStyle}
+        role="listbox"
+        aria-label="Characters"
+      >
+        <div className="etd-cpop-header">Characters</div>
 
-      <div className="etd-char-picker__head">
-        <h2 className="etd-char-picker__title">Pick a character</h2>
-        <button
-          type="button"
-          className="etd-char-picker__close"
-          onClick={onClose}
-          aria-label="Close character picker"
-        >
-          <IconX size={14} />
-        </button>
-      </div>
-
-      <div className="etd-char-picker__body" role="listbox" aria-label="Characters">
-        {isPending ? (
-          <div className="etd-char-picker__empty">Loading characters…</div>
-        ) : items.length === 0 ? (
-          <div className="etd-char-picker__empty">
-            No characters yet — create one from the Characters menu.
-          </div>
-        ) : (
-          <div className="etd-char-picker__grid">
-            {items.map((p) => {
+        <div className="etd-cpop-inner">
+          {isPending && <div className="etd-cpop-empty">Loading…</div>}
+          {!isPending && items.length === 0 && (
+            <div className="etd-cpop-empty">No characters yet</div>
+          )}
+          {!isPending &&
+            items.map((p) => {
               const active = selectedId === p.id
               return (
                 <button
@@ -2774,25 +2761,63 @@ function CharacterPickerDialog({ open, onClose, items, isPending, selectedId, on
                   type="button"
                   role="option"
                   aria-selected={active}
-                  className="etd-char-picker__tile"
+                  className="etd-cpop-row"
                   onClick={() => onSelect(p)}
                 >
-                  <span className="etd-char-picker__avatar">
+                  <span className="etd-cpop-avatar">
                     {p.image_url && <img src={p.image_url} alt="" loading="lazy" />}
                   </span>
-                  <span className="etd-char-picker__name">{p.name}</span>
+                  <span className="etd-cpop-name">{p.name}</span>
                   {(p.visibility === 'admin' || p.visibility === 'stock') && (
-                    <span className="etd-char-picker__badge" aria-hidden>
+                    <span className="etd-cpop-badge" aria-hidden>
                       Demo
+                    </span>
+                  )}
+                  {active && (
+                    <span className="etd-cpop-check" aria-hidden>
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
                     </span>
                   )}
                 </button>
               )
             })}
-          </div>
-        )}
+        </div>
+
+        <div className="etd-cpop-footer">
+          <button
+            type="button"
+            className="etd-cpop-create"
+            onClick={() => {
+              onClose?.()
+              window.location.hash = 'personas'
+            }}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Create
+          </button>
+        </div>
       </div>
-    </Dialog>
+    </>,
+    document.body
   )
 }
 
