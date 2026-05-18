@@ -232,6 +232,12 @@ function ContentLoadingSpinner() {
   )
 }
 
+// Kick off both chunks immediately so they're cached before the user
+// ever clicks "Create" — prevents the silent-load gap where the modal
+// appears to not open on first click (Suspense fallback=null).
+import('./app/PersonasModal').catch(() => {})
+import('./app/StylesModal').catch(() => {})
+
 const PersonasModalModule = lazy(() =>
   import('./app/PersonasModal').then((m) => ({ default: m.PersonasModal }))
 )
