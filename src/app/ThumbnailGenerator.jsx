@@ -3774,8 +3774,13 @@ export function ThumbnailGenerator({
       isNearBottomRef.current = true
       return
     }
-    if (isNearBottomRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    // Read current distance from bottom directly from the DOM — never stale.
+    // Using scrollTop assignment (instant) instead of scrollIntoView(smooth)
+    // prevents competing scroll animations fighting the user's manual drag,
+    // which was causing messages to flicker in/out of view.
+    const distFromBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight
+    if (distFromBottom <= 150) {
+      thread.scrollTop = thread.scrollHeight
     }
   }, [conversationId, renderedMessages.length, pendingAssistant])
 
