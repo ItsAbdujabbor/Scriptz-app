@@ -2918,30 +2918,6 @@
   padding-bottom: calc(var(--coach-composer-stack-px, 200px) + 38vh);
 }
 
-/* Virtualized variant: outer div is overflow:hidden; scrolling and
- * bottom-padding belong to the Virtuoso scroller and list, not the wrapper. */
-#coach-panel-thumbnails .coach-thread--thumb-panel.coach-thread--virtualized {
-  gap: 0;
-  padding-bottom: 0;
-}
-
-/* Move the thumb panel's bottom breathing-room into the Virtuoso list so the
- * last message is fully visible above the sticky composer bar. The
- * --coach-composer-stack-px var is set dynamically by the ResizeObserver on
- * the footer element; the fallback matches the thumb composer's default height. */
-#coach-panel-thumbnails .coach-thread--thumb-panel .coach-virtuoso-list {
-  padding-bottom: calc(var(--coach-composer-stack-px, 200px) + 2.5rem);
-}
-
-/* Invisible probe at the very top of the thread; the IntersectionObserver
- * watches this and triggers an older-page fetch when the user scrolls up. */
-.thumb-load-older-sentinel {
-  height: 1px;
-  width: 100%;
-  flex-shrink: 0;
-  pointer-events: none;
-}
-
 /* "Loading earlier messages…" indicator that appears above the first
  * message while the older-page fetch is in flight. Compact, low-key —
  * the user should barely notice it. */

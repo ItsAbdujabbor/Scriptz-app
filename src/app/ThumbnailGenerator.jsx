@@ -2848,10 +2848,16 @@ export function ThumbnailGenerator({
   }, [])
   const threadRef = useRef(null)
   const messagesEndRef = useRef(null)
-  const topSentinelRef = useRef(null)
   const isNearBottomRef = useRef(true)
   const convIdForScrollRef = useRef(conversationId)
   const loadingOlderRef = useRef(false)
+  // Callback ref: always points at a fresh closure that calls loadOlderMutation.mutate
+  // with the current conversationId. The scroll handler reads this via ref so it
+  // never needs to be a closure dep and never re-registers the listener.
+  const loadOlderCallbackRef = useRef(null)
+  // One-shot guard: prevents firing load-older multiple times per "near-top" episode.
+  // Reset via useEffect when the mutation settles so successive pages can load.
+  const loadOlderFiredRef = useRef(false)
   const composerFooterRef = useRef(null)
   const textareaRef = useRef(null)
   const recreateTextareaRef = useRef(null)
@@ -3081,22 +3087,22 @@ export function ThumbnailGenerator({
 
   loadingOlderRef.current = isLoadingOlder
 
+  // Keep the load-older callback ref fresh on every render so the scroll
+  // handler (which only re-registers on conversationId change) always calls
+  // the right mutation with the right id and correct hasMoreOlder check.
+  loadOlderCallbackRef.current =
+    hasMoreOlder && conversationId != null
+      ? () => {
+          if (!loadingOlderRef.current) loadOlderMutation.mutate(conversationId)
+        }
+      : null
+
+  // Reset the one-shot guard after each load-older completes so the next
+  // upward scroll can trigger a successive page fetch.
+   
   useEffect(() => {
-    const sentinel = topSentinelRef.current
-    const root = threadRef.current
-    if (!sentinel || !root || conversationId == null || !hasMoreOlder) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((e) => e.isIntersecting) || loadingOlderRef.current) return
-        // Scroll restoration is handled by the scrollHeight-delta
-        // useLayoutEffect below — no RAF/onSettled needed here.
-        loadOlderMutation.mutate(conversationId)
-      },
-      { root, rootMargin: '120px 0px 0px 0px', threshold: 0.01 }
-    )
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [conversationId, hasMoreOlder, loadOlderMutation])
+    if (!isLoadingOlder) loadOlderFiredRef.current = false
+  }, [isLoadingOlder])
 
   // When the user opens (or returns to) a conversation, stamp "seen now" so
   // the unread dot clears. Fires on every conversationId change — cheap.
@@ -3803,12 +3809,24 @@ export function ThumbnailGenerator({
   useEffect(() => {
     const root = threadRef.current
     if (!root) return
+    // Reset the load-older guard whenever the conversation changes so the
+    // first scroll-up in a freshly opened chat triggers a fetch.
+    loadOlderFiredRef.current = false
     let raf = 0
     const update = () => {
       raf = 0
-      const next = root.scrollTop > 8
+      const scrollTop = root.scrollTop
+      const next = scrollTop > 8
       setIsScrolled((prev) => (prev === next ? prev : next))
-      isNearBottomRef.current = root.scrollHeight - root.scrollTop - root.clientHeight <= 150
+      isNearBottomRef.current = root.scrollHeight - scrollTop - root.clientHeight <= 150
+      // Proactive load-older: trigger 400 px before the user hits the top so
+      // the fetch is invisible. The one-shot guard prevents repeated fires;
+      // it resets via the isLoadingOlder effect once the mutation settles,
+      // allowing successive page fetches if the user stays near the top.
+      if (scrollTop < 400 && !loadOlderFiredRef.current && loadOlderCallbackRef.current) {
+        loadOlderFiredRef.current = true
+        loadOlderCallbackRef.current()
+      }
     }
     const onScroll = () => {
       if (raf) return
@@ -5652,9 +5670,6 @@ export function ThumbnailGenerator({
             </div>
           )}
 
-          {!isHistoryLoading && hasMoreOlder && (
-            <div ref={topSentinelRef} className="thumb-load-older-sentinel" aria-hidden />
-          )}
           {!isHistoryLoading && isLoadingOlder && (
             <div className="thumb-load-older-row" role="status" aria-live="polite">
               <InlineSpinner size={12} />

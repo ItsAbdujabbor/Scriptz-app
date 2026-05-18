@@ -5,7 +5,7 @@ const BLANK_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAAL
 // Hysteresis margins:
 // - Load when within LOAD_MARGIN of the viewport (eager prefetch)
 // - Unload when more than UNLOAD_MARGIN from the viewport (reclaim memory)
-const LOAD_MARGIN = '400px'
+const LOAD_MARGIN = '600px'
 
 /**
  * LazyImg — drop-in <img> that defers loading until the element is near the

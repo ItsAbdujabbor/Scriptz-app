@@ -85,7 +85,7 @@ const THUMB_DETAIL_INITIAL_LIMIT = 15
 // Subsequent older-message page size — slightly larger because the user
 // is explicitly asking for more history, so a fatter page reduces
 // round-trips.
-const THUMB_DETAIL_OLDER_LIMIT = 40
+const THUMB_DETAIL_OLDER_LIMIT = 15
 
 export function useThumbnailConversationQuery(conversationId, options = {}) {
   const { pollWhilePending = false } = options
