@@ -2852,13 +2852,6 @@ export function ThumbnailGenerator({
   const isNearBottomRef = useRef(true)
   const convIdForScrollRef = useRef(conversationId)
   const loadingOlderRef = useRef(false)
-  // Scroll-restoration refs for the load-older prepend case.
-  // scrollHeightBeforeLoadRef: snapshot taken when isLoadingOlder goes true,
-  // cleared after restoration fires in useLayoutEffect.
-  // prevIsLoadingOlderRef: previous tick's isLoadingOlder value so we can
-  // detect the false→true transition without setState.
-  const scrollHeightBeforeLoadRef = useRef(0)
-  const prevIsLoadingOlderRef = useRef(false)
   const composerFooterRef = useRef(null)
   const textareaRef = useRef(null)
   const recreateTextareaRef = useRef(null)
@@ -3104,39 +3097,6 @@ export function ThumbnailGenerator({
     observer.observe(sentinel)
     return () => observer.disconnect()
   }, [conversationId, hasMoreOlder, loadOlderMutation])
-
-  // ── Scroll-position restoration when older messages are prepended ────────
-  // Step 1: snapshot scrollHeight the moment loading starts (false→true).
-  // Must be a useEffect (not layoutEffect) so it runs after paint — by then
-  // the loading-spinner row is in the DOM and its height is included in the
-  // snapshot, so the delta calculation in step 2 stays accurate.
-  useEffect(() => {
-    if (!prevIsLoadingOlderRef.current && isLoadingOlder) {
-      scrollHeightBeforeLoadRef.current = threadRef.current?.scrollHeight ?? 0
-    }
-    prevIsLoadingOlderRef.current = isLoadingOlder
-  }, [isLoadingOlder])
-
-  // Step 2: restore position BEFORE the browser paints the updated list.
-  // useLayoutEffect fires synchronously after the DOM mutation but before
-  // the browser composites — the user never sees the prepended messages
-  // flash to the top. No setState → no synchronous cascade.
-  //
-  // Dep is [isLoadingOlder] only: React 18 auto-batches the mutation's
-  // isPending→false flip AND the setQueryData cache update into one render,
-  // so by the time this effect fires the new messages ARE already in the DOM
-  // and thread.scrollHeight already includes them. Using renderedMessages.length
-  // here would cause a temporal-dead-zone ReferenceError because renderedMessages
-  // is declared later (useMemo at ~line 3600) and const is not hoisted.
-  useLayoutEffect(() => {
-    const thread = threadRef.current
-    if (!thread) return
-    if (!isLoadingOlder && scrollHeightBeforeLoadRef.current > 0) {
-      const delta = thread.scrollHeight - scrollHeightBeforeLoadRef.current
-      if (delta > 0) thread.scrollTop += delta
-      scrollHeightBeforeLoadRef.current = 0
-    }
-  }, [isLoadingOlder])
 
   // When the user opens (or returns to) a conversation, stamp "seen now" so
   // the unread dot clears. Fires on every conversationId change — cheap.
@@ -3848,7 +3808,7 @@ export function ThumbnailGenerator({
       raf = 0
       const next = root.scrollTop > 8
       setIsScrolled((prev) => (prev === next ? prev : next))
-      isNearBottomRef.current = root.scrollHeight - root.scrollTop - root.clientHeight <= 300
+      isNearBottomRef.current = root.scrollHeight - root.scrollTop - root.clientHeight <= 150
     }
     const onScroll = () => {
       if (raf) return
