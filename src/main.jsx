@@ -144,37 +144,50 @@ if (typeof window !== 'undefined') {
 
 const queryClient = createAppQueryClient()
 setAppQueryClient(queryClient)
-// Cap the in-memory thumbnail conversation cache at the most-recent 50
-// chats; persists the order to localStorage so the LRU bookkeeping
-// survives reloads (messages re-fetch lazily on first open).
-installConversationLRU(queryClient, { capacity: 50 })
+
+// Both calls read/write localStorage; a DOMException (private-browsing
+// storage block) or a SyntaxError (corrupted stored JSON) would propagate
+// to the top of the module and prevent createRoot from ever being reached,
+// leaving a permanently blank page.
+try {
+  // Cap the in-memory thumbnail conversation cache at the most-recent 50
+  // chats; persists the order to localStorage so the LRU bookkeeping
+  // survives reloads (messages re-fetch lazily on first open).
+  installConversationLRU(queryClient, { capacity: 50 })
+} catch (e) {
+  console.warn('[clixa] installConversationLRU failed (localStorage?)', e)
+}
 
 // Cross-tab cache sync. When tab A persists a new message or a
 // failure event, it broadcasts the delta; every other tab on the
 // same origin applies the same `setQueryData` so the conversation
 // detail stays in sync without an extra fetch. See broadcastSync.js
 // for the message shapes.
-subscribeCacheEvents((evt) => {
-  if (!evt || typeof evt !== 'object') return
-  if (evt.kind === 'conversation:append') {
-    const { conversationId, items } = evt
-    if (conversationId == null || !Array.isArray(items) || items.length === 0) return
-    queryClient.setQueryData(queryKeys.thumbnails.conversation(conversationId), (prev) => {
-      if (!prev) return prev
-      const cur = prev.messages?.items || []
-      const knownIds = new Set(cur.map((m) => m?.id))
-      const additions = items.filter((m) => m && !knownIds.has(m.id))
-      if (additions.length === 0) return prev
-      return { ...prev, messages: { ...(prev.messages || {}), items: [...cur, ...additions] } }
-    })
-  } else if (evt.kind === 'conversation:invalidate' && evt.conversationId != null) {
-    queryClient.invalidateQueries({
-      queryKey: queryKeys.thumbnails.conversation(evt.conversationId),
-    })
-  } else if (evt.kind === 'conversations:invalidate') {
-    queryClient.invalidateQueries({ queryKey: ['thumbnails', 'conversations'], exact: false })
-  }
-})
+try {
+  subscribeCacheEvents((evt) => {
+    if (!evt || typeof evt !== 'object') return
+    if (evt.kind === 'conversation:append') {
+      const { conversationId, items } = evt
+      if (conversationId == null || !Array.isArray(items) || items.length === 0) return
+      queryClient.setQueryData(queryKeys.thumbnails.conversation(conversationId), (prev) => {
+        if (!prev) return prev
+        const cur = prev.messages?.items || []
+        const knownIds = new Set(cur.map((m) => m?.id))
+        const additions = items.filter((m) => m && !knownIds.has(m.id))
+        if (additions.length === 0) return prev
+        return { ...prev, messages: { ...(prev.messages || {}), items: [...cur, ...additions] } }
+      })
+    } else if (evt.kind === 'conversation:invalidate' && evt.conversationId != null) {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.thumbnails.conversation(evt.conversationId),
+      })
+    } else if (evt.kind === 'conversations:invalidate') {
+      queryClient.invalidateQueries({ queryKey: ['thumbnails', 'conversations'], exact: false })
+    }
+  })
+} catch (e) {
+  console.warn('[clixa] subscribeCacheEvents failed', e)
+}
 
 const rootEl = document.getElementById('root')
 if (!rootEl) {

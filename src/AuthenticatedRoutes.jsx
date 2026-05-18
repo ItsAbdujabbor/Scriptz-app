@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, lazy, Suspense, useEffect } from 'react'
+import { useState, useCallback, useMemo, lazy, Suspense, useEffect, Component } from 'react'
 import { useAuthStore } from './stores/authStore'
 import { useSidebarStore } from './stores/sidebarStore'
 import { useCurrentScreen } from './lib/useCurrentScreen'
@@ -150,7 +150,9 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
         <div className={unifiedClass}>
           {sidebar}
           <main className={mainClass}>
-            <Suspense fallback={<ContentLoadingSpinner />}>{content}</Suspense>
+            <RouteErrorBoundary>
+              <Suspense fallback={<ContentLoadingSpinner />}>{content}</Suspense>
+            </RouteErrorBoundary>
           </main>
         </div>
       </div>
@@ -200,6 +202,66 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
   )
 }
 
+/**
+ * Route-level error boundary. Catches render errors inside the main
+ * content area (ThumbnailGenerator, etc.) and shows a contained recovery UI
+ * instead of letting the error bubble to AppErrorBoundary and dismount the
+ * entire shell. The sidebar and modals keep working; only the main pane
+ * crashes.
+ */
+class RouteErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { error: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { error }
+  }
+  componentDidCatch(error, info) {
+    console.error('[RouteErrorBoundary]', error, info.componentStack)
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            minHeight: '60vh',
+            gap: '1rem',
+            textAlign: 'center',
+            padding: '2rem',
+          }}
+        >
+          <p style={{ color: '#f87171', margin: 0, fontWeight: 500 }}>
+            This view crashed. The rest of the app is still running.
+          </p>
+          <button
+            onClick={() => {
+              this.setState({ error: null })
+              window.location.hash = 'thumbnails'
+            }}
+            style={{
+              padding: '0.5rem 1.4rem',
+              background: '#1e1e2e',
+              color: '#e5e5e5',
+              border: '1px solid #333',
+              borderRadius: '8px',
+              cursor: 'pointer',
+            }}
+          >
+            Go to home
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 function ContentLoadingSpinner() {
   return (
     <div
@@ -243,7 +305,7 @@ const PersonasModalModule = lazy(() =>
 )
 function PersonasModalLazy({ onClose }) {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<ContentLoadingSpinner />}>
       <PersonasModalModule onClose={onClose} />
     </Suspense>
   )
@@ -254,7 +316,7 @@ const StylesModalModule = lazy(() =>
 )
 function StylesModalLazy({ onClose }) {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<ContentLoadingSpinner />}>
       <StylesModalModule onClose={onClose} />
     </Suspense>
   )
@@ -276,7 +338,7 @@ function SettingsLazy({ onLogout, returnHash = 'thumbnails' }) {
     }
   }, [returnHash])
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<ContentLoadingSpinner />}>
       <SettingsModule open onClose={handleClose} onLogout={onLogout} />
     </Suspense>
   )

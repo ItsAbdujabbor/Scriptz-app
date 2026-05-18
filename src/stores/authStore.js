@@ -107,12 +107,22 @@ export const useAuthStore = create((set, get) => ({
       error: null,
     })
     if (user) {
-      rumSetUser(user)
-      identify(user)
-      // Client-side login signal. The backend will also emit a server-side
-      // signup/login event from auth_oauth — that one is authoritative; this
-      // one just keeps the session_id stitched to the user_id on the client.
-      track('client_session_authenticated', { user_id: user.id })
+      // Wrapped individually: analytics/RUM libraries can throw when
+      // blocked by an adblocker that mutates their globals. A throw here
+      // would propagate all the way up to ensureSession → the App useEffect
+      // .catch block, forcing a redirect to sign-in even though auth succeeded.
+      try {
+        rumSetUser(user)
+      } catch {}
+      try {
+        identify(user)
+      } catch {}
+      try {
+        // Client-side login signal. The backend will also emit a server-side
+        // signup/login event from auth_oauth — that one is authoritative; this
+        // one just keeps the session_id stitched to the user_id on the client.
+        track('client_session_authenticated', { user_id: user.id })
+      } catch {}
     }
     get()._startProactiveRefresh()
   },
@@ -132,9 +142,15 @@ export const useAuthStore = create((set, get) => ({
     clearSession()
     touchLastUserId(null)
     set({ user: null, accessToken: null, refreshToken: null, expiresAt: null, error: null })
-    rumClearUser()
-    identify(null)
-    track('client_session_cleared')
+    try {
+      rumClearUser()
+    } catch {}
+    try {
+      identify(null)
+    } catch {}
+    try {
+      track('client_session_cleared')
+    } catch {}
   },
 
   clearError() {

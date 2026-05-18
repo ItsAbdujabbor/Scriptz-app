@@ -262,7 +262,15 @@ function App() {
   // "Free → Pro" flash. The async `prefetchSubscription` below
   // revalidates from the server right after `ensureSession` resolves.
   useLayoutEffect(() => {
-    seedSubscriptionFromCache(queryClient)
+    // localStorage access inside seedSubscriptionFromCache can throw
+    // (DOMException in private-browsing, SyntaxError on corrupted data).
+    // A synchronous throw from useLayoutEffect that escapes React's own
+    // try-catch becomes an unhandled error and leaves the page blank.
+    try {
+      seedSubscriptionFromCache(queryClient)
+    } catch (e) {
+      console.warn('[clixa] seedSubscriptionFromCache failed', e)
+    }
   }, [queryClient])
 
   useEffect(() => {
@@ -480,7 +488,12 @@ function App() {
     return <Splash label="Signing you in…" />
   }
 
-  const appViews = ['dashboard', 'thumbnails', 'optimize', 'billing']
+  // Every view that renders the authenticated shell must wait for the
+  // session check to complete before mounting — otherwise components
+  // that read `user.id`, `user.tier`, etc. receive null and crash.
+  // 'settings' and 'pro' were previously absent here, allowing hard-
+  // reload on those hashes to render the shell with user=null.
+  const appViews = ['dashboard', 'thumbnails', 'optimize', 'billing', 'settings', 'pro', 'checkout']
   const needsSessionBeforeRender = appViews.includes(view)
   // Branded splash on first authenticated entry — held while session
   // hydrates AND the subscription / history prefetches kick off in the
