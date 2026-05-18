@@ -1,13 +1,4 @@
-import {
-  useState,
-  useCallback,
-  useMemo,
-  useRef,
-  useEffect,
-  useLayoutEffect,
-  memo,
-  Component,
-} from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect, useLayoutEffect, memo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createPortal } from 'react-dom'
 import {
@@ -42,7 +33,7 @@ import * as pendingActions from '../stores/pendingActionStore'
 import { EditThumbnailDialog } from '../components/EditThumbnailDialog'
 import ThumbnailTopBar from '../components/ThumbnailTopBar'
 import { TabBar } from '../components/TabBar'
-import { Dropdown, PrimaryPill } from '../components/ui'
+import { Dropdown, PrimaryPill, InlineSpinner } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChatHistorySkeleton } from '../components/ChatHistorySkeleton'
@@ -67,43 +58,7 @@ import { canvasToBase64Png } from '../lib/canvasToBase64'
 import { queryKeys } from '../lib/query/queryKeys'
 import { broadcastCacheEvent } from '../lib/query/broadcastSync'
 import { onShellEvent } from '../lib/shellEvents'
-import { VirtualizedMessageList } from './VirtualizedMessageList'
 import './ThumbnailGenerator.css'
-
-class ChatErrorBoundary extends Component {
-  constructor(props) {
-    super(props)
-    this.state = { error: null }
-  }
-
-  static getDerivedStateFromError(error) {
-    return { error }
-  }
-
-  componentDidCatch(error, info) {
-    console.error('[ChatErrorBoundary]', error, info.componentStack)
-  }
-
-  render() {
-    if (this.state.error) {
-      return (
-        <div className="coach-thread-state coach-thread-error">
-          <p className="coach-thread-error__msg">
-            Chat failed to render. ({this.state.error?.message || 'unknown error'})
-          </p>
-          <button
-            type="button"
-            className="coach-thread-error__retry"
-            onClick={() => this.setState({ error: null })}
-          >
-            Retry
-          </button>
-        </div>
-      )
-    }
-    return this.props.children
-  }
-}
 
 // Source-type options for the Recreate / Analyze / Edit tabbars. Icons
 // built once as JSX constants so `ThumbPillTabs`'s memoised props stay
@@ -2891,6 +2846,12 @@ export function ThumbnailGenerator({
       if (editFetchRef.current) clearTimeout(editFetchRef.current)
     }
   }, [])
+  const threadRef = useRef(null)
+  const messagesEndRef = useRef(null)
+  const topSentinelRef = useRef(null)
+  const isNearBottomRef = useRef(true)
+  const convIdForScrollRef = useRef(conversationId)
+  const loadingOlderRef = useRef(false)
   const composerFooterRef = useRef(null)
   const textareaRef = useRef(null)
   const recreateTextareaRef = useRef(null)
@@ -2912,7 +2873,6 @@ export function ThumbnailGenerator({
   // read. Default false so first paint shows the expanded "welcome"
   // sizing.
   const [isScrolled, setIsScrolled] = useState(false)
-  const handleAtTopChange = useCallback((atTop) => setIsScrolled(!atTop), [])
   const modePaneFromHeightRef = useRef(null)
 
   // Rotating composer hint — rendered as an overlay on top of the
@@ -3119,10 +3079,33 @@ export function ThumbnailGenerator({
   const hasMoreOlder = Boolean(conversationQuery.data?.messages?.has_more)
   const isLoadingOlder = loadOlderMutation.isPending
 
-  const handleLoadOlder = useCallback(() => {
-    if (conversationId == null) return
-    loadOlderMutation.mutate(conversationId)
-  }, [loadOlderMutation, conversationId])
+  loadingOlderRef.current = isLoadingOlder
+
+  useEffect(() => {
+    const sentinel = topSentinelRef.current
+    const root = threadRef.current
+    if (!sentinel || !root || conversationId == null || !hasMoreOlder) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.some((e) => e.isIntersecting)
+        if (!visible || loadingOlderRef.current) return
+        const anchorEl = root.querySelector('.coach-message')
+        const anchorOffsetFromTop = anchorEl ? anchorEl.offsetTop - root.scrollTop : 0
+        loadOlderMutation.mutate(conversationId, {
+          onSettled: () => {
+            if (!anchorEl) return
+            requestAnimationFrame(() => {
+              if (!root || !anchorEl) return
+              root.scrollTop = anchorEl.offsetTop - anchorOffsetFromTop
+            })
+          },
+        })
+      },
+      { root, rootMargin: '120px 0px 0px 0px', threshold: 0.01 }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [conversationId, hasMoreOlder, loadOlderMutation])
 
   // When the user opens (or returns to) a conversation, stamp "seen now" so
   // the unread dot clears. Fires on every conversationId change — cheap.
@@ -3780,6 +3763,43 @@ export function ThumbnailGenerator({
     !pendingAssistant &&
     !sawMessagesRef.current
   const layoutCentered = isEmptyScreen || isHistoryLoading
+
+  useEffect(() => {
+    const thread = threadRef.current
+    if (!thread) return
+    const isConvSwitch = convIdForScrollRef.current !== conversationId
+    convIdForScrollRef.current = conversationId
+    if (isConvSwitch) {
+      thread.scrollTop = thread.scrollHeight
+      isNearBottomRef.current = true
+      return
+    }
+    if (isNearBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }
+  }, [conversationId, renderedMessages.length, pendingAssistant])
+
+  useEffect(() => {
+    const root = threadRef.current
+    if (!root) return
+    let raf = 0
+    const update = () => {
+      raf = 0
+      const next = root.scrollTop > 8
+      setIsScrolled((prev) => (prev === next ? prev : next))
+      isNearBottomRef.current = root.scrollHeight - root.scrollTop - root.clientHeight <= 150
+    }
+    const onScroll = () => {
+      if (raf) return
+      raf = window.requestAnimationFrame(update)
+    }
+    update()
+    root.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      if (raf) window.cancelAnimationFrame(raf)
+      root.removeEventListener('scroll', onScroll)
+    }
+  }, [conversationId])
 
   // Mobile soft-keyboard handling. When the keyboard opens, the visual
   // viewport shrinks but the layout viewport (window.innerHeight) does
@@ -4973,34 +4993,6 @@ export function ThumbnailGenerator({
     ]
   )
 
-  const renderMessage = useCallback(
-    (msg) => {
-      if (msg?._kind === 'failure') {
-        return <FailedAttemptBlock entry={msg} onRetry={handleRetryFailedAttempt} />
-      }
-      return (
-        <ChatMessageItem
-          msg={msg}
-          onReplaceThumbnail={handleReplaceThumbnail}
-          onRegenerate={handleRegenerateOne}
-          onOneClickFix={handleOneClickFixWithImage}
-          onViewImage={openThumbLightbox}
-          onEditImage={openEditorForThumbnail}
-          onUseTitle={handleUseTitleAsPrompt}
-        />
-      )
-    },
-    [
-      handleRetryFailedAttempt,
-      handleReplaceThumbnail,
-      handleRegenerateOne,
-      handleOneClickFixWithImage,
-      openThumbLightbox,
-      openEditorForThumbnail,
-      handleUseTitleAsPrompt,
-    ]
-  )
-
   // Keep the per-mode submit refs pointing at the latest closures so the
   // failure-card retry dispatcher (and the toast Retry action) always
   // invoke the most recent handler with current state. Runs after every
@@ -5610,7 +5602,8 @@ export function ThumbnailGenerator({
          * (via body.clixa-thumb-screen). */}
         <ThumbnailTopBar />
         <div
-          className={`coach-thread coach-thread--virtualized ${layoutCentered ? 'coach-thread--empty' : ''} coach-thread--thumb-panel ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
+          ref={threadRef}
+          className={`coach-thread coach-thread--thumb-panel ${layoutCentered ? 'coach-thread--empty' : ''} ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
         >
           {isHistoryLoading && <ChatHistorySkeleton />}
 
@@ -5632,29 +5625,41 @@ export function ThumbnailGenerator({
             </div>
           ) : null}
 
-          {/* Empty greeting shown when no conversation is selected.
-           * Rendered as a plain sibling above the virtualized list so it
-           * doesn't interfere with Virtuoso's flex layout. */}
           {isEmptyScreen && (
             <div className="coach-empty-state thumb-empty-state">
               <h1>{emptyGreeting}</h1>
             </div>
           )}
 
-          {/* Virtualized message list — replaces the old topSentinelRef +
-           * scroll-position preservation via DOM scroll-height delta */}
-          {!isHistoryLoading && !isEmptyScreen && (
-            <ChatErrorBoundary>
-              <VirtualizedMessageList
-                messages={renderedMessages}
-                hasMoreOlder={hasMoreOlder}
-                isLoadingOlder={isLoadingOlder}
-                onLoadOlder={handleLoadOlder}
-                onAtTopChange={handleAtTopChange}
-                renderItem={renderMessage}
-              />
-            </ChatErrorBoundary>
+          {!isHistoryLoading && hasMoreOlder && (
+            <div ref={topSentinelRef} className="thumb-load-older-sentinel" aria-hidden />
           )}
+          {!isHistoryLoading && isLoadingOlder && (
+            <div className="thumb-load-older-row" role="status" aria-live="polite">
+              <InlineSpinner size={12} />
+              <span>Loading earlier messages…</span>
+            </div>
+          )}
+
+          {!isHistoryLoading &&
+            renderedMessages.map((msg) =>
+              msg?._kind === 'failure' ? (
+                <FailedAttemptBlock key={msg.id} entry={msg} onRetry={handleRetryFailedAttempt} />
+              ) : (
+                <ChatMessageItem
+                  key={msg.id}
+                  msg={msg}
+                  onReplaceThumbnail={handleReplaceThumbnail}
+                  onRegenerate={handleRegenerateOne}
+                  onOneClickFix={handleOneClickFixWithImage}
+                  onViewImage={openThumbLightbox}
+                  onEditImage={openEditorForThumbnail}
+                  onUseTitle={handleUseTitleAsPrompt}
+                />
+              )
+            )}
+
+          <div ref={messagesEndRef} />
         </div>
 
         <div className="thumb-bg-fx-shadow" aria-hidden="true" />
