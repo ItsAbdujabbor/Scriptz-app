@@ -3121,6 +3121,13 @@ export function ThumbnailGenerator({
   // useLayoutEffect fires synchronously after the DOM mutation but before
   // the browser composites — the user never sees the prepended messages
   // flash to the top. No setState → no synchronous cascade.
+  //
+  // Dep is [isLoadingOlder] only: React 18 auto-batches the mutation's
+  // isPending→false flip AND the setQueryData cache update into one render,
+  // so by the time this effect fires the new messages ARE already in the DOM
+  // and thread.scrollHeight already includes them. Using renderedMessages.length
+  // here would cause a temporal-dead-zone ReferenceError because renderedMessages
+  // is declared later (useMemo at ~line 3600) and const is not hoisted.
   useLayoutEffect(() => {
     const thread = threadRef.current
     if (!thread) return
@@ -3129,7 +3136,7 @@ export function ThumbnailGenerator({
       if (delta > 0) thread.scrollTop += delta
       scrollHeightBeforeLoadRef.current = 0
     }
-  }, [isLoadingOlder, renderedMessages.length])
+  }, [isLoadingOlder])
 
   // When the user opens (or returns to) a conversation, stamp "seen now" so
   // the unread dot clears. Fires on every conversationId change — cheap.
