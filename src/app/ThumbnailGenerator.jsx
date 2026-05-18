@@ -5651,13 +5651,13 @@ export function ThumbnailGenerator({
           {!isHistoryLoading && !isEmptyScreen && (
             <ChatErrorBoundary>
               <VirtualizedMessageList
+                key={conversationId ?? 'new'}
                 messages={renderedMessages}
                 hasMoreOlder={hasMoreOlder}
                 isLoadingOlder={isLoadingOlder}
                 onLoadOlder={handleLoadOlder}
                 onAtTopChange={handleAtTopChange}
                 renderItem={renderMessage}
-                conversationId={conversationId}
               />
             </ChatErrorBoundary>
           )}
