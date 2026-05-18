@@ -4242,20 +4242,19 @@
 .thumb-titles-grid {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
 }
 
 .thumb-title-card {
   position: relative;
-  display: grid;
-  grid-template-columns: 28px 1fr auto;
-  align-items: start;
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   width: 100%;
-  padding: 14px 16px;
+  padding: 12px 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
+  border-radius: 14px;
   background: #1c1c24;
   background-image: linear-gradient(
     180deg,
@@ -4267,11 +4266,10 @@
   text-align: left;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 6px 20px rgba(0, 0, 0, 0.28);
+    0 4px 16px rgba(0, 0, 0, 0.22);
   transition:
-    border-color 0.24s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.24s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.2s cubic-bezier(0.33, 1, 0.68, 1);
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
   animation: thumb-title-card-in 0.52s cubic-bezier(0.22, 1, 0.36, 1) both;
   overflow: hidden;
 }
@@ -4290,42 +4288,27 @@
 }
 
 .thumb-title-card:hover {
-  border-color: rgba(167, 139, 250, 0.4);
-  transform: translateY(-2px);
+  border-color: rgba(167, 139, 250, 0.3);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 12px 32px rgba(0, 0, 0, 0.42),
-    0 0 0 1px rgba(124, 58, 237, 0.18),
-    0 0 24px rgba(124, 58, 237, 0.08);
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 6px 20px rgba(0, 0, 0, 0.32);
 }
 
 .thumb-title-card:hover::before {
   opacity: 1;
 }
 
-.thumb-title-card__index {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  margin-top: 1px;
-  border-radius: 50%;
-  background: rgba(167, 139, 250, 0.18);
-  color: #c4b5fd;
-  font-size: 11px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-  animation: thumb-title-index-pop 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  animation-delay: inherit;
-}
-
 .thumb-title-card__body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
   min-width: 0;
+}
+
+.thumb-title-card__footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .thumb-title-card__title {
@@ -4345,14 +4328,13 @@
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  margin-top: 2px;
-  padding: 3px 9px;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 700;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 0.68rem;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   animation: thumb-title-score-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both;
   animation-delay: inherit;
 }
@@ -4519,7 +4501,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 1px;
+  margin-left: auto;
   flex-shrink: 0;
 }
 

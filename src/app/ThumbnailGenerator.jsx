@@ -1849,75 +1849,78 @@ function TitleIdeasBlock({ titles, onUseTitle }) {
               className="thumb-title-card"
               style={{ animationDelay: `${Math.min(i * 60, 780)}ms` }}
             >
-              <span className="thumb-title-card__index">{i + 1}</span>
               <span className="thumb-title-card__body">
                 <span className="thumb-title-card__title">{title}</span>
+              </span>
+              <span className="thumb-title-card__footer">
                 {Number.isFinite(t?.score) && (
                   <span
                     className={`thumb-title-card__score thumb-title-card__score--${titleScoreTier(t.score)}`}
-                    aria-label={`Click-likelihood score: ${t.score} of 100`}
-                    title="Click-likelihood score"
+                    aria-label={`Score: ${t.score}`}
                   >
-                    <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden>
-                      <path d="M12 2 14.55 8.5 21.5 9 16.25 13.6 17.85 20.5 12 17.1 6.15 20.5 7.75 13.6 2.5 9l6.95-.5L12 2z" />
-                    </svg>
                     <span className="thumb-title-card__score-num">{t.score}</span>
                   </span>
                 )}
-              </span>
-              <span className="thumb-title-card__actions">
-                <button
-                  type="button"
-                  className={`thumb-title-action thumb-title-action--icon ${copied ? 'thumb-title-action--copied' : ''}`}
-                  onClick={() => handleCopy(title, i)}
-                  aria-label={copied ? 'Copied' : `Copy title: ${title}`}
-                  title={copied ? 'Copied' : 'Copy title'}
-                >
-                  {copied ? (
-                    <svg
-                      viewBox="0 0 24 24"
-                      width="14"
-                      height="14"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  ) : (
-                    <svg
-                      viewBox="0 0 24 24"
-                      width="14"
-                      height="14"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden
-                    >
-                      <rect x="9" y="9" width="13" height="13" rx="2" />
-                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                    </svg>
-                  )}
-                </button>
-                {onUseTitle && (
+                <span className="thumb-title-card__actions">
                   <button
                     type="button"
-                    className="thumb-title-action thumb-title-action--primary"
-                    onClick={() => onUseTitle(title)}
-                    aria-label={`Generate a thumbnail for: ${title}`}
-                    title="Generate a thumbnail with this title"
+                    className={`thumb-title-action thumb-title-action--icon ${copied ? 'thumb-title-action--copied' : ''}`}
+                    onClick={() => handleCopy(title, i)}
+                    aria-label={copied ? 'Copied' : 'Copy title'}
+                    title={copied ? 'Copied' : 'Copy title'}
                   >
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden>
-                      <path d="M19.5,24a1,1,0,0,1-.929-.628l-.844-2.113-2.116-.891a1.007,1.007,0,0,1,.035-1.857l2.088-.791.837-2.092a1.008,1.008,0,0,1,1.858,0l.841,2.1,2.1.841a1.007,1.007,0,0,1,0,1.858l-2.1.841-.841,2.1A1,1,0,0,1,19.5,24ZM10,21a2,2,0,0,1-1.936-1.413L6.45,14.54,1.387,12.846a2.032,2.032,0,0,1,.052-3.871L6.462,7.441,8.154,2.387A1.956,1.956,0,0,1,10.108,1a2,2,0,0,1,1.917,1.439l1.532,5.015,5.03,1.61a2.042,2.042,0,0,1,0,3.872h0l-5.039,1.612-1.612,5.039A2,2,0,0,1,10,21Z" />
-                    </svg>
-                    <span>Generate</span>
+                    {copied ? (
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="13"
+                        height="13"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    ) : (
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="13"
+                        height="13"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden
+                      >
+                        <rect x="9" y="9" width="13" height="13" rx="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                    )}
                   </button>
-                )}
+                  {onUseTitle && (
+                    <button
+                      type="button"
+                      className="thumb-title-action thumb-title-action--primary"
+                      onClick={() => onUseTitle(title)}
+                      aria-label={`Generate thumbnail for: ${title}`}
+                      title="Generate a thumbnail with this title"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="12"
+                        height="12"
+                        fill="currentColor"
+                        aria-hidden
+                      >
+                        <path d="M19.5,24a1,1,0,0,1-.929-.628l-.844-2.113-2.116-.891a1.007,1.007,0,0,1,.035-1.857l2.088-.791.837-2.092a1.008,1.008,0,0,1,1.858,0l.841,2.1,2.1.841a1.007,1.007,0,0,1,0,1.858l-2.1.841-.841,2.1A1,1,0,0,1,19.5,24ZM10,21a2,2,0,0,1-1.936-1.413L6.45,14.54,1.387,12.846a2.032,2.032,0,0,1,.052-3.871L6.462,7.441,8.154,2.387A1.956,1.956,0,0,1,10.108,1a2,2,0,0,1,1.917,1.439l1.532,5.015,5.03,1.61a2.042,2.042,0,0,1,0,3.872h0l-5.039,1.612-1.612,5.039A2,2,0,0,1,10,21Z" />
+                      </svg>
+                      <span>Generate</span>
+                    </button>
+                  )}
+                </span>
               </span>
             </div>
           )
