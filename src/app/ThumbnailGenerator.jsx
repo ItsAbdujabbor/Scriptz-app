@@ -3764,22 +3764,46 @@ export function ThumbnailGenerator({
     !sawMessagesRef.current
   const layoutCentered = isEmptyScreen || isHistoryLoading
 
-  useEffect(() => {
+  // ── Initial snap-to-bottom ───────────────────────────────────────────────
+  // Tracks whether the current conversation has been snapped to the bottom
+  // yet. Reset on every conversationId change so each new chat gets a fresh
+  // snap, and set to true once the snap fires so subsequent renders (new
+  // messages arriving, streaming updates) don't redundantly re-snap.
+  const snapDoneRef = useRef(false)
+
+  // Step 1 — reset the snap flag the moment the conversation changes.
+  // Runs before step 2 (React runs layoutEffects in declaration order).
+  useLayoutEffect(() => {
+    snapDoneRef.current = false
+  }, [conversationId])
+
+  // Step 2 — snap to the bottom BEFORE the browser paints, so the user
+  // never sees a one-frame flash of messages starting at the top.
+  // Only fires when history has finished loading (isHistoryLoading=false)
+  // and the snap hasn't been done yet for this conversation.
+  useLayoutEffect(() => {
+    if (isHistoryLoading) return
+    if (snapDoneRef.current) return
     const thread = threadRef.current
     if (!thread) return
+    thread.scrollTop = thread.scrollHeight
+    isNearBottomRef.current = true
+    snapDoneRef.current = true
+  }, [conversationId, isHistoryLoading])
+
+  // ── Auto-scroll for subsequent messages ─────────────────────────────────
+  // After the initial snap, keep the view pinned to the bottom only when
+  // the user is already near the bottom (isNearBottomRef.current = true).
+  // Conversation-switch scrolling is handled above in useLayoutEffect.
+  // Uses instant scrollTop (not scrollIntoView smooth) to prevent competing
+  // animations from fighting the user's manual drag.
+  useEffect(() => {
+    const thread = threadRef.current
+    if (!thread || isHistoryLoading) return
     const isConvSwitch = convIdForScrollRef.current !== conversationId
     convIdForScrollRef.current = conversationId
-    if (isConvSwitch) {
-      thread.scrollTop = thread.scrollHeight
-      isNearBottomRef.current = true
-      return
-    }
-    // Read current distance from bottom directly from the DOM — never stale.
-    // Using scrollTop assignment (instant) instead of scrollIntoView(smooth)
-    // prevents competing scroll animations fighting the user's manual drag,
-    // which was causing messages to flicker in/out of view.
-    const distFromBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight
-    if (distFromBottom <= 150) {
+    if (isConvSwitch) return
+    if (isNearBottomRef.current) {
       thread.scrollTop = thread.scrollHeight
     }
   }, [conversationId, renderedMessages.length, pendingAssistant])

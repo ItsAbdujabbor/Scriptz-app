@@ -28,13 +28,16 @@ export function LazyImg({ src, alt = '', className = '', rootMargin = LOAD_MARGI
   const ref = useRef(null)
   const [loaded, setLoaded] = useState(false)
   // `revealed` flips true once the real image decodes — drives the opacity
-  // fade-in. Reset alongside `loaded` in the unload timer so images fade in
-  // again when they re-enter after being evicted from GPU memory.
+  // fade-in. Never reset after the initial reveal so the image stays visible
+  // once it has loaded (unloading would cause images to disappear while
+  // scrolling, which hurts perceived quality in the chat thread).
   const [revealed, setRevealed] = useState(false)
   const [dims, setDims] = useState(null)
-  const unloadTimerRef = useRef(null)
 
   // ── Load observer ────────────────────────────────────────────────
+  // Defers the network fetch until the element is within LOAD_MARGIN of the
+  // viewport. Once loaded it stays loaded for the lifetime of the component —
+  // there is intentionally no unload observer.
   useEffect(() => {
     if (loaded) return undefined
     const el = ref.current
@@ -46,10 +49,6 @@ export function LazyImg({ src, alt = '', className = '', rootMargin = LOAD_MARGI
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          if (unloadTimerRef.current) {
-            clearTimeout(unloadTimerRef.current)
-            unloadTimerRef.current = null
-          }
           setLoaded(true)
           io.disconnect()
         }
@@ -59,42 +58,6 @@ export function LazyImg({ src, alt = '', className = '', rootMargin = LOAD_MARGI
     io.observe(el)
     return () => io.disconnect()
   }, [loaded, rootMargin])
-
-  // ── Unload observer ──────────────────────────────────────────────
-  useEffect(() => {
-    if (!loaded) return undefined
-    const el = ref.current
-    if (!el || typeof IntersectionObserver === 'undefined') return undefined
-
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) {
-          if (!unloadTimerRef.current) {
-            unloadTimerRef.current = setTimeout(() => {
-              unloadTimerRef.current = null
-              setLoaded(false)
-              // Reset revealed so the image fades in again on next load cycle.
-              setRevealed(false)
-            }, 2000)
-          }
-        } else {
-          if (unloadTimerRef.current) {
-            clearTimeout(unloadTimerRef.current)
-            unloadTimerRef.current = null
-          }
-        }
-      },
-      { rootMargin: UNLOAD_MARGIN, threshold: 0 }
-    )
-    io.observe(el)
-    return () => {
-      io.disconnect()
-      if (unloadTimerRef.current) {
-        clearTimeout(unloadTimerRef.current)
-        unloadTimerRef.current = null
-      }
-    }
-  }, [loaded])
 
   // ── Src change: reset dims so new image can record its own ratio ─
   const prevSrcRef = useRef(src)
