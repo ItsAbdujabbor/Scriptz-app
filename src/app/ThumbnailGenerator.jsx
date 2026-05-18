@@ -1694,8 +1694,6 @@ const AnalyzeLoaderCard = memo(function AnalyzeLoaderCard({ imageUrl }) {
  * percentage text, no progress bar — the shimmer alone reads as
  * "thinking" and keeps the surface calm.
  */
-const GEN_TITLE_WIDTHS = [72, 65, 78, 60, 74, 68, 56, 70, 63, 76, 58, 67]
-
 const TitlesLoader = memo(function TitlesLoader({ count = 4 }) {
   const rows = Math.max(1, Math.min(count, 12))
   return (
@@ -1705,21 +1703,12 @@ const TitlesLoader = memo(function TitlesLoader({ count = 4 }) {
           <div
             key={i}
             className="thumb-title-card thumb-title-card--gen"
-            style={{
-              '--title-w': `${GEN_TITLE_WIDTHS[i % GEN_TITLE_WIDTHS.length]}%`,
-              animationDelay: `${i * 70}ms`,
-            }}
+            style={{ animationDelay: `${i * 70}ms` }}
             aria-hidden
           >
             <span className="thumb-title-card__index thumb-title-card__index--gen">{i + 1}</span>
-            <span className="thumb-title-card__body">
-              <span className="thumb-title-card__gen-line thumb-title-card__gen-line--title" />
-            </span>
+            <span className="thumb-title-card__gen-line" />
             <span className="thumb-title-card__gen-spinner" aria-hidden="true" />
-            <span className="thumb-title-card__gen-actions">
-              <span className="thumb-title-card__gen-btn" />
-              <span className="thumb-title-card__gen-btn thumb-title-card__gen-btn--primary" />
-            </span>
           </div>
         ))}
       </div>
@@ -1847,10 +1836,9 @@ function TitleIdeasBlock({ titles, onUseTitle }) {
               className="thumb-title-card"
               style={{ animationDelay: `${Math.min(i * 60, 780)}ms` }}
             >
-              <span className="thumb-title-card__body">
-                <span className="thumb-title-card__title">{title}</span>
-              </span>
-              <span className="thumb-title-card__footer">
+              <span className="thumb-title-card__index">{i + 1}</span>
+              <span className="thumb-title-card__title">{title}</span>
+              <span className="thumb-title-card__actions">
                 {Number.isFinite(t?.score) && (
                   <span
                     className={`thumb-title-card__score thumb-title-card__score--${titleScoreTier(t.score)}`}
@@ -1859,66 +1847,58 @@ function TitleIdeasBlock({ titles, onUseTitle }) {
                     <span className="thumb-title-card__score-num">{t.score}</span>
                   </span>
                 )}
-                <span className="thumb-title-card__actions">
+                <button
+                  type="button"
+                  className={`thumb-title-action thumb-title-action--icon ${copied ? 'thumb-title-action--copied' : ''}`}
+                  onClick={() => handleCopy(title, i)}
+                  aria-label={copied ? 'Copied' : 'Copy title'}
+                  title={copied ? 'Copied' : 'Copy title'}
+                >
+                  {copied ? (
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="13"
+                      height="13"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : (
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="13"
+                      height="13"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <rect x="9" y="9" width="13" height="13" rx="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                  )}
+                </button>
+                {onUseTitle && (
                   <button
                     type="button"
-                    className={`thumb-title-action thumb-title-action--icon ${copied ? 'thumb-title-action--copied' : ''}`}
-                    onClick={() => handleCopy(title, i)}
-                    aria-label={copied ? 'Copied' : 'Copy title'}
-                    title={copied ? 'Copied' : 'Copy title'}
+                    className="thumb-title-action thumb-title-action--primary"
+                    onClick={() => onUseTitle(title)}
+                    aria-label={`Generate thumbnail for: ${title}`}
+                    title="Generate a thumbnail with this title"
                   >
-                    {copied ? (
-                      <svg
-                        viewBox="0 0 24 24"
-                        width="13"
-                        height="13"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.4"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                      >
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    ) : (
-                      <svg
-                        viewBox="0 0 24 24"
-                        width="13"
-                        height="13"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                      >
-                        <rect x="9" y="9" width="13" height="13" rx="2" />
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                      </svg>
-                    )}
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden>
+                      <path d="M19.5,24a1,1,0,0,1-.929-.628l-.844-2.113-2.116-.891a1.007,1.007,0,0,1,.035-1.857l2.088-.791.837-2.092a1.008,1.008,0,0,1,1.858,0l.841,2.1,2.1.841a1.007,1.007,0,0,1,0,1.858l-2.1.841-.841,2.1A1,1,0,0,1,19.5,24ZM10,21a2,2,0,0,1-1.936-1.413L6.45,14.54,1.387,12.846a2.032,2.032,0,0,1,.052-3.871L6.462,7.441,8.154,2.387A1.956,1.956,0,0,1,10.108,1a2,2,0,0,1,1.917,1.439l1.532,5.015,5.03,1.61a2.042,2.042,0,0,1,0,3.872h0l-5.039,1.612-1.612,5.039A2,2,0,0,1,10,21Z" />
+                    </svg>
+                    <span>Generate</span>
                   </button>
-                  {onUseTitle && (
-                    <button
-                      type="button"
-                      className="thumb-title-action thumb-title-action--primary"
-                      onClick={() => onUseTitle(title)}
-                      aria-label={`Generate thumbnail for: ${title}`}
-                      title="Generate a thumbnail with this title"
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        width="12"
-                        height="12"
-                        fill="currentColor"
-                        aria-hidden
-                      >
-                        <path d="M19.5,24a1,1,0,0,1-.929-.628l-.844-2.113-2.116-.891a1.007,1.007,0,0,1,.035-1.857l2.088-.791.837-2.092a1.008,1.008,0,0,1,1.858,0l.841,2.1,2.1.841a1.007,1.007,0,0,1,0,1.858l-2.1.841-.841,2.1A1,1,0,0,1,19.5,24ZM10,21a2,2,0,0,1-1.936-1.413L6.45,14.54,1.387,12.846a2.032,2.032,0,0,1,.052-3.871L6.462,7.441,8.154,2.387A1.956,1.956,0,0,1,10.108,1a2,2,0,0,1,1.917,1.439l1.532,5.015,5.03,1.61a2.042,2.042,0,0,1,0,3.872h0l-5.039,1.612-1.612,5.039A2,2,0,0,1,10,21Z" />
-                      </svg>
-                      <span>Generate</span>
-                    </button>
-                  )}
-                </span>
+                )}
               </span>
             </div>
           )
