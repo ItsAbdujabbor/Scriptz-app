@@ -150,11 +150,7 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
         <div className={unifiedClass}>
           {sidebar}
           <main className={mainClass}>
-            {/* Suspense fallback is intentionally empty — the sidebar +
-             *  shell stay rendered, so the user sees the chrome instantly
-             *  while the view chunk loads. Dashboard's own skeletons take
-             *  over the moment its module resolves. */}
-            <Suspense fallback={null}>{content}</Suspense>
+            <Suspense fallback={<ContentLoadingSpinner />}>{content}</Suspense>
           </main>
         </div>
       </div>
@@ -200,6 +196,38 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
       <CelebrationOverlay />
       <SubscriptionActivationSplash />
       <PaymentProcessingBanner />
+    </div>
+  )
+}
+
+function ContentLoadingSpinner() {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+        minHeight: '60vh',
+        opacity: 0.35,
+      }}
+    >
+      <svg
+        width="28"
+        height="28"
+        viewBox="0 0 28 28"
+        fill="none"
+        style={{ animation: 'rotate360 0.7s linear infinite' }}
+      >
+        <style>{`@keyframes rotate360{to{transform:rotate(360deg)}}`}</style>
+        <circle cx="14" cy="14" r="11" stroke="currentColor" strokeWidth="3" strokeOpacity="0.2" />
+        <path
+          d="M14 3a11 11 0 0 1 11 11"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+      </svg>
     </div>
   )
 }

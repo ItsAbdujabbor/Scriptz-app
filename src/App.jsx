@@ -490,7 +490,10 @@ function App() {
     return <Splash label="Setting up your workspace" />
   }
   if (appViews.includes(view) && !accessToken) {
-    return null
+    // Session check completed but no token (failure or race). Show splash
+    // instead of null so there's no black frame — the redirect effect fires
+    // on the next tick and navigates to auth.
+    return <Splash label="Setting up your workspace" />
   }
 
   // Banned: take over the screen.
@@ -615,19 +618,42 @@ class AppErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
-     
     console.error('[AppErrorBoundary]', error, info.componentStack)
   }
 
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: '2rem', textAlign: 'center', color: '#ff6b6b' }}>
-          <h2>Something went wrong</h2>
-          <p>Please refresh the page. If the problem persists, contact support.</p>
+        <div
+          style={{
+            minHeight: '100vh',
+            background: '#0a0a0e',
+            color: '#e5e5e5',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            padding: '2rem',
+            gap: '1rem',
+          }}
+        >
+          <h2 style={{ color: '#ff6b6b', margin: 0 }}>Something went wrong</h2>
+          <p style={{ margin: 0, color: '#aaa' }}>
+            Please refresh the page. If the problem persists, contact support.
+          </p>
           <button
             onClick={() => window.location.reload()}
-            style={{ marginTop: '1rem', padding: '0.5rem 1.5rem' }}
+            style={{
+              marginTop: '0.5rem',
+              padding: '0.6rem 1.6rem',
+              background: '#1e1e2e',
+              color: '#e5e5e5',
+              border: '1px solid #333',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '0.95rem',
+            }}
           >
             Refresh
           </button>
