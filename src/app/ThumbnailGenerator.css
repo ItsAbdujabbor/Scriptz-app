@@ -876,6 +876,38 @@
    * without breaking the clip. */
 }
 
+/* ── Image-loading shimmer ──────────────────────────────────────────────
+ * Shown on the 16:9 placeholder while LazyImg is idle or loading.
+ * Uses :has() scoped to img[data-state] so the analyze-stage (plain <img>,
+ * no data-state) keeps its own animation system and is unaffected.
+ * Clears automatically when LazyImg sets data-state="revealed". */
+@keyframes thumb-img-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.thumb-batch-img-wrap:has(img[data-state]:not([data-state='revealed'])) {
+  background: linear-gradient(
+    90deg,
+    var(--dash-surface-page, #0e0e12) 25%,
+    var(--dash-surface-card, #18181c) 50%,
+    var(--dash-surface-page, #0e0e12) 75%
+  );
+  background-size: 200% 100%;
+  animation: thumb-img-shimmer 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb-batch-img-wrap:has(img[data-state]:not([data-state='revealed'])) {
+    animation: none;
+    background: var(--dash-surface-page, #0e0e12);
+  }
+}
+
 /* ──────────────────────────────────────────────────────────────────────
  * SCORE PILL — pill-shaped liquid-glass badge with a tier-tinted glow.
  * Sits in the top-right of the image stage, always-visible.

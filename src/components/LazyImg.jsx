@@ -1,42 +1,36 @@
 import { useEffect, useRef, useState } from 'react'
 
-/**
- * 1×1 transparent GIF — placeholder `src` used before the real URL is
- * loaded for the first time. Keeps the <img> element cheap until the
- * element approaches the viewport.
- */
 const BLANK_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
 
 /**
- * LazyImg — drop-in `<img>` that defers loading until the element
- * approaches the viewport (IntersectionObserver + native `loading=lazy`
- * as a fallback). Once the real image has loaded, it stays in memory —
- * we never swap back to a placeholder on scroll.
+ * LazyImg — defers loading until the element approaches the viewport
+ * (IntersectionObserver, falling back to native `loading=lazy`).
  *
- * The "swap-out offscreen" trick from an earlier revision caused visible
- * flashes when users scrolled back to a loaded image: the real `src`
- * was replaced with a blank pixel, and the re-swap-back exposed the
- * brief decode delay. One-way loading removes that glitch at the cost
- * of holding decoded bitmaps longer (which is what the browser does
- * natively anyway with `loading="lazy"`).
+ * Three states:
+ *   idle     – blank pixel shown; IO not yet fired
+ *   loading  – real src set; waiting for the image to decode
+ *   revealed – image decoded; fades in, shimmer on parent clears
+ *
+ * The parent `.thumb-batch-img-wrap` reads `data-state` via :has() to
+ * display a moving shimmer while idle or loading (see ThumbnailGenerator.css).
  */
-export function LazyImg({ src, alt = '', className = '', rootMargin = '800px', ...rest }) {
+export function LazyImg({ src, alt = '', className = '', rootMargin = '800px', style, ...rest }) {
   const ref = useRef(null)
-  const [loaded, setLoaded] = useState(false)
-  const [dims, setDims] = useState(null)
+  const [state, setState] = useState('idle')
+  const prevSrcRef = useRef(src)
 
   useEffect(() => {
-    if (loaded) return undefined
+    if (state !== 'idle') return undefined
     const el = ref.current
     if (!el) return undefined
     if (typeof IntersectionObserver === 'undefined') {
-      setLoaded(true)
+      setState('loading')
       return undefined
     }
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setLoaded(true)
+          setState('loading')
           io.disconnect()
         }
       },
@@ -44,39 +38,38 @@ export function LazyImg({ src, alt = '', className = '', rootMargin = '800px', .
     )
     io.observe(el)
     return () => io.disconnect()
-  }, [loaded, rootMargin])
+  }, [state, rootMargin])
 
-  // When `src` changes to a *different* URL, keep the previously loaded
-  // image visible while the new one decodes — don't slam it back to the
-  // blank pixel. Cached images then appear instantly with no flash; only
-  // the intrinsic dimensions reset (the new image reports its own on
-  // load). If the element was never loaded yet, leave `loaded` false so
-  // the IntersectionObserver still gates the first fetch.
-  const prevSrcRef = useRef(src)
   useEffect(() => {
     if (src === prevSrcRef.current) return
     prevSrcRef.current = src
-    setDims(null)
+    // If already in view, go straight to loading; otherwise stay idle so IO fires.
+    setState((s) => (s === 'idle' ? 'idle' : 'loading'))
   }, [src])
 
   const handleLoad = (e) => {
-    if (dims) return
+    if (state === 'revealed') return
     const { naturalWidth, naturalHeight } = e.currentTarget
     if (naturalWidth > 2 && naturalHeight > 2) {
-      setDims({ w: naturalWidth, h: naturalHeight })
+      setState('revealed')
     }
   }
 
   return (
     <img
       ref={ref}
-      src={loaded ? src : BLANK_PIXEL}
+      src={state === 'idle' ? BLANK_PIXEL : src}
       alt={alt}
       className={className}
       loading="lazy"
       decoding="async"
+      data-state={state}
       onLoad={handleLoad}
-      style={dims ? { aspectRatio: `${dims.w} / ${dims.h}` } : undefined}
+      style={{
+        opacity: state === 'revealed' ? 1 : 0,
+        transition: state === 'revealed' ? 'opacity 0.35s ease' : 'none',
+        ...style,
+      }}
       {...rest}
     />
   )
