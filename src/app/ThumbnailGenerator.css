@@ -2963,6 +2963,14 @@
   max-width: var(--coach-content-width);
   align-self: center;
   gap: 0.5rem;
+  /* Let the browser skip style/layout/paint for off-screen messages.
+   * This is the CSS-native path to stable memory — no JS needed, no
+   * flickering. contain-intrinsic-size gives the browser a size hint
+   * so layout is stable while the element is skipped. 600px covers
+   * a typical assistant card with one thumbnail; the browser uses the
+   * real rendered height once the element scrolls into view. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 600px;
 }
 
 #coach-panel-thumbnails .coach-thread--thumb-panel .coach-message--assistant .coach-message-bubble {

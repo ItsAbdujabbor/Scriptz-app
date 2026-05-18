@@ -2852,6 +2852,13 @@ export function ThumbnailGenerator({
   const isNearBottomRef = useRef(true)
   const convIdForScrollRef = useRef(conversationId)
   const loadingOlderRef = useRef(false)
+  // Scroll-restoration refs for the load-older prepend case.
+  // scrollHeightBeforeLoadRef: snapshot taken when isLoadingOlder goes true,
+  // cleared after restoration fires in useLayoutEffect.
+  // prevIsLoadingOlderRef: previous tick's isLoadingOlder value so we can
+  // detect the false→true transition without setState.
+  const scrollHeightBeforeLoadRef = useRef(0)
+  const prevIsLoadingOlderRef = useRef(false)
   const composerFooterRef = useRef(null)
   const textareaRef = useRef(null)
   const recreateTextareaRef = useRef(null)
@@ -3087,25 +3094,42 @@ export function ThumbnailGenerator({
     if (!sentinel || !root || conversationId == null || !hasMoreOlder) return
     const observer = new IntersectionObserver(
       (entries) => {
-        const visible = entries.some((e) => e.isIntersecting)
-        if (!visible || loadingOlderRef.current) return
-        const anchorEl = root.querySelector('.coach-message')
-        const anchorOffsetFromTop = anchorEl ? anchorEl.offsetTop - root.scrollTop : 0
-        loadOlderMutation.mutate(conversationId, {
-          onSettled: () => {
-            if (!anchorEl) return
-            requestAnimationFrame(() => {
-              if (!root || !anchorEl) return
-              root.scrollTop = anchorEl.offsetTop - anchorOffsetFromTop
-            })
-          },
-        })
+        if (!entries.some((e) => e.isIntersecting) || loadingOlderRef.current) return
+        // Scroll restoration is handled by the scrollHeight-delta
+        // useLayoutEffect below — no RAF/onSettled needed here.
+        loadOlderMutation.mutate(conversationId)
       },
       { root, rootMargin: '120px 0px 0px 0px', threshold: 0.01 }
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
   }, [conversationId, hasMoreOlder, loadOlderMutation])
+
+  // ── Scroll-position restoration when older messages are prepended ────────
+  // Step 1: snapshot scrollHeight the moment loading starts (false→true).
+  // Must be a useEffect (not layoutEffect) so it runs after paint — by then
+  // the loading-spinner row is in the DOM and its height is included in the
+  // snapshot, so the delta calculation in step 2 stays accurate.
+  useEffect(() => {
+    if (!prevIsLoadingOlderRef.current && isLoadingOlder) {
+      scrollHeightBeforeLoadRef.current = threadRef.current?.scrollHeight ?? 0
+    }
+    prevIsLoadingOlderRef.current = isLoadingOlder
+  }, [isLoadingOlder])
+
+  // Step 2: restore position BEFORE the browser paints the updated list.
+  // useLayoutEffect fires synchronously after the DOM mutation but before
+  // the browser composites — the user never sees the prepended messages
+  // flash to the top. No setState → no synchronous cascade.
+  useLayoutEffect(() => {
+    const thread = threadRef.current
+    if (!thread) return
+    if (!isLoadingOlder && scrollHeightBeforeLoadRef.current > 0) {
+      const delta = thread.scrollHeight - scrollHeightBeforeLoadRef.current
+      if (delta > 0) thread.scrollTop += delta
+      scrollHeightBeforeLoadRef.current = 0
+    }
+  }, [isLoadingOlder, renderedMessages.length])
 
   // When the user opens (or returns to) a conversation, stamp "seen now" so
   // the unread dot clears. Fires on every conversationId change — cheap.
@@ -3795,18 +3819,19 @@ export function ThumbnailGenerator({
   // After the initial snap, keep the view pinned to the bottom only when
   // the user is already near the bottom (isNearBottomRef.current = true).
   // Conversation-switch scrolling is handled above in useLayoutEffect.
-  // Uses instant scrollTop (not scrollIntoView smooth) to prevent competing
-  // animations from fighting the user's manual drag.
+  // Skips entirely while isLoadingOlder is true — the prepend useLayoutEffect
+  // owns scroll position during that window; competing here would fight it
+  // and cause a visible jump back to the bottom mid-prepend.
   useEffect(() => {
     const thread = threadRef.current
-    if (!thread || isHistoryLoading) return
+    if (!thread || isHistoryLoading || isLoadingOlder) return
     const isConvSwitch = convIdForScrollRef.current !== conversationId
     convIdForScrollRef.current = conversationId
     if (isConvSwitch) return
     if (isNearBottomRef.current) {
       thread.scrollTop = thread.scrollHeight
     }
-  }, [conversationId, renderedMessages.length, pendingAssistant])
+  }, [conversationId, renderedMessages.length, pendingAssistant, isLoadingOlder])
 
   useEffect(() => {
     const root = threadRef.current
@@ -3816,7 +3841,7 @@ export function ThumbnailGenerator({
       raf = 0
       const next = root.scrollTop > 8
       setIsScrolled((prev) => (prev === next ? prev : next))
-      isNearBottomRef.current = root.scrollHeight - root.scrollTop - root.clientHeight <= 150
+      isNearBottomRef.current = root.scrollHeight - root.scrollTop - root.clientHeight <= 300
     }
     const onScroll = () => {
       if (raf) return
