@@ -110,11 +110,13 @@ export function useThumbnailConversationQuery(conversationId, options = {}) {
       touchConversation(conversationId)
       return data
     },
-    // Detail tier: 5min stale (instant re-renders when switching back),
-    // 30min gc (keeps recently-visited threads in memory across nav).
-    // The LRU bookkeeper caps it at 50 conversations regardless.
-    staleTime: 5 * 60_000,
-    gcTime: 30 * 60_000,
+    // Keep every opened conversation in memory indefinitely. With Infinity
+    // staleTime the query never re-fetches on its own (only on explicit
+    // invalidation), so switching back to a chat is always instant and
+    // conversationQuery.isPending is never true for a previously-opened
+    // thread — which is what was causing the blank-screen flash.
+    staleTime: Infinity,
+    gcTime: Infinity,
     refetchOnWindowFocus: false,
     refetchInterval: pollWhilePending ? 4000 : false,
     refetchIntervalInBackground: pollWhilePending,
