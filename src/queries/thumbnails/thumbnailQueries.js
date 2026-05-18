@@ -81,7 +81,7 @@ export function useThumbnailConversationsQuery(params = {}) {
 // of the conversation; older messages load on demand via the load-older
 // helper (`useLoadOlderThumbnailMessagesMutation`). 30 covers the typical
 // thread visible without scrolling and keeps the wire payload tiny.
-const THUMB_DETAIL_INITIAL_LIMIT = 15
+const THUMB_DETAIL_INITIAL_LIMIT = 30
 // Subsequent older-message page size — slightly larger because the user
 // is explicitly asking for more history, so a fatter page reduces
 // round-trips.

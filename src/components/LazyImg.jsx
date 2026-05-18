@@ -1,40 +1,30 @@
 import { useEffect, useRef, useState } from 'react'
 
+/**
+ * 1×1 transparent GIF — placeholder `src` used before the real URL is
+ * loaded for the first time. Keeps the <img> element cheap until the
+ * element approaches the viewport.
+ */
 const BLANK_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
 
-// Hysteresis margins:
-// - Load when within LOAD_MARGIN of the viewport (eager prefetch)
-// - Unload when more than UNLOAD_MARGIN from the viewport (reclaim memory)
-const LOAD_MARGIN = '1000px'
-const UNLOAD_MARGIN = '3500px'
-
 /**
- * LazyImg — drop-in <img> that defers loading until the element is near the
- * viewport, unloads the decoded bitmap when it scrolls far away, and fades in
- * each time the real image decodes (no abrupt pop-in).
+ * LazyImg — drop-in `<img>` that defers loading until the element
+ * approaches the viewport (IntersectionObserver + native `loading=lazy`
+ * as a fallback). Once the real image has loaded, it stays in memory —
+ * we never swap back to a placeholder on scroll.
  *
- * Three-state lifecycle per load cycle:
- *   idle     → element not yet in range, blank pixel showing
- *   loading  → element in range, real src assigned, browser fetching/decoding
- *   revealed → onLoad fired for real image, opacity transition to 1
- *
- * `data-state` is placed on the <img> so parent CSS can hang a shimmer
- * skeleton off it via :has(> img:not([data-state="revealed"])).
- *
- * Hysteresis: load at 1000 px, unload at 3500 px with a 2 s debounce.
- * `dims` (aspect-ratio) persists across cycles → zero layout shift on reload.
+ * The "swap-out offscreen" trick from an earlier revision caused visible
+ * flashes when users scrolled back to a loaded image: the real `src`
+ * was replaced with a blank pixel, and the re-swap-back exposed the
+ * brief decode delay. One-way loading removes that glitch at the cost
+ * of holding decoded bitmaps longer (which is what the browser does
+ * natively anyway with `loading="lazy"`).
  */
-export function LazyImg({ src, alt = '', className = '', rootMargin = LOAD_MARGIN, ...rest }) {
+export function LazyImg({ src, alt = '', className = '', rootMargin = '800px', ...rest }) {
   const ref = useRef(null)
   const [loaded, setLoaded] = useState(false)
-  // `revealed` flips true once the real image decodes — drives the opacity
-  // fade-in. Reset alongside `loaded` in the unload timer so images fade in
-  // again when they re-enter after being evicted from GPU memory.
-  const [revealed, setRevealed] = useState(false)
   const [dims, setDims] = useState(null)
-  const unloadTimerRef = useRef(null)
 
-  // ── Load observer ────────────────────────────────────────────────
   useEffect(() => {
     if (loaded) return undefined
     const el = ref.current
@@ -46,10 +36,6 @@ export function LazyImg({ src, alt = '', className = '', rootMargin = LOAD_MARGI
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          if (unloadTimerRef.current) {
-            clearTimeout(unloadTimerRef.current)
-            unloadTimerRef.current = null
-          }
           setLoaded(true)
           io.disconnect()
         }
@@ -60,64 +46,26 @@ export function LazyImg({ src, alt = '', className = '', rootMargin = LOAD_MARGI
     return () => io.disconnect()
   }, [loaded, rootMargin])
 
-  // ── Unload observer ──────────────────────────────────────────────
-  useEffect(() => {
-    if (!loaded) return undefined
-    const el = ref.current
-    if (!el || typeof IntersectionObserver === 'undefined') return undefined
-
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) {
-          if (!unloadTimerRef.current) {
-            unloadTimerRef.current = setTimeout(() => {
-              unloadTimerRef.current = null
-              setLoaded(false)
-              // Reset revealed so the image fades in again on next load cycle.
-              setRevealed(false)
-            }, 2000)
-          }
-        } else {
-          if (unloadTimerRef.current) {
-            clearTimeout(unloadTimerRef.current)
-            unloadTimerRef.current = null
-          }
-        }
-      },
-      { rootMargin: UNLOAD_MARGIN, threshold: 0 }
-    )
-    io.observe(el)
-    return () => {
-      io.disconnect()
-      if (unloadTimerRef.current) {
-        clearTimeout(unloadTimerRef.current)
-        unloadTimerRef.current = null
-      }
-    }
-  }, [loaded])
-
-  // ── Src change: reset dims so new image can record its own ratio ─
+  // When `src` changes to a *different* URL, keep the previously loaded
+  // image visible while the new one decodes — don't slam it back to the
+  // blank pixel. Cached images then appear instantly with no flash; only
+  // the intrinsic dimensions reset (the new image reports its own on
+  // load). If the element was never loaded yet, leave `loaded` false so
+  // the IntersectionObserver still gates the first fetch.
   const prevSrcRef = useRef(src)
   useEffect(() => {
     if (src === prevSrcRef.current) return
     prevSrcRef.current = src
     setDims(null)
-    setRevealed(false)
   }, [src])
 
   const handleLoad = (e) => {
+    if (dims) return
     const { naturalWidth, naturalHeight } = e.currentTarget
-    // Blank pixel is 1×1 — skip it. Only record dims and reveal for
-    // the real image (which is always larger than 2×2).
     if (naturalWidth > 2 && naturalHeight > 2) {
-      if (!dims) setDims({ w: naturalWidth, h: naturalHeight })
-      setRevealed(true)
+      setDims({ w: naturalWidth, h: naturalHeight })
     }
   }
-
-  // Three-state string written as a data attribute so parent CSS can
-  // target loading vs revealed states without extra wrapper elements.
-  const state = !loaded ? 'idle' : !revealed ? 'loading' : 'revealed'
 
   return (
     <img
@@ -127,17 +75,8 @@ export function LazyImg({ src, alt = '', className = '', rootMargin = LOAD_MARGI
       className={className}
       loading="lazy"
       decoding="async"
-      data-state={state}
       onLoad={handleLoad}
-      style={{
-        ...(dims ? { aspectRatio: `${dims.w} / ${dims.h}` } : undefined),
-        // Keep opacity 0 until revealed so the parent's shimmer skeleton
-        // shows through during fetch. Transition only fires AFTER revealed
-        // flips to true (adding transition + changing opacity in the same
-        // commit triggers the browser's native CSS transition correctly).
-        opacity: state === 'revealed' ? 1 : 0,
-        transition: revealed ? 'opacity 0.32s ease' : 'none',
-      }}
+      style={dims ? { aspectRatio: `${dims.w} / ${dims.h}` } : undefined}
       {...rest}
     />
   )
