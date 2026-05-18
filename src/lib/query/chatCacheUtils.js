@@ -4,11 +4,12 @@
  */
 import { thumbnailsApi } from '../../api/thumbnails'
 import { getAccessTokenOrNull } from './authToken'
+import { queryFreshness } from './queryConfig'
 import { queryKeys } from './queryKeys'
 
 export const chatThreadQueryOptions = {
-  staleTime: Infinity,
-  gcTime: Infinity,
+  staleTime: queryFreshness.chatThread,
+  gcTime: queryFreshness.chatThreadGc,
   /** Threads are merged explicitly; avoid refetch flicker when returning to the tab. */
   refetchOnWindowFocus: false,
 }

@@ -33,7 +33,7 @@ import * as pendingActions from '../stores/pendingActionStore'
 import { EditThumbnailDialog } from '../components/EditThumbnailDialog'
 import ThumbnailTopBar from '../components/ThumbnailTopBar'
 import { TabBar } from '../components/TabBar'
-import { Dropdown, PrimaryPill, InlineSpinner } from '../components/ui'
+import { Dropdown, PrimaryPill } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChatHistorySkeleton } from '../components/ChatHistorySkeleton'
@@ -58,6 +58,7 @@ import { canvasToBase64Png } from '../lib/canvasToBase64'
 import { queryKeys } from '../lib/query/queryKeys'
 import { broadcastCacheEvent } from '../lib/query/broadcastSync'
 import { onShellEvent } from '../lib/shellEvents'
+import { VirtualizedMessageList } from './VirtualizedMessageList'
 import './ThumbnailGenerator.css'
 
 // Source-type options for the Recreate / Analyze / Edit tabbars. Icons
@@ -2846,18 +2847,6 @@ export function ThumbnailGenerator({
       if (editFetchRef.current) clearTimeout(editFetchRef.current)
     }
   }, [])
-  const threadRef = useRef(null)
-  const messagesEndRef = useRef(null)
-  const isNearBottomRef = useRef(true)
-  const convIdForScrollRef = useRef(conversationId)
-  const loadingOlderRef = useRef(false)
-  // Callback ref: always points at a fresh closure that calls loadOlderMutation.mutate
-  // with the current conversationId. The scroll handler reads this via ref so it
-  // never needs to be a closure dep and never re-registers the listener.
-  const loadOlderCallbackRef = useRef(null)
-  // One-shot guard: prevents firing load-older multiple times per "near-top" episode.
-  // Reset via useEffect when the mutation settles so successive pages can load.
-  const loadOlderFiredRef = useRef(false)
   const composerFooterRef = useRef(null)
   const textareaRef = useRef(null)
   const recreateTextareaRef = useRef(null)
@@ -3085,24 +3074,10 @@ export function ThumbnailGenerator({
   const hasMoreOlder = Boolean(conversationQuery.data?.messages?.has_more)
   const isLoadingOlder = loadOlderMutation.isPending
 
-  loadingOlderRef.current = isLoadingOlder
-
-  // Keep the load-older callback ref fresh on every render so the scroll
-  // handler (which only re-registers on conversationId change) always calls
-  // the right mutation with the right id and correct hasMoreOlder check.
-  loadOlderCallbackRef.current =
-    hasMoreOlder && conversationId != null
-      ? () => {
-          if (!loadingOlderRef.current) loadOlderMutation.mutate(conversationId)
-        }
-      : null
-
-  // Reset the one-shot guard after each load-older completes so the next
-  // upward scroll can trigger a successive page fetch.
-   
-  useEffect(() => {
-    if (!isLoadingOlder) loadOlderFiredRef.current = false
-  }, [isLoadingOlder])
+  const handleLoadOlder = useCallback(() => {
+    if (conversationId == null) return
+    loadOlderMutation.mutate(conversationId)
+  }, [loadOlderMutation, conversationId])
 
   // When the user opens (or returns to) a conversation, stamp "seen now" so
   // the unread dot clears. Fires on every conversationId change — cheap.
@@ -3760,85 +3735,6 @@ export function ThumbnailGenerator({
     !pendingAssistant &&
     !sawMessagesRef.current
   const layoutCentered = isEmptyScreen || isHistoryLoading
-
-  // ── Initial snap-to-bottom ───────────────────────────────────────────────
-  // Tracks whether the current conversation has been snapped to the bottom
-  // yet. Reset on every conversationId change so each new chat gets a fresh
-  // snap, and set to true once the snap fires so subsequent renders (new
-  // messages arriving, streaming updates) don't redundantly re-snap.
-  const snapDoneRef = useRef(false)
-
-  // Step 1 — reset the snap flag the moment the conversation changes.
-  // Runs before step 2 (React runs layoutEffects in declaration order).
-  useLayoutEffect(() => {
-    snapDoneRef.current = false
-  }, [conversationId])
-
-  // Step 2 — snap to the bottom BEFORE the browser paints, so the user
-  // never sees a one-frame flash of messages starting at the top.
-  // Only fires when history has finished loading (isHistoryLoading=false)
-  // and the snap hasn't been done yet for this conversation.
-  useLayoutEffect(() => {
-    if (isHistoryLoading) return
-    if (snapDoneRef.current) return
-    const thread = threadRef.current
-    if (!thread) return
-    thread.scrollTop = thread.scrollHeight
-    isNearBottomRef.current = true
-    snapDoneRef.current = true
-  }, [conversationId, isHistoryLoading])
-
-  // ── Auto-scroll for subsequent messages ─────────────────────────────────
-  // After the initial snap, keep the view pinned to the bottom only when
-  // the user is already near the bottom (isNearBottomRef.current = true).
-  // Conversation-switch scrolling is handled above in useLayoutEffect.
-  // Skips entirely while isLoadingOlder is true — the prepend useLayoutEffect
-  // owns scroll position during that window; competing here would fight it
-  // and cause a visible jump back to the bottom mid-prepend.
-  useEffect(() => {
-    const thread = threadRef.current
-    if (!thread || isHistoryLoading || isLoadingOlder) return
-    const isConvSwitch = convIdForScrollRef.current !== conversationId
-    convIdForScrollRef.current = conversationId
-    if (isConvSwitch) return
-    if (isNearBottomRef.current) {
-      thread.scrollTop = thread.scrollHeight
-    }
-  }, [conversationId, renderedMessages.length, pendingAssistant, isLoadingOlder])
-
-  useEffect(() => {
-    const root = threadRef.current
-    if (!root) return
-    // Reset the load-older guard whenever the conversation changes so the
-    // first scroll-up in a freshly opened chat triggers a fetch.
-    loadOlderFiredRef.current = false
-    let raf = 0
-    const update = () => {
-      raf = 0
-      const scrollTop = root.scrollTop
-      const next = scrollTop > 8
-      setIsScrolled((prev) => (prev === next ? prev : next))
-      isNearBottomRef.current = root.scrollHeight - scrollTop - root.clientHeight <= 150
-      // Proactive load-older: trigger 400 px before the user hits the top so
-      // the fetch is invisible. The one-shot guard prevents repeated fires;
-      // it resets via the isLoadingOlder effect once the mutation settles,
-      // allowing successive page fetches if the user stays near the top.
-      if (scrollTop < 400 && !loadOlderFiredRef.current && loadOlderCallbackRef.current) {
-        loadOlderFiredRef.current = true
-        loadOlderCallbackRef.current()
-      }
-    }
-    const onScroll = () => {
-      if (raf) return
-      raf = window.requestAnimationFrame(update)
-    }
-    update()
-    root.addEventListener('scroll', onScroll, { passive: true })
-    return () => {
-      if (raf) window.cancelAnimationFrame(raf)
-      root.removeEventListener('scroll', onScroll)
-    }
-  }, [conversationId])
 
   // Mobile soft-keyboard handling. When the keyboard opens, the visual
   // viewport shrinks but the layout viewport (window.innerHeight) does
@@ -5032,6 +4928,34 @@ export function ThumbnailGenerator({
     ]
   )
 
+  const renderMessage = useCallback(
+    (msg) => {
+      if (msg?._kind === 'failure') {
+        return <FailedAttemptBlock entry={msg} onRetry={handleRetryFailedAttempt} />
+      }
+      return (
+        <ChatMessageItem
+          msg={msg}
+          onReplaceThumbnail={handleReplaceThumbnail}
+          onRegenerate={handleRegenerateOne}
+          onOneClickFix={handleOneClickFixWithImage}
+          onViewImage={openThumbLightbox}
+          onEditImage={openEditorForThumbnail}
+          onUseTitle={handleUseTitleAsPrompt}
+        />
+      )
+    },
+    [
+      handleRetryFailedAttempt,
+      handleReplaceThumbnail,
+      handleRegenerateOne,
+      handleOneClickFixWithImage,
+      openThumbLightbox,
+      openEditorForThumbnail,
+      handleUseTitleAsPrompt,
+    ]
+  )
+
   // Keep the per-mode submit refs pointing at the latest closures so the
   // failure-card retry dispatcher (and the toast Retry action) always
   // invoke the most recent handler with current state. Runs after every
@@ -5641,8 +5565,7 @@ export function ThumbnailGenerator({
          * (via body.clixa-thumb-screen). */}
         <ThumbnailTopBar />
         <div
-          ref={threadRef}
-          className={`coach-thread coach-thread--thumb-panel ${layoutCentered ? 'coach-thread--empty' : ''} ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
+          className={`coach-thread coach-thread--virtualized ${layoutCentered ? 'coach-thread--empty' : ''} coach-thread--thumb-panel ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
         >
           {isHistoryLoading && <ChatHistorySkeleton />}
 
@@ -5664,38 +5587,33 @@ export function ThumbnailGenerator({
             </div>
           ) : null}
 
+          {/* Empty greeting shown when no conversation is selected.
+           * Rendered as a plain sibling above the virtualized list so it
+           * doesn't interfere with Virtuoso's flex layout. */}
           {isEmptyScreen && (
             <div className="coach-empty-state thumb-empty-state">
               <h1>{emptyGreeting}</h1>
             </div>
           )}
 
-          {!isHistoryLoading && isLoadingOlder && (
-            <div className="thumb-load-older-row" role="status" aria-live="polite">
-              <InlineSpinner size={12} />
-              <span>Loading earlier messages…</span>
-            </div>
+          {/* Virtualized message list — replaces the old topSentinelRef +
+           * IntersectionObserver + renderedMessages.map() approach. Handles:
+           *   • render only visible rows (+ overscan) for memory efficiency
+           *   • prepend-without-scroll-jump via firstItemIndex pattern
+           *   • followOutput auto-scroll only when user is at the bottom
+           *   • startReached fires when near the top (load older messages)
+           *   • atTopStateChange drives isScrolled header collapse state */}
+          {!isHistoryLoading && !isEmptyScreen && (
+            <VirtualizedMessageList
+              messages={renderedMessages}
+              hasMoreOlder={hasMoreOlder}
+              isLoadingOlder={isLoadingOlder}
+              onLoadOlder={handleLoadOlder}
+              onAtTopChange={(atTop) => setIsScrolled(!atTop)}
+              renderItem={renderMessage}
+              conversationId={conversationId}
+            />
           )}
-
-          {!isHistoryLoading &&
-            renderedMessages.map((msg) =>
-              msg?._kind === 'failure' ? (
-                <FailedAttemptBlock key={msg.id} entry={msg} onRetry={handleRetryFailedAttempt} />
-              ) : (
-                <ChatMessageItem
-                  key={msg.id}
-                  msg={msg}
-                  onReplaceThumbnail={handleReplaceThumbnail}
-                  onRegenerate={handleRegenerateOne}
-                  onOneClickFix={handleOneClickFixWithImage}
-                  onViewImage={openThumbLightbox}
-                  onEditImage={openEditorForThumbnail}
-                  onUseTitle={handleUseTitleAsPrompt}
-                />
-              )
-            )}
-
-          <div ref={messagesEndRef} />
         </div>
 
         <div className="thumb-bg-fx-shadow" aria-hidden="true" />

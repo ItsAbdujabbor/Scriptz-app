@@ -11,6 +11,7 @@ import App from './App.jsx'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { createAppQueryClient } from './lib/query/queryClient'
 import { setAppQueryClient } from './lib/sessionReset'
+import { installConversationLRU } from './queries/thumbnails/conversationLRU'
 import { subscribeCacheEvents } from './lib/query/broadcastSync'
 import { queryKeys } from './lib/query/queryKeys'
 import { initRum } from './lib/rum'
@@ -144,13 +145,11 @@ if (typeof window !== 'undefined') {
 const queryClient = createAppQueryClient()
 setAppQueryClient(queryClient)
 
-// Both calls read/write localStorage; a DOMException (private-browsing
-// storage block) or a SyntaxError (corrupted stored JSON) would propagate
-// to the top of the module and prevent createRoot from ever being reached,
-// leaving a permanently blank page.
-// LRU eviction disabled — conversations are now cached with Infinity gcTime
-// so evicting them from React Query would cause messages to disappear on
-// re-open. The installConversationLRU call is intentionally removed.
+try {
+  installConversationLRU(queryClient, { capacity: 50 })
+} catch (e) {
+  console.warn('[clixa] installConversationLRU failed (localStorage?)', e)
+}
 
 // Cross-tab cache sync. When tab A persists a new message or a
 // failure event, it broadcasts the delta; every other tab on the
