@@ -2918,6 +2918,21 @@
   padding-bottom: calc(var(--coach-composer-stack-px, 200px) + 38vh);
 }
 
+/* Virtualized variant: outer div is overflow:hidden; scrolling and
+ * bottom-padding belong to the Virtuoso scroller and list, not the wrapper. */
+#coach-panel-thumbnails .coach-thread--thumb-panel.coach-thread--virtualized {
+  gap: 0;
+  padding-bottom: 0;
+}
+
+/* Move the thumb panel's bottom breathing-room into the Virtuoso list so the
+ * last message is fully visible above the sticky composer bar. The
+ * --coach-composer-stack-px var is set dynamically by the ResizeObserver on
+ * the footer element; the fallback matches the thumb composer's default height. */
+#coach-panel-thumbnails .coach-thread--thumb-panel .coach-virtuoso-list {
+  padding-bottom: calc(var(--coach-composer-stack-px, 200px) + 2.5rem);
+}
+
 /* Invisible probe at the very top of the thread; the IntersectionObserver
  * watches this and triggers an older-page fetch when the user scrolls up. */
 .thumb-load-older-sentinel {
@@ -4251,9 +4266,9 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
-  padding: 10px 14px;
+  padding: 13px 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
   background: #1c1c24;
@@ -4328,14 +4343,17 @@
   overflow-wrap: break-word;
 }
 
-/* Score badge — inline in the actions row, right side */
+/* Score badge — pill that matches the copy/generate button family */
 .thumb-title-card__score {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  padding: 2px 6px;
-  border-radius: 5px;
-  font-size: 0.67rem;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.7rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
@@ -4348,24 +4366,29 @@
 }
 
 .thumb-title-card__score--a {
-  background: rgba(34, 197, 94, 0.16);
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.28);
   color: #86efac;
 }
 .thumb-title-card__score--b {
-  background: rgba(167, 139, 250, 0.18);
+  background: rgba(167, 139, 250, 0.1);
+  border-color: rgba(167, 139, 250, 0.28);
   color: #c4b5fd;
 }
 .thumb-title-card__score--c {
-  background: rgba(245, 158, 11, 0.16);
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.28);
   color: #fcd34d;
 }
 .thumb-title-card__score--d {
-  background: rgba(239, 68, 68, 0.16);
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.25);
   color: #fca5a5;
 }
 .thumb-title-card__score--na {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(229, 231, 235, 0.5);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: rgba(229, 231, 235, 0.45);
 }
 
 @keyframes thumb-title-card-in {
@@ -4395,26 +4418,7 @@
 .thumb-title-card--gen {
   cursor: default;
   pointer-events: none;
-  animation:
-    thumb-title-card-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both,
-    thumb-gen-card-pulse 2.8s ease-in-out 0.5s infinite;
-}
-
-.thumb-title-card--gen:hover {
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 2px 10px rgba(0, 0, 0, 0.18);
-}
-
-@keyframes thumb-gen-card-pulse {
-  0%,
-  100% {
-    border-color: rgba(255, 255, 255, 0.08);
-  }
-  50% {
-    border-color: rgba(167, 139, 250, 0.25);
-  }
+  animation: thumb-title-card-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* Index bubble — dimmed while generating */
