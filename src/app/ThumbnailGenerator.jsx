@@ -2912,6 +2912,7 @@ export function ThumbnailGenerator({
   // read. Default false so first paint shows the expanded "welcome"
   // sizing.
   const [isScrolled, setIsScrolled] = useState(false)
+  const handleAtTopChange = useCallback((atTop) => setIsScrolled(!atTop), [])
   const modePaneFromHeightRef = useRef(null)
 
   // Rotating composer hint — rendered as an overlay on top of the
@@ -5654,7 +5655,7 @@ export function ThumbnailGenerator({
                 hasMoreOlder={hasMoreOlder}
                 isLoadingOlder={isLoadingOlder}
                 onLoadOlder={handleLoadOlder}
-                onAtTopChange={(atTop) => setIsScrolled(!atTop)}
+                onAtTopChange={handleAtTopChange}
                 renderItem={renderMessage}
                 conversationId={conversationId}
               />
