@@ -4270,7 +4270,7 @@
   transition:
     border-color 0.2s ease,
     box-shadow 0.2s ease;
-  animation: thumb-title-card-in 0.52s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: thumb-title-card-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
   overflow: hidden;
 }
 
@@ -4367,16 +4367,11 @@
 @keyframes thumb-title-card-in {
   from {
     opacity: 0;
-    transform: translateY(20px) scale(0.96);
-    filter: blur(4px);
-  }
-  55% {
-    filter: blur(0);
+    transform: translateY(10px) scale(0.98);
   }
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
-    filter: blur(0);
   }
 }
 
@@ -4397,7 +4392,7 @@
   cursor: default;
   pointer-events: none;
   animation:
-    thumb-title-card-in 0.52s cubic-bezier(0.22, 1, 0.36, 1) both,
+    thumb-title-card-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both,
     thumb-gen-card-pulse 3s ease-in-out 0.6s infinite;
 }
 
@@ -5950,5 +5945,108 @@
 @media (prefers-reduced-motion: reduce) {
   .thumb-server-pending__spinner {
     animation-duration: 2s;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * Thumbnail image skeleton shimmer.
+ *
+ * Shows a slow left-to-right sheen inside the 16:9 image slot while
+ * LazyImg is fetching/decoding (data-state ≠ "revealed"). Disappears
+ * the instant the image reports data-state="revealed".
+ *
+ * :has() is supported Chrome 105+, Safari 15.4+, Firefox 121+.
+ * Older browsers simply skip this block (no shimmer, dark placeholder).
+ *
+ * The coach-main--thumb blanket rule kills backdrop-filter + box-shadow
+ * on all descendants but does NOT touch background or animation — the
+ * shimmer's gradient sweep is unaffected.
+ * ═══════════════════════════════════════════════════════════════════ */
+
+.thumb-batch-img-wrap:has(> img:not([data-state='revealed']))::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  will-change: transform;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.048) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: thumb-img-shimmer 2s ease-in-out infinite;
+}
+
+@keyframes thumb-img-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * Thumbnail batch card entrance animation.
+ *
+ * Each card blooms in (fade + slight scale) when first added to the
+ * DOM. Duration is longer than the parent .coach-message--assistant
+ * (200 ms) so the card settles after the message container arrives —
+ * layered cascade effect. The spring ease gives a premium micro-bounce.
+ *
+ * nth-child stagger: multiple cards in a batch grid arrive in sequence
+ * so the eye reads them left-to-right rather than all at once.
+ * ═══════════════════════════════════════════════════════════════════ */
+
+.thumb-batch-card-wrap {
+  animation: thumb-card-in 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.thumb-batch-grid .thumb-batch-card-wrap:nth-child(2) {
+  animation-delay: 60ms;
+}
+.thumb-batch-grid .thumb-batch-card-wrap:nth-child(3) {
+  animation-delay: 120ms;
+}
+.thumb-batch-grid .thumb-batch-card-wrap:nth-child(4) {
+  animation-delay: 180ms;
+}
+
+@keyframes thumb-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* User-sent thumbnail card (single-slot preview) matches the batch card. */
+.thumb-user-sent-img-wrap {
+  animation: thumb-card-in 240ms cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+/* Tighten title card animation: stagger delay is already applied inline
+ * via animationDelay style prop; this just caps the total duration. */
+.thumb-title-card {
+  animation-duration: 0.28s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb-batch-card-wrap,
+  .thumb-batch-grid .thumb-batch-card-wrap:nth-child(2),
+  .thumb-batch-grid .thumb-batch-card-wrap:nth-child(3),
+  .thumb-batch-grid .thumb-batch-card-wrap:nth-child(4),
+  .thumb-user-sent-img-wrap,
+  .thumb-title-card {
+    animation: none;
+  }
+
+  .thumb-batch-img-wrap::before {
+    animation: none;
   }
 }

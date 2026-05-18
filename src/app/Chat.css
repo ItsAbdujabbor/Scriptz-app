@@ -340,6 +340,10 @@
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  /* scrollIntoView respects scroll-padding so the pinned composer bar
+   * doesn't overlap the target anchor when auto-scrolling to the last
+   * message. */
+  scroll-padding-bottom: calc(var(--coach-composer-stack-px, 148px) + 0.75rem);
   /* Horizontal padding uses the same gutter var as the Dashboard content shell
    * (see .dashboard-content-shell in Dashboard.css) so chat screens feel
    * identical in breathing room to the rest of the app. */
@@ -2917,4 +2921,51 @@
   position: static !important;
   margin-top: 0 !important;
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.75rem);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * Message entrance animations — compositor-only (opacity + transform).
+ *
+ * @starting-style sets the FROM value when an element is FIRST inserted
+ * into the DOM. Existing messages re-rendered by React (same key, same
+ * DOM node) do NOT re-animate — only genuinely new messages do.
+ *
+ * User messages: slide in from the right (iMessage-style).
+ * Assistant messages: fade up from just below (Discord/ChatGPT-style).
+ *
+ * Graceful degradation: browsers without @starting-style support skip
+ * the block entirely — messages just appear without animation.
+ * ═══════════════════════════════════════════════════════════════════ */
+
+.coach-message--user {
+  transition:
+    opacity 160ms ease-out,
+    transform 160ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@starting-style {
+  .coach-message--user {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+
+.coach-message--assistant {
+  transition:
+    opacity 200ms ease-out,
+    transform 200ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@starting-style {
+  .coach-message--assistant {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coach-message--user,
+  .coach-message--assistant {
+    transition: none;
+  }
 }
