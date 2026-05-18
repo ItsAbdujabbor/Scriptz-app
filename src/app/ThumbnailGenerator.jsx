@@ -3818,12 +3818,17 @@ export function ThumbnailGenerator({
   // dep array fired a phantom scroll. This dep tracks the actual
   // user-visible delta only, so the chat surface no longer jumps
   // during background cache updates.
-  useEffect(() => {
+  // useLayoutEffect fires synchronously after DOM mutations but BEFORE the
+  // browser paints — the user never sees an intermediate "messages at top"
+  // frame, even on hard refresh. useEffect would fire after paint, producing
+  // the visible scroll-from-top the user reported.
+  useLayoutEffect(() => {
     const el = messagesEndRef.current
     if (!el) return
     if (!hasInitialScrollRef.current) {
-      // First time messages appear in this conversation — jump to bottom instantly
-      // so the user never sees the thread scrolling down from the top.
+      // Only snap once there are messages to scroll to; skip the loading state
+      // where renderedMessages is still empty (messagesEndRef is at the top).
+      if (renderedMessages.length === 0 && !pendingAssistant) return
       el.scrollIntoView({ behavior: 'instant', block: 'end' })
       hasInitialScrollRef.current = true
     } else {
