@@ -17,8 +17,26 @@ import { queryKeys } from './lib/query/queryKeys'
 import { initRum } from './lib/rum'
 import { initAnalytics, trackPageView } from './lib/analytics'
 
-initRum()
-initAnalytics({ apiBaseUrl: import.meta.env.VITE_API_BASE_URL || '' })
+// Global safety net: if anything throws before/during React mount, render a
+// minimal recovery UI in #root rather than leaving a permanently blank page.
+// AppErrorBoundary handles in-tree errors; this handles pre-mount failures.
+window.addEventListener('error', (e) => {
+  console.error('[clixa] uncaught error', e.error ?? e.message)
+})
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('[clixa] unhandled rejection', e.reason)
+})
+
+try {
+  initRum()
+} catch (e) {
+  console.warn('[clixa] initRum failed', e)
+}
+try {
+  initAnalytics({ apiBaseUrl: import.meta.env.VITE_API_BASE_URL || '' })
+} catch (e) {
+  console.warn('[clixa] initAnalytics failed', e)
+}
 // First page-load event. Route changes inside the SPA fire their own via
 // the existing hash/route listener (see authStore + App.jsx wiring).
 if (typeof window !== 'undefined') {
@@ -158,10 +176,21 @@ subscribeCacheEvents((evt) => {
   }
 })
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
-  </StrictMode>
-)
+const rootEl = document.getElementById('root')
+if (!rootEl) {
+  console.error('[clixa] #root element not found — cannot mount React')
+} else {
+  try {
+    createRoot(rootEl).render(
+      <StrictMode>
+        <QueryClientProvider client={queryClient}>
+          <App />
+        </QueryClientProvider>
+      </StrictMode>
+    )
+  } catch (e) {
+    console.error('[clixa] createRoot failed', e)
+    rootEl.innerHTML =
+      '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0c;color:#e5e5e5;font-family:system-ui;text-align:center;padding:2rem;flex-direction:column;gap:1rem"><h2 style="color:#f87171;margin:0">Something went wrong</h2><p style="color:#aaa;margin:0">Please refresh the page.</p><button onclick="location.reload()" style="margin-top:.5rem;padding:.6rem 1.6rem;background:#1e1e2e;color:#e5e5e5;border:1px solid #333;border-radius:8px;cursor:pointer;font-size:.95rem">Refresh</button></div>'
+  }
+}

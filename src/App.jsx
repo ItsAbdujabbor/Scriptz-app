@@ -522,8 +522,10 @@ function App() {
     // `oauthInProgress` makes the dialog body show a centered loading
     // overlay (the Google exchange takes ~300 ms) so the user perceives
     // the dialog as having stayed open through the entire round-trip.
+    // Splash fallback (not null) so a hard-reload that forces the LandingPage
+    // chunk to re-fetch never shows a blank/black screen while loading.
     return (
-      <Suspense fallback={null}>
+      <Suspense fallback={<Splash />}>
         <LandingPage />
         {(authDialogOpen || oauthCallbackPending) && (
           <AuthDialog onClose={goBack} oauthInProgress={oauthCallbackPending} />
@@ -553,11 +555,19 @@ function App() {
         setView('landing')
       }
     }
+    // AuthenticatedRouteBoundary is not lazy — it has its own inner Suspense
+    // with AppShellLoading. ProScreen IS lazy, so it gets its own Suspense so
+    // it never causes the outer boundary to blank-out the already-rendered
+    // shell while the ProScreen chunk loads.
     return (
-      <Suspense fallback={null}>
+      <>
         <AuthenticatedRouteBoundary view={shellViewProp} onLogout={onLogout} />
-        {view === 'pro' && <ProScreen onClose={handleProClose} />}
-      </Suspense>
+        {view === 'pro' && (
+          <Suspense fallback={<Splash />}>
+            <ProScreen onClose={handleProClose} />
+          </Suspense>
+        )}
+      </>
     )
   }
 
@@ -604,7 +614,9 @@ function App() {
       content = <LandingPage />
   }
 
-  return <Suspense fallback={null}>{content}</Suspense>
+  // Splash fallback ensures legal/checkout/not-found pages show a branded
+  // loading screen rather than a blank canvas while their chunks download.
+  return <Suspense fallback={<Splash />}>{content}</Suspense>
 }
 
 class AppErrorBoundary extends Component {
