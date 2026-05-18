@@ -378,13 +378,12 @@
   flex: 1;
   min-height: 0;
   width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .coach-virtuoso-list {
-  /* Items are absolutely positioned; gap does not apply — use padding on items */
-  /* Top: enough clearance so first message sits below the floating tabbar */
-  /* Bottom: measured composer stack + breathing room so last rows clear the input bar */
-  /* Horizontal: matches `.coach-thread` and Dashboard's content gutter. */
   padding: 3.6rem var(--dash-gutter-x, 1.75rem)
     calc(var(--coach-composer-stack-px, 148px) + 2.25rem);
   box-sizing: border-box;
@@ -396,9 +395,7 @@
   display: flex;
   justify-content: center;
   box-sizing: border-box;
-  /* Spacing between rows must be inside measured height (Virtuoso positions items absolutely) */
   padding-bottom: 1.35rem;
-  contain: layout style;
 }
 
 /* Virtuoso footer: center the pending exchange exactly like list items */

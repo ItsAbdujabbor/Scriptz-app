@@ -1,71 +1,23 @@
-import { forwardRef, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Virtuoso } from 'react-virtuoso'
+import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { InlineSpinner } from '../components/ui'
-
-const INITIAL_FIRST_INDEX = 50_000
-
-// ── Stable component definitions ────────────────────────────────────────────
-// Defined outside VirtualizedMessageList so Virtuoso never tears down the DOM
-// on a parent re-render. New object references for `components` force a full
-// list remount.
-
-const VirtuosoScroller = forwardRef(function VirtuosoScroller({ style, children, ...props }, ref) {
-  return (
-    <div
-      ref={ref}
-      {...props}
-      className="coach-thread-virtuoso"
-      style={style}
-      data-coach-virtuoso-scroller={true}
-    >
-      {children}
-    </div>
-  )
-})
-
-const VirtuosoList = forwardRef(function VirtuosoList({ style, children }, ref) {
-  return (
-    <div ref={ref} className="coach-virtuoso-list" style={style}>
-      {children}
-    </div>
-  )
-})
-
-const VirtuosoItem = forwardRef(function VirtuosoItem({ children, ...props }, ref) {
-  return (
-    <div ref={ref} {...props} className="coach-virtuoso-item">
-      {children}
-    </div>
-  )
-})
-
-// Header receives `context` from Virtuoso — avoids creating a new component
-// reference when isLoadingOlder toggles.
-const VirtuosoHeader = ({ context }) =>
-  context?.isLoadingOlder ? (
-    <div className="thumb-load-older-row" role="status" aria-live="polite">
-      <InlineSpinner size={12} />
-      <span>Loading earlier messages…</span>
-    </div>
-  ) : null
-
-const VIRTUOSO_COMPONENTS = {
-  Scroller: VirtuosoScroller,
-  List: VirtuosoList,
-  Item: VirtuosoItem,
-  Header: VirtuosoHeader,
-}
 
 // ── VirtualizedMessageList ───────────────────────────────────────────────────
 /**
- * Virtualized chat message list built on react-virtuoso.
+ * Scrollable chat message list — no external library.
  *
- * The parent MUST pass a stable `key` equal to `conversationId` so this
- * component remounts on conversation switch. That gives us a fresh
- * `firstItemIndex = INITIAL_FIRST_INDEX` and a fresh scroll position
- * without any `setState` inside `useLayoutEffect` (which would cause React
- * error #185 — "maximum update depth exceeded" — via synchronous cascade
- * with Virtuoso's internal flushSync-based scroll tracking).
+ * Removed react-virtuoso because its internal flushSync-based scroll tracking
+ * causes React error #185 (maximum update depth exceeded) in React 19.
+ *
+ * Scroll contract:
+ *  • Mount       — snap to bottom immediately (no animation).
+ *  • New message appended — smooth-scroll to bottom IF the user was already
+ *    near the bottom (within 200 px); otherwise leave position alone.
+ *  • Older messages prepended — restore scroll position to the same message
+ *    the user was looking at (DOM scroll-height delta correction). Done in
+ *    useLayoutEffect with direct DOM writes — no setState, no cascade.
+ *  • Scroll near top — call onLoadOlder() once per "near top" entry to fetch
+ *    older messages.
+ *  • atTop reported via onAtTopChange for the header-collapse animation.
  */
 export const VirtualizedMessageList = memo(function VirtualizedMessageList({
   messages,
@@ -75,59 +27,100 @@ export const VirtualizedMessageList = memo(function VirtualizedMessageList({
   onAtTopChange,
   renderItem,
 }) {
-  const virtuosoRef = useRef(null)
-  const [firstItemIndex, setFirstItemIndex] = useState(INITIAL_FIRST_INDEX)
-  const prePrependLengthRef = useRef(messages.length)
+  const containerRef = useRef(null)
 
-  // Scroll to the bottom after initial mount. Runs async (after paint) so it
-  // cannot trigger a synchronous update cascade.
-  useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      virtuosoRef.current?.scrollToIndex({ index: 'LAST', behavior: 'auto' })
-    })
-    return () => cancelAnimationFrame(id)
-  }, []) // empty deps — mount only
+  // True while the user is within 200 px of the bottom — gates auto-scroll.
+  const isNearBottomRef = useRef(true)
 
-  // When isLoadingOlder goes true → false, compute how many messages were
-  // prepended and shift firstItemIndex backward so Virtuoso keeps the viewport
-  // anchored to the same message (no scroll jump). This is async so it does
-  // not participate in the synchronous commit-phase loop.
-  const prevLoadingOlderRef = useRef(isLoadingOlder)
+  // Prevents firing onLoadOlder multiple times for one "near top" entry.
+  const loadOlderFiredRef = useRef(false)
+
+  // Snapshot of scrollHeight taken just before older messages are prepended.
+  // Set when isLoadingOlder becomes true; cleared after position is restored.
+  const scrollHeightBeforeLoadRef = useRef(0)
+
+  // ── Initial scroll to bottom ────────────────────────────────────────────
   useEffect(() => {
-    const wasLoading = prevLoadingOlderRef.current
-    prevLoadingOlderRef.current = isLoadingOlder
-    if (wasLoading && !isLoadingOlder) {
-      const added = messages.length - prePrependLengthRef.current
-      if (added > 0) {
-        setFirstItemIndex((prev) => prev - added)
-      }
+    const el = containerRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, []) // mount only
+
+  // ── Capture scrollHeight just before the prepended messages land ─────────
+  // Runs when isLoadingOlder transitions true → false: we need the height
+  // from BEFORE the new items were added to compute the delta.
+  const prevIsLoadingRef = useRef(isLoadingOlder)
+  useEffect(() => {
+    if (!prevIsLoadingRef.current && isLoadingOlder) {
+      // Loading just STARTED — snapshot height now (spinner is in DOM but
+      // the actual older messages haven't arrived yet).
+      scrollHeightBeforeLoadRef.current = containerRef.current?.scrollHeight ?? 0
+    }
+    prevIsLoadingRef.current = isLoadingOlder
+  }, [isLoadingOlder])
+
+  // ── Restore scroll position after prepend (DOM-only, no setState) ────────
+  // useLayoutEffect so the height correction happens before paint, preventing
+  // visible scroll jump. Does NOT call setState so no synchronous cascade.
+  useLayoutEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    if (!isLoadingOlder && scrollHeightBeforeLoadRef.current > 0) {
+      const delta = el.scrollHeight - scrollHeightBeforeLoadRef.current
+      if (delta > 0) el.scrollTop += delta
+      scrollHeightBeforeLoadRef.current = 0
     }
   }, [isLoadingOlder, messages.length])
 
-  const handleStartReached = useCallback(() => {
-    if (!hasMoreOlder || isLoadingOlder) return
-    prePrependLengthRef.current = messages.length
-    onLoadOlder()
-  }, [hasMoreOlder, isLoadingOlder, messages.length, onLoadOlder])
+  // ── Auto-scroll when messages are appended ───────────────────────────────
+  // Only fires when the list grows from the bottom (new reply arrives).
+  // Skips when isLoadingOlder is true because that's a prepend, handled above.
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el || isLoadingOlder) return
+    if (isNearBottomRef.current) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    }
+  }, [messages, isLoadingOlder])
 
-  const itemContent = useCallback((_index, msg) => renderItem(msg), [renderItem])
+  // ── Scroll event handler ─────────────────────────────────────────────────
+  const handleScroll = useCallback(() => {
+    const el = containerRef.current
+    if (!el) return
 
-  const context = useMemo(() => ({ isLoadingOlder }), [isLoadingOlder])
+    const { scrollTop, scrollHeight, clientHeight } = el
+    const distFromBottom = scrollHeight - scrollTop - clientHeight
+
+    isNearBottomRef.current = distFromBottom < 200
+
+    // Header collapse animation
+    onAtTopChange?.(scrollTop < 10)
+
+    // Trigger load-older when near the top
+    if (scrollTop < 300 && hasMoreOlder && !isLoadingOlder && !loadOlderFiredRef.current) {
+      loadOlderFiredRef.current = true
+      onLoadOlder()
+    }
+    // Reset the guard once the user has scrolled away from the top
+    if (scrollTop > 400) {
+      loadOlderFiredRef.current = false
+    }
+  }, [hasMoreOlder, isLoadingOlder, onAtTopChange, onLoadOlder])
 
   return (
-    <Virtuoso
-      ref={virtuosoRef}
-      context={context}
-      data={messages}
-      firstItemIndex={firstItemIndex}
-      itemContent={itemContent}
-      followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
-      startReached={handleStartReached}
-      atTopStateChange={onAtTopChange}
-      atBottomThreshold={150}
-      components={VIRTUOSO_COMPONENTS}
-      overscan={600}
-      increaseViewportBy={{ top: 800, bottom: 400 }}
-    />
+    <div ref={containerRef} className="coach-thread-virtuoso" onScroll={handleScroll}>
+      {isLoadingOlder && (
+        <div className="thumb-load-older-row" role="status" aria-live="polite">
+          <InlineSpinner size={12} />
+          <span>Loading earlier messages…</span>
+        </div>
+      )}
+      <div className="coach-virtuoso-list">
+        {messages.map((msg) => (
+          <div key={msg?.id} className="coach-virtuoso-item">
+            {renderItem(msg)}
+          </div>
+        ))}
+      </div>
+    </div>
   )
 })

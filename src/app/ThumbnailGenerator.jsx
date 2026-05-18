@@ -5642,16 +5642,10 @@ export function ThumbnailGenerator({
           )}
 
           {/* Virtualized message list — replaces the old topSentinelRef +
-           * IntersectionObserver + renderedMessages.map() approach. Handles:
-           *   • render only visible rows (+ overscan) for memory efficiency
-           *   • prepend-without-scroll-jump via firstItemIndex pattern
-           *   • followOutput auto-scroll only when user is at the bottom
-           *   • startReached fires when near the top (load older messages)
-           *   • atTopStateChange drives isScrolled header collapse state */}
+           * scroll-position preservation via DOM scroll-height delta */}
           {!isHistoryLoading && !isEmptyScreen && (
             <ChatErrorBoundary>
               <VirtualizedMessageList
-                key={conversationId ?? 'new'}
                 messages={renderedMessages}
                 hasMoreOlder={hasMoreOlder}
                 isLoadingOlder={isLoadingOlder}
