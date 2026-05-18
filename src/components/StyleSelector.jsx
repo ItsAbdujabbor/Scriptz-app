@@ -152,7 +152,8 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
   // normally and demo styles are selectable. Only the "Create"
   // footer button is premium-locked — it shows a crown and routes
   // to /pro instead of opening the editor.
-  const handleCreateClick = () => {
+  const handleCreateClick = (e) => {
+    e.stopPropagation()
     setOpen(false)
     if (locked) {
       if (typeof window !== 'undefined') window.location.hash = 'pro'

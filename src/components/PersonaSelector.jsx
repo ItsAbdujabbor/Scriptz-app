@@ -167,7 +167,8 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
   //   * The "Create" footer button shows a crown icon and routes to
   //     /pro instead of opening the library. Persona creation is the
   //     part that's actually premium-only.
-  const handleCreateClick = () => {
+  const handleCreateClick = (e) => {
+    e.stopPropagation()
     setOpen(false)
     if (locked) {
       if (typeof window !== 'undefined') window.location.hash = 'pro'
@@ -190,11 +191,11 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={selectedPersona ? `Character: ${selectedPersona.name}` : 'Select character'}
+        aria-label={selectedPersona ? `Persona: ${selectedPersona.name}` : 'Select persona'}
         title={
           selectedPersona
             ? selectedPersona.name
-            : 'Character — a reusable on-brand look for your thumbnails'
+            : 'Persona — a reusable on-brand look for your thumbnails'
         }
       >
         {selectedPersona?.image_url ? (
@@ -215,7 +216,7 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
         {!isGlassCircle && (
           <>
             <span className="persona-selector-label">
-              {selectedPersona ? selectedPersona.name : 'Character'}
+              {selectedPersona ? selectedPersona.name : 'Persona'}
             </span>
             <span className="persona-selector-chevron">
               <IconChevronDown />
@@ -243,8 +244,8 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
           type="button"
           className={`persona-selector-reset ${isGlassCircle ? 'persona-selector-reset--circle' : ''}`}
           onClick={handleClear}
-          aria-label={`Clear character (${selectedPersona.name})`}
-          title="Clear character"
+          aria-label={`Clear persona (${selectedPersona.name})`}
+          title="Clear persona"
         >
           <svg
             viewBox="0 0 24 24"
@@ -270,21 +271,21 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
             style={popoverStyle}
           >
             {/* Header — compact label so the picker has a name. */}
-            <div className="persona-selector-header">Characters</div>
+            <div className="persona-selector-header">Personas</div>
 
             {/* Inner scroll area. Lives in its own element so the
              * outer container can keep `overflow: visible` for the
              * speech-bubble tail without losing the scrollable list. */}
             <div className="persona-selector-dropdown-inner">
               {isPending && (
-                <SkeletonGroup className="persona-selector-loading" label="Loading characters">
+                <SkeletonGroup className="persona-selector-loading" label="Loading personas">
                   <Skeleton height={36} radius={999} />
                   <Skeleton height={36} radius={999} />
                   <Skeleton height={36} radius={999} />
                 </SkeletonGroup>
               )}
               {!isPending && items.length === 0 && (
-                <div className="persona-selector-empty">No characters yet</div>
+                <div className="persona-selector-empty">No personas yet</div>
               )}
               {!isPending &&
                 items.length > 0 &&
@@ -338,9 +339,7 @@ export function PersonaSelector({ onOpenLibrary, compact, variant = 'default' })
                   type="button"
                   className={`persona-selector-create ${locked ? 'persona-selector-create--locked' : ''}`}
                   onClick={handleCreateClick}
-                  title={
-                    locked ? 'Create your own character — Clixa Pro' : 'Create a new character'
-                  }
+                  title={locked ? 'Create your own persona — Clixa Pro' : 'Create a new persona'}
                 >
                   {locked ? (
                     <span className="clixa-pro-crown clixa-pro-crown--inline" aria-hidden>

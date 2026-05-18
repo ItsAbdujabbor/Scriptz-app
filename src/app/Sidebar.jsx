@@ -878,7 +878,7 @@ export function Sidebar({
           <span className="sidebar-account-item-icon" aria-hidden>
             <IconPersonalization />
           </span>
-          <span className="sidebar-account-item-label">Characters</span>
+          <span className="sidebar-account-item-label">Personas</span>
           {!isPaid && (
             <span className="clixa-pro-crown clixa-pro-crown--inline" aria-hidden>
               <IconCrown />

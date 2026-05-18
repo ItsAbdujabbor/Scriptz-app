@@ -125,7 +125,7 @@ const PersonaGenLoader = memo(function PersonaGenLoader({ done = false, onComple
       aria-valuemax={100}
       aria-valuenow={pct}
       aria-busy={!done}
-      aria-label="Creating character"
+      aria-label="Creating persona"
     >
       <div className="pm-gen-loader__bar" style={{ width: `${pct}%` }}>
         <span className="pm-gen-loader__sheen" aria-hidden="true" />
@@ -495,7 +495,7 @@ export function PersonasModal({ onClose }) {
       setCreateError('All 3 photos are required.')
       return
     }
-    const name = createName.trim() || 'My Character'
+    const name = createName.trim() || 'My Persona'
     setCreateError('')
     setIsGenerating(true)
     setGenDone(false)
@@ -520,7 +520,7 @@ export function PersonasModal({ onClose }) {
       setIsGenerating(false)
       setGenDone(false)
       const friendly = friendlyMessage(err)
-      setCreateError(friendly || err?.message || 'Could not create character.')
+      setCreateError(friendly || err?.message || 'Could not create persona.')
     }
   }
 
@@ -536,7 +536,7 @@ export function PersonasModal({ onClose }) {
     } catch (err) {
       // Stay in edit mode so the user keeps their typed name, but tell
       // them the rename didn't take instead of failing silently.
-      toast.error(friendlyMessage(err) || 'Could not rename character. Please try again.', {
+      toast.error(friendlyMessage(err) || 'Could not rename persona. Please try again.', {
         title: 'Rename failed',
         code: err?.code,
       })
@@ -651,7 +651,7 @@ export function PersonasModal({ onClose }) {
         <div className="pm-header">
           <div className="pm-header-titles">
             <h2 id="personas-modal-title" className="pm-title">
-              Your characters
+              Your personas
             </h2>
             <p className="pm-subtitle">
               {showGrid
@@ -673,7 +673,7 @@ export function PersonasModal({ onClose }) {
           {!showCreate && (
             <div className="pm-actions-row">
               <PrimaryButton onClick={() => setShowCreate(true)} icon={<IconUser size={14} />}>
-                Create character
+                Create persona
               </PrimaryButton>
               {showGrid && (
                 <button
@@ -681,7 +681,7 @@ export function PersonasModal({ onClose }) {
                   className="pm-manage-btn"
                   onClick={() => setConfirmDeleteAll(true)}
                   disabled={bulkDeleting || deleteMutation.isPending}
-                  title="Delete every character you've created"
+                  title="Delete every persona you've created"
                 >
                   {bulkDeleting ? (
                     <>
@@ -729,7 +729,7 @@ export function PersonasModal({ onClose }) {
                     <input
                       type="text"
                       className="pm-input pm-name-input"
-                      placeholder="Name this character"
+                      placeholder="Name this persona"
                       value={createName}
                       onChange={(e) => setCreateName(e.target.value.slice(0, PERSONA_NAME_MAX))}
                       maxLength={PERSONA_NAME_MAX}
@@ -767,7 +767,7 @@ export function PersonasModal({ onClose }) {
               <div className="pm-empty-icon" aria-hidden>
                 <IconUser size={32} />
               </div>
-              <h3 className="pm-empty-title">No characters yet</h3>
+              <h3 className="pm-empty-title">No personas yet</h3>
               <p className="pm-empty-body">Upload 3 photos — front, left, right.</p>
             </div>
           )}
@@ -924,7 +924,7 @@ export function PersonasModal({ onClose }) {
       <ConfirmDialog
         open={!!personaToDelete}
         title={`Delete "${personaToDelete?.name || ''}"?`}
-        description="This permanently removes the character. Any thumbnail prompts referencing it will fall back to the front image."
+        description="This permanently removes the persona. Any thumbnail prompts referencing it will fall back to the front image."
         confirmLabel="Delete"
         cancelLabel="Cancel"
         danger
@@ -935,8 +935,8 @@ export function PersonasModal({ onClose }) {
       {/* Bulk-remove confirm — wipes everything visible in the grid. */}
       <ConfirmDialog
         open={confirmDeleteAll}
-        title={`Delete all ${personalItems.length} character${personalItems.length === 1 ? '' : 's'}?`}
-        description="This permanently removes every character you've created. Demo characters stay. Cannot be undone."
+        title={`Delete all ${personalItems.length} persona${personalItems.length === 1 ? '' : 's'}?`}
+        description="This permanently removes every persona you've created. Demo personas stay. Cannot be undone."
         confirmLabel="Delete all"
         cancelLabel="Cancel"
         danger

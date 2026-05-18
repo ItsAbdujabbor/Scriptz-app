@@ -143,7 +143,7 @@
   position: fixed;
   bottom: auto;
   margin-bottom: 0;
-  z-index: 2000;
+  z-index: 10000;
   transform: translateX(17px);
 }
 
