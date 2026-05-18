@@ -33,7 +33,7 @@ import * as pendingActions from '../stores/pendingActionStore'
 import { EditThumbnailDialog } from '../components/EditThumbnailDialog'
 import ThumbnailTopBar from '../components/ThumbnailTopBar'
 import { TabBar } from '../components/TabBar'
-import { Dropdown, InlineSpinner, PrimaryPill } from '../components/ui'
+import { Dropdown, PrimaryPill } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChatHistorySkeleton } from '../components/ChatHistorySkeleton'
@@ -58,6 +58,7 @@ import { canvasToBase64Png } from '../lib/canvasToBase64'
 import { queryKeys } from '../lib/query/queryKeys'
 import { broadcastCacheEvent } from '../lib/query/broadcastSync'
 import { onShellEvent } from '../lib/shellEvents'
+import { VirtualizedMessageList } from './VirtualizedMessageList'
 import './ThumbnailGenerator.css'
 
 // Source-type options for the Recreate / Analyze / Edit tabbars. Icons
@@ -2846,14 +2847,6 @@ export function ThumbnailGenerator({
       if (editFetchRef.current) clearTimeout(editFetchRef.current)
     }
   }, [])
-  const threadRef = useRef(null)
-  const messagesEndRef = useRef(null)
-  // true = user is at (or near) the bottom; auto-scroll fires only then.
-  // Starts true so the initial render always lands at the newest message.
-  const isNearBottomRef = useRef(true)
-  // Tracks the conversationId that was current when the scroll effect last ran.
-  // A mismatch signals a conversation switch → instant scroll instead of smooth.
-  const convIdForScrollRef = useRef(conversationId)
   const composerFooterRef = useRef(null)
   const textareaRef = useRef(null)
   const recreateTextareaRef = useRef(null)
@@ -3080,52 +3073,11 @@ export function ThumbnailGenerator({
   const loadOlderMutation = useLoadOlderThumbnailMessagesMutation()
   const hasMoreOlder = Boolean(conversationQuery.data?.messages?.has_more)
   const isLoadingOlder = loadOlderMutation.isPending
-  const topSentinelRef = useRef(null)
-  // Live-updated flag so the IntersectionObserver callback never fires
-  // a duplicate request mid-flight (effect deps stay shallow).
-  const loadingOlderRef = useRef(false)
-  loadingOlderRef.current = isLoadingOlder
 
-  /**
-   * Auto-load older messages when the user scrolls to the top of the
-   * thread. The detail endpoint returns latest 30 on open; this hook
-   * fetches the next page (40) backwards via the `before_id` cursor and
-   * preserves scroll position so reading flow isn't disrupted.
-   */
-  useEffect(() => {
-    const sentinel = topSentinelRef.current
-    const root = threadRef.current
-    if (!sentinel || !root || conversationId == null || !hasMoreOlder) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.some((e) => e.isIntersecting)
-        if (!visible || loadingOlderRef.current) return
-
-        // Anchor: capture the first currently-rendered message and its
-        // offset from the scroll viewport, so after prepend we can
-        // re-pin the user's reading position.
-        const anchorEl = root.querySelector('.coach-message')
-        const anchorOffsetFromTop = anchorEl ? anchorEl.offsetTop - root.scrollTop : 0
-
-        loadOlderMutation.mutate(conversationId, {
-          onSettled: () => {
-            if (!anchorEl) return
-            requestAnimationFrame(() => {
-              if (!root || !anchorEl) return
-              root.scrollTop = anchorEl.offsetTop - anchorOffsetFromTop
-            })
-          },
-        })
-      },
-      // 120px headroom so the fetch starts before the sentinel reaches
-      // the actual viewport edge — hides the network round-trip behind
-      // the user's scroll momentum.
-      { root, rootMargin: '120px 0px 0px 0px', threshold: 0.01 }
-    )
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [conversationId, hasMoreOlder, loadOlderMutation])
+  const handleLoadOlder = useCallback(() => {
+    if (conversationId == null) return
+    loadOlderMutation.mutate(conversationId)
+  }, [loadOlderMutation, conversationId])
 
   // When the user opens (or returns to) a conversation, stamp "seen now" so
   // the unread dot clears. Fires on every conversationId change — cheap.
@@ -3784,41 +3736,6 @@ export function ThumbnailGenerator({
     !sawMessagesRef.current
   const layoutCentered = isEmptyScreen || isHistoryLoading
 
-  // Auto-scroll on new messages or when a job kicks off / lands. Tab
-  // changes (`thumbMode`) deliberately don't trigger a scroll: the
-  // message list is conversation history and shouldn't move when the
-  // user is just toggling the composer's mode chip. The composer's
-  // height changes are absorbed by the ResizeObserver below that
-  // updates `--coach-composer-stack-px`, so the bottom of the list
-  // remains visible even as the toolbar grows/shrinks.
-  //
-  // Hardening: depend on ``renderedMessages.length`` (the VISIBLE row
-  // count) rather than the raw ``messages`` / ``localOnlyMessages``
-  // arrays. The reconciliation pass that runs when server messages
-  // land after ``linkLocalToServer`` adds rows to ``messages`` that
-  // are dedup'd away — visible row count unchanged but the old
-  // dep array fired a phantom scroll. This dep tracks the actual
-  // user-visible delta only, so the chat surface no longer jumps
-  // during background cache updates.
-  useEffect(() => {
-    const thread = threadRef.current
-    if (!thread) return
-    const isConvSwitch = convIdForScrollRef.current !== conversationId
-    convIdForScrollRef.current = conversationId
-    if (isConvSwitch) {
-      // Instant jump on conversation switch — no smooth-scroll through history.
-      thread.scrollTop = thread.scrollHeight
-      isNearBottomRef.current = true
-      return
-    }
-    // New message or pending indicator change — only smooth-scroll when
-    // the user is already at (or near) the bottom. If they scrolled up to
-    // read history, leave their position alone.
-    if (isNearBottomRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-    }
-  }, [conversationId, renderedMessages.length, pendingAssistant])
-
   // Mobile soft-keyboard handling. When the keyboard opens, the visual
   // viewport shrinks but the layout viewport (window.innerHeight) does
   // not — so the composer footer stays at its old position and the
@@ -3852,37 +3769,6 @@ export function ThumbnailGenerator({
       root.style.removeProperty('--clixa-keyboard-px')
     }
   }, [])
-
-  // Track whether the chat thread has scrolled away from its top edge.
-  // The 8px threshold means a user has to genuinely *start* reading
-  // before the header collapses — accidental wheel ticks at the top
-  // don't toggle the state. The listener is rAF-throttled so a fast
-  // scroll never overwhelms the React commit queue.
-  useEffect(() => {
-    const root = threadRef.current
-    if (!root) return
-    let raf = 0
-    const update = () => {
-      raf = 0
-      const next = root.scrollTop > 8
-      setIsScrolled((prev) => (prev === next ? prev : next))
-      isNearBottomRef.current = root.scrollHeight - root.scrollTop - root.clientHeight <= 150
-    }
-    const onScroll = () => {
-      if (raf) return
-      raf = window.requestAnimationFrame(update)
-    }
-    update()
-    root.addEventListener('scroll', onScroll, { passive: true })
-    return () => {
-      if (raf) window.cancelAnimationFrame(raf)
-      root.removeEventListener('scroll', onScroll)
-    }
-    // `conversationId` is in the deps because switching conversations
-    // re-mounts the threadRef contents from the placeholder cache,
-    // which can put us back at scrollTop 0 and we want the header
-    // to snap back to its expanded shape.
-  }, [conversationId])
 
   const openThumbLightbox = useCallback((url, title) => {
     if (!url) return
@@ -5042,6 +4928,34 @@ export function ThumbnailGenerator({
     ]
   )
 
+  const renderMessage = useCallback(
+    (msg) => {
+      if (msg?._kind === 'failure') {
+        return <FailedAttemptBlock entry={msg} onRetry={handleRetryFailedAttempt} />
+      }
+      return (
+        <ChatMessageItem
+          msg={msg}
+          onReplaceThumbnail={handleReplaceThumbnail}
+          onRegenerate={handleRegenerateOne}
+          onOneClickFix={handleOneClickFixWithImage}
+          onViewImage={openThumbLightbox}
+          onEditImage={openEditorForThumbnail}
+          onUseTitle={handleUseTitleAsPrompt}
+        />
+      )
+    },
+    [
+      handleRetryFailedAttempt,
+      handleReplaceThumbnail,
+      handleRegenerateOne,
+      handleOneClickFixWithImage,
+      openThumbLightbox,
+      openEditorForThumbnail,
+      handleUseTitleAsPrompt,
+    ]
+  )
+
   // Keep the per-mode submit refs pointing at the latest closures so the
   // failure-card retry dispatcher (and the toast Retry action) always
   // invoke the most recent handler with current state. Runs after every
@@ -5651,8 +5565,7 @@ export function ThumbnailGenerator({
          * (via body.clixa-thumb-screen). */}
         <ThumbnailTopBar />
         <div
-          ref={threadRef}
-          className={`coach-thread ${layoutCentered ? 'coach-thread--empty' : ''} coach-thread--thumb-panel ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
+          className={`coach-thread coach-thread--virtualized ${layoutCentered ? 'coach-thread--empty' : ''} coach-thread--thumb-panel ${isHistoryLoading ? 'coach-thread--history-loading' : ''}`}
         >
           {isHistoryLoading && <ChatHistorySkeleton />}
 
@@ -5674,64 +5587,33 @@ export function ThumbnailGenerator({
             </div>
           ) : null}
 
-          {/* Empty greeting: render plain, no enter/exit animation. The
-           * previous AnimatePresence wrapper played a 320ms opacity + y
-           * exit when the user submitted, which kept the greeting in the
-           * DOM alongside the new local message bubble for a third of a
-           * second — visually reading as a brief "thumbnail generator
-           * screen" flash before the chat settled. Removing the
-           * animation makes the transition instant: the moment local
-           * content lands, the greeting is gone and the bubble is in
-           * its natural list position. */}
+          {/* Empty greeting shown when no conversation is selected.
+           * Rendered as a plain sibling above the virtualized list so it
+           * doesn't interfere with Virtuoso's flex layout. */}
           {isEmptyScreen && (
             <div className="coach-empty-state thumb-empty-state">
               <h1>{emptyGreeting}</h1>
             </div>
           )}
 
-          {/* Top sentinel — when this enters the viewport we fetch the
-              next older-page of messages. Only attached when more
-              history exists; otherwise we don't render it so the
-              observer never fires. */}
-          {!isHistoryLoading && hasMoreOlder && (
-            <div ref={topSentinelRef} className="thumb-load-older-sentinel" aria-hidden />
+          {/* Virtualized message list — replaces the old topSentinelRef +
+           * IntersectionObserver + renderedMessages.map() approach. Handles:
+           *   • render only visible rows (+ overscan) for memory efficiency
+           *   • prepend-without-scroll-jump via firstItemIndex pattern
+           *   • followOutput auto-scroll only when user is at the bottom
+           *   • startReached fires when near the top (load older messages)
+           *   • atTopStateChange drives isScrolled header collapse state */}
+          {!isHistoryLoading && !isEmptyScreen && (
+            <VirtualizedMessageList
+              messages={renderedMessages}
+              hasMoreOlder={hasMoreOlder}
+              isLoadingOlder={isLoadingOlder}
+              onLoadOlder={handleLoadOlder}
+              onAtTopChange={(atTop) => setIsScrolled(!atTop)}
+              renderItem={renderMessage}
+              conversationId={conversationId}
+            />
           )}
-          {!isHistoryLoading && isLoadingOlder && (
-            <div className="thumb-load-older-row" role="status" aria-live="polite">
-              <InlineSpinner size={12} />
-              <span>Loading earlier messages…</span>
-            </div>
-          )}
-
-          {!isHistoryLoading &&
-            renderedMessages.map((msg) =>
-              msg?._kind === 'failure' ? (
-                <FailedAttemptBlock key={msg.id} entry={msg} onRetry={handleRetryFailedAttempt} />
-              ) : (
-                <ChatMessageItem
-                  key={msg.id}
-                  msg={msg}
-                  onReplaceThumbnail={handleReplaceThumbnail}
-                  onRegenerate={handleRegenerateOne}
-                  onOneClickFix={handleOneClickFixWithImage}
-                  onViewImage={openThumbLightbox}
-                  onEditImage={openEditorForThumbnail}
-                  onUseTitle={handleUseTitleAsPrompt}
-                />
-              )
-            )}
-
-          {/* The pending user-bubble + loader now live INSIDE the
-           * messages list as a single mounted card (`_promptPending`
-           * on the local placeholder) — see ChatMessageItem. The old
-           * sibling render block lived here and was the source of the
-           * first-message flash: its hard mount/unmount happened in a
-           * different React subtree from the eventual server messages,
-           * so the swap was visually jarring. The in-place placeholder
-           * keeps the same card mounted across the loader → result
-           * crossfade. */}
-
-          <div ref={messagesEndRef} />
         </div>
 
         <div className="thumb-bg-fx-shadow" aria-hidden="true" />
