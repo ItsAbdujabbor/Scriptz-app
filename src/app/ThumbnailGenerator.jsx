@@ -1695,7 +1695,6 @@ const AnalyzeLoaderCard = memo(function AnalyzeLoaderCard({ imageUrl }) {
  * "thinking" and keeps the surface calm.
  */
 const GEN_TITLE_WIDTHS = [72, 65, 78, 60, 74, 68, 56, 70, 63, 76, 58, 67]
-const GEN_REASON_WIDTHS = [48, 55, 40, 52, 44, 58, 50, 38, 54, 46, 61, 42]
 
 const TitlesLoader = memo(function TitlesLoader({ count = 4 }) {
   const rows = Math.max(1, Math.min(count, 12))
@@ -1708,7 +1707,6 @@ const TitlesLoader = memo(function TitlesLoader({ count = 4 }) {
             className="thumb-title-card thumb-title-card--gen"
             style={{
               '--title-w': `${GEN_TITLE_WIDTHS[i % GEN_TITLE_WIDTHS.length]}%`,
-              '--reason-w': `${GEN_REASON_WIDTHS[i % GEN_REASON_WIDTHS.length]}%`,
               animationDelay: `${i * 70}ms`,
             }}
             aria-hidden
@@ -1716,8 +1714,8 @@ const TitlesLoader = memo(function TitlesLoader({ count = 4 }) {
             <span className="thumb-title-card__index thumb-title-card__index--gen">{i + 1}</span>
             <span className="thumb-title-card__body">
               <span className="thumb-title-card__gen-line thumb-title-card__gen-line--title" />
-              <span className="thumb-title-card__gen-line thumb-title-card__gen-line--reason" />
             </span>
+            <span className="thumb-title-card__gen-spinner" aria-hidden="true" />
             <span className="thumb-title-card__gen-actions">
               <span className="thumb-title-card__gen-btn" />
               <span className="thumb-title-card__gen-btn thumb-title-card__gen-btn--primary" />

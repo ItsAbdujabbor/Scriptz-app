@@ -4438,9 +4438,22 @@
   width: var(--title-w, 70%);
 }
 
-.thumb-title-card__gen-line--reason {
-  height: 0.68rem;
-  width: var(--reason-w, 48%);
+/* Circular spinner — sits between the body and the action buttons */
+.thumb-title-card__gen-spinner {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(167, 139, 250, 0.15);
+  border-top-color: rgba(167, 139, 250, 0.75);
+  animation: thumb-title-spin 0.75s linear infinite;
+}
+
+@keyframes thumb-title-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Ghost action buttons — static */
