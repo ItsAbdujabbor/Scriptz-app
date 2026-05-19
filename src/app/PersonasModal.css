@@ -481,10 +481,19 @@
   flex-direction: column;
   gap: 8px;
 }
-.pm-upload-drop {
+/* Parent-scoped selector (specificity 0,0,2,0) so it reliably beats
+ * the equal-specificity `.pm-slot { aspect-ratio: 1/1 }` rule defined
+ * later in this file — that override losing the cascade is exactly why
+ * the zone ballooned into a full-width square. Hard height + no flex
+ * grow so no parent (.pm-create-form / .pm-scroll) can stretch it. */
+.pm-upload-wrap .pm-upload-drop {
   aspect-ratio: auto;
-  min-height: 116px;
-  padding: 18px 22px;
+  width: 100%;
+  height: 150px;
+  min-height: 150px;
+  max-height: 150px;
+  flex: 0 0 auto;
+  padding: 16px 22px;
   gap: 6px;
   text-align: center;
 }
@@ -503,8 +512,10 @@
   padding-left: 2px;
 }
 @media (max-width: 540px) {
-  .pm-upload-drop {
-    min-height: 96px;
+  .pm-upload-wrap .pm-upload-drop {
+    height: 124px;
+    min-height: 124px;
+    max-height: 124px;
     padding: 14px 14px;
   }
   .pm-upload-title {
