@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo, lazy, Suspense, useEffect, Component } from 'react'
+import { useState, useCallback, useMemo, Suspense, useEffect, Component } from 'react'
+import { lazyWithRetry } from './lib/lazyWithRetry'
 import { useAuthStore } from './stores/authStore'
 import { useSidebarStore } from './stores/sidebarStore'
 import { useCurrentScreen } from './lib/useCurrentScreen'
@@ -300,7 +301,7 @@ function ContentLoadingSpinner() {
 import('./app/PersonasModal').catch(() => {})
 import('./app/StylesModal').catch(() => {})
 
-const PersonasModalModule = lazy(() =>
+const PersonasModalModule = lazyWithRetry(() =>
   import('./app/PersonasModal').then((m) => ({ default: m.PersonasModal }))
 )
 function PersonasModalLazy({ onClose }) {
@@ -311,7 +312,7 @@ function PersonasModalLazy({ onClose }) {
   )
 }
 
-const StylesModalModule = lazy(() =>
+const StylesModalModule = lazyWithRetry(() =>
   import('./app/StylesModal').then((m) => ({ default: m.StylesModal }))
 )
 function StylesModalLazy({ onClose }) {
@@ -325,7 +326,7 @@ function StylesModalLazy({ onClose }) {
 // Settings — wraps SharedSettingsModal as a routed view. The component
 // already accepts the `open` prop for legacy callers; we always pass
 // `open={true}` because being on the settings hash IS the open state.
-const SettingsModule = lazy(() =>
+const SettingsModule = lazyWithRetry(() =>
   import('./app/SharedSettingsModal').then((m) => ({ default: m.SharedSettingsModal }))
 )
 function SettingsLazy({ onLogout, returnHash = 'thumbnails' }) {
