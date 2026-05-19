@@ -10,22 +10,10 @@
  * but we mirror that lock in the UI for clarity.
  */
 
-import { getApiBaseUrl } from '../lib/env.js'
-import { parseApiError } from '../lib/aiErrors.js'
+import { apiFetch } from '../lib/apiFetch.js'
 
 function request(method, path, body, accessToken) {
-  const url = getApiBaseUrl() + path
-  const headers = { 'Content-Type': 'application/json' }
-  if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`
-  const opts = { method, headers }
-  if (body != null) opts.body = JSON.stringify(body)
-  return fetch(url, opts).then(async (res) => {
-    const contentType = res.headers.get('Content-Type') || ''
-    const isJson = contentType.indexOf('application/json') !== -1
-    const data = isJson ? await res.json().catch(() => ({})) : {}
-    if (!res.ok) throw parseApiError(res, data)
-    return data
-  })
+  return apiFetch(path, { method, body: body ?? undefined, token: accessToken })
 }
 
 export const emailPreferencesApi = {

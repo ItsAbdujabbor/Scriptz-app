@@ -90,15 +90,4 @@ export const queryKeys = {
   modelTier: {
     state: ['modelTier', 'state'],
   },
-  thumbnailTemplates: {
-    categories: () => ['thumbnailTemplates', 'categories'],
-    list: (params) => [
-      'thumbnailTemplates',
-      'list',
-      params.limit ?? 30,
-      params.offset ?? 0,
-      params.category ?? '',
-      params.q ?? '',
-    ],
-  },
 }

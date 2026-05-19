@@ -19,13 +19,21 @@ import { create } from 'zustand'
  *   - terminal (done/failed) → `clear()` so a stale message doesn't
  *     persist past the next request
  */
-export const useThumbnailJobStatusStore = create((set) => ({
+export const useThumbnailJobStatusStore = create((set, get) => ({
   // The most recent polled job status, or null when no job is in flight.
   // Shape mirrors the backend's ThumbnailChatJobStatus.
   status: null,
 
-  /** Replace the whole status with the latest poll. */
+  /** Replace the whole status with the latest poll.
+   *
+   *  The poll loop calls this every ~1-2s with a freshly-deserialized
+   *  object (new reference each tick). Skip the `set()` when the value
+   *  is unchanged so subscribers (the loader's slow-hint) don't re-render
+   *  on every tick for the whole duration of a generation. Deep value
+   *  compare guarantees no UI-visible change is ever suppressed. */
   update(jobStatus) {
+    const prev = get().status
+    if (JSON.stringify(prev) === JSON.stringify(jobStatus)) return
     set({ status: jobStatus })
   },
 
