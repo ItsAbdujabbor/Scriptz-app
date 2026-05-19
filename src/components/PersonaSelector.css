@@ -102,7 +102,9 @@
   left: 50%;
   transform: translateX(-50%);
   margin-bottom: 8px;
-  width: 220px;
+  /* Match the batch (1×) picker popover exactly — same width/padding/
+   * radius so all three composer pickers share one footprint. */
+  width: 160px;
   padding: 14px 8px;
   background: #1c1c24;
   border: 1px solid rgba(255, 255, 255, 0.12);
