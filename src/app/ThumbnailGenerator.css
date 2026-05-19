@@ -756,7 +756,9 @@
 
 /* Scale percentage down inside the 2-col grid (cards are smaller) */
 .thumb-batch-grid .thumb-gen-fill__pct {
-  font-size: clamp(18px, 4vw, 36px);
+  /* Same prominent scale as the character/persona loader
+   * (.pm-gen-loader__pct) so the centred % reads identically. */
+  font-size: clamp(40px, 10vw, 88px);
 }
 
 /* Thumbnail card — matches the composer/input-bar glass recipe exactly:

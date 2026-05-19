@@ -1,5 +1,4 @@
 import { memo, useState, useRef, useEffect, useLayoutEffect } from 'react'
-import { useThumbnailJobStatusStore } from '../../stores/thumbnailJobStatusStore'
 
 /**
  * SmoothHint — sibling overlay used as a fading placeholder over the
@@ -107,29 +106,12 @@ export const ThumbnailGenFill = memo(function ThumbnailGenFill({
     }
   })
 
-  // Live backend progress — read INSIDE the rAF tick via
-  // ``useThumbnailJobStatusStore.getState()``. Pulling the value
-  // through the React subscription (``useThumbnailJobStatusStore((s) => ...)``)
-  // would trigger a component re-render every time the worker
-  // emitted progress, which is wasteful — the tick already polls
-  // the latest value on each animation frame. The previous code
-  // also had ``livePct`` in the useEffect deps, which meant every
-  // backend progress event re-ran the effect → reset ``setPct(0)``
-  // and restarted ``startRef`` from now → bar visibly RESTARTED at
-  // 0 every time the worker emitted progress. Reading via
-  // ``getState()`` inside the tick has neither problem: no
-  // subscription, no effect dep, the loop just reads the latest
-  // snapshot each frame.
-  const readLivePct = () => {
-    const status = useThumbnailJobStatusStore.getState().status
-    const p = status?.progress
-    if (typeof p !== 'number' || !Number.isFinite(p)) return null
-    // Backend emits 0..1. Values > 1 are treated as a 0-100 scale for
-    // legacy compatibility. Exclude exactly 1.0 from the >1 branch —
-    // that is a valid "100%" in 0..1 scale, not "1%" in 0..100 scale.
-    const normalized = p > 1 ? p / 100 : p
-    return Math.max(0, Math.min(0.999, normalized))
-  }
+  // Pure time-based asymptotic curve — identical motion to the
+  // persona/character loader (PersonaGenLoader). We deliberately do
+  // NOT merge live backend progress: discrete SSE updates made the
+  // bar/percentage snap forward in jumps, which is exactly the
+  // "not smooth" feel. The character generator never did this and
+  // glides perfectly, so the thumbnail loader now mirrors it.
 
   useEffect(() => {
     doneRef.current = false
@@ -163,16 +145,9 @@ export const ThumbnailGenFill = memo(function ThumbnailGenFill({
         curve = 0.92 + 0.07 * (1 - Math.exp(-k2 * t2))
       }
 
-      // If the backend reports a higher number, snap to it — never
-      // visually rewind. The curve continues forward from whichever
-      // is greater.
-      const live = readLivePct()
-      const target = live != null ? Math.max(curve, live) : curve
-
       // Monotone clamp — the displayed percentage can only ever go
-      // UP. Belt-and-suspenders for transitions between phases and
-      // for jittery SSE updates.
-      const next = Math.max(maxReachedRef.current, target)
+      // UP. Belt-and-suspenders for the phase-1 → phase-2 transition.
+      const next = Math.max(maxReachedRef.current, curve)
       maxReachedRef.current = next
 
       setPct(Math.round(next * 100))
@@ -207,7 +182,7 @@ export const ThumbnailGenFill = memo(function ThumbnailGenFill({
 
     const animate = (now) => {
       const t = Math.min(1, (now - startTime) / duration)
-      const eased = 1 - Math.pow(1 - t, 2) // easeOut quad
+      const eased = 1 - Math.pow(1 - t, 3) // easeOut cubic — matches PersonaGenLoader
       const next = Math.round(startPct + (100 - startPct) * eased)
       // Set-state-in-effect is intentional — fires only once per
       // generation completion, no cascading-render risk.
