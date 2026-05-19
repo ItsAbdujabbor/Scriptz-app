@@ -6001,3 +6001,56 @@
     animation-duration: 2s;
   }
 }
+
+/* ── Collapsible long user messages ───────────────────────────────────
+ * Clamp the user-message bubble to ~10 lines with a smooth bottom
+ * fade-to-transparent (mask-image, so it blends regardless of the
+ * bubble's purple gradient). A pill toggle below switches between
+ * collapsed and full text. Short messages render unclamped with no
+ * toggle — the component measures natural height before deciding. */
+.thumb-user-msg {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-height: 4000px;
+  transition: max-height 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.thumb-user-msg--clamped {
+  max-height: calc(10 * 1.55em);
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 64px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 64px), transparent 100%);
+}
+.thumb-user-msg-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.12s ease;
+}
+.thumb-user-msg-toggle:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.thumb-user-msg-toggle:active {
+  transform: scale(0.97);
+}
+.thumb-user-msg-toggle:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 2px;
+}

@@ -34,6 +34,7 @@ import { ThumbBackgroundFX } from '../components/ThumbBackgroundFX'
 import { stripPrefillFromHash } from '../lib/dashboardActionPayload'
 import { extractYoutubeUrl } from '../lib/youtubeUrl'
 import { renderMessageContent } from '../lib/messageRender.jsx'
+import { CollapsibleUserMessage } from './thumbnails/CollapsibleUserMessage'
 import { CostHint } from '../components/CostHint'
 import { usePlanEntitlements } from '../queries/billing/entitlementsQueries'
 import { useCreditsQuery } from '../queries/billing/creditsQueries'
@@ -855,7 +856,7 @@ const ChatMessageItem = memo(function ChatMessageItem({
            * an empty pill clinging to the image card. */}
           {msg.content ? (
             <div className="coach-message-bubble">
-              <p>{msg.content}</p>
+              <CollapsibleUserMessage text={msg.content} />
             </div>
           ) : null}
         </div>
