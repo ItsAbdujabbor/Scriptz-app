@@ -472,6 +472,49 @@
   gap: 12px;
 }
 
+/* Single face-photo uploader — one wide drop zone replacing the three
+ * Front/Left/Right slots. Reuses the .pm-slot dashed-tile language; the
+ * empty drop just overrides the 1:1 square so it reads as a banner. */
+.pm-upload-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pm-upload-drop {
+  aspect-ratio: auto;
+  min-height: 172px;
+  padding: 28px 22px;
+  gap: 10px;
+  text-align: center;
+}
+.pm-upload-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.82);
+  letter-spacing: 0;
+}
+.pm-upload-hint {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.45);
+  max-width: 30rem;
+  padding-left: 2px;
+}
+@media (max-width: 540px) {
+  .pm-upload-drop {
+    min-height: 140px;
+    padding: 20px 16px;
+  }
+  .pm-upload-title {
+    font-size: 13px;
+  }
+  .pm-upload-hint {
+    font-size: 11px;
+  }
+}
+
 /* Mobile compactness — keep the 3-column shape so the entire create
  * form fits in roughly one phone-viewport without scrolling. The
  * stacked 1-column layout we had before produced ~900px of vertical

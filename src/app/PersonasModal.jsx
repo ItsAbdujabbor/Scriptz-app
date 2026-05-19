@@ -143,11 +143,9 @@ function SlotImage({ file, alt }) {
   return <img src={url} alt={alt} />
 }
 
-const PHOTO_SLOTS = [
-  { key: 'front', label: 'Front' },
-  { key: 'left', label: 'Left' },
-  { key: 'right', label: 'Right' },
-]
+// Labels for the (up to 3) uploaded photos, in order. Only the first
+// is required / used by the generator; the rest are optional context.
+const PHOTO_LABELS = ['Front', 'Left', 'Right']
 
 // Persona names are short labels (a nickname for the face) — the cap
 // covers everything reasonable while keeping the card grid tidy. The
@@ -280,78 +278,117 @@ function IconTrash() {
   )
 }
 
-/* ── Photo slot with drag-and-drop ────────────────────────────────── */
+/* ── Single face-photo uploader ───────────────────────────────────── */
 
-function PhotoSlot({ slotKey, label, file, onPick, onClear, fileInputRef }) {
+/**
+ * One drop/click area for the persona's face photos. The user uploads
+ * 1–3 images in a single action; the first is the face that's used,
+ * any extra are optional left/right context. Replaces the old three
+ * separate Front/Left/Right slots — clearer and one upload.
+ */
+function PhotoUpload({ photos, onAdd, onRemove, inputRef }) {
   const [dragOver, setDragOver] = useState(false)
 
-  const onDragEnter = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragOver(true)
-  }
-  const onDragOver = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (!dragOver) setDragOver(true)
-  }
-  const onDragLeave = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    // Only clear when leaving the wrap, not when crossing into a child.
-    if (e.currentTarget.contains(e.relatedTarget)) return
-    setDragOver(false)
-  }
-  const onDrop = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragOver(false)
-    const dropped = e.dataTransfer?.files?.[0]
-    if (dropped) onPick(slotKey, dropped)
-  }
+  const accept = (fileList) => onAdd(fileList)
 
   return (
     <div
-      className={`pm-slot-wrap${dragOver ? ' pm-slot-wrap--dragover' : ''}`}
-      onDragEnter={onDragEnter}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
+      className={`pm-upload-wrap${dragOver ? ' pm-slot-wrap--dragover' : ''}`}
+      onDragEnter={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setDragOver(true)
+      }}
+      onDragOver={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (!dragOver) setDragOver(true)
+      }}
+      onDragLeave={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (e.currentTarget.contains(e.relatedTarget)) return
+        setDragOver(false)
+      }}
+      onDrop={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setDragOver(false)
+        accept(e.dataTransfer?.files)
+      }}
     >
-      <span className="pm-slot-label">{label}</span>
+      <span className="pm-slot-label">Your face</span>
       <input
-        ref={fileInputRef}
+        ref={inputRef}
         type="file"
         accept="image/*"
+        multiple
         className="pm-slot-input"
-        onChange={(e) => onPick(slotKey, e.target.files?.[0])}
+        onChange={(e) => {
+          accept(e.target.files)
+          e.target.value = ''
+        }}
       />
-      {file ? (
-        <div className="pm-slot pm-slot--filled">
-          <SlotImage file={file} alt={label} />
-          <button
-            type="button"
-            className="pm-slot-clear"
-            onClick={(e) => {
-              e.stopPropagation()
-              onClear(slotKey)
-            }}
-            aria-label={`Remove ${label}`}
-          >
-            <IconX size={12} />
-          </button>
-        </div>
-      ) : (
+
+      {photos.length === 0 ? (
         <button
           type="button"
-          className="pm-slot pm-slot--empty"
-          onClick={() => fileInputRef.current?.click()}
+          className="pm-slot pm-slot--empty pm-upload-drop"
+          onClick={() => inputRef.current?.click()}
         >
           <span className="pm-slot-empty-icon" aria-hidden>
-            <IconPlus size={20} />
+            <IconPlus size={22} />
           </span>
-          <span className="pm-slot-empty-hint">{dragOver ? 'Drop image' : 'Drop or click'}</span>
+          <span className="pm-upload-title">
+            {dragOver ? 'Drop your photo here' : 'Drop or click to upload your face'}
+          </span>
+          <span className="pm-upload-hint">
+            A clear, front-facing photo works best. You can add up to 3 (front, left, right) — only
+            the front is required.
+          </span>
         </button>
+      ) : (
+        <>
+          <div className="pm-slots-grid">
+            {photos.map((file, i) => (
+              <div className="pm-slot-wrap" key={i}>
+                <span className="pm-slot-label">{PHOTO_LABELS[i] || `Photo ${i + 1}`}</span>
+                <div className="pm-slot pm-slot--filled">
+                  <SlotImage file={file} alt={PHOTO_LABELS[i] || `Photo ${i + 1}`} />
+                  <button
+                    type="button"
+                    className="pm-slot-clear"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onRemove(i)
+                    }}
+                    aria-label="Remove photo"
+                  >
+                    <IconX size={12} />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {photos.length < 3 && (
+              <div className="pm-slot-wrap">
+                <span className="pm-slot-label">Add</span>
+                <button
+                  type="button"
+                  className="pm-slot pm-slot--empty"
+                  onClick={() => inputRef.current?.click()}
+                >
+                  <span className="pm-slot-empty-icon" aria-hidden>
+                    <IconPlus size={20} />
+                  </span>
+                  <span className="pm-slot-empty-hint">Add more</span>
+                </button>
+              </div>
+            )}
+          </div>
+          <span className="pm-upload-hint">
+            The first photo is used as your face · {photos.length}/3 added
+          </span>
+        </>
       )}
     </div>
   )
@@ -437,7 +474,11 @@ export function PersonasModal({ onClose }) {
   const [showCreate, setShowCreate] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [genDone, setGenDone] = useState(false)
-  const [createImages, setCreateImages] = useState({ front: null, left: null, right: null })
+  // One upload area, up to 3 face photos. Index 0 is the face that's
+  // actually used; extra photos are optional context. Mapped to the
+  // API's front/left/right slots at submit (missing ones reuse the
+  // front so the unchanged backend contract still validates).
+  const [createPhotos, setCreatePhotos] = useState([])
   const [createName, setCreateName] = useState('')
   const [createError, setCreateError] = useState('')
   const [editingId, setEditingId] = useState(null)
@@ -448,10 +489,7 @@ export function PersonasModal({ onClose }) {
   // a boolean since the bulk action operates on every visible persona.
   const [personaToDelete, setPersonaToDelete] = useState(null)
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
-  const frontRef = useRef(null)
-  const leftRef = useRef(null)
-  const rightRef = useRef(null)
-  const slotRefs = { front: frontRef, left: leftRef, right: rightRef }
+  const uploadInputRef = useRef(null)
 
   const requestClose = () => onClose?.()
 
@@ -464,35 +502,31 @@ export function PersonasModal({ onClose }) {
   const personalItems = items.filter((p) => p.visibility === 'personal')
   const filteredItems = [...stockItems, ...personalItems]
 
-  const pickFile = useCallback((slot, file) => {
-    if (!file?.type?.startsWith('image/')) return
-    setCreateImages((prev) => ({ ...prev, [slot]: file }))
+  const addPhotos = useCallback((files) => {
+    const imgs = Array.from(files || []).filter((f) => f?.type?.startsWith('image/'))
+    if (!imgs.length) return
+    setCreatePhotos((prev) => [...prev, ...imgs].slice(0, 3))
     setCreateError('')
   }, [])
 
-  const clearSlot = useCallback((slot) => {
-    setCreateImages((prev) => ({ ...prev, [slot]: null }))
-    if (slotRefs[slot]?.current) slotRefs[slot].current.value = ''
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const removePhoto = useCallback((idx) => {
+    setCreatePhotos((prev) => prev.filter((_, i) => i !== idx))
   }, [])
 
   const clearCreateForm = useCallback(() => {
-    setCreateImages({ front: null, left: null, right: null })
+    setCreatePhotos([])
     setCreateName('')
     setCreateError('')
     setShowCreate(false)
     setIsGenerating(false)
     setGenDone(false)
-    Object.values(slotRefs).forEach((ref) => {
-      if (ref.current) ref.current.value = ''
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (uploadInputRef.current) uploadInputRef.current.value = ''
   }, [])
 
   const handleCreate = async (e) => {
     e.preventDefault()
-    if (!createImages.front || !createImages.left || !createImages.right) {
-      setCreateError('All 3 photos are required.')
+    if (!createPhotos.length) {
+      setCreateError('Add at least one photo of your face.')
       return
     }
     const name = createName.trim() || 'My Persona'
@@ -500,10 +534,14 @@ export function PersonasModal({ onClose }) {
     setIsGenerating(true)
     setGenDone(false)
     try {
+      // The generator uses the first (front) photo; left/right are
+      // optional. Fill any missing slot with the front so the
+      // unchanged 3-file backend contract still validates.
+      const front = createPhotos[0]
       const persona = await createMutation.mutateAsync({
-        frontImage: createImages.front,
-        leftImage: createImages.left,
-        rightImage: createImages.right,
+        frontImage: front,
+        leftImage: createPhotos[1] || front,
+        rightImage: createPhotos[2] || front,
         name,
       })
       if (persona) setSelectedPersona(persona)
@@ -594,8 +632,7 @@ export function PersonasModal({ onClose }) {
     }
   }
 
-  const createDisabled =
-    createMutation.isPending || !createImages.front || !createImages.left || !createImages.right
+  const createDisabled = createMutation.isPending || !createPhotos.length
 
   // The empty placeholder + grid only render when the create form is
   // closed. While the form is open, the dialog is dedicated to that
@@ -711,19 +748,12 @@ export function PersonasModal({ onClose }) {
             ) : (
               <form onSubmit={handleCreate} className="pm-create-form" aria-busy={undefined}>
                 <fieldset className="pm-create-fieldset">
-                  <div className="pm-slots-grid">
-                    {PHOTO_SLOTS.map(({ key, label }) => (
-                      <PhotoSlot
-                        key={key}
-                        slotKey={key}
-                        label={label}
-                        file={createImages[key]}
-                        onPick={pickFile}
-                        onClear={clearSlot}
-                        fileInputRef={slotRefs[key]}
-                      />
-                    ))}
-                  </div>
+                  <PhotoUpload
+                    photos={createPhotos}
+                    onAdd={addPhotos}
+                    onRemove={removePhoto}
+                    inputRef={uploadInputRef}
+                  />
 
                   <div className="pm-name-field">
                     <input
