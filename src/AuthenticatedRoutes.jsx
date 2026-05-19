@@ -86,20 +86,33 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
     onLogout?.()
   }, [onLogout])
 
+  // Personas / Styles are mutually exclusive — opening one always
+  // closes the other so they can never stack (the "close persona →
+  // style was open behind it" bug). Stable identities so the memoised
+  // Sidebar doesn't re-render on every parent render.
+  const openPersonas = useCallback(() => {
+    setShowStylesModal(false)
+    setShowPersonasModal(true)
+  }, [])
+  const openStyles = useCallback(() => {
+    setShowPersonasModal(false)
+    setShowStylesModal(true)
+  }, [])
+
   const sidebar = useMemo(
     () => (
       <Sidebar
         user={user}
         onOpenSettings={openSettings}
-        onOpenPersonas={() => setShowPersonasModal(true)}
-        onOpenStyles={() => setShowStylesModal(true)}
+        onOpenPersonas={openPersonas}
+        onOpenStyles={openStyles}
         onLogout={handleLogout}
         currentScreen={screenState.currentScreen}
         activeThumbnailConversationId={screenState.thumbnailConversationId}
         onNewChat={handleNewChat}
       />
     ),
-    [user, openSettings, handleLogout, screenState, handleNewChat]
+    [user, openSettings, handleLogout, screenState, handleNewChat, openPersonas, openStyles]
   )
 
   const shellClass = [
@@ -126,12 +139,7 @@ export default function AuthenticatedRoutes({ view, onLogout }) {
   const content = (() => {
     switch (baseView) {
       case 'thumbnails':
-        return (
-          <Thumbnails
-            onOpenPersonas={() => setShowPersonasModal(true)}
-            onOpenStyles={() => setShowStylesModal(true)}
-          />
-        )
+        return <Thumbnails onOpenPersonas={openPersonas} onOpenStyles={openStyles} />
       default:
         // Unknown view shouldn't reach here — App.jsx now redirects
         // every legacy hash (dashboard / optimize / billing) to
@@ -295,6 +303,45 @@ function ContentLoadingSpinner() {
   )
 }
 
+// Suspense fallback for the LAZY MODALS specifically. Must be a centred
+// fixed overlay — NOT the 60vh inline ContentLoadingSpinner, which
+// rendered as a stray block at the bottom of the page during the chunk
+// load ("Create → bottom section instead of a dialog"). This reads as
+// the dialog opening; it's replaced by the real <Dialog> the instant
+// the chunk resolves (usually immediate — chunks are prefetched below).
+function ModalSuspenseFallback() {
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        display: 'grid',
+        placeItems: 'center',
+        background: 'rgba(0,0,0,0.45)',
+        backdropFilter: 'blur(2px)',
+      }}
+    >
+      <svg
+        width="28"
+        height="28"
+        viewBox="0 0 28 28"
+        fill="none"
+        style={{ animation: 'rotate360 0.7s linear infinite', opacity: 0.6 }}
+      >
+        <style>{`@keyframes rotate360{to{transform:rotate(360deg)}}`}</style>
+        <circle cx="14" cy="14" r="11" stroke="currentColor" strokeWidth="3" strokeOpacity="0.2" />
+        <path
+          d="M14 3a11 11 0 0 1 11 11"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+      </svg>
+    </div>
+  )
+}
+
 // Kick off both chunks immediately so they're cached before the user
 // ever clicks "Create" — prevents the silent-load gap where the modal
 // appears to not open on first click (Suspense fallback=null).
@@ -306,7 +353,7 @@ const PersonasModalModule = lazyWithRetry(() =>
 )
 function PersonasModalLazy({ onClose }) {
   return (
-    <Suspense fallback={<ContentLoadingSpinner />}>
+    <Suspense fallback={<ModalSuspenseFallback />}>
       <PersonasModalModule onClose={onClose} />
     </Suspense>
   )
@@ -317,7 +364,7 @@ const StylesModalModule = lazyWithRetry(() =>
 )
 function StylesModalLazy({ onClose }) {
   return (
-    <Suspense fallback={<ContentLoadingSpinner />}>
+    <Suspense fallback={<ModalSuspenseFallback />}>
       <StylesModalModule onClose={onClose} />
     </Suspense>
   )
@@ -339,7 +386,7 @@ function SettingsLazy({ onLogout, returnHash = 'thumbnails' }) {
     }
   }, [returnHash])
   return (
-    <Suspense fallback={<ContentLoadingSpinner />}>
+    <Suspense fallback={<ModalSuspenseFallback />}>
       <SettingsModule open onClose={handleClose} onLogout={onLogout} />
     </Suspense>
   )
