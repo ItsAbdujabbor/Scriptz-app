@@ -102,9 +102,10 @@
   left: 50%;
   transform: translateX(-50%);
   margin-bottom: 8px;
-  /* Match the batch (1×) picker popover exactly — same width/padding/
-   * radius so all three composer pickers share one footprint. */
-  width: 160px;
+  /* Overall size matches the style picker (.style-selector-dropdown):
+   * same width/padding/radius. Selected-row + list recipe matches the
+   * batch picker (shared values, see .persona-selector-option). */
+  width: 220px;
   padding: 14px 8px;
   background: #1c1c24;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -130,13 +131,10 @@
 
 /* Inner scroll area for the option list. */
 .persona-selector-dropdown-inner {
-  /* Fixed, self-contained list viewport: the popover stays one stable
-   * size and the persona list scrolls *inside* this region instead of
-   * the popover growing/shrinking with the persona count. ~3.5 rows
-   * (row ≈ 38px) — enough to browse, capped so it never overruns the
-   * dialog. */
-  height: 132px;
-  max-height: 132px;
+  /* Hug content, scroll only when the list overflows — same recipe as
+   * the style picker (.style-selector-dropdown-inner). No fixed height,
+   * so one persona = compact popover, many = scrolls within 280px. */
+  max-height: 280px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
