@@ -3921,6 +3921,38 @@ export function ThumbnailGenerator({
     ]
   )
 
+  // Stable-identity wrappers for the message-row callbacks. The
+  // underlying handlers keep their own deps; these wrappers never
+  // change identity, so `chatMessageItemPropsEqual`'s callback guard
+  // always passes and a memoised row only re-renders when its own
+  // `msg` actually changes — not on every unrelated parent render
+  // (composer keystroke, poll tick, mode switch). Same latest-ref
+  // recipe as the per-mode submit refs below; behaviour identical
+  // (wrappers always invoke the most recent handler).
+  const rowHandlerLatestRef = useRef(null)
+  rowHandlerLatestRef.current = {
+    onReplaceThumbnail: handleReplaceThumbnail,
+    onRegenerate: handleRegenerateOne,
+    onOneClickFix: handleOneClickFixWithImage,
+    onViewImage: openThumbLightbox,
+    onEditImage: openEditorForThumbnail,
+    onUseTitle: handleUseTitleAsPrompt,
+    onRetry: handleRetryFailedAttempt,
+  }
+  const rowHandlersRef = useRef(null)
+  if (rowHandlersRef.current === null) {
+    rowHandlersRef.current = {
+      onReplaceThumbnail: (...a) => rowHandlerLatestRef.current.onReplaceThumbnail(...a),
+      onRegenerate: (...a) => rowHandlerLatestRef.current.onRegenerate(...a),
+      onOneClickFix: (...a) => rowHandlerLatestRef.current.onOneClickFix(...a),
+      onViewImage: (...a) => rowHandlerLatestRef.current.onViewImage(...a),
+      onEditImage: (...a) => rowHandlerLatestRef.current.onEditImage(...a),
+      onUseTitle: (...a) => rowHandlerLatestRef.current.onUseTitle(...a),
+      onRetry: (...a) => rowHandlerLatestRef.current.onRetry(...a),
+    }
+  }
+  const rowHandlers = rowHandlersRef.current
+
   // Keep the per-mode submit refs pointing at the latest closures so the
   // failure-card retry dispatcher (and the toast Retry action) always
   // invoke the most recent handler with current state. Runs after every
@@ -4585,17 +4617,17 @@ export function ThumbnailGenerator({
           {!isHistoryLoading &&
             renderedMessages.map((msg) =>
               msg?._kind === 'failure' ? (
-                <FailedAttemptBlock key={msg.id} entry={msg} onRetry={handleRetryFailedAttempt} />
+                <FailedAttemptBlock key={msg.id} entry={msg} onRetry={rowHandlers.onRetry} />
               ) : (
                 <ChatMessageItem
                   key={msg.id}
                   msg={msg}
-                  onReplaceThumbnail={handleReplaceThumbnail}
-                  onRegenerate={handleRegenerateOne}
-                  onOneClickFix={handleOneClickFixWithImage}
-                  onViewImage={openThumbLightbox}
-                  onEditImage={openEditorForThumbnail}
-                  onUseTitle={handleUseTitleAsPrompt}
+                  onReplaceThumbnail={rowHandlers.onReplaceThumbnail}
+                  onRegenerate={rowHandlers.onRegenerate}
+                  onOneClickFix={rowHandlers.onOneClickFix}
+                  onViewImage={rowHandlers.onViewImage}
+                  onEditImage={rowHandlers.onEditImage}
+                  onUseTitle={rowHandlers.onUseTitle}
                 />
               )
             )}
