@@ -483,9 +483,9 @@
 }
 .pm-upload-drop {
   aspect-ratio: auto;
-  min-height: 172px;
-  padding: 28px 22px;
-  gap: 10px;
+  min-height: 116px;
+  padding: 18px 22px;
+  gap: 6px;
   text-align: center;
 }
 .pm-upload-title {
@@ -504,8 +504,8 @@
 }
 @media (max-width: 540px) {
   .pm-upload-drop {
-    min-height: 140px;
-    padding: 20px 16px;
+    min-height: 96px;
+    padding: 14px 14px;
   }
   .pm-upload-title {
     font-size: 13px;
