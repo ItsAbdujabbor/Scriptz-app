@@ -130,7 +130,13 @@
 
 /* Inner scroll area for the option list. */
 .persona-selector-dropdown-inner {
-  max-height: 280px;
+  /* Fixed, self-contained list viewport: the popover stays one stable
+   * size and the persona list scrolls *inside* this region instead of
+   * the popover growing/shrinking with the persona count. ~3.5 rows
+   * (row ≈ 38px) — enough to browse, capped so it never overruns the
+   * dialog. */
+  height: 132px;
+  max-height: 132px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
