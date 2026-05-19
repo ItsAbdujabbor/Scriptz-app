@@ -4448,9 +4448,10 @@
 .thumb-title-card--gen {
   cursor: default;
   pointer-events: none;
-  animation:
-    thumb-title-card-in 0.52s cubic-bezier(0.22, 1, 0.36, 1) both,
-    thumb-gen-card-pulse 3s ease-in-out 0.6s infinite;
+  /* No border-pulse — the static skeleton + the spinner on the right
+   * is the only motion; reads calmer and matches the final card's
+   * silhouette exactly so the swap is seamless. */
+  animation: thumb-title-card-in 0.52s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .thumb-title-card--gen:hover {
@@ -4459,17 +4460,6 @@
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 6px 20px rgba(0, 0, 0, 0.28);
-}
-
-/* Single slow pulse on the border — the only animation on the card */
-@keyframes thumb-gen-card-pulse {
-  0%,
-  100% {
-    border-color: rgba(255, 255, 255, 0.08);
-  }
-  50% {
-    border-color: rgba(167, 139, 250, 0.3);
-  }
 }
 
 /* Index bubble — dimmed, no animation */
@@ -4495,7 +4485,29 @@
   width: var(--reason-w, 48%);
 }
 
-/* Ghost action buttons — static */
+/* Right-side circular spinner — single source of motion on the
+ * loader card. Sized to occupy the same grid track the final card's
+ * score badge sits in, so the swap doesn't reflow. */
+.thumb-title-card__gen-spinner {
+  display: block;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 2px solid rgba(167, 139, 250, 0.18);
+  border-top-color: #a78bfa;
+  animation: thumb-title-gen-spin 0.8s linear infinite;
+}
+
+@keyframes thumb-title-gen-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Legacy ghost-button placeholders kept as no-ops in case any older
+ * cached bundle still references them — harmless if unused. */
 .thumb-title-card__gen-actions {
   display: inline-flex;
   align-items: center;
@@ -4503,7 +4515,6 @@
   margin-top: 1px;
   flex-shrink: 0;
 }
-
 .thumb-title-card__gen-btn {
   display: block;
   width: 30px;
@@ -4512,7 +4523,6 @@
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
-
 .thumb-title-card__gen-btn--primary {
   width: 84px;
   background: rgba(124, 58, 237, 0.08);

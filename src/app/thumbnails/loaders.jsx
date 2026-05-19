@@ -356,10 +356,7 @@ export const TitlesLoader = memo(function TitlesLoader({ count = 4 }) {
               <span className="thumb-title-card__gen-line thumb-title-card__gen-line--title" />
               <span className="thumb-title-card__gen-line thumb-title-card__gen-line--reason" />
             </span>
-            <span className="thumb-title-card__gen-actions">
-              <span className="thumb-title-card__gen-btn" />
-              <span className="thumb-title-card__gen-btn thumb-title-card__gen-btn--primary" />
-            </span>
+            <span className="thumb-title-card__gen-spinner" aria-hidden />
           </div>
         ))}
       </div>
