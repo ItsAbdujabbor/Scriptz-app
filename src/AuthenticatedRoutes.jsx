@@ -1,5 +1,7 @@
 import { useState, useCallback, useMemo, Suspense, useEffect, Component } from 'react'
-import { lazyWithRetry } from './lib/lazyWithRetry'
+import { PersonasModal } from './app/PersonasModal'
+import { StylesModal } from './app/StylesModal'
+import { SharedSettingsModal } from './app/SharedSettingsModal'
 import { useAuthStore } from './stores/authStore'
 import { useSidebarStore } from './stores/sidebarStore'
 import { useCurrentScreen } from './lib/useCurrentScreen'
@@ -303,81 +305,25 @@ function ContentLoadingSpinner() {
   )
 }
 
-// Suspense fallback for the LAZY MODALS specifically. Must be a centred
-// fixed overlay — NOT the 60vh inline ContentLoadingSpinner, which
-// rendered as a stray block at the bottom of the page during the chunk
-// load ("Create → bottom section instead of a dialog"). This reads as
-// the dialog opening; it's replaced by the real <Dialog> the instant
-// the chunk resolves (usually immediate — chunks are prefetched below).
-function ModalSuspenseFallback() {
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1000,
-        display: 'grid',
-        placeItems: 'center',
-        background: 'rgba(0,0,0,0.45)',
-        backdropFilter: 'blur(2px)',
-      }}
-    >
-      <svg
-        width="28"
-        height="28"
-        viewBox="0 0 28 28"
-        fill="none"
-        style={{ animation: 'rotate360 0.7s linear infinite', opacity: 0.6 }}
-      >
-        <style>{`@keyframes rotate360{to{transform:rotate(360deg)}}`}</style>
-        <circle cx="14" cy="14" r="11" stroke="currentColor" strokeWidth="3" strokeOpacity="0.2" />
-        <path
-          d="M14 3a11 11 0 0 1 11 11"
-          stroke="currentColor"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-      </svg>
-    </div>
-  )
-}
-
-// Kick off both chunks immediately so they're cached before the user
-// ever clicks "Create" — prevents the silent-load gap where the modal
-// appears to not open on first click (Suspense fallback=null).
-import('./app/PersonasModal').catch(() => {})
-import('./app/StylesModal').catch(() => {})
-
-const PersonasModalModule = lazyWithRetry(() =>
-  import('./app/PersonasModal').then((m) => ({ default: m.PersonasModal }))
-)
+// Persona / Style / Settings modals are statically imported (not
+// lazy-loaded). They were a chunk-split <Suspense> before, but a
+// hanging chunk left users staring at a loading state instead of the
+// dialog. They're small and only mount on demand, so shipping them in
+// the main bundle is the right trade: pressing "Create" renders the
+// dialog instantly — no loading state, nothing to hang.
 function PersonasModalLazy({ onClose }) {
-  return (
-    <Suspense fallback={<ModalSuspenseFallback />}>
-      <PersonasModalModule onClose={onClose} />
-    </Suspense>
-  )
+  return <PersonasModal onClose={onClose} />
 }
 
-const StylesModalModule = lazyWithRetry(() =>
-  import('./app/StylesModal').then((m) => ({ default: m.StylesModal }))
-)
 function StylesModalLazy({ onClose }) {
-  return (
-    <Suspense fallback={<ModalSuspenseFallback />}>
-      <StylesModalModule onClose={onClose} />
-    </Suspense>
-  )
+  return <StylesModal onClose={onClose} />
 }
 
-// Settings — wraps SharedSettingsModal as a routed view. The component
-// already accepts the `open` prop for legacy callers; we always pass
-// `open={true}` because being on the settings hash IS the open state.
-const SettingsModule = lazyWithRetry(() =>
-  import('./app/SharedSettingsModal').then((m) => ({ default: m.SharedSettingsModal }))
-)
+// Settings — wraps SharedSettingsModal as a routed view. Always open
+// while the #settings hash is active (being on the hash IS the open
+// state).
 function SettingsLazy({ onLogout, returnHash = 'thumbnails' }) {
-  // Restore the exact hash that was active before settings opened so that
+  // Restore the exact hash that was active before settings opened so
   // Thumbnails.jsx's hashchange listener keeps the same conversationId
   // (avoids an unwanted "new chat" when the user closes settings).
   const handleClose = useCallback(() => {
@@ -385,9 +331,5 @@ function SettingsLazy({ onLogout, returnHash = 'thumbnails' }) {
       window.location.hash = returnHash
     }
   }, [returnHash])
-  return (
-    <Suspense fallback={<ModalSuspenseFallback />}>
-      <SettingsModule open onClose={handleClose} onLogout={onLogout} />
-    </Suspense>
-  )
+  return <SharedSettingsModal open onClose={handleClose} onLogout={onLogout} />
 }
