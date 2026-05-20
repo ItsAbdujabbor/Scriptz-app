@@ -38,15 +38,6 @@ export const AnalysisBreakdown = memo(function AnalysisBreakdown({ analysis }) {
     if (analysis?.overall_grade) return String(analysis.overall_grade)
     return gradeFromScore(analysis?.overall_score)
   }, [analysis])
-  const fixes = useMemo(() => {
-    const list =
-      Array.isArray(analysis?.top_fixes) && analysis.top_fixes.length > 0
-        ? analysis.top_fixes
-        : Array.isArray(analysis?.recommendations)
-          ? analysis.recommendations
-          : []
-    return list.filter(Boolean).slice(0, 3)
-  }, [analysis])
   const oneLiner = analysis?.one_liner || analysis?.specific_advice || ''
   const notThumbnailNote =
     analysis?.is_youtube_thumbnail === false ? analysis?.not_thumbnail_note || null : null
@@ -59,6 +50,12 @@ export const AnalysisBreakdown = memo(function AnalysisBreakdown({ analysis }) {
   // like a real analysis result but carries zero signal. Suppress it; the
   // chat layer already renders an error toast for the underlying failure.
   if (analysis?.one_liner === 'Analysis unavailable — please retry.') return null
+  // The "top fixes" bullet list used to render here. Removed by request —
+  // the grade + score + one-line verdict already gives the user the signal
+  // they need, and the bullets duplicated the same advice in a noisier
+  // shape. The data is still persisted in the rating row so any future
+  // detail view (e.g. "see full breakdown") can render it without a new
+  // backend call.
   return (
     <div className={`thumb-analysis-card coach-stream-block ${gradeTierClass(grade)}`}>
       {notThumbnailNote && <p className="thumb-analysis-card-not-thumb">⚠ {notThumbnailNote}</p>}
@@ -72,13 +69,6 @@ export const AnalysisBreakdown = memo(function AnalysisBreakdown({ analysis }) {
         </div>
         {oneLiner && <p className="thumb-analysis-card-oneliner">{oneLiner}</p>}
       </div>
-      {fixes.length > 0 && (
-        <ul className="thumb-analysis-card-fixes">
-          {fixes.map((s, i) => (
-            <li key={`fix-${i}`}>{s}</li>
-          ))}
-        </ul>
-      )}
     </div>
   )
 })
