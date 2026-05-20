@@ -403,14 +403,40 @@ function extractBase64FromDataUrl(url) {
  * mounting the same thumbnail elsewhere never triggers a second /rate call
  * (and never double-charges credits).
  *
+ * When `sourceMessageId` + `sourceThumbnailIndex` are passed, the backend
+ * bakes the resulting score back into that thumbnail's entry in
+ * `extra_data.thumbnails[i]` (see `_bake_score_into_thumbnails` on the
+ * server). On a future page refresh, the conversation payload already
+ * carries the score and the rate query short-circuits via the `initialData`
+ * branch below — no HTTP /rate call at all.
+ *
  * Returns ``{ data: { rating_id, overall_score, ... }, isPending, error }``
  * — same shape the component used before, just centrally cached.
  */
-export function useThumbnailRatingQuery(imageUrl) {
+export function useThumbnailRatingQuery(imageUrl, options = {}) {
+  const { sourceMessageId = null, sourceThumbnailIndex = null, initialRating = null } = options
   const fingerprint = fingerprintImageUrl(imageUrl)
   return useQuery({
     queryKey: queryKeys.thumbnails.rating(fingerprint),
     enabled: !!imageUrl,
+    // If the conversation payload already includes a baked-in score
+    // for this thumbnail, hand React Query a synthetic rating shape
+    // so the query resolves immediately. The component sees `data`
+    // on first render and the score pill snaps in without a network
+    // round-trip or loading flicker.
+    initialData: initialRating
+      ? {
+          overall_score: initialRating.overall_score,
+          overall_grade: initialRating.overall_grade,
+          predicted_ctr_band: initialRating.predicted_ctr_band,
+          rating_id: initialRating.rating_id,
+          // Marker so consumers that branch on the full rating shape
+          // can detect this is a thin pre-baked summary, not a full
+          // /rate response. Currently unused — present for future
+          // ergonomics if a card wants to lazy-fetch the rich blob.
+          _baked: true,
+        }
+      : undefined,
     queryFn: async () => {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Not authenticated')
@@ -418,6 +444,11 @@ export function useThumbnailRatingQuery(imageUrl) {
       const payload = base64
         ? { thumbnail_image_base64: base64 }
         : { thumbnail_image_url: imageUrl }
+      // Pass the message/index so the server can bake the score into
+      // extra_data.thumbnails[i] for next time — purely additive, the
+      // backend ignores them if either is null.
+      if (sourceMessageId != null) payload.source_message_id = sourceMessageId
+      if (sourceThumbnailIndex != null) payload.source_thumbnail_index = sourceThumbnailIndex
       return thumbnailsApi.rate(token, payload)
     },
     staleTime: Infinity,

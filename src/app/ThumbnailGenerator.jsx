@@ -361,6 +361,14 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
   index,
   label,
   userRequest,
+  // ID of the assistant message that owns this thumbnail in
+  // ``extra_data.thumbnails[]``. Passed by callers as `msgId` already;
+  // forwarded to the rating query so the server can bake the score
+  // back into the message entry — a refresh restores the score with
+  // no /rate round-trip. Analyze-mode passes a `msgId` for an analyze
+  // row (no thumbnails[] array) — the backend silently no-ops the
+  // bake-back in that case, so this is safe.
+  msgId = null,
   onViewImage,
   onEditImage,
   onRegenerate,
@@ -368,11 +376,28 @@ const ThumbnailBatchCard = memo(function ThumbnailBatchCard({
   canRegenerate = true,
   isAnalyzeMode = false,
 }) {
+  // If the message already carries a baked-in score for this thumbnail
+  // (set by a previous /rate that hit this card), hand React Query an
+  // initial value so the score pill snaps in on first render — no
+  // loading spinner, no /rate call, no network round-trip.
+  const bakedRating =
+    t && typeof t.score === 'number'
+      ? {
+          overall_score: t.score,
+          overall_grade: t.grade ?? null,
+          predicted_ctr_band: t.predicted_band ?? null,
+          rating_id: t.rating_id ?? null,
+        }
+      : null
   // Rating is cached per-image in React Query (staleTime: Infinity) — a
   // thumbnail is scored exactly once per session no matter how many times
   // the card mounts or the user navigates away and back. Re-rating is
   // opt-in via `refetch()` from the error-state retry button.
-  const ratingQuery = useThumbnailRatingQuery(t?.image_url)
+  const ratingQuery = useThumbnailRatingQuery(t?.image_url, {
+    sourceMessageId: msgId,
+    sourceThumbnailIndex: index,
+    initialRating: bakedRating,
+  })
   const score =
     ratingQuery.data?.overall_score != null ? Math.round(ratingQuery.data.overall_score) : null
   const loadingScore = ratingQuery.isPending && !!t?.image_url
