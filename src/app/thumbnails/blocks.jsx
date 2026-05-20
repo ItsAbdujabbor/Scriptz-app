@@ -52,6 +52,13 @@ export const AnalysisBreakdown = memo(function AnalysisBreakdown({ analysis }) {
     analysis?.is_youtube_thumbnail === false ? analysis?.not_thumbnail_note || null : null
 
   if (!analysis) return null
+  // Backend emits a hard-coded fallback payload when the vision model fails
+  // (see app/services/thumbnail_rating_service.py — "Analysis unavailable —
+  // please retry." one-liner with a stock C / 50 grade and generic fixes).
+  // Showing that card to the user is worse than showing nothing: it looks
+  // like a real analysis result but carries zero signal. Suppress it; the
+  // chat layer already renders an error toast for the underlying failure.
+  if (analysis?.one_liner === 'Analysis unavailable — please retry.') return null
   return (
     <div className={`thumb-analysis-card coach-stream-block ${gradeTierClass(grade)}`}>
       {notThumbnailNote && <p className="thumb-analysis-card-not-thumb">⚠ {notThumbnailNote}</p>}

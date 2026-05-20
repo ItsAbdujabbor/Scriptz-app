@@ -4131,7 +4131,10 @@
   left: 0;
   width: 0%;
   background: linear-gradient(90deg, #4c1d95 0%, #6d28d9 35%, #7c3aed 70%, #8b5cf6 100%);
-  transition: width 0.18s linear;
+  /* Width is updated every animation frame from JS via barRef. A CSS
+     transition here would double-animate (lagging by ~180 ms behind the
+     rAF tick) and produce the laggy/steppy feel the user reported. */
+  transition: none;
   will-change: width;
   overflow: hidden;
 }

@@ -1283,7 +1283,10 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Bar grows left → right via inline width, same as thumb-gen-fill__bar. */
+/* Bar grows left → right; width is driven every animation frame from
+   PersonaGenLoader via barRef. No CSS transition — see the matching note
+   on .thumb-gen-fill__bar; a transition would double-animate and reintroduce
+   the steppy lag we explicitly removed. */
 .pm-gen-loader__bar {
   position: absolute;
   top: 0;
@@ -1291,7 +1294,7 @@
   left: 0;
   width: 0%;
   background: linear-gradient(90deg, #4c1d95 0%, #6d28d9 35%, #7c3aed 70%, #8b5cf6 100%);
-  transition: width 0.18s linear;
+  transition: none;
   will-change: width;
   overflow: hidden;
 }

@@ -49,6 +49,10 @@ const PersonaGenLoader = memo(function PersonaGenLoader({ done = false, onComple
   // Mirror pct in a ref so the done-effect can read the current value
   // without adding pct to its deps (which would re-run on every frame).
   const pctRef = useRef(0)
+  // Drive the bar width via DOM ref every frame (bypassing React state)
+  // so motion is truly continuous — same fix as ThumbnailGenFill, keeps
+  // the two loaders visually identical.
+  const barRef = useRef(null)
 
   const [jitter] = useState(() => {
     const r = () => Math.random() - 0.5
@@ -82,6 +86,11 @@ const PersonaGenLoader = memo(function PersonaGenLoader({ done = false, onComple
       }
       const next = Math.max(maxReachedRef.current, curve)
       maxReachedRef.current = next
+      // Bar width: write the float curve into the DOM every frame so
+      // phase-2's slow creep never visually freezes between integer ticks.
+      if (barRef.current) {
+        barRef.current.style.width = `${(next * 100).toFixed(2)}%`
+      }
       setPct(Math.round(next * 100))
       rafRef.current = requestAnimationFrame(tick)
     }
@@ -104,7 +113,11 @@ const PersonaGenLoader = memo(function PersonaGenLoader({ done = false, onComple
     const animate = (now) => {
       const t = Math.min(1, (now - startTime) / duration)
       const eased = 1 - Math.pow(1 - t, 3) // easeOutCubic
-      const next = Math.round(startPct + (100 - startPct) * eased)
+      const exact = startPct + (100 - startPct) * eased
+      if (barRef.current) {
+        barRef.current.style.width = `${exact.toFixed(2)}%`
+      }
+      const next = Math.round(exact)
       setPct(next)
       pctRef.current = next
       if (t < 1) {
@@ -127,7 +140,7 @@ const PersonaGenLoader = memo(function PersonaGenLoader({ done = false, onComple
       aria-busy={!done}
       aria-label="Creating persona"
     >
-      <div className="pm-gen-loader__bar" style={{ width: `${pct}%` }}>
+      <div ref={barRef} className="pm-gen-loader__bar">
         <span className="pm-gen-loader__sheen" aria-hidden="true" />
       </div>
       <div className="pm-gen-loader__pct">

@@ -67,6 +67,12 @@ export const ThumbnailGenFill = memo(function ThumbnailGenFill({
   const rafRef = useRef(0)
   const startRef = useRef(0)
   const doneRef = useRef(false)
+  // Drive the bar's width directly off the float curve every frame
+  // (mutating style via ref, bypassing React state) so motion is
+  // truly continuous. React state still owns the integer % TEXT, but
+  // updating the BAR via state caused it to sit static for seconds
+  // during phase-2 creep, then jump — that's the lag we're killing.
+  const barRef = useRef(null)
   // Lock the duration at first mount. If the parent re-renders with a
   // different value (e.g. message object updated while job is in flight),
   // we must NOT restart the animation — that's exactly what causes the
@@ -150,6 +156,15 @@ export const ThumbnailGenFill = memo(function ThumbnailGenFill({
       const next = Math.max(maxReachedRef.current, curve)
       maxReachedRef.current = next
 
+      // Bar width: write the float curve directly into the DOM every
+      // frame. This bypasses React's reconciliation entirely so motion
+      // stays buttery-smooth even when phase-2's slow creep wouldn't
+      // bump the rounded percentage for seconds at a time.
+      if (barRef.current) {
+        barRef.current.style.width = `${(next * 100).toFixed(2)}%`
+      }
+      // Percentage TEXT: integer, React-managed — only re-renders on
+      // integer transitions (cheap, looks crisp).
       setPct(Math.round(next * 100))
       rafRef.current = requestAnimationFrame(tick)
     }
@@ -183,11 +198,13 @@ export const ThumbnailGenFill = memo(function ThumbnailGenFill({
     const animate = (now) => {
       const t = Math.min(1, (now - startTime) / duration)
       const eased = 1 - Math.pow(1 - t, 3) // easeOut cubic — matches PersonaGenLoader
-      const next = Math.round(startPct + (100 - startPct) * eased)
-      // Set-state-in-effect is intentional — fires only once per
-      // generation completion, no cascading-render risk.
-
-      setPct(next)
+      const exact = startPct + (100 - startPct) * eased
+      // Drive the bar every frame off the float so the snap-to-100
+      // tween is just as smooth as the main curve. Text stays integer.
+      if (barRef.current) {
+        barRef.current.style.width = `${exact.toFixed(2)}%`
+      }
+      setPct(Math.round(exact))
       if (t < 1) rafRef.current = requestAnimationFrame(animate)
     }
     rafRef.current = requestAnimationFrame(animate)
@@ -203,7 +220,7 @@ export const ThumbnailGenFill = memo(function ThumbnailGenFill({
       aria-valuenow={pct}
       aria-busy={!done}
     >
-      <div className="thumb-gen-fill__bar" style={{ width: `${pct}%` }}>
+      <div ref={barRef} className="thumb-gen-fill__bar">
         <span className="thumb-gen-fill__sheen" aria-hidden="true" />
       </div>
       <div className="thumb-gen-fill__pct">
