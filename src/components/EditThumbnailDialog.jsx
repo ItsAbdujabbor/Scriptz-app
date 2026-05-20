@@ -21,8 +21,7 @@
  * work with.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal, flushSync } from 'react-dom'
-import { useFloatingPosition } from '../lib/useFloatingPosition'
+import { flushSync } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   Square as LucideSquare,
@@ -41,6 +40,7 @@ import { PrimaryPill } from './ui/PrimaryPill'
 import { Dialog } from './ui/Dialog'
 import { ThumbPillTabs } from './ThumbPillTabs'
 import { usePersonaStore } from '../stores/personaStore'
+import { usePersonasQuery } from '../queries/personas/personaQueries'
 import { PersonasModal } from '../app/PersonasModal'
 import GenerationProgress from './GenerationProgress'
 import { friendlyMessage } from '../lib/aiErrors'
@@ -714,6 +714,12 @@ export function EditThumbnailDialog({
   // ``clearSelectedPersona`` is still used by the inline chip's ✕ button.
   const { selectedPersona, clearSelectedPersona } = usePersonaStore()
   const [charPickerOpen, setCharPickerOpen] = useState(false)
+  // The picker is for selection only. When the user needs to create
+  // a brand-new character they click "Create new" inside the picker,
+  // which closes the picker and opens the full PersonasModal (the
+  // management UI with the create form / favourite / delete / rename
+  // affordances).
+  const [personasModalOpen, setPersonasModalOpen] = useState(false)
   const charPickerTriggerRef = useRef(null)
 
   // Drawing state
@@ -2408,29 +2414,30 @@ export function EditThumbnailDialog({
           </p>
         )}
 
-        {/* Unified input card — always rendered so the dialog height
-         * stays identical when the user switches between Edit and Face
-         * swap. Only the top row changes: textarea in edit mode,
-         * persona picker row in face-swap mode. The card chrome, action
-         * row, and generate button are shared and never shift. */}
-        <div
-          className="etd-input-card"
-          style={{
-            alignSelf: 'center',
-            width: '100%',
-            maxWidth: 720,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 0,
-            padding: '10px 14px 10px 16px',
-            borderRadius: 22,
-            background: '#1c1c24',
-            border: '1px solid rgba(255, 255, 255, 0.14)',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 16px rgba(0, 0, 0, 0.35)',
-            boxSizing: 'border-box',
-          }}
-        >
-          {mode === 'edit' ? (
+        {/* Bottom action area — mode-specific. Edit mode keeps the
+         * full input-card chrome so the textarea reads as a chat
+         * composer. Face-swap mode drops the chrome entirely — no
+         * fake-input bar, no rounded card. Just a compact pill
+         * button to pick a character (or a chip showing the selected
+         * one) paired with the Generate action. */}
+        {mode === 'edit' ? (
+          <div
+            className="etd-input-card"
+            style={{
+              alignSelf: 'center',
+              width: '100%',
+              maxWidth: 720,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 0,
+              padding: '10px 14px 10px 16px',
+              borderRadius: 22,
+              background: '#1c1c24',
+              border: '1px solid rgba(255, 255, 255, 0.14)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 16px rgba(0, 0, 0, 0.35)',
+              boxSizing: 'border-box',
+            }}
+          >
             <textarea
               ref={editTextareaRef}
               className="etd-input-textarea"
@@ -2466,49 +2473,83 @@ export function EditThumbnailDialog({
                 boxSizing: 'border-box',
               }}
             />
-          ) : (
-            /* Persona picker row — same padding/min-height as the textarea
-             * so the card occupies exactly the same height in both modes. */
-            <button
-              ref={charPickerTriggerRef}
-              type="button"
-              onClick={() => !busy && setCharPickerOpen((o) => !o)}
-              disabled={busy}
-              aria-haspopup="listbox"
-              aria-expanded={charPickerOpen}
-              aria-label={
-                selectedPersona ? `Character: ${selectedPersona.name}` : 'Pick a character'
-              }
+            <div
+              className="etd-input-actions"
               style={{
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'flex-end',
                 gap: 8,
-                width: '100%',
-                minHeight: '2.2em',
-                padding: '2px 0 8px',
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                color: 'rgba(255,255,255,0.92)',
-                cursor: busy ? 'not-allowed' : 'pointer',
+                paddingTop: 4,
+              }}
+            >
+              <PrimaryActionBtn
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                busy={busy}
+                label="Generate"
+                busyLabel="Generating…"
+                icon={<IconArrowUp size={13} />}
+                creditCost={unitCost ?? null}
+              />
+            </div>
+          </div>
+        ) : (
+          /* Face-swap: slim row, no card chrome. Left = compact
+           * character pill (avatar + name) or "Choose character"
+           * button; right = Generate. */
+          <div
+            style={{
+              alignSelf: 'center',
+              width: '100%',
+              maxWidth: 720,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              padding: '6px 4px',
+              boxSizing: 'border-box',
+            }}
+          >
+            <button
+              ref={charPickerTriggerRef}
+              type="button"
+              onClick={() => !busy && setCharPickerOpen(true)}
+              disabled={busy}
+              aria-label={
+                selectedPersona ? `Character: ${selectedPersona.name} — change` : 'Choose character'
+              }
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: selectedPersona ? '4px 12px 4px 4px' : '8px 14px',
+                background: selectedPersona
+                  ? 'rgba(124, 58, 237, 0.16)'
+                  : 'rgba(255, 255, 255, 0.06)',
+                border: `1px solid ${
+                  selectedPersona ? 'rgba(124, 58, 237, 0.45)' : 'rgba(255, 255, 255, 0.16)'
+                }`,
+                borderRadius: 999,
+                color: 'rgba(255, 255, 255, 0.94)',
                 fontFamily: 'inherit',
-                fontSize: '0.93rem',
-                textAlign: 'left',
-                boxSizing: 'border-box',
+                fontSize: '0.86rem',
+                fontWeight: 500,
+                cursor: busy ? 'not-allowed' : 'pointer',
                 opacity: busy ? 0.55 : 1,
+                transition: 'background 0.16s ease, border-color 0.16s ease',
               }}
             >
               {selectedPersona ? (
                 <>
                   <span
                     style={{
-                      width: 22,
-                      height: 22,
+                      width: 26,
+                      height: 26,
                       borderRadius: '50%',
                       overflow: 'hidden',
                       flexShrink: 0,
                       background: 'rgba(0,0,0,0.35)',
-                      border: '1px solid rgba(255,255,255,0.1)',
                     }}
                   >
                     {selectedPersona.image_url && (
@@ -2524,9 +2565,19 @@ export function EditThumbnailDialog({
                       />
                     )}
                   </span>
-                  <span style={{ flex: 1, lineHeight: 1.55 }}>{selectedPersona.name}</span>
+                  <span
+                    style={{
+                      maxWidth: 180,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {selectedPersona.name}
+                  </span>
                   <span
                     role="button"
+                    tabIndex={-1}
                     aria-label="Clear character"
                     onClick={(e) => {
                       e.stopPropagation()
@@ -2538,323 +2589,396 @@ export function EditThumbnailDialog({
                       justifyContent: 'center',
                       width: 20,
                       height: 20,
+                      marginLeft: 2,
                       borderRadius: '50%',
-                      background: 'rgba(255,255,255,0.08)',
-                      color: 'rgba(255,255,255,0.7)',
+                      background: 'rgba(255,255,255,0.1)',
+                      color: 'rgba(255,255,255,0.75)',
                       flexShrink: 0,
                     }}
                   >
-                    <IconX size={11} />
+                    <IconX size={10} />
                   </span>
                 </>
               ) : (
-                <span style={{ color: 'rgba(255,255,255,0.35)', lineHeight: 1.55 }}>
-                  Pick a character to swap the face with…
-                </span>
+                <>
+                  <LucideUserRoundCog size={14} aria-hidden />
+                  <span>Choose character</span>
+                </>
               )}
             </button>
-          )}
-
-          {/* Action row — shared across both modes, no divider */}
-          <div
-            className="etd-input-actions"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              gap: 8,
-              paddingTop: 4,
-            }}
-          >
             <PrimaryActionBtn
               onClick={handleSubmit}
               disabled={!canSubmit}
               busy={busy}
               label="Generate"
-              busyLabel={mode === 'faceswap' ? 'Swapping…' : 'Generating…'}
+              busyLabel="Swapping…"
               icon={<IconArrowUp size={13} />}
               creditCost={unitCost ?? null}
             />
           </div>
-        </div>
+        )}
 
-        {/* Face-swap character picker — the full PersonasModal (same
-         * grid the user manages personas in), not the old inline
-         * 220px popover. Opens centered as a real dialog with create /
-         * favourite / rename / delete affordances. PersonasModal sets
-         * the selectedPersona via usePersonaStore and closes itself,
-         * so the edit dialog just needs to mount/unmount it. */}
-        {charPickerOpen && <PersonasModal onClose={() => setCharPickerOpen(false)} />}
+        {/* Dedicated character picker — clean grid for SELECTION only.
+         * Distinct from the full PersonasModal (which is the
+         * management UI with create/favourite/rename/delete). Has a
+         * "Create new" link at the bottom that opens PersonasModal
+         * for users who need to add a character mid-flow. */}
+        {charPickerOpen && (
+          <CharacterPickerDialog
+            onClose={() => setCharPickerOpen(false)}
+            onCreateNew={() => {
+              setCharPickerOpen(false)
+              setPersonasModalOpen(true)
+            }}
+          />
+        )}
+        {personasModalOpen && <PersonasModal onClose={() => setPersonasModalOpen(false)} />}
       </div>
     </Dialog>
   )
 }
 
 /**
- * CharacterPickerDialog — compact floating popover anchored to its trigger.
- * Matches the PersonaSelector / StyleSelector visual language: 220px panel,
- * pill-shaped dark surface, list rows, purple Create pill at the footer.
+ * CharacterPickerDialog — dedicated face-swap character picker.
+ *
+ * Selection-only dialog (NOT the full PersonasModal management UI).
+ * Centered modal with a clean grid of persona cards: tap a card →
+ * persona is written into the global persona store (which the editor
+ * reads from) and the dialog closes. A "Create new character" CTA at
+ * the bottom opens the full PersonasModal for users who need to add
+ * a character mid-flow.
+ *
+ * Sits in the same Dialog primitive as the rest of the product so
+ * the backdrop, escape-to-close, and focus-trap behaviour are
+ * consistent with PersonasModal / StylesModal.
  */
-function CharacterPickerDialog({
-  open,
-  onClose,
-  triggerRef,
-  items,
-  isPending,
-  selectedId,
-  onSelect,
-}) {
-  const { popoverRef, style: popoverStyle } = useFloatingPosition({
-    triggerRef,
-    open,
-    placement: 'top-start',
-    offset: 8,
-  })
+function CharacterPickerDialog({ onClose, onCreateNew }) {
+  const { data, isPending } = usePersonasQuery()
+  const { selectedPersonaId, setSelectedPersona } = usePersonaStore()
 
-  // Close on outside click (trigger + popover are both checked)
-  useEffect(() => {
-    if (!open) return
-    const handleClick = (e) => {
-      const inTrigger = triggerRef?.current?.contains(e.target)
-      const inPopover = popoverRef.current?.contains(e.target)
-      if (!inTrigger && !inPopover) onClose?.()
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [open, onClose, triggerRef, popoverRef])
+  const items = data?.items ?? []
+  // Sort: stock/admin characters first (Demo badge), then user's own.
+  // Identical ordering to PersonasModal so the user sees the same
+  // characters in the same order across both surfaces.
+  const stockItems = items.filter((p) => p.visibility === 'admin' || p.visibility === 'stock')
+  const personalItems = items.filter((p) => p.visibility === 'personal')
+  const ordered = [...stockItems, ...personalItems]
 
-  // Escape closes only this picker, not the parent editor
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e) => {
-      if (e.key !== 'Escape') return
-      e.stopImmediatePropagation()
-      e.preventDefault()
-      onClose?.()
-    }
-    document.addEventListener('keydown', onKey, true)
-    return () => document.removeEventListener('keydown', onKey, true)
-  }, [open, onClose])
+  const handlePick = (p) => {
+    setSelectedPersona(p)
+    onClose?.()
+  }
 
-  if (!open) return null
-
-  return createPortal(
-    <>
-      <style>{`
-        .etd-cpop {
-          position: fixed;
-          width: 220px;
-          padding: 14px 8px;
-          background: #1c1c24;
-          border: 1px solid rgba(255,255,255,0.12);
-          border-radius: 22px;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.32);
-          z-index: 9999;
-          animation: etd-cpop-in 0.18s cubic-bezier(0.4,0,0.2,1) both;
-        }
-        @keyframes etd-cpop-in {
-          from { opacity: 0; transform: translateY(4px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .etd-cpop-header {
-          padding: 4px 10px 8px;
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: rgba(255,255,255,0.5);
-        }
-        .etd-cpop-inner {
-          max-height: 260px;
-          overflow-y: auto;
-          display: flex;
-          flex-direction: column;
-        }
-        .etd-cpop-inner::-webkit-scrollbar { width: 4px; }
-        .etd-cpop-inner::-webkit-scrollbar-thumb {
-          background: rgba(255,255,255,0.08);
-          border-radius: 999px;
-        }
-        .etd-cpop-empty {
-          padding: 10px 12px;
-          color: rgba(255,255,255,0.45);
-          font-size: 12px;
-          text-align: center;
-        }
-        .etd-cpop-row {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          width: 100%;
-          min-height: 36px;
-          padding: 5px 12px;
-          border: none;
-          border-radius: 9999px;
-          background: transparent;
-          color: rgba(229,231,235,0.78);
-          font-size: 0.8rem;
-          font-weight: 500;
-          font-family: inherit;
-          text-align: left;
-          cursor: pointer;
-          transition: background 0.15s ease, color 0.15s ease;
-        }
-        .etd-cpop-row + .etd-cpop-row { margin-top: 2px; }
-        .etd-cpop-row:hover { background: rgba(255,255,255,0.06); color: #fff; }
-        .etd-cpop-row[aria-selected='true'] {
-          background: rgba(255,255,255,0.08);
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), inset 0 0 0 1px rgba(255,255,255,0.06);
-          color: #fff;
-        }
-        .etd-cpop-avatar {
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          overflow: hidden;
-          flex-shrink: 0;
-          background: rgba(0,0,0,0.35);
-          border: 1px solid rgba(255,255,255,0.1);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .etd-cpop-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .etd-cpop-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .etd-cpop-badge {
-          padding: 2px 5px;
-          border-radius: 4px;
-          background: rgba(255,255,255,0.08);
-          color: rgba(255,255,255,0.6);
-          font-size: 9px;
-          text-transform: uppercase;
-        }
-        .etd-cpop-check {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          margin-left: auto;
-          flex-shrink: 0;
-        }
-        .etd-cpop-check svg { width: 13px; height: 13px; }
-        .etd-cpop-footer {
-          position: relative;
-          margin: 6px -2px 0;
-          padding: 10px 0 2px;
-        }
-        .etd-cpop-footer::before {
-          content: '';
-          position: absolute;
-          top: 0; left: 12px; right: 12px;
-          height: 1px;
-          background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 15%, rgba(255,255,255,0.12) 85%, transparent 100%);
-          pointer-events: none;
-        }
-        .etd-cpop-create {
-          position: relative;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          width: 100%;
-          height: 34px;
-          padding: 0 14px;
-          border: none;
-          border-radius: 999px;
-          background: var(--accent-gradient);
-          color: #fff;
-          font: inherit;
-          font-size: 12px;
-          font-weight: 600;
-          cursor: pointer;
-          outline: none;
-          overflow: hidden;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
-          transition: filter 0.18s ease, transform 0.15s ease;
-        }
-        .etd-cpop-create svg { width: 12px; height: 12px; }
-        .etd-cpop-create:hover { filter: brightness(1.08); }
-        .etd-cpop-create:active { transform: scale(0.95); filter: brightness(0.92); }
-      `}</style>
+  return (
+    <Dialog onClose={onClose}>
       <div
-        ref={popoverRef}
-        className="etd-cpop"
-        style={popoverStyle}
-        role="listbox"
-        aria-label="Characters"
+        className="etd-cpicker"
+        style={{
+          width: '100%',
+          maxWidth: 560,
+          background: '#16161e',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: 22,
+          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04)',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          maxHeight: '78vh',
+        }}
       >
-        <div className="etd-cpop-header">Characters</div>
-
-        <div className="etd-cpop-inner">
-          {isPending && <div className="etd-cpop-empty">Loading…</div>}
-          {!isPending && items.length === 0 && (
-            <div className="etd-cpop-empty">No characters yet</div>
-          )}
-          {!isPending &&
-            items.map((p) => {
-              const active = selectedId === p.id
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  role="option"
-                  aria-selected={active}
-                  className="etd-cpop-row"
-                  onClick={() => onSelect(p)}
-                >
-                  <span className="etd-cpop-avatar">
-                    {p.image_url && <img src={p.image_url} alt="" loading="lazy" />}
-                  </span>
-                  <span className="etd-cpop-name">{p.name}</span>
-                  {(p.visibility === 'admin' || p.visibility === 'stock') && (
-                    <span className="etd-cpop-badge" aria-hidden>
-                      Demo
-                    </span>
-                  )}
-                  {active && (
-                    <span className="etd-cpop-check" aria-hidden>
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.6"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M20 6 9 17l-5-5" />
-                      </svg>
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-        </div>
-
-        <div className="etd-cpop-footer">
-          <button
-            type="button"
-            className="etd-cpop-create"
-            onClick={() => {
-              onClose?.()
-              window.location.hash = 'personas'
+        {/* Header */}
+        <div
+          style={{
+            position: 'relative',
+            padding: '20px 22px 14px',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+          }}
+        >
+          <div
+            style={{
+              fontSize: '1.05rem',
+              fontWeight: 600,
+              color: 'rgba(255, 255, 255, 0.96)',
+              letterSpacing: '-0.005em',
             }}
           >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-            Create
+            Choose a character
+          </div>
+          <div
+            style={{
+              marginTop: 4,
+              fontSize: '0.82rem',
+              color: 'rgba(255, 255, 255, 0.55)',
+              lineHeight: 1.45,
+            }}
+          >
+            Tap a saved character to swap their face into this thumbnail.
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              position: 'absolute',
+              top: 14,
+              right: 14,
+              width: 30,
+              height: 30,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 999,
+              background: 'rgba(255, 255, 255, 0.06)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              color: 'rgba(255, 255, 255, 0.75)',
+              cursor: 'pointer',
+            }}
+          >
+            <IconX size={12} />
           </button>
         </div>
+
+        {/* Grid */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '16px 18px',
+          }}
+        >
+          {isPending ? (
+            <div
+              style={{
+                padding: '40px 0',
+                textAlign: 'center',
+                color: 'rgba(255, 255, 255, 0.5)',
+                fontSize: '0.85rem',
+              }}
+            >
+              Loading characters…
+            </div>
+          ) : ordered.length === 0 ? (
+            <div
+              style={{
+                padding: '36px 16px',
+                textAlign: 'center',
+                color: 'rgba(255, 255, 255, 0.55)',
+                fontSize: '0.88rem',
+                lineHeight: 1.5,
+              }}
+            >
+              <div style={{ marginBottom: 14, color: 'rgba(255, 255, 255, 0.7)' }}>
+                You don&rsquo;t have any characters yet.
+              </div>
+              <button
+                type="button"
+                onClick={onCreateNew}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '8px 16px',
+                  borderRadius: 999,
+                  background: PRIMARY_GRADIENT,
+                  border: 'none',
+                  color: '#fff',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Create your first character
+              </button>
+            </div>
+          ) : (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                gap: 12,
+              }}
+            >
+              {ordered.map((p) => {
+                const selected = selectedPersonaId === p.id
+                const isStock = p.visibility === 'admin' || p.visibility === 'stock'
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => handlePick(p)}
+                    aria-pressed={selected}
+                    style={{
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'stretch',
+                      gap: 0,
+                      padding: 0,
+                      borderRadius: 16,
+                      overflow: 'hidden',
+                      background: selected
+                        ? 'rgba(124, 58, 237, 0.16)'
+                        : 'rgba(255, 255, 255, 0.03)',
+                      border: `1.5px solid ${
+                        selected ? 'rgba(124, 58, 237, 0.8)' : 'rgba(255, 255, 255, 0.08)'
+                      }`,
+                      cursor: 'pointer',
+                      transition:
+                        'transform 0.12s ease, border-color 0.16s ease, background 0.16s ease',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!selected) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)'
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!selected) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)'
+                    }}
+                  >
+                    {/* Avatar */}
+                    <div
+                      style={{
+                        position: 'relative',
+                        aspectRatio: '1 / 1',
+                        background: 'rgba(0, 0, 0, 0.4)',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {p.image_url ? (
+                        <img
+                          src={p.image_url}
+                          alt=""
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            display: 'block',
+                          }}
+                          draggable={false}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'rgba(255, 255, 255, 0.3)',
+                            fontSize: 22,
+                          }}
+                        >
+                          <LucideUserRoundCog size={26} />
+                        </div>
+                      )}
+                      {selected && (
+                        <div
+                          aria-hidden
+                          style={{
+                            position: 'absolute',
+                            top: 6,
+                            right: 6,
+                            width: 22,
+                            height: 22,
+                            borderRadius: '50%',
+                            background: PRIMARY_GRADIENT,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#fff',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            boxShadow: '0 2px 8px rgba(124, 58, 237, 0.5)',
+                          }}
+                        >
+                          ✓
+                        </div>
+                      )}
+                      {isStock && (
+                        <div
+                          aria-hidden
+                          style={{
+                            position: 'absolute',
+                            bottom: 6,
+                            left: 6,
+                            padding: '2px 7px',
+                            borderRadius: 999,
+                            background: 'rgba(0, 0, 0, 0.6)',
+                            color: 'rgba(255, 255, 255, 0.85)',
+                            fontSize: 10,
+                            fontWeight: 600,
+                            letterSpacing: '0.04em',
+                          }}
+                        >
+                          Demo
+                        </div>
+                      )}
+                    </div>
+                    {/* Name */}
+                    <div
+                      style={{
+                        padding: '8px 10px 10px',
+                        fontSize: '0.82rem',
+                        fontWeight: 500,
+                        color: 'rgba(255, 255, 255, 0.92)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {p.name || 'Untitled'}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer with Create CTA — only shows when there are
+         * existing characters; the empty state has its own create
+         * button. */}
+        {!isPending && ordered.length > 0 && (
+          <div
+            style={{
+              padding: '12px 18px 16px',
+              borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <div
+              style={{
+                fontSize: '0.78rem',
+                color: 'rgba(255, 255, 255, 0.45)',
+              }}
+            >
+              {ordered.length} {ordered.length === 1 ? 'character' : 'characters'}
+            </div>
+            <button
+              type="button"
+              onClick={onCreateNew}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 14px',
+                borderRadius: 999,
+                background: 'rgba(124, 58, 237, 0.18)',
+                border: '1px solid rgba(124, 58, 237, 0.45)',
+                color: 'rgba(196, 181, 253, 0.95)',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              + Create new
+            </button>
+          </div>
+        )}
       </div>
-    </>,
-    document.body
+    </Dialog>
   )
 }
 
