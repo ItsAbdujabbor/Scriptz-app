@@ -916,6 +916,93 @@ export function EditThumbnailDialog({
     }
   }, [imageUrl])
 
+  // Keep the canvas in sync with the stage's actual rendered size.
+  //
+  // The image-load effect above sizes the canvas ONCE, against the
+  // stage's measured rect at that instant. If the dialog is still
+  // mid-entrance-animation (the shared Dialog pops in with a scale
+  // transition), the stage's measured rect is the IN-PROGRESS
+  // dimensions — once the animation settles the stage grows but the
+  // canvas stays locked at the smaller size. Net effect: an
+  // unpainted strip at the bottom + right of the image where the
+  // canvas no longer reaches. Same goes for any window resize after
+  // the dialog is open.
+  //
+  // The ResizeObserver below catches every stage resize, recomputes
+  // CSS + intrinsic pixel dims, and restores the existing mask
+  // drawing into the new backing store via drawImage (so the user
+  // doesn't lose their in-progress painting). The overlay canvas is
+  // wipe-and-resize since it only holds in-flight rect-tool previews.
+  useEffect(() => {
+    const stage = stageRef.current
+    if (!stage || typeof ResizeObserver === 'undefined') return undefined
+    let lastW = 0
+    let lastH = 0
+    const ro = new ResizeObserver(([entry]) => {
+      // contentRect is in CSS pixels of the stage's content box —
+      // exactly what we want for sizing the canvas overlay.
+      const rect = entry?.contentRect
+      if (!rect) return
+      const cssW = Math.round(rect.width)
+      const cssH = Math.round(rect.height)
+      if (cssW < 10 || cssH < 10) return
+      if (cssW === lastW && cssH === lastH) return
+      lastW = cssW
+      lastH = cssH
+      const canvas = maskCanvasRef.current
+      const overlay = overlayCanvasRef.current
+      if (!canvas) return
+      const dpr = Math.max(1, window.devicePixelRatio || 1)
+      dprRef.current = dpr
+      const w = Math.max(1, Math.round(cssW * dpr))
+      const h = Math.max(1, Math.round(cssH * dpr))
+      // Resizing canvas.width / canvas.height clears the backing
+      // store, so snapshot the current drawing first and redraw it
+      // onto the new size (scaled). drawImage with
+      // imageSmoothingEnabled=false keeps the mask crisp.
+      let prevSnapshot = null
+      if (canvas.width > 0 && canvas.height > 0) {
+        try {
+          // Use the canvas itself as the source for drawImage so we
+          // skip an intermediate ImageBitmap. drawImage with src=canvas
+          // is well-defined and copies pixels at canvas-internal speed.
+          prevSnapshot = document.createElement('canvas')
+          prevSnapshot.width = canvas.width
+          prevSnapshot.height = canvas.height
+          const sctx = prevSnapshot.getContext('2d')
+          sctx.drawImage(canvas, 0, 0)
+        } catch {
+          prevSnapshot = null
+        }
+      }
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      ctx.imageSmoothingEnabled = false
+      ctx.clearRect(0, 0, w, h)
+      if (prevSnapshot) {
+        try {
+          ctx.drawImage(prevSnapshot, 0, 0, w, h)
+        } catch {
+          /* drawing failed — content reset is the safe fallback */
+        }
+      }
+      if (overlay) {
+        overlay.width = w
+        overlay.height = h
+        const octx = overlay.getContext('2d')
+        octx.imageSmoothingEnabled = false
+        octx.clearRect(0, 0, w, h)
+      }
+      setCanvasCssPx({ w: cssW, h: cssH })
+      setCanvasDims({ w, h })
+    })
+    ro.observe(stage)
+    return () => ro.disconnect()
+    // Re-attach the observer when imageUrl changes so the new image's
+    // stage (which may have a different aspect-ratio) is observed.
+  }, [imageUrl])
+
   // Outside-click for popovers. Uses `pointerdown` on the CAPTURE
   // phase because the shared <Dialog> panel calls `stopPropagation`
   // on bubble, which would otherwise prevent any document-level
