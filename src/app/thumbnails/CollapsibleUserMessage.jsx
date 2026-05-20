@@ -14,11 +14,13 @@
  *    the ceiling, so collapse "sprinted then crawled" and expand felt
  *    laggy. Px-on-both-ends fixes that.
  *  • Re-measures on viewport resize so the clamp stays accurate when
- *    line-wrapping changes width.
+ *    line-wrapping changes width. Width-only — height changes during
+ *    the transition do NOT trigger a re-measure (that would yank the
+ *    transition shut every frame).
  *
  * Memoised on `text` only — cheap to render inside the chat list.
  */
-import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 const COLLAPSED_LINES = 10
 
@@ -31,57 +33,77 @@ export const CollapsibleUserMessage = memo(function CollapsibleUserMessage({ tex
   // values are read at click time + applied straight to inline style.
   const clampedPxRef = useRef(0)
   const fullPxRef = useRef(0)
+  // Mirror `expanded` in a ref so `measure()` (called from a
+  // ResizeObserver closure that captures the initial render's expanded
+  // value) can read the CURRENT state when applying max-height. Without
+  // this, every RO fire during an in-flight expand transition reset
+  // max-height back to the clamped value — the bug that made Show more
+  // appear to do nothing.
+  const expandedRef = useRef(false)
+  useEffect(() => {
+    expandedRef.current = expanded
+  }, [expanded])
+  // Track the last observed bubble width. RO fires on every box change
+  // (width AND height). During the height transition triggered by
+  // expand/collapse, height fires every frame — we must NOT treat those
+  // as a re-measure signal. Only width changes matter (they affect
+  // line-wrap count, which is what we actually care about).
+  const lastWidthRef = useRef(0)
 
-  // Measure both the clamped target and the full natural height, then
-  // pin max-height to one of them in inline style. useLayoutEffect
-  // avoids a one-frame flash of the toggle / wrong-height bubble before
-  // the measurement settles on initial mount.
+  // Single source of truth for re-measuring. Called from layout effect
+  // (initial + on text change) and from the width-only ResizeObserver
+  // branch. Reads `expanded` from the ref so an in-flight transition
+  // is never reset.
+  const measure = useCallback(() => {
+    const el = ref.current
+    if (!el) return
+    const cs = window.getComputedStyle(el)
+    const lh = parseFloat(cs.lineHeight)
+    if (!Number.isFinite(lh) || lh <= 0) return
+    const clampedPx = lh * COLLAPSED_LINES
+    // Temporarily lift the clamp so scrollHeight reflects full content.
+    const prev = el.style.maxHeight
+    el.style.maxHeight = 'none'
+    const full = el.scrollHeight
+    el.style.maxHeight = prev
+
+    clampedPxRef.current = clampedPx
+    fullPxRef.current = full
+    const isOverflowing = full > clampedPx + 1
+    setOverflowing(isOverflowing)
+
+    if (!isOverflowing) {
+      el.style.maxHeight = ''
+    } else if (expandedRef.current) {
+      el.style.maxHeight = `${full}px`
+    } else {
+      el.style.maxHeight = `${clampedPx}px`
+    }
+  }, [])
+
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return undefined
-
-    const measure = () => {
-      const cs = window.getComputedStyle(el)
-      const lh = parseFloat(cs.lineHeight)
-      if (!Number.isFinite(lh) || lh <= 0) return
-      const clampedPx = lh * COLLAPSED_LINES
-      // Temporarily lift the clamp so scrollHeight reflects full content.
-      const prev = el.style.maxHeight
-      el.style.maxHeight = 'none'
-      const full = el.scrollHeight
-      el.style.maxHeight = prev
-
-      clampedPxRef.current = clampedPx
-      fullPxRef.current = full
-      const isOverflowing = full > clampedPx + 1
-      setOverflowing(isOverflowing)
-
-      // Pin max-height to the appropriate px target so the next
-      // transition starts from a real numeric value, not the
-      // 'none'/'auto' implicit one (which can't be tweened).
-      if (!isOverflowing) {
-        el.style.maxHeight = ''
-      } else if (expanded) {
-        el.style.maxHeight = `${full}px`
-      } else {
-        el.style.maxHeight = `${clampedPx}px`
-      }
-    }
     measure()
+    lastWidthRef.current = el.clientWidth
 
-    // Re-measure when the bubble's width changes (window resize, sidebar
-    // collapse, etc.) — wrap count depends on width.
     let ro
     if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(measure)
+      ro = new ResizeObserver((entries) => {
+        // Width-only gate: a height change during the expand/collapse
+        // tween must not trigger a remeasure (it would write
+        // max-height back to the static target every frame and the
+        // transition would never play).
+        const entry = entries[0]
+        const width = entry?.contentRect?.width ?? el.clientWidth
+        if (Math.abs(width - lastWidthRef.current) < 1) return
+        lastWidthRef.current = width
+        measure()
+      })
       ro.observe(el)
     }
     return () => ro?.disconnect()
-    // Intentionally NOT depending on `expanded` — the click handler
-    // already writes the right max-height. Including it would cause
-    // a re-measure that fights the in-flight transition.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text])
+  }, [text, measure])
 
   // Reset to collapsed when the message text itself changes (rare —
   // user messages are immutable after send, but defensive).
@@ -89,20 +111,20 @@ export const CollapsibleUserMessage = memo(function CollapsibleUserMessage({ tex
     setExpanded(false)
   }, [text])
 
-  // When the user toggles, write the destination px value inline so
-  // the CSS `transition: max-height ...` runs from current → target
-  // with a real numeric end-point on both sides.
-  const toggle = () => {
-    setExpanded((prev) => {
-      const next = !prev
-      const el = ref.current
-      if (el) {
-        const target = next ? fullPxRef.current : clampedPxRef.current
-        if (target > 0) el.style.maxHeight = `${target}px`
-      }
-      return next
-    })
-  }
+  // Write the destination max-height inline BEFORE flipping state so
+  // the CSS transition runs cleanly from current → target. Doing the
+  // DOM mutation inside `setState`'s updater would be fragile (React
+  // may call updaters more than once) — handler scope is the right
+  // place.
+  const toggle = useCallback(() => {
+    const el = ref.current
+    const next = !expandedRef.current
+    if (el) {
+      const target = next ? fullPxRef.current : clampedPxRef.current
+      if (target > 0) el.style.maxHeight = `${target}px`
+    }
+    setExpanded(next)
+  }, [])
 
   if (!text) return null
 
