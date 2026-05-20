@@ -93,6 +93,45 @@
     0 2px 6px rgba(251, 146, 60, 0.06);
 }
 
+/* User-uploaded image preserved behind the error overlay. Analyze
+ * failures used to drop the image entirely — the message text stayed
+ * but the thumbnail vanished, which read as data loss. Keeping the
+ * image visible at low opacity proves the upload was saved and lets
+ * the user retry against the exact image they sent. */
+.thumb-failed-card__user-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Heavy dim + slight desaturation so the error overlay reads first;
+     the image is context, not content. */
+  opacity: 0.42;
+  filter: saturate(0.7) brightness(0.78);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* When the image is present, swap the stage's solid red wash for a
+ * dark glass scrim so the photo shows through while still tinting
+ * the surface to "error". Keep the same shape + border. */
+.thumb-failed-card--with-image .thumb-failed-card__stage {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(20, 12, 16, 0.78) 0%,
+      rgba(20, 12, 16, 0.62) 45%,
+      rgba(20, 12, 16, 0.88) 100%
+    ),
+    radial-gradient(
+      120% 90% at 50% 0%,
+      rgba(248, 113, 113, 0.22) 0%,
+      rgba(248, 113, 113, 0.08) 45%,
+      transparent 100%
+    ),
+    #0c0709;
+}
+
 /* Soft inner glow that mirrors `.thumb-gen-loader__stage`'s vibe but in
  * a warning hue. Lives below the content via z-index. */
 .thumb-failed-card__stage-glow {
@@ -100,7 +139,9 @@
   inset: 0;
   background: radial-gradient(90% 70% at 50% 35%, rgba(252, 165, 165, 0.14) 0%, transparent 70%);
   pointer-events: none;
-  z-index: 0;
+  /* Sits above the user image but below the text/buttons. When no
+     user image is present this z-index is harmless. */
+  z-index: 1;
   animation: thumb-failed-card-pulse 4.2s ease-in-out infinite;
 }
 
@@ -114,7 +155,8 @@
 
 .thumb-failed-card__stage-content {
   position: relative;
-  z-index: 1;
+  /* Sits above both the user image (z=0) and the glow (z=1). */
+  z-index: 2;
   /* `flex: 1` so the centered title/message take all available space
    * and the single Try-again action docks at the bottom of the card. */
   flex: 1;
@@ -191,7 +233,9 @@
  * to the bottom edge. */
 .thumb-failed-card__actions {
   position: relative;
-  z-index: 1;
+  /* Same layer as the message content so the button sits above the
+     preserved user image and the glow overlay. */
+  z-index: 2;
   display: flex;
   justify-content: center;
   padding: 0 1.4rem 1rem;

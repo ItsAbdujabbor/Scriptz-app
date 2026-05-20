@@ -60,14 +60,36 @@ export default function FailedGenerationCard({ entry, onRetry }) {
   const retryable = !!entry?.retryable
   const mode = entry?.mode || 'prompt'
   const compact = mode === 'titles'
+  // Analyze/recreate/edit always have a source image the user uploaded
+  // or pointed at. Preserving it on the failure card matters for two
+  // reasons:
+  //   1. The image used to "vanish" — failing analyze removed the
+  //      thumbnail from the chat entirely, which felt like data loss.
+  //   2. Retrying without the image visible is disorienting — the user
+  //      isn't sure which thumbnail they're retrying against.
+  // Backend wires `user_image_url` onto the failure message (preserved
+  // even when the analyze service raised before persisting the rating)
+  // and the parent maps it to `entry.userImageUrl`.
+  const userImageUrl = entry?.userImageUrl || null
 
   return (
     <div
-      className={`thumb-failed-card thumb-failed-card--${variant}${compact ? ' thumb-failed-card--compact' : ''}`}
+      className={`thumb-failed-card thumb-failed-card--${variant}${compact ? ' thumb-failed-card--compact' : ''}${
+        userImageUrl ? ' thumb-failed-card--with-image' : ''
+      }`}
       role="alert"
       aria-live="polite"
     >
       <div className="thumb-failed-card__stage">
+        {userImageUrl ? (
+          <img
+            src={userImageUrl}
+            alt=""
+            className="thumb-failed-card__user-image"
+            decoding="async"
+            aria-hidden="true"
+          />
+        ) : null}
         <div className="thumb-failed-card__stage-glow" aria-hidden="true" />
         <div className="thumb-failed-card__stage-content">
           <div className="thumb-failed-card__icon" aria-hidden="true">
