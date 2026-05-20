@@ -836,21 +836,34 @@ export function EditThumbnailDialog({
   // every window resize, but NOT from any layout effect that depends
   // on the dialog's content (tab switches, textarea growth) — those
   // must not shift the stage size.
+  //
+  // Reserves vertical room for the dialog chrome so the whole editor
+  // fits on screen without scrolling. Chrome budget (CSS px):
+  //   * dialog panel padding + .etd-content padding   ≈ 56
+  //   * title pill                                    ≈ 44
+  //   * toolbar row                                   ≈ 56
+  //   * input card (edit) / face-swap stack           ≈ 112
+  //   * gaps between sections                         ≈ 40
+  //   * safety margin                                 ≈ 24
+  //   ──────────────────────────────────────────────────
+  //   ≈ 332 px
+  const CHROME_HEIGHT_RESERVE = 332
   const computeStagePx = useCallback((aspect) => {
-    // Available width: viewport minus the dialog's outer + inner
-    // padding (the dialog's max-content panel + the .etd-content
-    // padding 22px each side = ~88px total). 1040 hard cap matches
-    // the previous design's landscape ceiling.
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800
-    const availW = Math.max(320, Math.min(1040, vw - 88))
-    // Height cap: 60vh keeps room for the toolbar + input area below.
-    const maxH = Math.max(180, vh * 0.6)
-    // Fit width first, then constrain height — preserves aspect.
+    // Width budget: a touch narrower than 1040 so the dialog has
+    // visible breathing room left/right even on a 1280-wide laptop.
+    const availW = Math.max(320, Math.min(960, vw - 80))
+    // Height budget: whatever's left of the viewport after the chrome
+    // reservation, with a hard floor so the stage never collapses on
+    // very short screens. 80vh ceiling keeps it from monopolising a
+    // very TALL viewport when the image is portrait.
+    const availH = Math.max(160, Math.min(vh * 0.8, vh - CHROME_HEIGHT_RESERVE))
+    // Fit by the more-constraining axis; preserve aspect.
     let w = availW
     let h = w / aspect
-    if (h > maxH) {
-      h = maxH
+    if (h > availH) {
+      h = availH
       w = h * aspect
     }
     return { w: Math.round(w), h: Math.round(h) }
@@ -1927,10 +1940,12 @@ export function EditThumbnailDialog({
         style={{
           position: 'relative',
           width: '100%',
-          padding: '22px 22px 18px',
+          // Tighter outer padding so the dialog fits viewports
+          // around 720-800 px tall without scrolling. Was 22/22/18.
+          padding: '16px 18px 14px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 12,
+          gap: 10,
           color: '#fff',
           fontFamily: 'inherit',
           overflowY: 'auto',
@@ -1968,18 +1983,20 @@ export function EditThumbnailDialog({
           <IconX size={14} />
         </button>
 
-        {/* Gradient title pill */}
+        {/* Gradient title pill — compact so it claims less vertical
+         * room and leaves more for the stage. Was 7/16 padding, 13px
+         * font, 22px icon. */}
         <div
           style={{
             alignSelf: 'center',
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 8,
-            padding: '7px 16px 7px 12px',
+            gap: 6,
+            padding: '5px 13px 5px 9px',
             borderRadius: 999,
             background: PRIMARY_GRADIENT,
             color: '#ffffff',
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: 600,
             letterSpacing: '0.005em',
             boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 6px 18px rgba(124,58,237,0.35)',
@@ -1988,8 +2005,8 @@ export function EditThumbnailDialog({
         >
           <span
             style={{
-              width: 22,
-              height: 22,
+              width: 18,
+              height: 18,
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -2354,9 +2371,10 @@ export function EditThumbnailDialog({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 12,
-            padding: '7px 12px',
-            borderRadius: 16,
+            gap: 10,
+            // Tightened: was 7/12 px. Same surface, less padding.
+            padding: '5px 10px',
+            borderRadius: 14,
             background: '#14141a',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             flexWrap: 'wrap',
@@ -2596,8 +2614,10 @@ export function EditThumbnailDialog({
               display: 'flex',
               flexDirection: 'column',
               gap: 0,
-              padding: '10px 14px 10px 16px',
-              borderRadius: 22,
+              // Tighter input-card chrome so the editor fits viewports
+              // around 720-800 px tall without scrolling. Was 10/14/10/16.
+              padding: '8px 12px 8px 14px',
+              borderRadius: 18,
               background: '#1c1c24',
               border: '1px solid rgba(255, 255, 255, 0.14)',
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 16px rgba(0, 0, 0, 0.35)',
@@ -2624,17 +2644,19 @@ export function EditThumbnailDialog({
               }}
               style={{
                 width: '100%',
-                padding: '2px 0 8px',
-                fontSize: '0.93rem',
+                padding: '2px 0 6px',
+                fontSize: '0.88rem',
                 fontFamily: 'inherit',
                 color: 'rgba(255,255,255,0.92)',
                 background: 'transparent',
                 border: 'none',
                 outline: 'none',
-                lineHeight: 1.55,
+                lineHeight: 1.45,
                 resize: 'none',
-                minHeight: '2.2em',
-                maxHeight: '7em',
+                minHeight: '2em',
+                // Cap textarea growth so the dialog never exceeds the
+                // viewport when the user pastes long text.
+                maxHeight: '5em',
                 overflowY: 'auto',
                 boxSizing: 'border-box',
               }}
@@ -2646,7 +2668,7 @@ export function EditThumbnailDialog({
                 alignItems: 'center',
                 justifyContent: 'flex-end',
                 gap: 8,
-                paddingTop: 4,
+                paddingTop: 2,
               }}
             >
               <PrimaryActionBtn
@@ -2675,13 +2697,16 @@ export function EditThumbnailDialog({
               alignSelf: 'center',
               width: '100%',
               maxWidth: 720,
-              minHeight: 96,
+              // Tightened: was 96. Matches the new shorter Edit-mode
+              // input-card height so the stage stays the same size
+              // when switching between Edit and Face-swap.
+              minHeight: 80,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 12,
-              padding: '10px 14px',
+              gap: 10,
+              padding: '8px 12px',
               boxSizing: 'border-box',
             }}
           >
