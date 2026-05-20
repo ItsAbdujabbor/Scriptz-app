@@ -860,7 +860,17 @@ export function EditThumbnailDialog({
         // pixel heights (e.g. 540.37px via aspect-ratio), forcing a
         // non-integer scale factor that blurs every rendered stroke.
         setCanvasCssPx({ w: Math.round(cssW), h: Math.round(cssH) })
-        setCanvasDims({ w: Math.round(cssW), h: Math.round(cssH) })
+        // canvasDims is the SVG viewBox used by the marching-ants
+        // marquee. The marquee path coordinates come from
+        // computeAndSetContour which walks canvas.width × canvas.height
+        // (PHYSICAL pixels — CSS pixels times DPR). The viewBox MUST
+        // match the path-coordinate space or the ants render offset by
+        // a factor of DPR (on a DPR=2 screen, ants appeared at 2x the
+        // distance from top-left of the actual painted region — the
+        // "marquee in the wrong place" bug). Use physical-pixel dims
+        // here; the SVG's CSS width/height stay at 100% so it stretches
+        // back to the canvas's CSS footprint.
+        setCanvasDims({ w, h })
         canvas.width = w
         canvas.height = h
         // willReadFrequently: browser keeps backing store CPU-accessible so
