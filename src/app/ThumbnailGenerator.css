@@ -6008,52 +6008,66 @@
 /* ── Collapsible long user messages ───────────────────────────────────
  * Clamp the user-message bubble to ~10 lines with a smooth bottom
  * fade-to-transparent (mask-image, so it blends regardless of the
- * bubble's purple gradient). A pill toggle below switches between
+ * bubble's purple gradient). A text toggle below switches between
  * collapsed and full text. Short messages render unclamped with no
- * toggle — the component measures natural height before deciding. */
+ * toggle — the component measures natural height before deciding.
+ *
+ * `max-height` is driven from JS (CollapsibleUserMessage.jsx) — it
+ * writes the MEASURED scrollHeight as the starting/ending value so
+ * the transition eases evenly across the whole tween. The old setup
+ * used a 4000px ceiling vs the clamped target, which caused the
+ * browser to interpolate against the oversized ceiling and produced
+ * the laggy "sprints then crawls" feel. */
 .thumb-user-msg {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
-  max-height: 4000px;
-  transition: max-height 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+  /* max-height is set inline (px) from JS — clamped target when
+     collapsed, scrollHeight when expanded — so the easing runs evenly
+     across the whole tween. */
+  transition: max-height 0.38s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .thumb-user-msg--clamped {
-  max-height: calc(10 * 1.55em);
-  overflow: hidden;
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 64px), transparent 100%);
   mask-image: linear-gradient(to bottom, #000 calc(100% - 64px), transparent 100%);
 }
+
+/* Plain text toggle — no border, no pill background. The bubble itself
+   is heavy purple; an extra outlined button on top read as visual
+   clutter. Subtle underline on hover communicates "interactive". */
 .thumb-user-msg-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 10px;
-  padding: 4px 11px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #ffffff;
+  margin-top: 6px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: rgba(255, 255, 255, 0.78);
   font-family: inherit;
-  font-size: 0.78rem;
-  font-weight: 600;
-  line-height: 1.4;
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.3;
   letter-spacing: 0;
   cursor: pointer;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    transform 0.12s ease;
+  text-decoration: none;
+  text-underline-offset: 3px;
+  transition: color 0.16s ease;
 }
 .thumb-user-msg-toggle:hover {
-  background: rgba(255, 255, 255, 0.22);
-  border-color: rgba(255, 255, 255, 0.3);
-}
-.thumb-user-msg-toggle:active {
-  transform: scale(0.97);
+  color: #ffffff;
+  text-decoration: underline;
 }
 .thumb-user-msg-toggle:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.55);
-  outline-offset: 2px;
+  outline: none;
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb-user-msg,
+  .thumb-user-msg--clamped {
+    transition: none;
+  }
 }
