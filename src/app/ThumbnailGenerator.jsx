@@ -4370,15 +4370,21 @@ export function ThumbnailGenerator({
         prev.filter((m) => m.id !== localIds.userId && m.id !== localIds.assistantId)
       )
       if (assistantServerId != null) {
-        await finalizePersistedEvent(assistantServerId, {
+        // Omit user_image_url when we don't have a durable URL (the
+        // user uploaded a base64 image and persistableUrl is null).
+        // The backend's failure-path finalize already wrote the S3
+        // URL it uploaded the image to; explicitly sending null here
+        // would clobber that and the image would vanish from the chat.
+        const failurePatch = {
           kind: 'failure',
           failed: true,
           mode: 'analyze',
           error_code: code,
           error_message: message,
           retryable: true,
-          user_image_url: persistableUrl,
-        })
+        }
+        if (persistableUrl) failurePatch.user_image_url = persistableUrl
+        await finalizePersistedEvent(assistantServerId, failurePatch)
       } else {
         pushFailureEntry({
           mode: 'analyze',
