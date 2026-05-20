@@ -2383,6 +2383,9 @@ export function ThumbnailGenerator({
     sawMessagesRef.current = false
     hasInitialScrollRef.current = false
     firstRenderedIdRef.current = null
+    // Reset the auto-recovery latch so the next conversation gets one
+    // fresh chance to fire markSeen on first-thumbs-arrival.
+    autoRecoveredConvRef.current = null
   }, [conversationId])
 
   // Auto-recovery: if we're polling because a generation was in flight AND the
@@ -2390,8 +2393,19 @@ export function ThumbnailGenerator({
   // the backend finished and persisted the result), drop the pending flag and
   // the local "generating…" state. This is what lets a user submit, close the
   // tab, come back, and still see the thumbnails with no stuck spinner.
+  //
+  // The ref latch is load-bearing. ``markSeen`` optimistically patches the
+  // conversation detail cache (last_seen_at), so ``conversationQuery.data``
+  // becomes a NEW object every fire. Without the latch this effect re-runs
+  // immediately, sees ``isCurrentConversationPending`` STILL true (because
+  // /seen only touches last_seen_at, not pending_until — the server-side
+  // ``is_pending`` flag is unchanged), and fires markSeen again. That was
+  // the runaway loop hammering /api/thumbnails/conversations/{id}/seen
+  // thousands of times per user-visit.
   useEffect(() => {
     if (!isCurrentConversationPending) return
+    if (conversationId == null) return
+    if (autoRecoveredConvRef.current === conversationId) return
     const items = conversationQuery.data?.messages?.items
     if (!Array.isArray(items) || items.length === 0) return
     const hasAssistantThumbs = items.some((m) => {
@@ -2400,6 +2414,7 @@ export function ThumbnailGenerator({
       return Array.isArray(thumbs) && thumbs.length > 0
     })
     if (hasAssistantThumbs) {
+      autoRecoveredConvRef.current = conversationId
       clearPending(conversationId)
       clearConvPending(conversationId)
       markSeen(conversationId)
@@ -2640,6 +2655,11 @@ export function ThumbnailGenerator({
   if (renderedMessages.length > 0 || pendingAssistant) {
     sawMessagesRef.current = true
   }
+  // Conversation id we've already fired the "thumbs arrived, mark seen +
+  // clear pending" recovery for. Without this latch the auto-recovery
+  // effect above hammered /seen forever (each call optimistically patched
+  // the detail cache → effect re-ran → fired /seen → repeat).
+  const autoRecoveredConvRef = useRef(null)
   // True after the first instant snap-to-bottom on conversation open.
   // Resets on conversation switch so each new conversation starts at bottom instantly.
   const hasInitialScrollRef = useRef(false)
