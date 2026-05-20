@@ -10,9 +10,12 @@ import { useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import { LiquidMetalButton } from '../../components/LiquidMetalButton'
 import { useAnimatedHint } from '../../lib/useAnimatedHint'
+import thumb1 from '../../assets/thumbnails/thumbnail1.png'
+import thumb2 from '../../assets/thumbnails/thumbnail2.png'
+import thumb5 from '../../assets/thumbnails/thumbnail5.png'
 
-const ROW1 = ['/aithumbnails.png', '/landing2.png', '/landing3.png', '/landing4.png']
-const ROW2 = ['/landing3.png', '/landing4.png', '/aithumbnails.png', '/landing2.png']
+const ROW1 = [thumb1, thumb2, thumb5, thumb2]
+const ROW2 = [thumb5, thumb1, thumb2, thumb1]
 
 /* 16 thumbs per row (4 unique × 4 cycles) — duplicated so translateX(-50%)
  * wraps without a visible seam. */
