@@ -1137,10 +1137,19 @@ export function EditThumbnailDialog({
     const clientX = e.clientX ?? (e.touches && e.touches[0]?.clientX)
     const clientY = e.clientY ?? (e.touches && e.touches[0]?.clientY)
     if (clientX == null || clientY == null) return null
-    return {
-      x: ((clientX - rect.left) / rect.width) * canvas.width,
-      y: ((clientY - rect.top) / rect.height) * canvas.height,
-    }
+    // Clamp to canvas bounds so dragging past the edge (which the
+    // pointer-capture path makes routine for users painting near the
+    // border) still paints at the boundary, instead of dropping the
+    // sample silently because the coord falls outside [0, w/h].
+    const x = Math.max(
+      0,
+      Math.min(canvas.width, ((clientX - rect.left) / rect.width) * canvas.width)
+    )
+    const y = Math.max(
+      0,
+      Math.min(canvas.height, ((clientY - rect.top) / rect.height) * canvas.height)
+    )
+    return { x, y }
   }, [])
 
   // Position the brush-cursor preview in CSS pixels relative to the
@@ -1893,7 +1902,19 @@ export function EditThumbnailDialog({
                 display: 'block',
                 width: '100%',
                 height: '100%',
-                objectFit: 'contain',
+                // `fill` instead of `contain`: the stage's aspect-ratio
+                // is already set from the image's natural aspect, so
+                // no actual stretching happens — but `fill` guarantees
+                // the image element box exactly matches the stage box
+                // (no sub-pixel letterboxing). With `contain`, any
+                // sub-pixel aspect mismatch between the stage's
+                // computed height and the image's exact aspect left a
+                // thin strip of empty stage at the bottom/right, and
+                // the canvas (which fills the stage) overlapped that
+                // strip — letting the user paint outside the visible
+                // image and producing a marquee that extended past
+                // the image edge.
+                objectFit: 'fill',
                 borderRadius: 16,
                 userSelect: 'none',
                 pointerEvents: 'none',
@@ -1940,7 +1961,13 @@ export function EditThumbnailDialog({
               // Falls back to 100% before the image has loaded.
               width: canvasCssPx ? `${canvasCssPx.w}px` : '100%',
               height: canvasCssPx ? `${canvasCssPx.h}px` : '100%',
-              borderRadius: 16,
+              // No border-radius on the canvas itself. The stage
+              // container clips with overflow:hidden + its own
+              // border-radius, so paint near the rounded corners
+              // still reaches the visible image. Setting a radius on
+              // the canvas would create a small pointer-dead-zone in
+              // each corner because clicks landing on the rounded-out
+              // area miss the canvas's hit shape.
               opacity: 0.48,
               cursor: busy
                 ? 'default'
@@ -1960,7 +1987,6 @@ export function EditThumbnailDialog({
               left: 0,
               width: canvasCssPx ? `${canvasCssPx.w}px` : '100%',
               height: canvasCssPx ? `${canvasCssPx.h}px` : '100%',
-              borderRadius: 16,
               opacity: 0.48,
               pointerEvents: 'none',
             }}
