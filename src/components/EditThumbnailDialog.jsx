@@ -41,7 +41,7 @@ import { PrimaryPill } from './ui/PrimaryPill'
 import { Dialog } from './ui/Dialog'
 import { ThumbPillTabs } from './ThumbPillTabs'
 import { usePersonaStore } from '../stores/personaStore'
-import { usePersonasQuery } from '../queries/personas/personaQueries'
+import { PersonasModal } from '../app/PersonasModal'
 import GenerationProgress from './GenerationProgress'
 import { friendlyMessage } from '../lib/aiErrors'
 import { canvasToBase64Png } from '../lib/canvasToBase64'
@@ -705,8 +705,10 @@ export function EditThumbnailDialog({
   const [editPrompt, setEditPrompt] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-  const { selectedPersona, setSelectedPersona, clearSelectedPersona } = usePersonaStore()
-  const { data: personasData, isPending: personasPending } = usePersonasQuery()
+  // PersonasModal writes the selected persona into the same store via
+  // setSelectedPersona, so the edit dialog only needs to READ here.
+  // ``clearSelectedPersona`` is still used by the inline chip's ✕ button.
+  const { selectedPersona, clearSelectedPersona } = usePersonaStore()
   const [charPickerOpen, setCharPickerOpen] = useState(false)
   const charPickerTriggerRef = useRef(null)
 
@@ -863,11 +865,21 @@ export function EditThumbnailDialog({
         canvas.height = h
         // willReadFrequently: browser keeps backing store CPU-accessible so
         // getImageData (marching-ants + undo) skips the GPU→CPU round-trip.
-        canvas.getContext('2d', { willReadFrequently: true }).clearRect(0, 0, w, h)
+        const _maskCtx = canvas.getContext('2d', { willReadFrequently: true })
+        // Disable bilinear filtering on drawImage / pixel-blit operations
+        // (snapshot/restore for undo, mask compositing). Brush strokes
+        // themselves are vector-path stroked which is always
+        // anti-aliased — but any drawImage at the canvas edge picks up
+        // edge-pixel blur from neighbour sampling without this. Reported:
+        // "drawings blurry at the sides".
+        _maskCtx.imageSmoothingEnabled = false
+        _maskCtx.clearRect(0, 0, w, h)
         if (overlay) {
           overlay.width = w
           overlay.height = h
-          overlay.getContext('2d').clearRect(0, 0, w, h)
+          const _overlayCtx = overlay.getContext('2d')
+          _overlayCtx.imageSmoothingEnabled = false
+          _overlayCtx.clearRect(0, 0, w, h)
         }
         undoStackRef.current = []
         redoStackRef.current = []
@@ -2536,18 +2548,13 @@ export function EditThumbnailDialog({
           </div>
         </div>
 
-        <CharacterPickerDialog
-          open={charPickerOpen}
-          onClose={() => setCharPickerOpen(false)}
-          triggerRef={charPickerTriggerRef}
-          items={personasData?.items ?? []}
-          isPending={personasPending}
-          selectedId={selectedPersona?.id}
-          onSelect={(p) => {
-            setSelectedPersona(p)
-            setCharPickerOpen(false)
-          }}
-        />
+        {/* Face-swap character picker — the full PersonasModal (same
+         * grid the user manages personas in), not the old inline
+         * 220px popover. Opens centered as a real dialog with create /
+         * favourite / rename / delete affordances. PersonasModal sets
+         * the selectedPersona via usePersonaStore and closes itself,
+         * so the edit dialog just needs to mount/unmount it. */}
+        {charPickerOpen && <PersonasModal onClose={() => setCharPickerOpen(false)} />}
       </div>
     </Dialog>
   )
