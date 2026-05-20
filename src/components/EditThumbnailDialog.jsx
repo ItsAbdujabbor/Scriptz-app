@@ -1577,7 +1577,7 @@ export function EditThumbnailDialog({
     if (!imageUrl) return setError('No thumbnail to edit.')
     if (mode === 'faceswap') {
       if (!selectedPersona?.image_url) {
-        return setError('Pick a character to swap the face with.')
+        return setError('Pick a persona to swap the face with.')
       }
     } else if (!editPrompt.trim()) {
       return setError('Describe the change you want.')
@@ -1702,7 +1702,7 @@ export function EditThumbnailDialog({
       const friendly =
         friendlyMessage(err) ||
         (submitMode === 'faceswap'
-          ? 'Face swap failed. Try a different character.'
+          ? 'Face swap failed. Try a different persona.'
           : 'Edit failed. Try a different prompt.')
       setError(friendly)
       setBusy(false)
@@ -2495,19 +2495,27 @@ export function EditThumbnailDialog({
             </div>
           </div>
         ) : (
-          /* Face-swap: slim row, no card chrome. Left = compact
-           * character pill (avatar + name) or "Choose character"
-           * button; right = Generate. */
+          /* Face-swap layout. Stacked vertically + centered, with the
+           * SAME minHeight as the .etd-input-card chrome used in Edit
+           * mode so the stage container above (which is height-bound
+           * by 60vh of the viewport) ends up the same physical size
+           * across tab switches — no image resize when toggling
+           * Edit ↔ Face swap.
+           *
+           *   Choose persona  ← centered pill (avatar+name chip when picked)
+           *      Generate     ← centered primary action below */
           <div
             style={{
               alignSelf: 'center',
               width: '100%',
               maxWidth: 720,
+              minHeight: 96,
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
-              justifyContent: 'space-between',
+              justifyContent: 'center',
               gap: 12,
-              padding: '6px 4px',
+              padding: '10px 14px',
               boxSizing: 'border-box',
             }}
           >
@@ -2517,18 +2525,18 @@ export function EditThumbnailDialog({
               onClick={() => !busy && setCharPickerOpen(true)}
               disabled={busy}
               aria-label={
-                selectedPersona ? `Character: ${selectedPersona.name} — change` : 'Choose character'
+                selectedPersona ? `Persona: ${selectedPersona.name} — change` : 'Choose persona'
               }
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 8,
-                padding: selectedPersona ? '4px 12px 4px 4px' : '8px 14px',
+                padding: selectedPersona ? '4px 12px 4px 4px' : '8px 16px',
                 background: selectedPersona
                   ? 'rgba(124, 58, 237, 0.16)'
                   : 'rgba(255, 255, 255, 0.06)',
                 border: `1px solid ${
-                  selectedPersona ? 'rgba(124, 58, 237, 0.45)' : 'rgba(255, 255, 255, 0.16)'
+                  selectedPersona ? 'rgba(124, 58, 237, 0.5)' : 'rgba(255, 255, 255, 0.16)'
                 }`,
                 borderRadius: 999,
                 color: 'rgba(255, 255, 255, 0.94)',
@@ -2567,7 +2575,7 @@ export function EditThumbnailDialog({
                   </span>
                   <span
                     style={{
-                      maxWidth: 180,
+                      maxWidth: 200,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
@@ -2578,7 +2586,7 @@ export function EditThumbnailDialog({
                   <span
                     role="button"
                     tabIndex={-1}
-                    aria-label="Clear character"
+                    aria-label="Clear persona"
                     onClick={(e) => {
                       e.stopPropagation()
                       clearSelectedPersona()
@@ -2602,7 +2610,7 @@ export function EditThumbnailDialog({
               ) : (
                 <>
                   <LucideUserRoundCog size={14} aria-hidden />
-                  <span>Choose character</span>
+                  <span>Choose persona</span>
                 </>
               )}
             </button>
@@ -2670,7 +2678,7 @@ function CharacterPickerDialog({ onClose, onCreateNew }) {
   }
 
   return (
-    <Dialog onClose={onClose}>
+    <Dialog open onClose={onClose} size="md" ariaLabel="Choose persona">
       <div
         className="etd-cpicker"
         style={{
@@ -2702,7 +2710,7 @@ function CharacterPickerDialog({ onClose, onCreateNew }) {
               letterSpacing: '-0.005em',
             }}
           >
-            Choose a character
+            Choose a persona
           </div>
           <div
             style={{
@@ -2712,7 +2720,7 @@ function CharacterPickerDialog({ onClose, onCreateNew }) {
               lineHeight: 1.45,
             }}
           >
-            Tap a saved character to swap their face into this thumbnail.
+            Tap a saved persona to swap their face into this thumbnail.
           </div>
           <button
             type="button"
@@ -2755,7 +2763,7 @@ function CharacterPickerDialog({ onClose, onCreateNew }) {
                 fontSize: '0.85rem',
               }}
             >
-              Loading characters…
+              Loading personas…
             </div>
           ) : ordered.length === 0 ? (
             <div
@@ -2768,7 +2776,7 @@ function CharacterPickerDialog({ onClose, onCreateNew }) {
               }}
             >
               <div style={{ marginBottom: 14, color: 'rgba(255, 255, 255, 0.7)' }}>
-                You don&rsquo;t have any characters yet.
+                You don&rsquo;t have any personas yet.
               </div>
               <button
                 type="button"
@@ -2787,7 +2795,7 @@ function CharacterPickerDialog({ onClose, onCreateNew }) {
                   cursor: 'pointer',
                 }}
               >
-                Create your first character
+                Create your first persona
               </button>
             </div>
           ) : (
@@ -2954,7 +2962,7 @@ function CharacterPickerDialog({ onClose, onCreateNew }) {
                 color: 'rgba(255, 255, 255, 0.45)',
               }}
             >
-              {ordered.length} {ordered.length === 1 ? 'character' : 'characters'}
+              {ordered.length} {ordered.length === 1 ? 'persona' : 'personas'}
             </div>
             <button
               type="button"
