@@ -780,6 +780,13 @@ export function EditThumbnailDialog({
   // (1:1) thumbnails without cropping. Default 16:9 for the brief
   // window between mount and image load.
   const [imageAspect, setImageAspect] = useState(16 / 9)
+  // Locked stage dimensions in CSS pixels. Computed once when the
+  // image loads + on window resize, NEVER react to changes in the
+  // dialog's content below (textarea height, mode switch, etc.).
+  // The user explicitly wants the thumbnail card to be a fixed size
+  // that does not shift when switching Edit ↔ Face swap or when the
+  // textarea grows with content.
+  const [stagePx, setStagePx] = useState(null)
   const baseSnapshotRef = useRef(null) // ImageData captured at pointerdown; converted to blob and pushed to undo on pointerup
   // Undo/redo stacks now hold `Promise<Blob>` (compressed PNG snapshots)
   // instead of raw ImageData. A full 1536×864 ImageData is 5.3 MB; the
@@ -824,6 +831,41 @@ export function EditThumbnailDialog({
     editTextareaRef.current?.focus()
   }, [])
 
+  // Compute the stage's locked pixel dimensions from the image aspect
+  // and the current viewport. Called once at image load and again on
+  // every window resize, but NOT from any layout effect that depends
+  // on the dialog's content (tab switches, textarea growth) — those
+  // must not shift the stage size.
+  const computeStagePx = useCallback((aspect) => {
+    // Available width: viewport minus the dialog's outer + inner
+    // padding (the dialog's max-content panel + the .etd-content
+    // padding 22px each side = ~88px total). 1040 hard cap matches
+    // the previous design's landscape ceiling.
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+    const availW = Math.max(320, Math.min(1040, vw - 88))
+    // Height cap: 60vh keeps room for the toolbar + input area below.
+    const maxH = Math.max(180, vh * 0.6)
+    // Fit width first, then constrain height — preserves aspect.
+    let w = availW
+    let h = w / aspect
+    if (h > maxH) {
+      h = maxH
+      w = h * aspect
+    }
+    return { w: Math.round(w), h: Math.round(h) }
+  }, [])
+
+  // Re-lock the stage dimensions on window resize. The new size still
+  // takes effect via ResizeObserver downstream so the canvas stays in
+  // sync. Within a single visit (no resize), the stage is constant.
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const onResize = () => setStagePx(computeStagePx(imageAspect))
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [imageAspect, computeStagePx])
+
   // Load the image + size the canvas to display-pixel density (CSS width × DPR).
   // Sizing to 1920px and CSS-scaling down 2.67× is what made brush strokes look
   // blurry — bilinear downscaling blurs every stroke. Setting canvas intrinsic
@@ -847,19 +889,23 @@ export function EditThumbnailDialog({
         // hasn't been committed to the DOM yet — so getBoundingClientRect would
         // return the old (wrong) stage dimensions, sizing the canvas incorrectly
         // and causing a stretched / blurry mask.
-        flushSync(() => setImageAspect(naturalW / naturalH))
-        // Now measure the stage at its true rendered size.
-        const stage = stageRef.current
-        const stageRect = stage ? stage.getBoundingClientRect() : { width: 0, height: 0 }
-        // Use the ACTUAL device pixel ratio — never round it. Rounding turns
-        // 1.25 → 1 (canvas too small → upscaled → pixelated) or 2.75 → 3
-        // (canvas too large → downscaled → blurry). The canvas intrinsic
-        // size is rounded to whole pixels; the DPR value stays fractional.
+        const aspect = naturalW / naturalH
+        // Lock the stage to a deterministic pixel size computed from
+        // the image aspect + current viewport. Doing this BEFORE we
+        // measure the stage means the canvas + image both use this
+        // exact size, not a transient flex-layout intermediate that
+        // would later shift when the textarea grows or the user
+        // switches tabs. flushSync commits the state immediately so
+        // the DOM reflects the locked size on the very next paint.
+        const locked = computeStagePx(aspect)
+        flushSync(() => {
+          setImageAspect(aspect)
+          setStagePx(locked)
+        })
         const dpr = Math.max(1, window.devicePixelRatio || 1)
         dprRef.current = dpr
-        const cssW = stageRect.width > 10 ? stageRect.width : Math.min(1040, window.innerWidth - 44)
-        const cssH =
-          stageRect.height > 10 ? stageRect.height : Math.round(cssW * (naturalH / naturalW))
+        const cssW = locked.w
+        const cssH = locked.h
         // Intrinsic canvas size in physical pixels (integer — sub-pixel
         // canvas dimensions are unsupported and cause rendering artefacts).
         const w = Math.max(1, Math.round(cssW * dpr))
@@ -1956,20 +2002,27 @@ export function EditThumbnailDialog({
           Edit thumbnail
         </div>
 
-        {/* Thumbnail + canvas — aspect adapts to the source image so
-         * landscape (16:9), portrait (9:16), and square thumbnails
-         * all fill the card without cropping. `maxWidth` is computed
-         * via `calc(60vh * aspect)` so portrait thumbnails are
-         * height-bound instead of overflowing — landscape stays
-         * width-bound at 1040px. */}
+        {/* Thumbnail + canvas — locked to explicit pixel dimensions
+         * computed once from image aspect + viewport (see
+         * computeStagePx). The dialog content's flex layout used to
+         * squeeze the stage when the textarea grew or when the user
+         * switched between Edit and Face-swap (different bottom-area
+         * heights). With `flex: 0 0 auto` + explicit width/height,
+         * the stage size NEVER changes within a single open of the
+         * dialog (except on window resize, which intentionally
+         * re-locks). The canvas overlay sizes itself to this same
+         * locked rect, so paintable area always equals visible
+         * image area. */}
         <div
           ref={stageRef}
           style={{
             position: 'relative',
             alignSelf: 'center',
-            width: '100%',
-            maxWidth: `min(1040px, calc(60vh * ${imageAspect}))`,
-            aspectRatio: String(imageAspect),
+            flex: '0 0 auto',
+            width: stagePx ? `${stagePx.w}px` : '100%',
+            height: stagePx ? `${stagePx.h}px` : 'auto',
+            maxWidth: stagePx ? `${stagePx.w}px` : `min(1040px, calc(60vh * ${imageAspect}))`,
+            aspectRatio: stagePx ? undefined : String(imageAspect),
             borderRadius: 16,
             overflow: 'hidden',
             isolation: 'isolate',
