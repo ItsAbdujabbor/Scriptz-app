@@ -110,11 +110,15 @@ function polygonToSmoothPath(pts, scale) {
 }
 
 const COLOR_SWATCHES = [
+  // Brand deep-purple first — matches the rest of the product accent
+  // (--accent-gradient, the generate/score pill, the prompt focus ring)
+  // so the default brush colour reads as "in the product family"
+  // instead of a random alarm-red. Index 0 is the React-state default.
+  '#7c3aed', // deep purple (brand accent)
   '#EF4444', // red
   '#F59E0B', // amber
   '#10B981', // emerald
   '#06B6D4', // cyan
-  '#A78BFA', // violet
   '#FFFFFF', // white
 ]
 
@@ -1994,10 +1998,26 @@ export function EditThumbnailDialog({
             ref={marqueeSvgRef}
             aria-hidden
             style={{
+              // Pin the SVG to the EXACT same CSS rectangle as the
+              // mask canvas — same top/left origin, same width/height
+              // in CSS px. Previously the SVG used inset:0 + 100%
+              // which made it fill the whole stage (image + any
+              // letterboxing the stage padded around the image). The
+              // canvas, sized to an exact integer CSS px, was a
+              // SMALLER rect inside that stage when the image's aspect
+              // didn't perfectly match the stage's measured rect —
+              // and the SVG path coordinates (path coords are in the
+              // canvas's pixel space) got stretched across the larger
+              // stage area, offsetting the marching ants from the
+              // actual painted region. Hard-pinning to canvasCssPx
+              // makes the marquee origin/scale identical to the
+              // canvas's, so the ants land exactly on the painted
+              // outline regardless of stage padding/letterboxing.
               position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
+              top: 0,
+              left: 0,
+              width: canvasCssPx ? `${canvasCssPx.w}px` : '100%',
+              height: canvasCssPx ? `${canvasCssPx.h}px` : '100%',
               pointerEvents: 'none',
               overflow: 'visible',
               borderRadius: 16,
