@@ -2796,310 +2796,278 @@ function CharacterPickerDialog({ onClose, onCreateNew }) {
   }
 
   return (
-    <Dialog open onClose={onClose} size="md" ariaLabel="Choose persona">
+    <Dialog open onClose={onClose} size="sm" ariaLabel="Choose persona">
+      {/* Mirrors the recipe of the thumbnail-generator input-bar's
+       * PersonaSelector popover (.persona-selector-dropdown):
+       *   - 220 px wide, fixed, centered by the Dialog primitive.
+       *   - bg #1c1c24, border 1px white-12, radius 22, padding 14/8.
+       *   - Header: tiny uppercase "PERSONAS" label.
+       *   - Rows: pill-shaped (border-radius 9999px), 26 px round
+       *     avatar + name + optional ✓ on the right.
+       *   - Hover: rgba(255,255,255,0.06).
+       *   - Selected: rgba(255,255,255,0.08) + inset hairline +
+       *     checkmark — identical to .persona-selector-option.is-selected.
+       *   - Footer: accent-gradient "Create" pill (the .persona-selector-create recipe).
+       * The Dialog primitive sm cap is 400 px; the inner wrapper hard-locks
+       * to 220 px so the picker stays narrow and CENTERED on every screen. */}
       <div
         className="etd-cpicker"
         style={{
-          width: '100%',
-          maxWidth: 560,
-          background: '#16161e',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          width: 220,
+          maxWidth: 220,
+          alignSelf: 'center',
+          background: '#1c1c24',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
           borderRadius: 22,
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04)',
-          overflow: 'hidden',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.32)',
           display: 'flex',
           flexDirection: 'column',
-          maxHeight: '78vh',
+          padding: '14px 8px',
+          boxSizing: 'border-box',
         }}
       >
-        {/* Header — title-only after the subtitle was removed. Padding
-         * tightened to match the single-line content. */}
+        {/* Header label — small, uppercase, soft grey. Mirrors
+         * .persona-selector-header exactly. */}
         <div
           style={{
-            position: 'relative',
-            padding: '14px 22px 12px',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+            padding: '6px 10px 8px',
+            fontSize: 10,
+            fontWeight: 600,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            color: 'rgba(255, 255, 255, 0.5)',
           }}
         >
-          <div
-            style={{
-              fontSize: '1.05rem',
-              fontWeight: 600,
-              color: 'rgba(255, 255, 255, 0.96)',
-              letterSpacing: '-0.005em',
-            }}
-          >
-            Choose a persona
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            style={{
-              position: 'absolute',
-              top: 14,
-              right: 14,
-              width: 30,
-              height: 30,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 999,
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              color: 'rgba(255, 255, 255, 0.75)',
-              cursor: 'pointer',
-            }}
-          >
-            <IconX size={12} />
-          </button>
+          Personas
         </div>
 
-        {/* Grid */}
+        {/* Scroll area — same 280 px cap so one persona renders compact
+         * and many personas scroll. */}
         <div
           style={{
-            flex: 1,
+            maxHeight: 280,
             overflowY: 'auto',
-            padding: '16px 18px',
+            overflowX: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
           {isPending ? (
             <div
               style={{
-                padding: '40px 0',
-                textAlign: 'center',
+                padding: '10px 12px',
                 color: 'rgba(255, 255, 255, 0.5)',
-                fontSize: '0.85rem',
+                fontSize: 12,
+                textAlign: 'center',
               }}
             >
-              Loading personas…
+              Loading…
             </div>
           ) : ordered.length === 0 ? (
             <div
               style={{
-                padding: '36px 16px',
+                padding: '10px 12px',
+                color: 'rgba(255, 255, 255, 0.5)',
+                fontSize: 12,
                 textAlign: 'center',
-                color: 'rgba(255, 255, 255, 0.55)',
-                fontSize: '0.88rem',
-                lineHeight: 1.5,
               }}
             >
-              <div style={{ marginBottom: 14, color: 'rgba(255, 255, 255, 0.7)' }}>
-                You don&rsquo;t have any personas yet.
-              </div>
-              <button
-                type="button"
-                onClick={onCreateNew}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '8px 16px',
-                  borderRadius: 999,
-                  background: PRIMARY_GRADIENT,
-                  border: 'none',
-                  color: '#fff',
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                Create your first persona
-              </button>
+              No personas yet
             </div>
           ) : (
-            <div
-              role="listbox"
-              aria-label="Personas"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
-              }}
-            >
-              {ordered.map((p) => {
-                const selected = selectedPersonaId === p.id
-                const isStock = p.visibility === 'admin' || p.visibility === 'stock'
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    role="option"
-                    aria-selected={selected}
-                    onClick={() => handlePick(p)}
+            ordered.map((p, idx) => {
+              const selected = selectedPersonaId === p.id
+              const isStock = p.visibility === 'admin' || p.visibility === 'stock'
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  onClick={() => handlePick(p)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    width: '100%',
+                    minWidth: 0,
+                    minHeight: 36,
+                    padding: '6px 12px',
+                    marginTop: idx === 0 ? 0 : 2,
+                    border: 'none',
+                    borderRadius: 9999,
+                    background: selected ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+                    boxShadow: selected
+                      ? 'inset 0 1px 0 rgba(255,255,255,0.06), inset 0 0 0 1px rgba(255,255,255,0.06)'
+                      : 'none',
+                    color: selected ? '#ffffff' : 'rgba(229, 231, 235, 0.78)',
+                    fontFamily: 'inherit',
+                    fontSize: '0.8rem',
+                    fontWeight: 500,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'background 0.18s ease, color 0.18s ease',
+                    boxSizing: 'border-box',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!selected) {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'
+                      e.currentTarget.style.color = '#ffffff'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!selected) {
+                      e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.color = 'rgba(229, 231, 235, 0.78)'
+                    }
+                  }}
+                >
+                  {/* Avatar — 26 px round, identical to
+                   * .persona-selector-option-img. */}
+                  <span
                     style={{
-                      position: 'relative',
-                      display: 'flex',
+                      width: 26,
+                      height: 26,
+                      borderRadius: 999,
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                      background: 'rgba(0, 0, 0, 0.35)',
+                      display: 'inline-flex',
                       alignItems: 'center',
-                      gap: 12,
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 12,
-                      background: selected ? 'rgba(124, 58, 237, 0.18)' : 'transparent',
-                      border: `1px solid ${selected ? 'rgba(124, 58, 237, 0.55)' : 'transparent'}`,
-                      cursor: 'pointer',
-                      transition: 'background 0.14s ease, border-color 0.14s ease',
-                      textAlign: 'left',
-                      fontFamily: 'inherit',
-                      color: 'rgba(255, 255, 255, 0.92)',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!selected) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)'
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!selected) e.currentTarget.style.background = 'transparent'
+                      justifyContent: 'center',
+                      color: 'rgba(255, 255, 255, 0.35)',
                     }}
                   >
-                    {/* Avatar — small circular thumbnail on the left. */}
-                    <div
-                      style={{
-                        position: 'relative',
-                        width: 44,
-                        height: 44,
-                        borderRadius: '50%',
-                        background: 'rgba(0, 0, 0, 0.4)',
-                        overflow: 'hidden',
-                        flexShrink: 0,
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                      }}
-                    >
-                      {p.image_url ? (
-                        <img
-                          src={p.image_url}
-                          alt=""
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            display: 'block',
-                          }}
-                          draggable={false}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'rgba(255, 255, 255, 0.3)',
-                          }}
-                        >
-                          <LucideUserRoundCog size={18} />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Name + optional Demo badge */}
-                    <div
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                      }}
-                    >
-                      <span
+                    {p.image_url ? (
+                      <img
+                        src={p.image_url}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
                         style={{
-                          fontSize: '0.92rem',
-                          fontWeight: 500,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          display: 'block',
                         }}
-                      >
-                        {p.name || 'Untitled'}
-                      </span>
-                      {isStock && (
-                        <span
-                          aria-hidden
-                          style={{
-                            padding: '1px 7px',
-                            borderRadius: 999,
-                            background: 'rgba(255, 255, 255, 0.08)',
-                            color: 'rgba(255, 255, 255, 0.7)',
-                            fontSize: 10,
-                            fontWeight: 600,
-                            letterSpacing: '0.04em',
-                            flexShrink: 0,
-                          }}
-                        >
-                          Demo
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Selected indicator on the right */}
-                    {selected && (
-                      <span
-                        aria-hidden
-                        style={{
-                          width: 22,
-                          height: 22,
-                          borderRadius: '50%',
-                          background: PRIMARY_GRADIENT,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#fff',
-                          fontSize: 11,
-                          fontWeight: 700,
-                          flexShrink: 0,
-                          boxShadow: '0 2px 8px rgba(124, 58, 237, 0.45)',
-                        }}
-                      >
-                        ✓
-                      </span>
+                      />
+                    ) : (
+                      <LucideUserRoundCog size={14} aria-hidden />
                     )}
-                  </button>
-                )
-              })}
-            </div>
+                  </span>
+
+                  {/* Name (ellipsised) + optional Demo badge */}
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {p.name || 'Untitled'}
+                  </span>
+                  {isStock && (
+                    <span
+                      aria-hidden
+                      style={{
+                        padding: '1px 6px',
+                        borderRadius: 999,
+                        background: 'rgba(255, 255, 255, 0.08)',
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        fontSize: 9,
+                        fontWeight: 600,
+                        letterSpacing: '0.04em',
+                        flexShrink: 0,
+                      }}
+                    >
+                      Demo
+                    </span>
+                  )}
+
+                  {/* Right-side check on selection — matches
+                   * .persona-selector-option .thumb-picker-check. */}
+                  {selected && (
+                    <span
+                      aria-hidden
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginLeft: 'auto',
+                        flexShrink: 0,
+                        color: 'currentColor',
+                      }}
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        width="14"
+                        height="14"
+                      >
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                    </span>
+                  )}
+                </button>
+              )
+            })
           )}
         </div>
 
-        {/* Footer with Create CTA — only shows when there are
-         * existing characters; the empty state has its own create
-         * button. */}
-        {!isPending && ordered.length > 0 && (
+        {/* Footer with Create pill. Hairline divider + accent-gradient
+         * pill — recipe of .persona-selector-footer + .persona-selector-create. */}
+        {!isPending && (
           <div
             style={{
-              padding: '12px 18px 16px',
-              borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: 8,
+              position: 'relative',
+              margin: '6px -2px 0',
+              padding: '10px 0 2px',
             }}
           >
             <div
+              aria-hidden
               style={{
-                fontSize: '0.78rem',
-                color: 'rgba(255, 255, 255, 0.45)',
+                position: 'absolute',
+                top: 0,
+                left: 12,
+                right: 12,
+                height: 1,
+                background:
+                  'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 15%, rgba(255,255,255,0.12) 85%, transparent 100%)',
+                pointerEvents: 'none',
               }}
-            >
-              {ordered.length} {ordered.length === 1 ? 'persona' : 'personas'}
-            </div>
+            />
             <button
               type="button"
               onClick={onCreateNew}
               style={{
+                position: 'relative',
                 display: 'inline-flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: 6,
-                padding: '7px 14px',
+                width: '100%',
+                height: 34,
+                padding: '0 14px',
+                border: 'none',
                 borderRadius: 999,
-                background: 'rgba(124, 58, 237, 0.18)',
-                border: '1px solid rgba(124, 58, 237, 0.45)',
-                color: 'rgba(196, 181, 253, 0.95)',
-                fontSize: '0.82rem',
+                background: PRIMARY_GRADIENT,
+                color: '#ffffff',
+                fontSize: 12,
                 fontWeight: 600,
                 cursor: 'pointer',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2)',
+                whiteSpace: 'nowrap',
               }}
             >
-              + Create new
+              <span style={{ fontSize: 14, lineHeight: 1, fontWeight: 700 }}>+</span>
+              Create
             </button>
           </div>
         )}
