@@ -2796,7 +2796,29 @@ function CharacterPickerDialog({ onClose, onCreateNew }) {
   }
 
   return (
-    <Dialog open onClose={onClose} size="sm" ariaLabel="Choose persona">
+    <Dialog
+      open
+      onClose={onClose}
+      size="sm"
+      ariaLabel="Choose persona"
+      // Strip the Dialog primitive's own panel chrome (max-width
+      // 400 px, dark bg, border, shadow, padding) via this class so
+      // only the 220 px inner panel paints. Without it the sm panel
+      // ghosted around the inner card and the user reported a
+      // visible "outer rectangle".
+      className="etd-cpicker-bare"
+    >
+      <style>{`
+        .ui-dialog-panel.etd-cpicker-bare {
+          width: auto;
+          max-width: none;
+          background: transparent;
+          border: 0;
+          box-shadow: none;
+          padding: 0;
+          overflow: visible;
+        }
+      `}</style>
       {/* Mirrors the recipe of the thumbnail-generator input-bar's
        * PersonaSelector popover (.persona-selector-dropdown):
        *   - 220 px wide, fixed, centered by the Dialog primitive.
@@ -2807,15 +2829,12 @@ function CharacterPickerDialog({ onClose, onCreateNew }) {
        *   - Hover: rgba(255,255,255,0.06).
        *   - Selected: rgba(255,255,255,0.08) + inset hairline +
        *     checkmark — identical to .persona-selector-option.is-selected.
-       *   - Footer: accent-gradient "Create" pill (the .persona-selector-create recipe).
-       * The Dialog primitive sm cap is 400 px; the inner wrapper hard-locks
-       * to 220 px so the picker stays narrow and CENTERED on every screen. */}
+       *   - Footer: accent-gradient "Create" pill (the .persona-selector-create recipe). */}
       <div
         className="etd-cpicker"
         style={{
           width: 220,
           maxWidth: 220,
-          alignSelf: 'center',
           background: '#1c1c24',
           border: '1px solid rgba(255, 255, 255, 0.12)',
           borderRadius: 22,
