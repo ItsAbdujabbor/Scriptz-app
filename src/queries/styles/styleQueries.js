@@ -18,6 +18,18 @@ export function useStylesQuery() {
   })
 }
 
+/** Read a File/Blob as a base64 data URL — uses FileReader so we
+ * don't have to chunk/encode by hand. Reject on read error so the
+ * mutation surfaces a real reason instead of the generic toast. */
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(new Error('Could not read the image file.'))
+    reader.readAsDataURL(file)
+  })
+}
+
 export function useCreateStyleFromUploadMutation() {
   const queryClient = useQueryClient()
 
@@ -25,10 +37,19 @@ export function useCreateStyleFromUploadMutation() {
     mutationFn: async ({ image, name }) => {
       const token = await getAccessTokenOrNull()
       if (!token) throw new Error('Not authenticated')
-      const formData = new FormData()
-      formData.append('image', image)
-      formData.append('name', (name || 'My Style').trim().slice(0, 80))
-      return stylesApi.createFromUpload(token, formData)
+      // Convert the file to a data URL and POST through the same JSON
+      // /api/styles endpoint the YouTube path uses. The multipart
+      // /upload route was reliably failing through the CloudFront edge
+      // for some users — sending JSON instead removes that variable and
+      // keeps both creation flows on one code path.
+      if (image.size > 5 * 1024 * 1024) {
+        throw new Error('Image too large — max 5MB. Try a smaller file.')
+      }
+      const dataUrl = await readFileAsDataUrl(image)
+      return stylesApi.create(token, {
+        name: (name || 'My Style').trim().slice(0, 80),
+        image_url: dataUrl,
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.styles.list() })
