@@ -38,7 +38,9 @@ import { thumbnailsApi } from '../api/thumbnails'
 import { invalidateCredits, useCostOf } from '../queries/billing/creditsQueries'
 import { PrimaryPill } from './ui/PrimaryPill'
 import { Dialog } from './ui/Dialog'
-import { ThumbPillTabs } from './ThumbPillTabs'
+// ThumbPillTabs was used for the Edit/Face-swap mode tabs; both are
+// gone now (Face swap is a single CircleBtn in the toolbar's left
+// cluster, derived from selectedPersona). Import removed.
 import { usePersonaStore } from '../stores/personaStore'
 import { usePersonasQuery } from '../queries/personas/personaQueries'
 import { PersonasModal } from '../app/PersonasModal'
@@ -588,13 +590,6 @@ function popoverOptionStyle(isActive) {
   }
 }
 
-// Mode-tab options consumed by `<ThumbPillTabs>`. Same { value, label,
-// icon } contract the generator's tab row uses.
-const EDIT_MODE_OPTIONS = [
-  { value: 'edit', label: 'Edit', icon: <IconPencil size={13} /> },
-  { value: 'faceswap', label: 'Face swap', icon: <IconFaceSwap size={14} /> },
-]
-
 /**
  * BrushSizePopover — preset chip selector. Each chip renders a dot
  * scaled to its preset value so the user picks by visual size, not
@@ -862,11 +857,14 @@ export function EditThumbnailDialog({
     // Width budget: a touch narrower than 1040 so the dialog has
     // visible breathing room left/right even on a 1280-wide laptop.
     const availW = Math.max(320, Math.min(960, vw - 80))
-    // Height budget: whatever's left of the viewport after the chrome
-    // reservation, with a hard floor so the stage never collapses on
-    // very short screens. 80vh ceiling keeps it from monopolising a
-    // very TALL viewport when the image is portrait.
-    const availH = Math.max(160, Math.min(vh * 0.8, vh - CHROME_HEIGHT_RESERVE))
+    // Height budget: the dialog panel's own ceiling is max-height
+    // 88vh (see Dialog.css). The stage budget is THAT ceiling minus
+    // the chrome reservation — NOT vh minus chrome (which would
+    // give the stage more room than the panel actually has and
+    // clip the input bar at the bottom of the viewport, exactly
+    // what the user reported).
+    const panelMaxH = vh * 0.88
+    const availH = Math.max(160, panelMaxH - CHROME_HEIGHT_RESERVE)
     // Fit by the more-constraining axis; preserve aspect.
     let w = availW
     let h = w / aspect
@@ -2518,84 +2516,71 @@ export function EditThumbnailDialog({
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Center — single Face-swap action button. Replaces the
-           * Edit/Face-swap mode tabs. The textarea below is always
-           * available for prompt edits; if the user picks a persona
-           * via this button, the next Generate runs face-swap with
-           * that persona instead of an edit-region call. Selected
-           * persona shows as an avatar+name chip with a clear ✕. */}
-          <div
-            className="etd-toolbar-center"
-            style={{ flex: '1 1 auto', display: 'flex', justifyContent: 'center' }}
-          >
+            {/* Face-swap trigger — sits alongside the paint tools in
+             * the left cluster as another CircleBtn so the toolbar
+             * reads as one cohesive icon row. Clicking opens the
+             * persona picker. When a persona is staged the circle
+             * shows the persona's avatar (replacing the icon) with
+             * a purple ring + a tiny ✕ badge to clear. Clicking the
+             * button-with-avatar reopens the picker so the user can
+             * swap to a different persona. */}
             <button
               ref={charPickerTriggerRef}
               type="button"
               onClick={() => !busy && setCharPickerOpen(true)}
               disabled={busy}
+              title={selectedPersona ? `Persona: ${selectedPersona.name} — change` : 'Face swap'}
               aria-label={
-                selectedPersona
-                  ? `Persona: ${selectedPersona.name} — change`
-                  : 'Face swap — choose persona'
+                selectedPersona ? `Persona: ${selectedPersona.name} — change` : 'Face swap'
               }
+              aria-pressed={!!selectedPersona}
               style={{
+                position: 'relative',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 6,
-                padding: selectedPersona ? '4px 10px 4px 4px' : '6px 12px',
-                background: selectedPersona
-                  ? 'rgba(124, 58, 237, 0.2)'
-                  : 'rgba(255, 255, 255, 0.06)',
+                justifyContent: 'center',
+                width: 34,
+                height: 34,
+                flexShrink: 0,
+                padding: 0,
+                color: selectedPersona ? '#ffffff' : 'rgba(255,255,255,0.78)',
+                background: selectedPersona ? 'rgba(124, 58, 237, 0.22)' : 'rgba(255,255,255,0.04)',
                 border: `1px solid ${
-                  selectedPersona ? 'rgba(124, 58, 237, 0.55)' : 'rgba(255, 255, 255, 0.16)'
+                  selectedPersona ? 'rgba(124, 58, 237, 0.65)' : 'rgba(255,255,255,0.1)'
                 }`,
-                borderRadius: 999,
-                color: 'rgba(255, 255, 255, 0.94)',
-                fontFamily: 'inherit',
-                fontSize: '0.82rem',
-                fontWeight: 500,
+                borderRadius: '50%',
                 cursor: busy ? 'not-allowed' : 'pointer',
-                opacity: busy ? 0.55 : 1,
-                transition: 'background 0.16s ease, border-color 0.16s ease',
+                opacity: busy ? 0.4 : 1,
+                overflow: 'visible',
+                transition:
+                  'background 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.12s cubic-bezier(0.33, 1, 0.68, 1)',
+              }}
+              onPointerDown={(e) => {
+                e.currentTarget.style.transform = 'scale(0.9)'
+              }}
+              onPointerUp={(e) => {
+                e.currentTarget.style.transform = ''
+              }}
+              onPointerLeave={(e) => {
+                e.currentTarget.style.transform = ''
               }}
             >
-              {selectedPersona ? (
+              {selectedPersona?.image_url ? (
                 <>
-                  <span
+                  <img
+                    src={selectedPersona.image_url}
+                    alt=""
                     style={{
-                      width: 22,
-                      height: 22,
+                      width: 26,
+                      height: 26,
                       borderRadius: '50%',
-                      overflow: 'hidden',
-                      flexShrink: 0,
-                      background: 'rgba(0,0,0,0.35)',
+                      objectFit: 'cover',
+                      display: 'block',
+                      pointerEvents: 'none',
                     }}
-                  >
-                    {selectedPersona.image_url && (
-                      <img
-                        src={selectedPersona.image_url}
-                        alt=""
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                          display: 'block',
-                        }}
-                      />
-                    )}
-                  </span>
-                  <span
-                    style={{
-                      maxWidth: 140,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {selectedPersona.name}
-                  </span>
+                    draggable={false}
+                  />
                   <span
                     role="button"
                     tabIndex={-1}
@@ -2605,29 +2590,32 @@ export function EditThumbnailDialog({
                       clearSelectedPersona()
                     }}
                     style={{
+                      position: 'absolute',
+                      top: -3,
+                      right: -3,
+                      width: 14,
+                      height: 14,
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      width: 18,
-                      height: 18,
-                      marginLeft: 2,
                       borderRadius: '50%',
-                      background: 'rgba(255,255,255,0.1)',
-                      color: 'rgba(255,255,255,0.75)',
-                      flexShrink: 0,
+                      background: '#16161e',
+                      border: '1px solid rgba(124, 58, 237, 0.7)',
+                      color: 'rgba(255,255,255,0.85)',
                     }}
                   >
-                    <IconX size={9} />
+                    <IconX size={7} />
                   </span>
                 </>
               ) : (
-                <>
-                  <LucideUserRoundCog size={13} aria-hidden />
-                  <span>Face swap</span>
-                </>
+                <LucideUserRoundCog size={14} aria-hidden />
               )}
             </button>
           </div>
+
+          {/* Spacer so the right cluster sits flush against the
+           * right edge of the toolbar. */}
+          <div style={{ flex: '1 1 auto' }} />
 
           {/* Right cluster — undo / redo / clear. Always visible so
            * the toolbar reads as one cohesive row in both modes. */}
