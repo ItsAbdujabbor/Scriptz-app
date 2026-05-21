@@ -2812,11 +2812,12 @@ function CharacterPickerDialog({ onClose, onCreateNew }) {
           maxHeight: '78vh',
         }}
       >
-        {/* Header */}
+        {/* Header — title-only after the subtitle was removed. Padding
+         * tightened to match the single-line content. */}
         <div
           style={{
             position: 'relative',
-            padding: '20px 22px 14px',
+            padding: '14px 22px 12px',
             borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
           }}
         >
@@ -2829,16 +2830,6 @@ function CharacterPickerDialog({ onClose, onCreateNew }) {
             }}
           >
             Choose a persona
-          </div>
-          <div
-            style={{
-              marginTop: 4,
-              fontSize: '0.82rem',
-              color: 'rgba(255, 255, 255, 0.55)',
-              lineHeight: 1.45,
-            }}
-          >
-            Tap a saved persona to swap their face into this thumbnail.
           </div>
           <button
             type="button"
@@ -2918,10 +2909,12 @@ function CharacterPickerDialog({ onClose, onCreateNew }) {
             </div>
           ) : (
             <div
+              role="listbox"
+              aria-label="Personas"
               style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-                gap: 12,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
               }}
             >
               {ordered.map((p) => {
@@ -2931,42 +2924,43 @@ function CharacterPickerDialog({ onClose, onCreateNew }) {
                   <button
                     key={p.id}
                     type="button"
+                    role="option"
+                    aria-selected={selected}
                     onClick={() => handlePick(p)}
-                    aria-pressed={selected}
                     style={{
                       position: 'relative',
                       display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'stretch',
-                      gap: 0,
-                      padding: 0,
-                      borderRadius: 16,
-                      overflow: 'hidden',
-                      background: selected
-                        ? 'rgba(124, 58, 237, 0.16)'
-                        : 'rgba(255, 255, 255, 0.03)',
-                      border: `1.5px solid ${
-                        selected ? 'rgba(124, 58, 237, 0.8)' : 'rgba(255, 255, 255, 0.08)'
-                      }`,
+                      alignItems: 'center',
+                      gap: 12,
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 12,
+                      background: selected ? 'rgba(124, 58, 237, 0.18)' : 'transparent',
+                      border: `1px solid ${selected ? 'rgba(124, 58, 237, 0.55)' : 'transparent'}`,
                       cursor: 'pointer',
-                      transition:
-                        'transform 0.12s ease, border-color 0.16s ease, background 0.16s ease',
+                      transition: 'background 0.14s ease, border-color 0.14s ease',
                       textAlign: 'left',
+                      fontFamily: 'inherit',
+                      color: 'rgba(255, 255, 255, 0.92)',
                     }}
                     onMouseEnter={(e) => {
-                      if (!selected) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)'
+                      if (!selected) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)'
                     }}
                     onMouseLeave={(e) => {
-                      if (!selected) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)'
+                      if (!selected) e.currentTarget.style.background = 'transparent'
                     }}
                   >
-                    {/* Avatar */}
+                    {/* Avatar — small circular thumbnail on the left. */}
                     <div
                       style={{
                         position: 'relative',
-                        aspectRatio: '1 / 1',
+                        width: 44,
+                        height: 44,
+                        borderRadius: '50%',
                         background: 'rgba(0, 0, 0, 0.4)',
                         overflow: 'hidden',
+                        flexShrink: 0,
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
                       }}
                     >
                       {p.image_url ? (
@@ -2990,69 +2984,75 @@ function CharacterPickerDialog({ onClose, onCreateNew }) {
                             alignItems: 'center',
                             justifyContent: 'center',
                             color: 'rgba(255, 255, 255, 0.3)',
-                            fontSize: 22,
                           }}
                         >
-                          <LucideUserRoundCog size={26} />
+                          <LucideUserRoundCog size={18} />
                         </div>
                       )}
-                      {selected && (
-                        <div
-                          aria-hidden
-                          style={{
-                            position: 'absolute',
-                            top: 6,
-                            right: 6,
-                            width: 22,
-                            height: 22,
-                            borderRadius: '50%',
-                            background: PRIMARY_GRADIENT,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#fff',
-                            fontSize: 12,
-                            fontWeight: 700,
-                            boxShadow: '0 2px 8px rgba(124, 58, 237, 0.5)',
-                          }}
-                        >
-                          ✓
-                        </div>
-                      )}
+                    </div>
+
+                    {/* Name + optional Demo badge */}
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '0.92rem',
+                          fontWeight: 500,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {p.name || 'Untitled'}
+                      </span>
                       {isStock && (
-                        <div
+                        <span
                           aria-hidden
                           style={{
-                            position: 'absolute',
-                            bottom: 6,
-                            left: 6,
-                            padding: '2px 7px',
+                            padding: '1px 7px',
                             borderRadius: 999,
-                            background: 'rgba(0, 0, 0, 0.6)',
-                            color: 'rgba(255, 255, 255, 0.85)',
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            color: 'rgba(255, 255, 255, 0.7)',
                             fontSize: 10,
                             fontWeight: 600,
                             letterSpacing: '0.04em',
+                            flexShrink: 0,
                           }}
                         >
                           Demo
-                        </div>
+                        </span>
                       )}
                     </div>
-                    {/* Name */}
-                    <div
-                      style={{
-                        padding: '8px 10px 10px',
-                        fontSize: '0.82rem',
-                        fontWeight: 500,
-                        color: 'rgba(255, 255, 255, 0.92)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {p.name || 'Untitled'}
-                    </div>
+
+                    {/* Selected indicator on the right */}
+                    {selected && (
+                      <span
+                        aria-hidden
+                        style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: '50%',
+                          background: PRIMARY_GRADIENT,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#fff',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          flexShrink: 0,
+                          boxShadow: '0 2px 8px rgba(124, 58, 237, 0.45)',
+                        }}
+                      >
+                        ✓
+                      </span>
+                    )}
                   </button>
                 )
               })}
