@@ -292,6 +292,8 @@
   align-items: center;
   gap: 10px;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   min-height: 36px;
   padding: 6px 12px;
   border: none;
@@ -357,19 +359,28 @@
   height: 14px;
 }
 
+/* Style thumbnail — same 26x26 footprint as `.persona-selector-option-img`
+ * so the two pickers' rows align pixel-for-pixel. Kept squared (not
+ * full circle) with a 6px radius so style thumbnails — which are
+ * landscape/composition references, not faces — read as rounded
+ * tiles instead of avatars. */
 .style-selector-option-img {
-  width: 32px;
-  height: 18px;
-  border-radius: 4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
   overflow: hidden;
   flex-shrink: 0;
-  aspect-ratio: 16/9;
+  background: rgba(0, 0, 0, 0.35);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .style-selector-option-img img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .style-selector-option-name {
