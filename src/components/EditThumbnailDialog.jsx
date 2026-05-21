@@ -705,7 +705,14 @@ export function EditThumbnailDialog({
   onSubmitFinalize,
   onSubmitErrorFinalize,
 }) {
-  const [mode, setMode] = useState('edit') // 'edit' | 'faceswap'
+  // Mode is now DERIVED from whether the user has staged a persona,
+  // not toggled via tabs. The unified editor has a single bottom
+  // input bar (textarea + Generate) and a single Face-swap toolbar
+  // button. Staging a persona via that button flips the mode to
+  // 'faceswap'; clearing the persona returns to 'edit'. Every
+  // existing branch (`if (mode === 'faceswap') ...`) still works
+  // because the derived value matches the previous explicit toggle's
+  // semantics 1-to-1.
   const [editPrompt, setEditPrompt] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -713,6 +720,7 @@ export function EditThumbnailDialog({
   // setSelectedPersona, so the edit dialog only needs to READ here.
   // ``clearSelectedPersona`` is still used by the inline chip's ✕ button.
   const { selectedPersona, clearSelectedPersona } = usePersonaStore()
+  const mode = selectedPersona ? 'faceswap' : 'edit'
   const [charPickerOpen, setCharPickerOpen] = useState(false)
   // The picker is for selection only. When the user needs to create
   // a brand-new character they click "Create new" inside the picker,
@@ -839,15 +847,15 @@ export function EditThumbnailDialog({
   //
   // Reserves vertical room for the dialog chrome so the whole editor
   // fits on screen without scrolling. Chrome budget (CSS px):
-  //   * dialog panel padding + .etd-content padding   ≈ 56
-  //   * title pill                                    ≈ 44
-  //   * toolbar row                                   ≈ 56
-  //   * input card (edit) / face-swap stack           ≈ 112
-  //   * gaps between sections                         ≈ 40
+  //   * dialog panel padding + .etd-content padding   ≈ 50
+  //   * toolbar row (single line)                     ≈ 52
+  //   * input card (textarea + Generate)              ≈ 100
+  //   * gaps between sections                         ≈ 30
   //   * safety margin                                 ≈ 24
   //   ──────────────────────────────────────────────────
-  //   ≈ 332 px
-  const CHROME_HEIGHT_RESERVE = 332
+  //   ≈ 256 px
+  // Title pill removed by request → ~76 px back to the stage.
+  const CHROME_HEIGHT_RESERVE = 256
   const computeStagePx = useCallback((aspect) => {
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800
@@ -1940,15 +1948,18 @@ export function EditThumbnailDialog({
         style={{
           position: 'relative',
           width: '100%',
-          // Tighter outer padding so the dialog fits viewports
-          // around 720-800 px tall without scrolling. Was 22/22/18.
           padding: '16px 18px 14px',
           display: 'flex',
           flexDirection: 'column',
           gap: 10,
           color: '#fff',
           fontFamily: 'inherit',
-          overflowY: 'auto',
+          // Dialog content MUST NOT scroll. The stage size is
+          // computed against CHROME_HEIGHT_RESERVE so everything
+          // fits; if anything ever overflows we want to see it
+          // (clip) rather than turn the dialog into a scrollable
+          // surface.
+          overflow: 'hidden',
           boxSizing: 'border-box',
         }}
       >
@@ -1983,41 +1994,10 @@ export function EditThumbnailDialog({
           <IconX size={14} />
         </button>
 
-        {/* Gradient title pill — compact so it claims less vertical
-         * room and leaves more for the stage. Was 7/16 padding, 13px
-         * font, 22px icon. */}
-        <div
-          style={{
-            alignSelf: 'center',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '5px 13px 5px 9px',
-            borderRadius: 999,
-            background: PRIMARY_GRADIENT,
-            color: '#ffffff',
-            fontSize: 12,
-            fontWeight: 600,
-            letterSpacing: '0.005em',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 6px 18px rgba(124,58,237,0.35)',
-            textShadow: '0 1px 2px rgba(0,0,0,0.25)',
-          }}
-        >
-          <span
-            style={{
-              width: 18,
-              height: 18,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'rgba(0,0,0,0.28)',
-              borderRadius: '50%',
-            }}
-          >
-            <IconSparkle />
-          </span>
-          Edit thumbnail
-        </div>
+        {/* Title pill removed by request — the dialog's purpose is
+         * obvious from the image + tools, and reclaiming this vertical
+         * room helps the whole editor fit on screen without scrolling.
+         * The close X stays in its absolute-positioned slot top-right. */}
 
         {/* Thumbnail + canvas — locked to explicit pixel dimensions
          * computed once from image aspect + viewport (see
@@ -2540,19 +2520,113 @@ export function EditThumbnailDialog({
             </div>
           </div>
 
-          {/* Center — Edit / Face-swap mode tabs. Same pill recipe as
-           * the generator's mode tabs (`ThumbPillTabs`) so the editor
-           * reads as part of the same component family. */}
+          {/* Center — single Face-swap action button. Replaces the
+           * Edit/Face-swap mode tabs. The textarea below is always
+           * available for prompt edits; if the user picks a persona
+           * via this button, the next Generate runs face-swap with
+           * that persona instead of an edit-region call. Selected
+           * persona shows as an avatar+name chip with a clear ✕. */}
           <div
             className="etd-toolbar-center"
             style={{ flex: '1 1 auto', display: 'flex', justifyContent: 'center' }}
           >
-            <ThumbPillTabs
-              options={EDIT_MODE_OPTIONS}
-              value={mode}
-              onChange={setMode}
-              ariaLabel="Edit mode"
-            />
+            <button
+              ref={charPickerTriggerRef}
+              type="button"
+              onClick={() => !busy && setCharPickerOpen(true)}
+              disabled={busy}
+              aria-label={
+                selectedPersona
+                  ? `Persona: ${selectedPersona.name} — change`
+                  : 'Face swap — choose persona'
+              }
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: selectedPersona ? '4px 10px 4px 4px' : '6px 12px',
+                background: selectedPersona
+                  ? 'rgba(124, 58, 237, 0.2)'
+                  : 'rgba(255, 255, 255, 0.06)',
+                border: `1px solid ${
+                  selectedPersona ? 'rgba(124, 58, 237, 0.55)' : 'rgba(255, 255, 255, 0.16)'
+                }`,
+                borderRadius: 999,
+                color: 'rgba(255, 255, 255, 0.94)',
+                fontFamily: 'inherit',
+                fontSize: '0.82rem',
+                fontWeight: 500,
+                cursor: busy ? 'not-allowed' : 'pointer',
+                opacity: busy ? 0.55 : 1,
+                transition: 'background 0.16s ease, border-color 0.16s ease',
+              }}
+            >
+              {selectedPersona ? (
+                <>
+                  <span
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: '50%',
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                      background: 'rgba(0,0,0,0.35)',
+                    }}
+                  >
+                    {selectedPersona.image_url && (
+                      <img
+                        src={selectedPersona.image_url}
+                        alt=""
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          display: 'block',
+                        }}
+                      />
+                    )}
+                  </span>
+                  <span
+                    style={{
+                      maxWidth: 140,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {selectedPersona.name}
+                  </span>
+                  <span
+                    role="button"
+                    tabIndex={-1}
+                    aria-label="Clear persona"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      clearSelectedPersona()
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 18,
+                      height: 18,
+                      marginLeft: 2,
+                      borderRadius: '50%',
+                      background: 'rgba(255,255,255,0.1)',
+                      color: 'rgba(255,255,255,0.75)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <IconX size={9} />
+                  </span>
+                </>
+              ) : (
+                <>
+                  <LucideUserRoundCog size={13} aria-hidden />
+                  <span>Face swap</span>
+                </>
+              )}
+            </button>
           </div>
 
           {/* Right cluster — undo / redo / clear. Always visible so
@@ -2598,224 +2672,89 @@ export function EditThumbnailDialog({
           </p>
         )}
 
-        {/* Bottom action area — mode-specific. Edit mode keeps the
-         * full input-card chrome so the textarea reads as a chat
-         * composer. Face-swap mode drops the chrome entirely — no
-         * fake-input bar, no rounded card. Just a compact pill
-         * button to pick a character (or a chip showing the selected
-         * one) paired with the Generate action. */}
-        {mode === 'edit' ? (
-          <div
-            className="etd-input-card"
-            style={{
-              alignSelf: 'center',
-              width: '100%',
-              maxWidth: 720,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 0,
-              // Tighter input-card chrome so the editor fits viewports
-              // around 720-800 px tall without scrolling. Was 10/14/10/16.
-              padding: '8px 12px 8px 14px',
-              borderRadius: 18,
-              background: '#1c1c24',
-              border: '1px solid rgba(255, 255, 255, 0.14)',
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 16px rgba(0, 0, 0, 0.35)',
-              boxSizing: 'border-box',
+        {/* Bottom input bar — ALWAYS rendered, regardless of whether
+         * the user has staged a persona. The toolbar's Face swap
+         * button handles persona selection separately. Generate is
+         * routed by whether a persona is staged: persona present →
+         * face-swap API, no persona → edit-region API with the
+         * typed prompt. */}
+        <div
+          className="etd-input-card"
+          style={{
+            alignSelf: 'center',
+            width: '100%',
+            maxWidth: 720,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 0,
+            // Tighter input-card chrome so the editor fits viewports
+            // around 720-800 px tall without scrolling. Was 10/14/10/16.
+            padding: '8px 12px 8px 14px',
+            borderRadius: 18,
+            background: '#1c1c24',
+            border: '1px solid rgba(255, 255, 255, 0.14)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 16px rgba(0, 0, 0, 0.35)',
+            boxSizing: 'border-box',
+          }}
+        >
+          <textarea
+            ref={editTextareaRef}
+            className="etd-input-textarea"
+            value={editPrompt}
+            onChange={(e) => {
+              setEditPrompt(e.target.value)
+              if (error) setError(null)
             }}
-          >
-            <textarea
-              ref={editTextareaRef}
-              className="etd-input-textarea"
-              value={editPrompt}
-              onChange={(e) => {
-                setEditPrompt(e.target.value)
-                if (error) setError(null)
-              }}
-              placeholder={placeholder}
-              rows={1}
-              maxLength={400}
-              disabled={busy}
-              onKeyDown={(e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                  e.preventDefault()
-                  handleSubmit()
-                }
-              }}
-              style={{
-                width: '100%',
-                padding: '2px 0 6px',
-                fontSize: '0.88rem',
-                fontFamily: 'inherit',
-                color: 'rgba(255,255,255,0.92)',
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                lineHeight: 1.45,
-                resize: 'none',
-                minHeight: '2em',
-                // Cap textarea growth so the dialog never exceeds the
-                // viewport when the user pastes long text.
-                maxHeight: '5em',
-                overflowY: 'auto',
-                boxSizing: 'border-box',
-              }}
-            />
-            <div
-              className="etd-input-actions"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                gap: 8,
-                paddingTop: 2,
-              }}
-            >
-              <PrimaryActionBtn
-                onClick={handleSubmit}
-                disabled={!canSubmit}
-                busy={busy}
-                label="Generate"
-                busyLabel="Generating…"
-                icon={<IconArrowUp size={13} />}
-                creditCost={unitCost ?? null}
-              />
-            </div>
-          </div>
-        ) : (
-          /* Face-swap layout. Stacked vertically + centered, with the
-           * SAME minHeight as the .etd-input-card chrome used in Edit
-           * mode so the stage container above (which is height-bound
-           * by 60vh of the viewport) ends up the same physical size
-           * across tab switches — no image resize when toggling
-           * Edit ↔ Face swap.
-           *
-           *   Choose persona  ← centered pill (avatar+name chip when picked)
-           *      Generate     ← centered primary action below */
-          <div
-            style={{
-              alignSelf: 'center',
-              width: '100%',
-              maxWidth: 720,
-              // Tightened: was 96. Matches the new shorter Edit-mode
-              // input-card height so the stage stays the same size
-              // when switching between Edit and Face-swap.
-              minHeight: 80,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 10,
-              padding: '8px 12px',
-              boxSizing: 'border-box',
-            }}
-          >
-            <button
-              ref={charPickerTriggerRef}
-              type="button"
-              onClick={() => !busy && setCharPickerOpen(true)}
-              disabled={busy}
-              aria-label={
-                selectedPersona ? `Persona: ${selectedPersona.name} — change` : 'Choose persona'
+            placeholder={placeholder}
+            rows={1}
+            maxLength={400}
+            disabled={busy}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault()
+                handleSubmit()
               }
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: selectedPersona ? '4px 12px 4px 4px' : '8px 16px',
-                background: selectedPersona
-                  ? 'rgba(124, 58, 237, 0.16)'
-                  : 'rgba(255, 255, 255, 0.06)',
-                border: `1px solid ${
-                  selectedPersona ? 'rgba(124, 58, 237, 0.5)' : 'rgba(255, 255, 255, 0.16)'
-                }`,
-                borderRadius: 999,
-                color: 'rgba(255, 255, 255, 0.94)',
-                fontFamily: 'inherit',
-                fontSize: '0.86rem',
-                fontWeight: 500,
-                cursor: busy ? 'not-allowed' : 'pointer',
-                opacity: busy ? 0.55 : 1,
-                transition: 'background 0.16s ease, border-color 0.16s ease',
-              }}
-            >
-              {selectedPersona ? (
-                <>
-                  <span
-                    style={{
-                      width: 26,
-                      height: 26,
-                      borderRadius: '50%',
-                      overflow: 'hidden',
-                      flexShrink: 0,
-                      background: 'rgba(0,0,0,0.35)',
-                    }}
-                  >
-                    {selectedPersona.image_url && (
-                      <img
-                        src={selectedPersona.image_url}
-                        alt=""
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                          display: 'block',
-                        }}
-                      />
-                    )}
-                  </span>
-                  <span
-                    style={{
-                      maxWidth: 200,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {selectedPersona.name}
-                  </span>
-                  <span
-                    role="button"
-                    tabIndex={-1}
-                    aria-label="Clear persona"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      clearSelectedPersona()
-                    }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 20,
-                      height: 20,
-                      marginLeft: 2,
-                      borderRadius: '50%',
-                      background: 'rgba(255,255,255,0.1)',
-                      color: 'rgba(255,255,255,0.75)',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <IconX size={10} />
-                  </span>
-                </>
-              ) : (
-                <>
-                  <LucideUserRoundCog size={14} aria-hidden />
-                  <span>Choose persona</span>
-                </>
-              )}
-            </button>
+            }}
+            style={{
+              width: '100%',
+              padding: '2px 0 6px',
+              fontSize: '0.88rem',
+              fontFamily: 'inherit',
+              color: 'rgba(255,255,255,0.92)',
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              lineHeight: 1.45,
+              resize: 'none',
+              minHeight: '2em',
+              // Cap textarea growth so the dialog never exceeds the
+              // viewport when the user pastes long text.
+              maxHeight: '5em',
+              overflowY: 'auto',
+              boxSizing: 'border-box',
+            }}
+          />
+          <div
+            className="etd-input-actions"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: 8,
+              paddingTop: 2,
+            }}
+          >
             <PrimaryActionBtn
               onClick={handleSubmit}
               disabled={!canSubmit}
               busy={busy}
               label="Generate"
-              busyLabel="Swapping…"
+              busyLabel="Generating…"
               icon={<IconArrowUp size={13} />}
               creditCost={unitCost ?? null}
             />
           </div>
-        )}
+        </div>
 
         {/* Dedicated character picker — clean grid for SELECTION only.
          * Distinct from the full PersonasModal (which is the
