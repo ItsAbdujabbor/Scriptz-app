@@ -283,8 +283,10 @@ export function StyleSelector({ onOpenLibrary, compact, variant = 'default' }) {
                       </span>
                     )}
                     <span className="style-selector-option-name">{s.name}</span>
-                    {s.visibility !== 'personal' && (
-                      <span className="style-selector-badge">{s.visibility}</span>
+                    {(s.visibility === 'admin' || s.visibility === 'stock') && (
+                      <span className="style-selector-badge" aria-hidden>
+                        Demo
+                      </span>
                     )}
                     {s.id === selectedStyleId && (
                       <span className="thumb-picker-check" aria-hidden>
